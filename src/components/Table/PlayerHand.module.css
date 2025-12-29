@@ -1,0 +1,35 @@
+/* PlayerHand Component Styles */
+
+.hand {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.hand.human {
+  /* Human hand at bottom */
+}
+
+.hand.cpu {
+  /* CPU hand at top */
+}
+
+/* Overlap cards slightly for tighter grouping */
+.handCard {
+  margin: 0 -8px;
+  transition: transform var(--duration-fast);
+}
+
+.handCard:first-child {
+  margin-left: 0;
+}
+
+.handCard:last-child {
+  margin-right: 0;
+}
+
+/* Fan out on hover for human hand */
+.hand.human .handCard:hover {
+  z-index: 10;
+}

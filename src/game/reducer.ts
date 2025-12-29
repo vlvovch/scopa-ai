@@ -99,7 +99,7 @@ function dealInitialCards(state: GameState): GameState {
 /**
  * Step 6.3: Handle START_GAME action.
  */
-function handleStartGame(state: GameState, targetScore: number): GameState {
+function handleStartGame(_state: GameState, targetScore: number): GameState {
   // Reset to initial state with target score
   const freshState = createInitialState(targetScore);
 

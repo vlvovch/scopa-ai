@@ -1,0 +1,24 @@
+/* TableCards Component Styles */
+
+.tableArea {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  min-height: 140px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+}
+
+.tableCard {
+  transition: transform var(--duration-fast);
+}
+
+.emptyMessage {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-size: 14px;
+}

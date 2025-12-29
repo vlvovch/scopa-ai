@@ -1,0 +1,64 @@
+/* ScoreBoard Component Styles */
+
+.scoreBoard {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  padding: var(--space-4);
+  color: var(--color-text-primary);
+  min-width: 160px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.roundLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.roundNumber {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.scores {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.playerScore {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.playerName {
+  font-size: 14px;
+}
+
+.playerName.current {
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
+.scoreValue {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--color-accent);
+}
+
+.targetScore {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}

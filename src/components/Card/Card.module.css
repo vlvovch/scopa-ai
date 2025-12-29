@@ -1,0 +1,141 @@
+/* Card Component Styles */
+
+.card {
+  width: var(--card-width);
+  height: var(--card-height);
+  border-radius: var(--card-border-radius);
+  position: relative;
+  cursor: pointer;
+  transition: transform var(--duration-fast), box-shadow var(--duration-fast);
+  user-select: none;
+}
+
+.card:hover:not(.disabled):not(.selected) {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card.selected,
+.card.selected:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 0 0 3px var(--color-accent), var(--shadow-card-hover);
+}
+
+.card.highlighted {
+  box-shadow: 0 0 0 2px var(--color-accent-light), var(--shadow-card);
+  animation: pulse 1.5s infinite;
+}
+
+.card.disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--color-accent-light), var(--shadow-card);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--color-accent-light), var(--shadow-card);
+  }
+}
+
+/* Card Face */
+.cardFace {
+  width: 100%;
+  height: 100%;
+  background: var(--color-card-face);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  position: relative;
+}
+
+/* Card Back */
+.cardBack {
+  width: 100%;
+  height: 100%;
+  background: var(--color-card-back);
+  border-radius: var(--card-border-radius);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+}
+
+.cardBack::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.cardBack::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(255, 255, 255, 0.05) 4px,
+    rgba(255, 255, 255, 0.05) 8px
+  );
+  border-radius: 2px;
+}
+
+/* Value display in corners */
+.cornerValue {
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.cornerValue.topLeft {
+  top: 4px;
+  left: 4px;
+}
+
+.cornerValue.bottomRight {
+  bottom: 4px;
+  right: 4px;
+  transform: rotate(180deg);
+}
+
+/* Center suit symbol */
+.centerSuit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+}
+
+/* Suit colors */
+.coins {
+  color: #d4a017;
+}
+
+.cups {
+  color: #1976d2;
+}
+
+.swords {
+  color: #546e7a;
+}
+
+.clubs {
+  color: #2e7d32;
+}
+
+/* Corner suit small */
+.cornerSuit {
+  font-size: 10px;
+}

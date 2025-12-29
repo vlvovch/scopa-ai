@@ -1,0 +1,83 @@
+/* CapturedPile Component Styles */
+
+.pile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.pileStack {
+  position: relative;
+  width: var(--card-width);
+  height: var(--card-height);
+}
+
+/* Stacked cards effect */
+.stackedCard {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.stackedCard:nth-child(2) {
+  top: 2px;
+  left: 2px;
+}
+
+.stackedCard:nth-child(3) {
+  top: 4px;
+  left: 4px;
+}
+
+.pileInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.cardCount {
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--color-text-primary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.scopaMarkers {
+  display: flex;
+  gap: 4px;
+}
+
+.scopaMarker {
+  width: 12px;
+  height: 12px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.playerLabel {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.emptyPile {
+  width: var(--card-width);
+  height: var(--card-height);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: var(--card-border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emptyPile span {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+}

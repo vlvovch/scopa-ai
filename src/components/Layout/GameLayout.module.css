@@ -1,0 +1,108 @@
+/* GameLayout Component Styles */
+
+.gameLayout {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  min-height: 100vh;
+}
+
+/* CPU area - top center */
+.cpuArea {
+  grid-row: 1;
+  grid-column: 2;
+  display: flex;
+  justify-content: center;
+}
+
+/* Score board - top left */
+.scoreBoardArea {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+/* CPU captured pile - top right */
+.cpuPileArea {
+  grid-row: 1;
+  grid-column: 3;
+}
+
+/* Table area - center */
+.tableArea {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Human captured pile - bottom left */
+.humanPileArea {
+  grid-row: 3;
+  grid-column: 1;
+}
+
+/* Human hand - bottom center */
+.humanArea {
+  grid-row: 3;
+  grid-column: 2;
+  display: flex;
+  justify-content: center;
+}
+
+/* Controls area - bottom right */
+.controlsArea {
+  grid-row: 3;
+  grid-column: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .gameLayout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr auto auto;
+  }
+
+  .cpuArea {
+    grid-row: 2;
+    grid-column: 1 / -1;
+  }
+
+  .scoreBoardArea {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .cpuPileArea {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .tableArea {
+    grid-row: 3;
+    grid-column: 1 / -1;
+  }
+
+  .humanPileArea {
+    grid-row: 5;
+    grid-column: 1;
+  }
+
+  .humanArea {
+    grid-row: 4;
+    grid-column: 1 / -1;
+  }
+
+  .controlsArea {
+    grid-row: 5;
+    grid-column: 2;
+  }
+}

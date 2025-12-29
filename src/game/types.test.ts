@@ -6,7 +6,6 @@ import type {
   PlayerId,
   GameStatus,
   PlayerState,
-  RoundState,
   GameState,
   Move,
 } from './types';
