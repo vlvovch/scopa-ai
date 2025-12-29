@@ -82,6 +82,26 @@
 
 ---
 
-## Phases 6-10
+## Phase 6: Game State Management
+
+- [x] Step 6.1: Create Game Reducer Actions - Completed 2024-12-29
+- [x] Step 6.2: Implement Initial State Creator - Completed 2024-12-29
+- [x] Step 6.3: Implement Game Start Logic - Completed 2024-12-29
+- [x] Step 6.4: Implement Play Card Logic - Completed 2024-12-29
+- [x] Step 6.5: Implement Re-deal Logic - Completed 2024-12-29
+- [x] Step 6.6: Implement Round End Logic - Completed 2024-12-29
+- [x] Step 6.7: Implement Next Round Logic - Completed 2024-12-29
+- [x] Step 6.8: Create useGame Hook - Completed 2024-12-29
+
+**Notes:**
+- Created `src/game/reducer.ts` with gameReducer and all action handlers
+- Created `src/hooks/useGame.ts` React hook with stable callbacks
+- Automatic re-deal when hands empty and deck has cards
+- Remaining table cards go to last capture player at round end
+- 29 new tests, 130 total tests passing
+
+---
+
+## Phases 7-10
 
 See `implementation-plan.md` for remaining phases.

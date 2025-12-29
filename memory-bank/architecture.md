@@ -62,13 +62,15 @@ scopa-ai-claude/
 │   │   ├── rules.test.ts   # Rules tests (33 tests)
 │   │   ├── scoring.ts      # Round scoring (cards, coins, prime, etc.)
 │   │   ├── scoring.test.ts # Scoring tests (24 tests)
-│   │   └── (reducer.ts - future)
+│   │   ├── reducer.ts      # Game state reducer and actions
+│   │   └── reducer.test.ts # Reducer tests (29 tests)
 │   │
 │   ├── ai/                 # AI opponent implementations
 │   │   └── (random.ts, basic.ts, advanced.ts, llm/)
 │   │
 │   ├── hooks/              # React hooks
-│   │   └── (useGame.ts, useSettings.ts, useAI.ts)
+│   │   ├── useGame.ts      # Main game state hook
+│   │   └── (useSettings.ts, useAI.ts - future)
 │   │
 │   └── utils/              # Utility functions
 │       └── (storage.ts, cards.ts)
@@ -234,7 +236,43 @@ npm run test:watch # Run tests in watch mode
 
 ---
 
+## Game Reducer (src/game/reducer.ts)
+
+**Actions:**
+| Action | Payload | Description |
+|--------|---------|-------------|
+| `START_GAME` | `{ targetScore }` | Initialize new game, deal cards |
+| `PLAY_CARD` | `{ move }` | Execute player move, auto re-deal |
+| `END_ROUND` | - | Award remaining cards, calculate scores |
+| `NEXT_ROUND` | - | Rotate dealer, deal new round |
+| `RESET_GAME` | - | Return to idle state |
+
+**Key Functions:**
+| Function | Description |
+|----------|-------------|
+| `createInitialState(targetScore)` | Create fresh GameState |
+| `gameReducer(state, action)` | Main reducer function |
+
+**Game Flow:**
+1. `START_GAME` → status: 'playing', deal hands + table
+2. `PLAY_CARD` → execute move, switch player, auto re-deal if needed
+3. When deck + hands empty → status: 'roundEnd'
+4. `END_ROUND` → award table to lastCapture, add scores, check win
+5. `NEXT_ROUND` or `gameEnd` status
+
+---
+
+## useGame Hook (src/hooks/useGame.ts)
+
+```typescript
+const { state, startGame, playCard, endRound, nextRound, resetGame } = useGame();
+```
+
+All action dispatchers wrapped in `useCallback` for stable references.
+
+---
+
 ## Next Steps
 
-Phase 6 will add:
-- `src/game/reducer.ts` - Game state reducer with actions for game flow
+Phase 7 will add:
+- UI components: Card, PlayerHand, TableCards, CapturedPile, ScoreBoard, GameLayout
