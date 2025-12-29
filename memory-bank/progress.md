@@ -67,12 +67,18 @@
 
 ## Phase 5: Scoring System
 
-- [ ] Step 5.1: Implement Card Count Scoring
-- [ ] Step 5.2: Implement Coins Count Scoring
-- [ ] Step 5.3: Implement Sette Bello Scoring
-- [ ] Step 5.4: Implement Prime Calculation
-- [ ] Step 5.5: Implement Prime Scoring
-- [ ] Step 5.6: Implement Round Scoring
+- [x] Step 5.1: Implement Card Count Scoring - Completed 2024-12-29
+- [x] Step 5.2: Implement Coins Count Scoring - Completed 2024-12-29
+- [x] Step 5.3: Implement Sette Bello Scoring - Completed 2024-12-29
+- [x] Step 5.4: Implement Prime Calculation - Completed 2024-12-29
+- [x] Step 5.5: Implement Prime Scoring - Completed 2024-12-29
+- [x] Step 5.6: Implement Round Scoring - Completed 2024-12-29
+
+**Notes:**
+- Created `src/game/scoring.ts` with all scoring functions
+- Prime returns null if player missing any suit
+- calculateRoundScore provides complete RoundScore breakdown
+- 24 new tests, 101 total tests passing
 
 ---
 

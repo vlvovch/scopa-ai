@@ -60,7 +60,9 @@ scopa-ai-claude/
 │   │   ├── deck.test.ts    # Deck tests (21 tests)
 │   │   ├── rules.ts        # Capture detection, move validation, execution
 │   │   ├── rules.test.ts   # Rules tests (33 tests)
-│   │   └── (scoring.ts, reducer.ts - future)
+│   │   ├── scoring.ts      # Round scoring (cards, coins, prime, etc.)
+│   │   ├── scoring.test.ts # Scoring tests (24 tests)
+│   │   └── (reducer.ts - future)
 │   │
 │   ├── ai/                 # AI opponent implementations
 │   │   └── (random.ts, basic.ts, advanced.ts, llm/)
@@ -212,7 +214,27 @@ npm run test:watch # Run tests in watch mode
 
 ---
 
+## Scoring Functions (src/game/scoring.ts)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `scoreCards` | `(human, cpu) => CategoryScore` | Point for most cards (tie = 0) |
+| `scoreCoins` | `(human, cpu) => CategoryScore` | Point for most coins suit |
+| `scoreSetteBello` | `(human, cpu) => CategoryScore` | Point for 7 of coins |
+| `calculatePrime` | `(captured) => number \| null` | Sum of best card per suit (null if missing suit) |
+| `scorePrime` | `(human, cpu) => CategoryScore` | Point for higher prime |
+| `calculateRoundScore` | `(state) => { human, cpu }` | Complete RoundScore for both players |
+
+**Scoring Categories:**
+- Cards: Most cards captured (21+ guarantees)
+- Coins: Most coins suit (6+ guarantees)
+- Sette Bello: 7 of coins (1 point)
+- Prime: Best primiera using PRIME_VALUES
+- Scopas: 1 point each for clearing table
+
+---
+
 ## Next Steps
 
-Phase 5 will add:
-- `src/game/scoring.ts` - Round scoring (cards, coins, sette bello, prime, scopas)
+Phase 6 will add:
+- `src/game/reducer.ts` - Game state reducer with actions for game flow
