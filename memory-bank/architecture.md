@@ -58,7 +58,9 @@ scopa-ai-claude/
 │   │   ├── constants.test.ts # Constants tests
 │   │   ├── deck.ts         # Deck creation, shuffling, dealing
 │   │   ├── deck.test.ts    # Deck tests (21 tests)
-│   │   └── (rules.ts, scoring.ts, reducer.ts - future)
+│   │   ├── rules.ts        # Capture detection, move validation, execution
+│   │   ├── rules.test.ts   # Rules tests (33 tests)
+│   │   └── (scoring.ts, reducer.ts - future)
 │   │
 │   ├── ai/                 # AI opponent implementations
 │   │   └── (random.ts, basic.ts, advanced.ts, llm/)
@@ -193,7 +195,24 @@ npm run test:watch # Run tests in watch mode
 
 ---
 
+## Rules Functions (src/game/rules.ts)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `findSingleCaptures` | `(playedCard, tableCards) => Card[]` | Find all table cards matching played card value |
+| `findSumCaptures` | `(playedCard, tableCards) => Card[][]` | Find all 2+ card combinations summing to value |
+| `getValidMoves` | `(card, tableCards, player) => Move[]` | Get all legal moves (single priority enforced) |
+| `isValidMove` | `(move, hand, tableCards) => boolean` | Validate move legality (mandatory capture) |
+| `executeMove` | `(state, move) => GameState` | Apply move, return new state (immutable) |
+
+**Key Rules Implemented:**
+- Single card captures take priority over sum captures
+- Mandatory capture: cannot place if capture is possible
+- Scopa: clearing the table awards bonus point
+
+---
+
 ## Next Steps
 
-Phase 4 will add:
-- `src/game/rules.ts` - Capture detection, move validation, move execution
+Phase 5 will add:
+- `src/game/scoring.ts` - Round scoring (cards, coins, sette bello, prime, scopas)

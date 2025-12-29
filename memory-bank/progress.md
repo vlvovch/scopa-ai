@@ -50,11 +50,18 @@
 
 ## Phase 4: Game Rules Engine
 
-- [ ] Step 4.1: Implement Single Card Capture Detection
-- [ ] Step 4.2: Implement Sum Capture Detection
-- [ ] Step 4.3: Implement Valid Moves Generator
-- [ ] Step 4.4: Implement Move Validation
-- [ ] Step 4.5: Implement Move Execution
+- [x] Step 4.1: Implement Single Card Capture Detection - Completed 2024-12-29
+- [x] Step 4.2: Implement Sum Capture Detection - Completed 2024-12-29
+- [x] Step 4.3: Implement Valid Moves Generator - Completed 2024-12-29
+- [x] Step 4.4: Implement Move Validation - Completed 2024-12-29
+- [x] Step 4.5: Implement Move Execution - Completed 2024-12-29
+
+**Notes:**
+- Created `src/game/rules.ts` with all rules functions
+- Single card priority rule enforced in getValidMoves
+- Mandatory capture rule validated in isValidMove
+- executeMove is immutable (does not mutate state)
+- 33 new tests, 77 total tests passing
 
 ---
 
