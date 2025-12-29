@@ -21,10 +21,16 @@
 
 ## Phase 2: Core Game Types and Constants
 
-- [ ] Step 2.1: Define Card Types
-- [ ] Step 2.2: Define Game State Types
-- [ ] Step 2.3: Define Move Types
-- [ ] Step 2.4: Define Game Constants
+- [x] Step 2.1: Define Card Types - Completed 2024-12-29
+- [x] Step 2.2: Define Game State Types - Completed 2024-12-29
+- [x] Step 2.3: Define Move Types - Completed 2024-12-29
+- [x] Step 2.4: Define Game Constants - Completed 2024-12-29
+
+**Notes:**
+- Created `src/game/types.ts` with all type definitions
+- Created `src/game/constants.ts` with game constants
+- Added Vitest testing framework
+- 23 unit tests passing (`npm test`)
 
 ---
 

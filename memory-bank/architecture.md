@@ -19,6 +19,7 @@ Scopa is a static single-page application built with React, TypeScript, and Vite
 | Vite | 6.x | Build tool & dev server |
 | Framer Motion | 11.x | Card animations |
 | Terser | 5.x | Production minification |
+| Vitest | 3.x | Unit testing |
 
 ---
 
@@ -51,7 +52,11 @@ scopa-ai-claude/
 │   │   └── Layout/         # Page layout components
 │   │
 │   ├── game/               # Game logic (pure TypeScript)
-│   │   └── (types.ts, constants.ts, deck.ts, rules.ts, scoring.ts, reducer.ts)
+│   │   ├── types.ts        # Card, GameState, Move, RoundScore interfaces
+│   │   ├── types.test.ts   # Type validation tests
+│   │   ├── constants.ts    # SUITS, PRIME_VALUES, game rules
+│   │   ├── constants.test.ts # Constants tests
+│   │   └── (deck.ts, rules.ts, scoring.ts, reducer.ts - future)
 │   │
 │   ├── ai/                 # AI opponent implementations
 │   │   └── (random.ts, basic.ts, advanced.ts, llm/)
@@ -118,10 +123,12 @@ Defined in `src/index.css` under `:root`:
 ## Build & Development
 
 ```bash
-npm run dev      # Start dev server (hot reload)
-npm run build    # Production build to dist/
-npm run preview  # Serve production build locally
-npm run lint     # Run ESLint
+npm run dev        # Start dev server (hot reload)
+npm run build      # Production build to dist/
+npm run preview    # Serve production build locally
+npm run lint       # Run ESLint
+npm test           # Run unit tests once
+npm run test:watch # Run tests in watch mode
 ```
 
 ### Production Build
@@ -142,8 +149,39 @@ npm run lint     # Run ESLint
 
 ---
 
+## Game Logic Types (src/game/)
+
+### types.ts
+
+| Type | Description |
+|------|-------------|
+| `Suit` | `'coins' \| 'cups' \| 'swords' \| 'clubs'` |
+| `CardValue` | `1 \| 2 \| ... \| 10` |
+| `Card` | `{ suit, value, id }` - id format: `'{suit}-{value}'` |
+| `PlayerId` | `'human' \| 'cpu'` |
+| `GameStatus` | `'idle' \| 'dealing' \| 'playing' \| 'roundEnd' \| 'gameEnd'` |
+| `PlayerState` | `{ hand, captured, scopaCount }` |
+| `RoundState` | `{ deck, table, currentPlayer, dealer, lastCapture }` |
+| `GameState` | Complete game state with players, scores, round info |
+| `Move` | `{ player, cardPlayed, capturedCards, isScopa }` |
+| `RoundScore` | `{ cards, coins, setteBello, prime, scopas, total }` |
+
+### constants.ts
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `SUITS` | `['coins', 'cups', 'swords', 'clubs']` | All suits |
+| `CARD_VALUES` | `[1, 2, ..., 10]` | All card values |
+| `PRIME_VALUES` | `{7: 21, 6: 18, 1: 16, ...}` | Prime scoring values |
+| `DEFAULT_TARGET_SCORE` | `11` | Points to win |
+| `CARDS_PER_HAND` | `3` | Cards dealt per hand |
+| `INITIAL_TABLE_CARDS` | `4` | Cards on table at start |
+| `DECK_SIZE` | `40` | Total cards in deck |
+
+---
+
 ## Next Steps
 
-Phase 2 will add:
-- `src/game/types.ts` - Card, GameState, Move interfaces
-- `src/game/constants.ts` - Suits, prime values, game rules
+Phase 3 will add:
+- `src/game/deck.ts` - Deck creation, shuffling, dealing
+- Unit tests for deck operations
