@@ -56,7 +56,9 @@ scopa-ai-claude/
 │   │   ├── types.test.ts   # Type validation tests
 │   │   ├── constants.ts    # SUITS, PRIME_VALUES, game rules
 │   │   ├── constants.test.ts # Constants tests
-│   │   └── (deck.ts, rules.ts, scoring.ts, reducer.ts - future)
+│   │   ├── deck.ts         # Deck creation, shuffling, dealing
+│   │   ├── deck.test.ts    # Deck tests (21 tests)
+│   │   └── (rules.ts, scoring.ts, reducer.ts - future)
 │   │
 │   ├── ai/                 # AI opponent implementations
 │   │   └── (random.ts, basic.ts, advanced.ts, llm/)
@@ -180,8 +182,18 @@ npm run test:watch # Run tests in watch mode
 
 ---
 
+## Deck Functions (src/game/deck.ts)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `createDeck` | `() => Card[]` | Creates 40-card deck with IDs like `'coins-7'` |
+| `shuffleDeck` | `(deck: Card[]) => Card[]` | Fisher-Yates shuffle, returns new array |
+| `dealCards` | `(deck, count) => { dealt, remaining }` | Deals from top, immutable |
+| `isValidInitialDeal` | `(tableCards: Card[]) => boolean` | Returns false if 3+ kings |
+
+---
+
 ## Next Steps
 
-Phase 3 will add:
-- `src/game/deck.ts` - Deck creation, shuffling, dealing
-- Unit tests for deck operations
+Phase 4 will add:
+- `src/game/rules.ts` - Capture detection, move validation, move execution

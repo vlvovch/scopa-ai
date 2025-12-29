@@ -36,10 +36,15 @@
 
 ## Phase 3: Deck Management
 
-- [ ] Step 3.1: Implement Deck Creation
-- [ ] Step 3.2: Implement Deck Shuffling
-- [ ] Step 3.3: Implement Card Dealing
-- [ ] Step 3.4: Implement Initial Deal Validation
+- [x] Step 3.1: Implement Deck Creation - Completed 2024-12-29
+- [x] Step 3.2: Implement Deck Shuffling - Completed 2024-12-29
+- [x] Step 3.3: Implement Card Dealing - Completed 2024-12-29
+- [x] Step 3.4: Implement Initial Deal Validation - Completed 2024-12-29
+
+**Notes:**
+- Created `src/game/deck.ts` with all deck functions
+- Fisher-Yates shuffle algorithm, immutable operations
+- 21 new tests, 44 total tests passing
 
 ---
 
