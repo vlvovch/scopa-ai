@@ -116,6 +116,7 @@ export function RoundEndScreen({
     name: string;
     icon: string;
     iconColor?: string;
+    iconClass?: string;
     humanCount: string | number;
     cpuCount: string | number;
     humanWon: boolean;
@@ -124,7 +125,7 @@ export function RoundEndScreen({
     {
       id: 'carte',
       name: 'Carte Lungo',
-      icon: '📋',
+      icon: '🂠',
       humanCount: humanScore.counts.cards,
       cpuCount: cpuScore.counts.cards,
       humanWon: humanScore.cards > 0,
@@ -143,8 +144,9 @@ export function RoundEndScreen({
     {
       id: 'settebello',
       name: 'Sette Bello',
-      icon: '7●',
+      icon: '7',
       iconColor: '#DAA520',
+      iconClass: 'setteBelloIcon',
       humanCount: humanScore.setteBello > 0 ? '✓' : '-',
       cpuCount: cpuScore.setteBello > 0 ? '✓' : '-',
       humanWon: humanScore.setteBello > 0,
@@ -209,7 +211,10 @@ export function RoundEndScreen({
                 onMouseLeave={() => setHoveredCategory(null)}
               >
                 <td>
-                  <span className={styles.categoryIcon} style={cat.iconColor ? { color: cat.iconColor } : undefined}>
+                  <span
+                    className={`${styles.categoryIcon} ${cat.iconClass ? styles[cat.iconClass] : ''}`}
+                    style={cat.iconColor ? { color: cat.iconColor } : undefined}
+                  >
                     {cat.icon}
                   </span>
                   {cat.name}

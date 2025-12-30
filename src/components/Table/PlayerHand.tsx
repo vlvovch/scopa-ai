@@ -24,6 +24,8 @@ interface PlayerHandProps {
   disabled?: boolean;
   /** Force cards to show face up (for spectator mode) */
   showFaceUp?: boolean;
+  /** ID of card that was just played (to skip snap-back animation) */
+  playedCardId?: string | null;
 }
 
 export function PlayerHand({

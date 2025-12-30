@@ -14,7 +14,7 @@ import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
-import { DealingAnimation, DEALING_ANIMATION_DURATION } from './components/UI/DealingAnimation';
+import { DealingAnimation, DEALING_ANIMATION_DURATION, DEALING_HANDS_ONLY_DURATION } from './components/UI/DealingAnimation';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -66,7 +66,11 @@ function App() {
 
   // Dealing animation state
   const [isDealing, setIsDealing] = useState(false);
+  const [isRoundStartDeal, setIsRoundStartDeal] = useState(false);
+  const prevRoundNumber = useRef(0);
   const prevHandCount = useRef(0);
+  // Track if CPU animation is being scheduled to prevent double-firing
+  const cpuAnimationScheduled = useRef(false);
 
   // Clear selection when turn changes or game state changes
   useEffect(() => {
@@ -79,17 +83,36 @@ function App() {
     prevSetteBelloOwner.current = null;
   }, [state.roundNumber]);
 
-  // Detect dealing and trigger animation
+  // Detect dealing and trigger animation - triggers on round start or mid-round deals
   useEffect(() => {
     const currentHandCount = state.players.human.hand.length;
-    // Dealing detected when hand goes from 0 to 3 cards
-    if (prevHandCount.current === 0 && currentHandCount === 3 && state.status === 'playing') {
+    const roundChanged = state.roundNumber !== prevRoundNumber.current;
+
+    // Trigger on new round start (round number changed and hands have cards)
+    // OR on mid-round deal (hands went from 0 to 3)
+    const isNewRoundDeal = roundChanged && currentHandCount === 3 && state.status === 'playing';
+    const isMidRoundDeal = !roundChanged && prevHandCount.current === 0 && currentHandCount === 3 && state.status === 'playing';
+    const shouldTriggerDeal = isNewRoundDeal || isMidRoundDeal;
+
+    // Wait for any ongoing animation to complete before showing deal animation
+    if (shouldTriggerDeal && !animatingCard && !isDealing) {
       setIsDealing(true);
-      // End animation after cards have flown
-      setTimeout(() => setIsDealing(false), DEALING_ANIMATION_DURATION);
+      setIsRoundStartDeal(isNewRoundDeal);
+      // Use longer duration for round start (includes table cards), shorter for mid-round
+      const duration = isNewRoundDeal ? DEALING_ANIMATION_DURATION : DEALING_HANDS_ONLY_DURATION;
+      setTimeout(() => setIsDealing(false), duration);
+      // Update refs only after successfully triggering
+      prevRoundNumber.current = state.roundNumber;
+      prevHandCount.current = currentHandCount;
+    } else if (!shouldTriggerDeal) {
+      // Only update refs if we're not waiting to trigger a deal
+      // (e.g., game not playing, or hand count changed but not to 3)
+      prevRoundNumber.current = state.roundNumber;
+      prevHandCount.current = currentHandCount;
     }
-    prevHandCount.current = currentHandCount;
-  }, [state.players.human.hand.length, state.status]);
+    // If shouldTriggerDeal but animatingCard/isDealing is blocking, don't update refs yet
+    // so we can retry when animation completes
+  }, [state.players.human.hand.length, state.status, state.roundNumber, animatingCard, isDealing]);
 
   // Calculate valid moves for selected card
   const validMoves = useMemo(() => {
@@ -293,6 +316,7 @@ function App() {
   // CPU turn execution with animation phases
   useEffect(() => {
     if (state.round.currentPlayer !== 'cpu' || state.status !== 'playing') {
+      cpuAnimationScheduled.current = false;
       return;
     }
 
@@ -306,8 +330,13 @@ function App() {
       return;
     }
 
-    // Don't start new animation if one is in progress
-    if (animatingCard) {
+    // Wait for dealing animation to complete
+    if (isDealing) {
+      return;
+    }
+
+    // Don't start new animation if one is in progress or already scheduled
+    if (animatingCard || cpuAnimationScheduled.current) {
       return;
     }
 
@@ -315,6 +344,9 @@ function App() {
     if (cpuHand.length === 0) {
       return;
     }
+
+    // Mark as scheduled to prevent double-firing
+    cpuAnimationScheduled.current = true;
 
     // Add delay for UX (500-1000ms) before starting animation
     const delay = 500 + Math.random() * 500;
@@ -348,16 +380,24 @@ function App() {
             // Phase 4: done (wait for cards to fly to pile)
             setTimeout(() => {
               setAnimatingCard(null);
+              cpuAnimationScheduled.current = false;
             }, 900);
           } else {
             setAnimatingCard(null);
+            cpuAnimationScheduled.current = false;
           }
         }, 500);
       }, 600);  // Give more time for flip animation
     }, delay);
 
-    return () => clearTimeout(timeoutId);
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show]);
+    return () => {
+      clearTimeout(timeoutId);
+      // Only reset scheduled flag if we're cleaning up before animation started
+      if (!animatingCard) {
+        cpuAnimationScheduled.current = false;
+      }
+    };
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing]);
 
   // Calculate and store round scores when entering roundEnd status
   // Handles final animations and Sette Bello detection for cards awarded at round end
@@ -482,18 +522,28 @@ function App() {
   }, [spectatorAIs]);
 
   // Human turn auto-play in spectator mode (with animation)
+  // Uses same cpuAnimationScheduled ref since only one player moves at a time
   useEffect(() => {
     if (!isSpectatorMode || isSpectatorPaused) return;
-    if (state.round.currentPlayer !== 'human' || state.status !== 'playing') return;
+    if (state.round.currentPlayer !== 'human' || state.status !== 'playing') {
+      cpuAnimationScheduled.current = false;
+      return;
+    }
 
     // Wait for celebration animations to complete
     if (scopaCelebration.show || setteBelloCelebration.show) return;
 
-    // Don't start new animation if one is in progress
-    if (animatingCard) return;
+    // Wait for dealing animation to complete
+    if (isDealing) return;
+
+    // Don't start new animation if one is in progress or already scheduled
+    if (animatingCard || cpuAnimationScheduled.current) return;
 
     const humanHand = state.players.human.hand;
     if (humanHand.length === 0) return;
+
+    // Mark as scheduled to prevent double-firing
+    cpuAnimationScheduled.current = true;
 
     // Add delay for UX
     const delay = 500 + Math.random() * 500;
@@ -525,16 +575,23 @@ function App() {
             // Phase 4: done (wait for cards to fly to pile)
             setTimeout(() => {
               setAnimatingCard(null);
+              cpuAnimationScheduled.current = false;
             }, 900);
           } else {
             setAnimatingCard(null);
+            cpuAnimationScheduled.current = false;
           }
         }, 500);
       }, 600);  // Give more time for flip animation
     }, delay);
 
-    return () => clearTimeout(timeoutId);
-  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show]);
+    return () => {
+      clearTimeout(timeoutId);
+      if (!animatingCard) {
+        cpuAnimationScheduled.current = false;
+      }
+    };
+  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing]);
 
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
@@ -618,6 +675,7 @@ function App() {
         isDealing={isDealing}
         startPlayer={state.round.dealer === 'cpu' ? 'human' : 'cpu'}
         deckPosition={state.round.dealer === 'cpu' ? 'left' : 'right'}
+        includeTableCards={isRoundStartDeal}
       />
       <SettingsModal
         isOpen={showSettings}

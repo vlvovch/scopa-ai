@@ -30,6 +30,8 @@ interface CardProps {
   onDragStart?: () => void;
   /** Called when drag ends with position info */
   onDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
+  /** Skip snap-to-origin when card was successfully played */
+  skipSnapToOrigin?: boolean;
 }
 
 export function Card({

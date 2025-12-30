@@ -1,5 +1,5 @@
 // DealingAnimation Component
-// Shows cards flying from deck to player hands during dealing
+// Shows cards flying from deck to player hands and table during dealing
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardBack } from '../Card/CardImage';
@@ -12,38 +12,71 @@ interface DealingAnimationProps {
   startPlayer: 'human' | 'cpu';
   /** Position of the deck ('left' or 'right') */
   deckPosition: 'left' | 'right';
+  /** Whether to include table cards (true for round start, false for mid-round deals) */
+  includeTableCards?: boolean;
 }
 
 // Animation timing constants
-const CARD_DURATION = 0.65; // Duration for each card to fly (seconds)
-const CARD_STAGGER = 0.2;   // Delay between each card (seconds)
-// Total duration in ms: last card starts at 5*200ms, flies for 650ms, plus 200ms buffer
-export const DEALING_ANIMATION_DURATION = (CARD_DURATION * 1000) + (5 * CARD_STAGGER * 1000) + 200; // ~1850ms
+const CARD_DURATION = 0.55; // Duration for each card to fly (seconds)
+const CARD_STAGGER = 0.15;   // Delay between each card (seconds)
+// Total duration: table cards (4) + hand cards (6) = 10 cards
+// With table: last card starts at 9*150ms, flies for 550ms, plus 200ms buffer = ~2100ms
+// Without table: last card starts at 5*150ms, flies for 550ms, plus 200ms buffer = ~1500ms
+export const DEALING_ANIMATION_DURATION = (CARD_DURATION * 1000) + (9 * CARD_STAGGER * 1000) + 300; // ~2200ms
+export const DEALING_HANDS_ONLY_DURATION = (CARD_DURATION * 1000) + (5 * CARD_STAGGER * 1000) + 200; // ~1500ms
 
-export function DealingAnimation({ isDealing, startPlayer, deckPosition }: DealingAnimationProps) {
+export function DealingAnimation({ isDealing, startPlayer, deckPosition, includeTableCards = false }: DealingAnimationProps) {
   if (!isDealing) return null;
 
-  // Create 6 cards (3 per player), alternating between players
-  const cards = Array.from({ length: 6 }, (_, i) => {
+  // Calculate start position based on deck position
+  const startX = deckPosition === 'left' ? -280 : 280;
+
+  // Create table cards (4 cards) - only for round start
+  const tableCards = includeTableCards
+    ? Array.from({ length: 4 }, (_, i) => ({
+        id: `table-${i}`,
+        target: 'table' as const,
+        cardIndex: i,
+        delay: i * CARD_STAGGER,
+      }))
+    : [];
+
+  // Create hand cards (3 per player = 6 cards), alternating between players
+  const handCards = Array.from({ length: 6 }, (_, i) => {
     const isFirstPlayer = i % 2 === 0;
     const player = isFirstPlayer
       ? startPlayer
       : (startPlayer === 'human' ? 'cpu' : 'human');
     const cardIndex = Math.floor(i / 2); // 0, 0, 1, 1, 2, 2
-    return { id: i, player, cardIndex };
+    // Delay hand cards after table cards
+    const baseDelay = includeTableCards ? tableCards.length * CARD_STAGGER : 0;
+    return {
+      id: `hand-${i}`,
+      target: player as 'human' | 'cpu',
+      cardIndex,
+      delay: baseDelay + i * CARD_STAGGER,
+    };
   });
 
-  // Calculate start position based on deck position
-  const startX = deckPosition === 'left' ? -280 : 280;
+  const allCards = [...tableCards, ...handCards];
 
   return (
     <AnimatePresence>
       <div className={styles.overlay}>
-        {cards.map((card) => {
-          // Target position: human hand at bottom, cpu hand at top
-          const targetY = card.player === 'human' ? 280 : -280;
-          // Spread cards horizontally based on card index
-          const targetX = (card.cardIndex - 1) * 70;
+        {allCards.map((card) => {
+          // Calculate target position based on destination
+          let targetY: number;
+          let targetX: number;
+
+          if (card.target === 'table') {
+            // Table cards: spread horizontally in center
+            targetY = 0;
+            targetX = (card.cardIndex - 1.5) * 80;
+          } else {
+            // Hand cards: human at bottom, cpu at top
+            targetY = card.target === 'human' ? 280 : -280;
+            targetX = (card.cardIndex - 1) * 70;
+          }
 
           return (
             <motion.div
@@ -65,8 +98,8 @@ export function DealingAnimation({ isDealing, startPlayer, deckPosition }: Deali
               }}
               transition={{
                 duration: CARD_DURATION,
-                delay: card.id * CARD_STAGGER,
-                ease: [0.25, 0.1, 0.25, 1], // Smooth ease-out curve
+                delay: card.delay,
+                ease: [0.25, 0.1, 0.25, 1],
                 opacity: {
                   times: [0, 0.5, 0.85, 1],
                   duration: CARD_DURATION,
