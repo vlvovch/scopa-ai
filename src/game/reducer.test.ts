@@ -434,7 +434,9 @@ describe('Game State Management', () => {
       const action: GameAction = { type: 'END_ROUND' };
       const newState = gameReducer(state, action);
 
-      expect(newState.status).toBe('gameEnd');
+      // Status stays 'roundEnd' but isGameOver flag is set
+      expect(newState.status).toBe('roundEnd');
+      expect(newState.isGameOver).toBe(true);
     });
   });
 

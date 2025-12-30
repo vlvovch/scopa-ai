@@ -19,7 +19,7 @@ import type { PanInfo } from 'framer-motion';
 import type { Card, PlayerId } from './game/types';
 
 function App() {
-  const { state, startGame, playCard, endRound, nextRound, resetGame } = useGame();
+  const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -380,7 +380,9 @@ function App() {
         cpuCaptured={state.players.cpu.captured}
         humanScopaCaptures={state.players.human.scopaCaptures}
         cpuScopaCaptures={state.players.cpu.scopaCaptures}
+        isGameOver={state.isGameOver}
         onNextRound={nextRound}
+        onShowGameEnd={showGameEnd}
       />
     );
   }

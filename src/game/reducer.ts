@@ -14,6 +14,7 @@ export type GameAction =
   | { type: 'PLAY_CARD'; payload: { move: Move } }
   | { type: 'END_ROUND' }
   | { type: 'NEXT_ROUND' }
+  | { type: 'SHOW_GAME_END' }
   | { type: 'RESET_GAME' };
 
 /**
@@ -161,6 +162,22 @@ function handlePlayCard(state: GameState, move: Move): GameState {
       };
     } else {
       // Deck empty and hands empty = round end
+      // IMPORTANT: Scopa on the last hand doesn't count!
+      // If the move was a scopa, undo it
+      if (move.isScopa) {
+        const playerState = newState.players[move.player];
+        newState = {
+          ...newState,
+          players: {
+            ...newState.players,
+            [move.player]: {
+              ...playerState,
+              scopaCount: playerState.scopaCount - 1,
+              scopaCaptures: playerState.scopaCaptures.slice(0, -1),
+            },
+          },
+        };
+      }
       newState = {
         ...newState,
         status: 'roundEnd',
@@ -206,21 +223,19 @@ function handleEndRound(state: GameState): GameState {
   // Check if game should end
   const humanReachedTarget = newHumanScore >= finalState.targetScore;
   const cpuReachedTarget = newCpuScore >= finalState.targetScore;
+  const isGameOver = humanReachedTarget || cpuReachedTarget;
 
-  let newStatus: GameState['status'] = 'roundEnd';
-
-  if (humanReachedTarget || cpuReachedTarget) {
-    newStatus = 'gameEnd';
-  }
-
+  // Always show round summary first (status stays 'roundEnd')
+  // isGameOver flag indicates whether to show "See Results" vs "Next Round"
   return {
     ...finalState,
-    status: newStatus,
+    status: 'roundEnd',
     scores: {
       human: newHumanScore,
       cpu: newCpuScore,
     },
     lastRoundScores: roundScores,
+    isGameOver,
   };
 }
 
@@ -281,6 +296,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'NEXT_ROUND':
       return handleNextRound(state);
+
+    case 'SHOW_GAME_END':
+      return { ...state, status: 'gameEnd' };
 
     case 'RESET_GAME':
       return createInitialState(state.targetScore);

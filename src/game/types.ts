@@ -67,6 +67,8 @@ export interface GameState {
     human: RoundScore;
     cpu: RoundScore;
   };
+  /** Whether the game is over (show round summary first, then game end) */
+  isGameOver?: boolean;
 }
 
 // Step 2.3: Move Types

@@ -18,7 +18,9 @@ interface RoundEndScreenProps {
   cpuCaptured: Card[];
   humanScopaCaptures: Card[][];
   cpuScopaCaptures: Card[][];
+  isGameOver?: boolean;
   onNextRound: () => void;
+  onShowGameEnd?: () => void;
 }
 
 // Get the best prime card for each suit
@@ -67,7 +69,9 @@ export function RoundEndScreen({
   cpuCaptured,
   humanScopaCaptures,
   cpuScopaCaptures,
+  isGameOver,
   onNextRound,
+  onShowGameEnd,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
 
@@ -221,8 +225,11 @@ export function RoundEndScreen({
           </div>
         </div>
 
-        <button className={styles.nextButton} onClick={onNextRound}>
-          Next Round
+        <button
+          className={styles.nextButton}
+          onClick={isGameOver ? onShowGameEnd : onNextRound}
+        >
+          {isGameOver ? 'See Results' : 'Next Round'}
         </button>
       </div>
 

@@ -32,6 +32,10 @@ export function useGame(initialTargetScore: number = DEFAULT_TARGET_SCORE) {
     dispatch({ type: 'NEXT_ROUND' });
   }, []);
 
+  const showGameEnd = useCallback(() => {
+    dispatch({ type: 'SHOW_GAME_END' });
+  }, []);
+
   const resetGame = useCallback(() => {
     dispatch({ type: 'RESET_GAME' });
   }, []);
@@ -42,6 +46,7 @@ export function useGame(initialTargetScore: number = DEFAULT_TARGET_SCORE) {
     playCard,
     endRound,
     nextRound,
+    showGameEnd,
     resetGame,
   };
 }
