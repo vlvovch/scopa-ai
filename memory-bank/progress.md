@@ -268,6 +268,9 @@
 - [x] Step 14.2: Hide both hands in watch mode (face-down) - Completed 2025-12-30
 - [x] Step 14.3: Add card animation for both players in watch mode - Completed 2025-12-30
 - [x] Step 14.4: Unified animation with flip, move, and capture phases - Completed 2025-12-30
+- [x] Step 14.5: Fix StartScreen UI layout for watch mode - Completed 2025-12-30
+- [x] Step 14.6: Fix all "You" and "CPU" references for watch mode - Completed 2025-12-30
+- [x] Step 14.7: Enhanced capture animation with levitating cards - Completed 2025-12-30
 
 **Notes:**
 - ScoreBoard now shows AI names with "(CPU)" suffix in spectator mode (e.g., "Furbo (CPU)")
@@ -275,9 +278,16 @@
 - Unified card animation works for both players:
   - Card flips (reveals) near the player's hand position
   - Card moves to the table center
+  - Captured table cards levitate (scale up, glow) during capture
   - If capturing, card animates toward the capture pile
 - Animation positions are player-aware: CPU animates from top, human from bottom
 - Renamed `cpuAnimatingCard` state to `animatingCard` with `player` field for generalization
+- Fixed StartScreen UI: increased container width to 500px, vertical button layout for AI selection
+- All UI components now accept player name props for spectator mode:
+  - CapturedPile: `playerLabel` prop
+  - RoundEndScreen: `player1Name` and `player2Name` props
+  - GameEndScreen: `player1Name` and `player2Name` props
+- TableCards: added `capturingCardIds` prop for levitation animation
 - 130 tests passing
 
 ---

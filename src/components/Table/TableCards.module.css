@@ -30,6 +30,12 @@
   transition: transform var(--duration-fast);
 }
 
+/* Card being captured - levitate effect */
+.tableCard.capturing {
+  z-index: 10;
+  filter: brightness(1.2);
+}
+
 .emptyMessage {
   color: var(--color-text-secondary);
   font-style: italic;

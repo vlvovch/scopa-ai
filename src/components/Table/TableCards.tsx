@@ -14,6 +14,8 @@ interface TableCardsProps {
   highlightedCardIds?: string[];
   /** Card IDs that are currently selected for capture */
   selectedCardIds?: string[];
+  /** Card IDs that are being captured (levitate animation) */
+  capturingCardIds?: string[];
   /** Called when a table card is clicked */
   onCardClick?: (card: CardType) => void;
   /** Whether table cards are selectable */
@@ -30,6 +32,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
   cards,
   highlightedCardIds = [],
   selectedCardIds = [],
+  capturingCardIds = [],
   onCardClick,
   selectable = false,
   isDragOver = false,
@@ -38,6 +41,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
 }, ref) {
   const highlightedSet = new Set(highlightedCardIds);
   const selectedSet = new Set(selectedCardIds);
+  const capturingSet = new Set(capturingCardIds);
 
   const tableClasses = [
     styles.tableArea,
@@ -70,37 +74,45 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
               Table is empty
             </motion.span>
           ) : (
-            cards.map((card, index) => (
-              <motion.div
-                key={card.id}
-                className={styles.tableCard}
-                layout
-                initial={{ opacity: 0, scale: 0.8, y: -20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{
-                  opacity: 0,
-                  scale: 0.8,
-                  y: 20,
-                  transition: { duration: 0.25, ease: 'easeOut' }
-                }}
-                transition={{
-                  type: 'spring',
-                  stiffness: 250,
-                  damping: 22,
-                  mass: 0.8,
-                  delay: index * 0.04,
-                }}
-              >
-                <Card
-                  card={card}
-                  highlighted={highlightedSet.has(card.id)}
-                  selected={selectedSet.has(card.id)}
-                  onClick={selectable && onCardClick ? () => onCardClick(card) : undefined}
-                  disabled={!selectable}
-                  layoutId={`table-${card.id}`}
-                />
-              </motion.div>
-            ))
+            cards.map((card, index) => {
+              const isCapturing = capturingSet.has(card.id);
+              return (
+                <motion.div
+                  key={card.id}
+                  className={`${styles.tableCard} ${isCapturing ? styles.capturing : ''}`}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8, y: -20 }}
+                  animate={isCapturing ? {
+                    opacity: 1,
+                    scale: 1.15,
+                    y: -20,
+                    boxShadow: '0 8px 24px rgba(212, 175, 55, 0.6)',
+                  } : { opacity: 1, scale: 1, y: 0 }}
+                  exit={{
+                    opacity: 0,
+                    scale: 0.8,
+                    y: 20,
+                    transition: { duration: 0.25, ease: 'easeOut' }
+                  }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: isCapturing ? 300 : 250,
+                    damping: isCapturing ? 15 : 22,
+                    mass: 0.8,
+                    delay: isCapturing ? 0 : index * 0.04,
+                  }}
+                >
+                  <Card
+                    card={card}
+                    highlighted={highlightedSet.has(card.id) || isCapturing}
+                    selected={selectedSet.has(card.id)}
+                    onClick={selectable && onCardClick ? () => onCardClick(card) : undefined}
+                    disabled={!selectable || isCapturing}
+                    layoutId={`table-${card.id}`}
+                  />
+                </motion.div>
+              );
+            })
           )}
         </AnimatePresence>
       </div>

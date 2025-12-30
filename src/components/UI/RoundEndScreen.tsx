@@ -21,6 +21,10 @@ interface RoundEndScreenProps {
   isGameOver?: boolean;
   onNextRound: () => void;
   onShowGameEnd?: () => void;
+  /** Player 1 name (defaults to "You") */
+  player1Name?: string;
+  /** Player 2 name (defaults to "CPU") */
+  player2Name?: string;
 }
 
 // Get the best prime card for each suit
@@ -72,6 +76,8 @@ export function RoundEndScreen({
   isGameOver,
   onNextRound,
   onShowGameEnd,
+  player1Name = 'You',
+  player2Name = 'CPU',
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
 
@@ -159,7 +165,7 @@ export function RoundEndScreen({
     <div className={styles.overlay}>
       {/* Human cards on the left */}
       <div className={styles.cardColumn}>
-        <div className={styles.cardColumnLabel}>Your Cards</div>
+        <div className={styles.cardColumnLabel}>{player1Name}'s Cards</div>
         <div className={styles.cardGrid}>
           {humanCaptured.map(card => (
             <div
@@ -180,8 +186,8 @@ export function RoundEndScreen({
           <thead>
             <tr>
               <th>Category</th>
-              <th>You</th>
-              <th>CPU</th>
+              <th>{player1Name}</th>
+              <th>{player2Name}</th>
             </tr>
           </thead>
           <tbody>
@@ -215,12 +221,12 @@ export function RoundEndScreen({
 
         <div className={styles.cumulativeScores}>
           <div className={styles.scoreBox}>
-            <span className={styles.scoreLabel}>Your Score</span>
+            <span className={styles.scoreLabel}>{player1Name}</span>
             <span className={styles.scoreValue}>{cumulativeHuman}</span>
           </div>
           <span className={styles.scoreDivider}>-</span>
           <div className={styles.scoreBox}>
-            <span className={styles.scoreLabel}>CPU Score</span>
+            <span className={styles.scoreLabel}>{player2Name}</span>
             <span className={styles.scoreValue}>{cumulativeCpu}</span>
           </div>
         </div>
@@ -235,7 +241,7 @@ export function RoundEndScreen({
 
       {/* CPU cards on the right */}
       <div className={styles.cardColumn}>
-        <div className={styles.cardColumnLabel}>CPU Cards</div>
+        <div className={styles.cardColumnLabel}>{player2Name}'s Cards</div>
         <div className={styles.cardGrid}>
           {cpuCaptured.map(card => (
             <div

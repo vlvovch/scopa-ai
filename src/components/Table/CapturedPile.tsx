@@ -12,9 +12,11 @@ interface CapturedPileProps {
   scopaCount: number;
   /** Which player's pile this is */
   player: PlayerId;
+  /** Optional custom label (for spectator mode) */
+  playerLabel?: string;
 }
 
-export function CapturedPile({ cards, scopaCount, player }: CapturedPileProps) {
+export function CapturedPile({ cards, scopaCount, player, playerLabel }: CapturedPileProps) {
   // Show top 3 cards of the pile for visual stacking effect
   const visibleCards = cards.slice(-3);
 
@@ -25,10 +27,13 @@ export function CapturedPile({ cards, scopaCount, player }: CapturedPileProps) {
     return { denariCount, hasSetteBello };
   }, [cards]);
 
+  // Default labels, use custom label if provided
+  const displayLabel = playerLabel ?? (player === 'human' ? 'You' : 'CPU');
+
   return (
     <div className={styles.pile}>
       <span className={styles.playerLabel}>
-        {player === 'human' ? 'You' : 'CPU'}
+        {displayLabel}
       </span>
 
       <div className={styles.pileStack}>

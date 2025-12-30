@@ -7,6 +7,10 @@ interface GameEndScreenProps {
   cpuScore: number;
   roundsPlayed: number;
   onPlayAgain: () => void;
+  /** Player 1 name (defaults to "You") */
+  player1Name?: string;
+  /** Player 2 name (defaults to "CPU") */
+  player2Name?: string;
 }
 
 export function GameEndScreen({
@@ -14,6 +18,8 @@ export function GameEndScreen({
   cpuScore,
   roundsPlayed,
   onPlayAgain,
+  player1Name = 'You',
+  player2Name = 'CPU',
 }: GameEndScreenProps) {
   const humanWins = humanScore > cpuScore;
   const isTie = humanScore === cpuScore;
@@ -25,10 +31,10 @@ export function GameEndScreen({
     resultText = "It's a Tie!";
     resultClass = styles.tie;
   } else if (humanWins) {
-    resultText = 'You Win!';
+    resultText = `${player1Name} Wins!`;
     resultClass = styles.win;
   } else {
-    resultText = 'CPU Wins!';
+    resultText = `${player2Name} Wins!`;
     resultClass = styles.lose;
   }
 
@@ -40,12 +46,12 @@ export function GameEndScreen({
 
         <div className={styles.finalScores}>
           <div className={`${styles.scoreBox} ${humanWins ? styles.winnerBox : ''}`}>
-            <span className={styles.scoreLabel}>You</span>
+            <span className={styles.scoreLabel}>{player1Name}</span>
             <span className={styles.scoreValue}>{humanScore}</span>
           </div>
           <span className={styles.scoreDivider}>-</span>
           <div className={`${styles.scoreBox} ${!humanWins && !isTie ? styles.winnerBox : ''}`}>
-            <span className={styles.scoreLabel}>CPU</span>
+            <span className={styles.scoreLabel}>{player2Name}</span>
             <span className={styles.scoreValue}>{cpuScore}</span>
           </div>
         </div>

@@ -474,6 +474,8 @@ function App() {
         isGameOver={state.isGameOver}
         onNextRound={nextRound}
         onShowGameEnd={showGameEnd}
+        player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+        player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
       />
     );
   }
@@ -486,6 +488,8 @@ function App() {
         cpuScore={state.scores.cpu}
         roundsPlayed={state.roundNumber}
         onPlayAgain={resetGame}
+        player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+        player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
       />
     );
   }
@@ -612,6 +616,7 @@ function App() {
             cards={state.players.cpu.captured}
             scopaCount={state.players.cpu.scopaCount}
             player="cpu"
+            playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
           />
         }
         tableCards={
@@ -620,6 +625,9 @@ function App() {
             cards={state.round.table}
             highlightedCardIds={validCaptureTargetIds}
             selectedCardIds={selectedTableCards.map(c => c.id)}
+            capturingCardIds={animatingCard?.phase === 'moving' && animatingCard.capturedCards.length > 0
+              ? animatingCard.capturedCards.map(c => c.id)
+              : undefined}
             onCardClick={handleTableCardClick}
             selectable={isHumanTurn && selectedCard !== null}
             isDragOver={isDragging}
@@ -632,6 +640,7 @@ function App() {
             cards={state.players.human.captured}
             scopaCount={state.players.human.scopaCount}
             player="human"
+            playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
           />
         }
         humanHand={
@@ -656,7 +665,7 @@ function App() {
             <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
               {isSpectatorMode
                 ? `${AI_INFO[getAIForPlayer(state.round.currentPlayer)].name}'s turn${isSpectatorPaused ? ' (Paused)' : ''}`
-                : isHumanTurn ? 'Your turn' : 'CPU thinking...'}
+                : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} thinking...`}
             </span>
 
             {/* Action buttons container - always takes up space */}
