@@ -14,6 +14,7 @@ import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
+import { DealingAnimation } from './components/UI/DealingAnimation';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -25,11 +26,11 @@ function App() {
   const { settings, updateSetting, resetSettings } = useSettings();
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
-  const [scopaCelebration, setScopaCelebration] = useState<{ show: boolean; player: PlayerId }>({
+  const [scopaCelebration, setScopaCelebration] = useState<{ show: boolean; player: PlayerId; playerName?: string }>({
     show: false,
     player: 'human',
   });
-  const [setteBelloCelebration, setSetteBelloCelebration] = useState<{ show: boolean; player: PlayerId }>({
+  const [setteBelloCelebration, setSetteBelloCelebration] = useState<{ show: boolean; player: PlayerId; playerName?: string }>({
     show: false,
     player: 'human',
   });
@@ -63,6 +64,10 @@ function App() {
     player: PlayerId;
   } | null>(null);
 
+  // Dealing animation state
+  const [isDealing, setIsDealing] = useState(false);
+  const prevHandCount = useRef(0);
+
   // Clear selection when turn changes or game state changes
   useEffect(() => {
     setSelectedCard(null);
@@ -73,6 +78,18 @@ function App() {
   useEffect(() => {
     setteBelloCaptured.current = false;
   }, [state.roundNumber]);
+
+  // Detect dealing and trigger animation
+  useEffect(() => {
+    const currentHandCount = state.players.human.hand.length;
+    // Dealing detected when hand goes from 0 to 3 cards
+    if (prevHandCount.current === 0 && currentHandCount === 3 && state.status === 'playing') {
+      setIsDealing(true);
+      // End animation after cards have flown (6 cards * 120ms stagger + 500ms duration)
+      setTimeout(() => setIsDealing(false), 1200);
+    }
+    prevHandCount.current = currentHandCount;
+  }, [state.players.human.hand.length, state.status]);
 
   // Calculate valid moves for selected card
   const validMoves = useMemo(() => {
@@ -123,16 +140,27 @@ function App() {
     return capturedCards.some(c => c.suit === 'coins' && c.value === 7);
   }, []);
 
+  // Helper to get player name for celebrations
+  const getPlayerName = useCallback((player: PlayerId): string | undefined => {
+    if (!isSpectatorMode) return undefined; // Use default "You"/"CPU"
+    return player === 'human'
+      ? AI_INFO[spectatorAIs.player1].name
+      : AI_INFO[spectatorAIs.player2].name;
+  }, [isSpectatorMode, spectatorAIs]);
+
   // Wrapper for playCard that triggers sette bello celebration
   const playCardWithCelebration = useCallback((move: Parameters<typeof playCard>[0]) => {
     // Check for sette bello capture before playing
     if (!setteBelloCaptured.current && hasSetteBello(move.capturedCards)) {
       setteBelloCaptured.current = true;
-      setSetteBelloCelebration({ show: true, player: move.player });
-      setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+      // Small delay to let capture animation start first
+      setTimeout(() => {
+        setSetteBelloCelebration({ show: true, player: move.player, playerName: getPlayerName(move.player) });
+        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1800);
+      }, 200);
     }
     playCard(move);
-  }, [playCard, hasSetteBello]);
+  }, [playCard, hasSetteBello, getPlayerName]);
 
   // Handle clicking a card in hand
   const handleHandCardClick = useCallback((card: Card) => {
@@ -159,7 +187,7 @@ function App() {
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
-  }, [state.round.currentPlayer, state.round.table, playCard]);
+  }, [state.round.currentPlayer, state.round.table, playCardWithCelebration]);
 
   // Handle card drag start
   const handleCardDragStart = useCallback((card: Card) => {
@@ -207,7 +235,7 @@ function App() {
         }
       }
     }
-  }, [state.round.currentPlayer, state.round.table, playCard]);
+  }, [state.round.currentPlayer, state.round.table, playCardWithCelebration]);
 
   // Handle clicking a table card
   const handleTableCardClick = useCallback((card: Card) => {
@@ -243,7 +271,7 @@ function App() {
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
-  }, [selectedCard, selectedTableCards, validMoves, isValidCapture, playCard]);
+  }, [selectedCard, selectedTableCards, validMoves, isValidCapture, playCardWithCelebration]);
 
   // Execute place
   const executePlace = useCallback(() => {
@@ -252,7 +280,7 @@ function App() {
     const placeMove = validMoves[0];
     playCardWithCelebration(placeMove);
     setSelectedCard(null);
-  }, [selectedCard, canOnlyPlace, validMoves, playCard]);
+  }, [selectedCard, canOnlyPlace, validMoves, playCardWithCelebration]);
 
   // Auto-execute single card capture when table card is clicked (with brief delay for visual feedback)
   useEffect(() => {
@@ -327,7 +355,7 @@ function App() {
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCardWithCelebration, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2]);
 
   // Calculate and store round scores when entering roundEnd status
   useEffect(() => {
@@ -342,15 +370,17 @@ function App() {
     const currentCpuScopas = state.players.cpu.scopaCount;
 
     if (currentHumanScopas > prevScopaCounts.current.human) {
-      setScopaCelebration({ show: true, player: 'human' });
-      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+      const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined;
+      setScopaCelebration({ show: true, player: 'human', playerName });
+      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1800);
     } else if (currentCpuScopas > prevScopaCounts.current.cpu) {
-      setScopaCelebration({ show: true, player: 'cpu' });
-      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+      const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name;
+      setScopaCelebration({ show: true, player: 'cpu', playerName });
+      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1800);
     }
 
     prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
-  }, [state.players.human.scopaCount, state.players.cpu.scopaCount]);
+  }, [state.players.human.scopaCount, state.players.cpu.scopaCount, isSpectatorMode, spectatorAIs, settings.cpuAI]);
 
   // Handle new game request
   const handleNewGame = useCallback(() => {
@@ -501,16 +531,23 @@ function App() {
       <ScopaCelebration
         show={scopaCelebration.show}
         player={scopaCelebration.player}
+        playerName={scopaCelebration.playerName}
       />
       <SetteBelloCelebration
         show={setteBelloCelebration.show}
         player={setteBelloCelebration.player}
+        playerName={setteBelloCelebration.playerName}
       />
       <CpuCardAnimation
         card={animatingCard?.card ?? null}
         phase={animatingCard?.phase ?? null}
         capturedCardIds={animatingCard?.capturedCards.map(c => c.id) ?? []}
         player={animatingCard?.player}
+      />
+      <DealingAnimation
+        isDealing={isDealing}
+        startPlayer={state.round.dealer === 'cpu' ? 'human' : 'cpu'}
+        deckPosition={state.round.dealer === 'cpu' ? 'left' : 'right'}
       />
       <SettingsModal
         isOpen={showSettings}
@@ -628,6 +665,7 @@ function App() {
             capturingCardIds={animatingCard?.phase === 'moving' && animatingCard.capturedCards.length > 0
               ? animatingCard.capturedCards.map(c => c.id)
               : undefined}
+            captureDirection={animatingCard?.capturedCards.length ? animatingCard.player : undefined}
             onCardClick={handleTableCardClick}
             selectable={isHumanTurn && selectedCard !== null}
             isDragOver={isDragging}

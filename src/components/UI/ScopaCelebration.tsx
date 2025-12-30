@@ -7,9 +7,12 @@ interface ScopaCelebrationProps {
   show: boolean;
   player: 'human' | 'cpu';
   onComplete?: () => void;
+  /** Optional custom player name (for spectator mode) */
+  playerName?: string;
 }
 
-export function ScopaCelebration({ show, player, onComplete }: ScopaCelebrationProps) {
+export function ScopaCelebration({ show, player, onComplete, playerName }: ScopaCelebrationProps) {
+  const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
   return (
     <AnimatePresence>
       {show && (
@@ -58,7 +61,7 @@ export function ScopaCelebration({ show, player, onComplete }: ScopaCelebrationP
               SCOPA!
             </motion.span>
             <span className={styles.player}>
-              {player === 'human' ? 'You swept the table!' : 'CPU swept the table!'}
+              {displayName} swept the table!
             </span>
           </motion.div>
 

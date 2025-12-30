@@ -6,9 +6,12 @@ import styles from './SetteBelloCelebration.module.css';
 interface SetteBelloCelebrationProps {
   show: boolean;
   player: 'human' | 'cpu';
+  /** Optional custom player name (for spectator mode) */
+  playerName?: string;
 }
 
-export function SetteBelloCelebration({ show, player }: SetteBelloCelebrationProps) {
+export function SetteBelloCelebration({ show, player, playerName }: SetteBelloCelebrationProps) {
+  const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
   return (
     <AnimatePresence>
       {show && (
@@ -65,7 +68,7 @@ export function SetteBelloCelebration({ show, player }: SetteBelloCelebrationPro
               SETTE BELLO!
             </motion.span>
             <span className={styles.player}>
-              {player === 'human' ? 'You captured the 7 of Coins!' : 'CPU captured the 7 of Coins!'}
+              {displayName} captured the 7 of Coins!
             </span>
           </motion.div>
 

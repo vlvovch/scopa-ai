@@ -16,6 +16,8 @@ interface TableCardsProps {
   selectedCardIds?: string[];
   /** Card IDs that are being captured (levitate animation) */
   capturingCardIds?: string[];
+  /** Direction for capture exit animation ('cpu' = fly up, 'human' = fly down) */
+  captureDirection?: 'cpu' | 'human';
   /** Called when a table card is clicked */
   onCardClick?: (card: CardType) => void;
   /** Whether table cards are selectable */
@@ -33,6 +35,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
   highlightedCardIds = [],
   selectedCardIds = [],
   capturingCardIds = [],
+  captureDirection,
   onCardClick,
   selectable = false,
   isDragOver = false,
@@ -76,6 +79,9 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
           ) : (
             cards.map((card, index) => {
               const isCapturing = capturingSet.has(card.id);
+              // Determine exit animation based on capture direction
+              const exitY = captureDirection === 'cpu' ? -150 : captureDirection === 'human' ? 150 : 20;
+              const isBeingCaptured = isCapturing && captureDirection;
               return (
                 <motion.div
                   key={card.id}
@@ -90,9 +96,12 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
                   } : { opacity: 1, scale: 1, y: 0 }}
                   exit={{
                     opacity: 0,
-                    scale: 0.8,
-                    y: 20,
-                    transition: { duration: 0.25, ease: 'easeOut' }
+                    scale: isBeingCaptured ? 0.6 : 0.8,
+                    y: exitY,
+                    transition: {
+                      duration: isBeingCaptured ? 0.4 : 0.25,
+                      ease: 'easeIn'
+                    }
                   }}
                   transition={{
                     type: 'spring',

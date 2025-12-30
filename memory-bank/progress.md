@@ -271,6 +271,10 @@
 - [x] Step 14.5: Fix StartScreen UI layout for watch mode - Completed 2025-12-30
 - [x] Step 14.6: Fix all "You" and "CPU" references for watch mode - Completed 2025-12-30
 - [x] Step 14.7: Enhanced capture animation with levitating cards - Completed 2025-12-30
+- [x] Step 14.8: Captured cards fly toward pile animation - Completed 2025-12-30
+- [x] Step 14.9: Dealer dealing cards animation - Completed 2025-12-30
+- [x] Step 14.10: Improved animation visibility and timing - Completed 2025-12-30
+- [x] Step 14.11: Fixed Sette Bello celebration detection - Completed 2025-12-30
 
 **Notes:**
 - ScoreBoard now shows AI names with "(CPU)" suffix in spectator mode (e.g., "Furbo (CPU)")
@@ -279,7 +283,18 @@
   - Card flips (reveals) near the player's hand position
   - Card moves to the table center
   - Captured table cards levitate (scale up, glow) during capture
-  - If capturing, card animates toward the capture pile
+  - Captured cards fly toward the player's pile (up for CPU, down for human)
+  - If capturing, played card animates toward the capture pile
+- New DealingAnimation component shows cards flying from deck to hands
+  - 6 cards fly in succession (alternating between players)
+  - Animation direction based on dealer position
+  - Cards stagger with 120ms delays for natural feel
+  - Duration 0.5s per card, 1.2s total animation
+- Celebration animations improved:
+  - Scopa and Sette Bello now show player names in spectator mode
+  - Sette Bello has 200ms delay to appear after capture animation starts
+  - Both celebrations now last 1.8s (increased from 1.5s)
+  - Sette Bello z-index increased to 210 to appear above other animations
 - Animation positions are player-aware: CPU animates from top, human from bottom
 - Renamed `cpuAnimatingCard` state to `animatingCard` with `player` field for generalization
 - Fixed StartScreen UI: increased container width to 500px, vertical button layout for AI selection

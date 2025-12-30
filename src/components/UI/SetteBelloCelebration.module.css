@@ -7,7 +7,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 200;
+  z-index: 210;
   pointer-events: none;
 }
 
