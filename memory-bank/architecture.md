@@ -370,6 +370,17 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - Triggers when either player reaches target score after round
 - GameEndScreen shows winner and final scores
 
+**Spectator Mode (Watch Mode - Phase 14):**
+- Both players are AI-controlled
+- Both hands displayed face-down for suspense
+- ScoreBoard shows AI names with "(CPU)" suffix (e.g., "Furbo (CPU)" vs "Scimmia (CPU)")
+- Card animation for both players:
+  - Card flips near player's hand position
+  - Moves to table center
+  - If capturing, animates toward capture pile
+- Pause/Resume controls during spectator mode
+- Unified `animatingCard` state tracks current player's animation
+
 ---
 
 ## Animations (Phase 9 - Completed)
@@ -386,13 +397,15 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - 12 sparkle particles animate outward
 - Shows for 1.5 seconds then fades
 
-**CPU Card Animation (Phase 11-12):**
-- CpuCardAnimation component shows CPU's card being played
-- Animation phases: reveal (3D flip in place), moving (to table), capturing (shows count)
+**Card Animation (Phase 11-12, 14):**
+- CpuCardAnimation component shows any player's card being played
+- Supports both CPU and human players via `player` prop
+- Animation phases: reveal (3D flip in place), moving (to table), capturing (toward pile)
 - Uses CSS 3D transforms with backface-visibility for true flip effect
 - Two-sided card: CardBack on front, CardImage on back, rotateY to reveal
-- Card is removed from CPU hand immediately when animation starts
-- Capture shows "+N captured" indicator
+- Card is removed from player's hand immediately when animation starts
+- Position is player-aware: CPU animates from top (-120), human from bottom (+120)
+- Capture animates card toward player's capture pile before fading
 
 **Sette Bello Celebration (Phase 12):**
 - SetteBelloCelebration triggers when 7 of coins is captured

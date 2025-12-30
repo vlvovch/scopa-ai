@@ -1,7 +1,7 @@
 // Step 6.8: useGame Hook
 
 import { useReducer, useCallback } from 'react';
-import type { Move } from '../game/types';
+import type { Move, GameMode } from '../game/types';
 import { gameReducer, createInitialState } from '../game/reducer';
 import { DEFAULT_TARGET_SCORE } from '../game/constants';
 
@@ -16,8 +16,8 @@ export function useGame(initialTargetScore: number = DEFAULT_TARGET_SCORE) {
     createInitialState
   );
 
-  const startGame = useCallback((targetScore: number = DEFAULT_TARGET_SCORE) => {
-    dispatch({ type: 'START_GAME', payload: { targetScore } });
+  const startGame = useCallback((targetScore: number = DEFAULT_TARGET_SCORE, gameMode: GameMode = 'pvsCPU') => {
+    dispatch({ type: 'START_GAME', payload: { targetScore, gameMode } });
   }, []);
 
   const playCard = useCallback((move: Move) => {

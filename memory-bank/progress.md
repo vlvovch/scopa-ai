@@ -233,6 +233,7 @@
 - [x] Step 13.6: Show Round Summary Before Game End - Completed 2025-12-30
 - [x] Step 13.7: Add AI Selection to Start Screen - Completed 2025-12-30
 - [x] Step 13.8: Display AI Name on ScoreBoard - Completed 2025-12-30
+- [x] Step 13.9: Implement CPU vs CPU Spectator Mode - Completed 2025-12-30
 
 **Notes:**
 - Refactored AI logic from App.tsx into dedicated `src/ai/` module
@@ -252,6 +253,31 @@
 - Added `isGameOver` flag to GameState for proper flow control
 - StartScreen now allows selecting opponent (Scimmia or Furbo) before starting game
 - ScoreBoard displays selected AI name instead of generic "CPU"
+- CPU vs CPU spectator mode: watch two AIs play against each other
+  - Game mode selection on StartScreen (Play vs Watch)
+  - Dual AI selectors for spectator mode (pick both players)
+  - Pause/Resume button during spectator mode
+  - ScoreBoard shows both AI names instead of "You" and "CPU"
+- 130 tests passing
+
+---
+
+## Phase 14: Watch Mode Improvements
+
+- [x] Step 14.1: Update ScoreBoard player names with (CPU) suffix - Completed 2025-12-30
+- [x] Step 14.2: Hide both hands in watch mode (face-down) - Completed 2025-12-30
+- [x] Step 14.3: Add card animation for both players in watch mode - Completed 2025-12-30
+- [x] Step 14.4: Unified animation with flip, move, and capture phases - Completed 2025-12-30
+
+**Notes:**
+- ScoreBoard now shows AI names with "(CPU)" suffix in spectator mode (e.g., "Furbo (CPU)")
+- Both hands are now face-down (invisible) in watch mode for suspense
+- Unified card animation works for both players:
+  - Card flips (reveals) near the player's hand position
+  - Card moves to the table center
+  - If capturing, card animates toward the capture pile
+- Animation positions are player-aware: CPU animates from top, human from bottom
+- Renamed `cpuAnimatingCard` state to `animatingCard` with `player` field for generalization
 - 130 tests passing
 
 ---

@@ -36,6 +36,16 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
+  // Spectator mode state
+  const [spectatorAIs, setSpectatorAIs] = useState<{ player1: AIType; player2: AIType }>({
+    player1: 'heuristic',
+    player2: 'random',
+  });
+  const [isSpectatorPaused, setIsSpectatorPaused] = useState(false);
+
+  // Check if in spectator mode
+  const isSpectatorMode = state.gameMode === 'cpuVsCPU';
+
   // Track previous scopa counts to detect new scopas
   const prevScopaCounts = useRef({ human: 0, cpu: 0 });
   // Track if sette bello has been captured this round
@@ -45,11 +55,12 @@ function App() {
   const tableRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // CPU animation state
-  const [cpuAnimatingCard, setCpuAnimatingCard] = useState<{
+  // Card animation state (used for CPU and human in spectator mode)
+  const [animatingCard, setAnimatingCard] = useState<{
     card: Card;
     phase: 'reveal' | 'moving' | 'capturing' | 'done';
     capturedCards: Card[];
+    player: PlayerId;
   } | null>(null);
 
   // Clear selection when turn changes or game state changes
@@ -260,8 +271,13 @@ function App() {
       return;
     }
 
+    // Pause in spectator mode
+    if (isSpectatorMode && isSpectatorPaused) {
+      return;
+    }
+
     // Don't start new animation if one is in progress
-    if (cpuAnimatingCard) {
+    if (animatingCard) {
       return;
     }
 
@@ -273,8 +289,9 @@ function App() {
     // Add delay for UX (500-1000ms) before starting animation
     const delay = 500 + Math.random() * 500;
     const timeoutId = setTimeout(() => {
-      // Use selected AI to select move
-      const ai = AI_PLAYERS[settings.cpuAI];
+      // Use selected AI to select move (use spectator AI in spectator mode)
+      const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
+      const ai = AI_PLAYERS[aiType];
       const moveToExecute = ai.selectMove({
         hand: cpuHand,
         table: state.round.table,
@@ -282,34 +299,35 @@ function App() {
       });
 
       // Start animation: reveal phase (flip card in place)
-      setCpuAnimatingCard({
+      setAnimatingCard({
         card: moveToExecute.cardPlayed,
         phase: 'reveal',
         capturedCards: moveToExecute.capturedCards,
+        player: 'cpu',
       });
 
       // Phase 2: moving to table (after flip completes)
       setTimeout(() => {
-        setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
+        setAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
 
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
           playCardWithCelebration(moveToExecute);
           if (moveToExecute.capturedCards.length > 0) {
-            setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+            setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
             // Phase 4: done
             setTimeout(() => {
-              setCpuAnimatingCard(null);
+              setAnimatingCard(null);
             }, 400);
           } else {
-            setCpuAnimatingCard(null);
+            setAnimatingCard(null);
           }
         }, 500);
       }, 600);  // Give more time for flip animation
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, cpuAnimatingCard, settings.cpuAI]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2]);
 
   // Calculate and store round scores when entering roundEnd status
   useEffect(() => {
@@ -353,6 +371,71 @@ function App() {
     updateSetting('cpuAI', ai);
   }, [updateSetting]);
 
+  // Handle spectator AI selection
+  const handleSelectSpectatorAI = useCallback((player: 'player1' | 'player2', ai: AIType) => {
+    setSpectatorAIs(prev => ({ ...prev, [player]: ai }));
+  }, []);
+
+  // Get AI for current player in spectator mode
+  const getAIForPlayer = useCallback((player: PlayerId): AIType => {
+    if (player === 'human') {
+      return spectatorAIs.player1;
+    }
+    return spectatorAIs.player2;
+  }, [spectatorAIs]);
+
+  // Human turn auto-play in spectator mode (with animation)
+  useEffect(() => {
+    if (!isSpectatorMode || isSpectatorPaused) return;
+    if (state.round.currentPlayer !== 'human' || state.status !== 'playing') return;
+
+    // Don't start new animation if one is in progress
+    if (animatingCard) return;
+
+    const humanHand = state.players.human.hand;
+    if (humanHand.length === 0) return;
+
+    // Add delay for UX
+    const delay = 500 + Math.random() * 500;
+    const timeoutId = setTimeout(() => {
+      const ai = AI_PLAYERS[spectatorAIs.player1];
+      const moveToExecute = ai.selectMove({
+        hand: humanHand,
+        table: state.round.table,
+        player: 'human',
+      });
+
+      // Start animation: reveal phase (flip card in place)
+      setAnimatingCard({
+        card: moveToExecute.cardPlayed,
+        phase: 'reveal',
+        capturedCards: moveToExecute.capturedCards,
+        player: 'human',
+      });
+
+      // Phase 2: moving to table (after flip completes)
+      setTimeout(() => {
+        setAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
+
+        // Phase 3: execute move and show capture (after card reaches table)
+        setTimeout(() => {
+          playCardWithCelebration(moveToExecute);
+          if (moveToExecute.capturedCards.length > 0) {
+            setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+            // Phase 4: done
+            setTimeout(() => {
+              setAnimatingCard(null);
+            }, 400);
+          } else {
+            setAnimatingCard(null);
+          }
+        }, 500);
+      }, 600);  // Give more time for flip animation
+    }, delay);
+
+    return () => clearTimeout(timeoutId);
+  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCardWithCelebration, animatingCard]);
+
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
     return (
@@ -361,6 +444,8 @@ function App() {
           onStartGame={startGame}
           selectedAI={settings.cpuAI}
           onSelectAI={handleSelectAI}
+          spectatorAIs={spectatorAIs}
+          onSelectSpectatorAI={handleSelectSpectatorAI}
         />
         <SettingsModal
           isOpen={showSettings}
@@ -418,9 +503,10 @@ function App() {
         player={setteBelloCelebration.player}
       />
       <CpuCardAnimation
-        card={cpuAnimatingCard?.card ?? null}
-        phase={cpuAnimatingCard?.phase ?? null}
-        capturedCardIds={cpuAnimatingCard?.capturedCards.map(c => c.id) ?? []}
+        card={animatingCard?.card ?? null}
+        phase={animatingCard?.phase ?? null}
+        capturedCardIds={animatingCard?.capturedCards.map(c => c.id) ?? []}
+        player={animatingCard?.player}
       />
       <SettingsModal
         isOpen={showSettings}
@@ -500,7 +586,9 @@ function App() {
               roundNumber={state.roundNumber}
               targetScore={state.targetScore}
               currentPlayer={state.round.currentPlayer}
-              cpuName={AI_INFO[settings.cpuAI].name}
+              cpuName={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
+              humanName={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+              isSpectatorMode={isSpectatorMode}
             />
             <GameControls
               onNewGame={handleNewGame}
@@ -512,8 +600,8 @@ function App() {
           <PlayerHand
             cards={
               // Filter out card being animated so it disappears from hand immediately
-              cpuAnimatingCard
-                ? state.players.cpu.hand.filter(c => c.id !== cpuAnimatingCard.card.id)
+              animatingCard?.player === 'cpu'
+                ? state.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
                 : state.players.cpu.hand
             }
             isHuman={false}
@@ -548,26 +636,51 @@ function App() {
         }
         humanHand={
           <PlayerHand
-            cards={state.players.human.hand}
-            isHuman={true}
-            onCardClick={handleHandCardClick}
-            onCardDoubleClick={handleHandCardDoubleClick}
-            onCardDragStart={handleCardDragStart}
-            onCardDragEnd={handleCardDragEnd}
-            selectedCardId={selectedCard?.id}
-            disabled={!isHumanTurn}
+            cards={
+              // Filter out card being animated so it disappears from hand immediately (in spectator mode)
+              animatingCard?.player === 'human'
+                ? state.players.human.hand.filter(c => c.id !== animatingCard.card.id)
+                : state.players.human.hand
+            }
+            isHuman={!isSpectatorMode}
+            onCardClick={isSpectatorMode ? undefined : handleHandCardClick}
+            onCardDoubleClick={isSpectatorMode ? undefined : handleHandCardDoubleClick}
+            onCardDragStart={isSpectatorMode ? undefined : handleCardDragStart}
+            onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
+            selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
+            disabled={isSpectatorMode || !isHumanTurn}
           />
         }
         controls={
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px' }}>
             <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-              {isHumanTurn ? 'Your turn' : 'CPU thinking...'}
+              {isSpectatorMode
+                ? `${AI_INFO[getAIForPlayer(state.round.currentPlayer)].name}'s turn${isSpectatorPaused ? ' (Paused)' : ''}`
+                : isHumanTurn ? 'Your turn' : 'CPU thinking...'}
             </span>
 
             {/* Action buttons container - always takes up space */}
             <div style={{ minHeight: '36px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Show place button when card can only be placed */}
-              {isHumanTurn && selectedCard && canOnlyPlace && (
+              {/* Spectator mode pause/play controls */}
+              {isSpectatorMode && (
+                <button
+                  onClick={() => setIsSpectatorPaused(prev => !prev)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    background: isSpectatorPaused ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+                    color: isSpectatorPaused ? '#000' : 'var(--color-text-primary)',
+                    border: isSpectatorPaused ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {isSpectatorPaused ? '▶ Resume' : '⏸ Pause'}
+                </button>
+              )}
+
+              {/* Show place button when card can only be placed (only in player mode) */}
+              {!isSpectatorMode && isHumanTurn && selectedCard && canOnlyPlace && (
                 <button
                   onClick={executePlace}
                   style={{
@@ -584,8 +697,8 @@ function App() {
                 </button>
               )}
 
-              {/* Show confirm button for multi-card capture */}
-              {isHumanTurn && selectedTableCards.length > 1 && (
+              {/* Show confirm button for multi-card capture (only in player mode) */}
+              {!isSpectatorMode && isHumanTurn && selectedTableCards.length > 1 && (
                 <>
                   <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
                     Sum: {selectedSum}/{selectedCard?.value}

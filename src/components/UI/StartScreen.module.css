@@ -86,11 +86,38 @@
   font-size: 1rem;
 }
 
+.scoreOption.modeOption {
+  width: auto;
+  min-width: 100px;
+  padding: 0 var(--space-5);
+  font-size: 1.1rem;
+}
+
 .aiDescription {
   color: var(--color-text-secondary);
   font-size: 0.8rem;
   font-style: italic;
   margin: var(--space-2) 0 0;
+}
+
+.spectatorSetup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  justify-content: center;
+}
+
+.spectatorPlayer {
+  flex: 1;
+  text-align: center;
+}
+
+.vsLabel {
+  color: var(--color-accent);
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: var(--space-4) 0;
 }
 
 .startButton {

@@ -22,6 +22,8 @@ interface PlayerHandProps {
   selectedCardId?: string | null;
   /** Whether interactions are disabled */
   disabled?: boolean;
+  /** Force cards to show face up (for spectator mode) */
+  showFaceUp?: boolean;
 }
 
 export function PlayerHand({
@@ -33,6 +35,7 @@ export function PlayerHand({
   onCardDragEnd,
   selectedCardId,
   disabled = false,
+  showFaceUp = false,
 }: PlayerHandProps) {
   const handClasses = [
     styles.hand,
@@ -65,7 +68,7 @@ export function PlayerHand({
           >
             <Card
               card={card}
-              faceDown={!isHuman}
+              faceDown={!isHuman && !showFaceUp}
               onClick={isHuman && onCardClick ? () => onCardClick(card) : undefined}
               onDoubleClick={isHuman && onCardDoubleClick ? () => onCardDoubleClick(card) : undefined}
               selected={isHuman && selectedCardId === card.id}

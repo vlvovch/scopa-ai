@@ -19,6 +19,9 @@ export interface Card {
 /** Player identifier */
 export type PlayerId = 'human' | 'cpu';
 
+/** Game mode */
+export type GameMode = 'pvsCPU' | 'cpuVsCPU';
+
 /** Current phase of the game */
 export type GameStatus = 'idle' | 'dealing' | 'playing' | 'roundEnd' | 'gameEnd';
 
@@ -69,6 +72,8 @@ export interface GameState {
   };
   /** Whether the game is over (show round summary first, then game end) */
   isGameOver?: boolean;
+  /** Game mode (player vs CPU or spectator) */
+  gameMode?: GameMode;
 }
 
 // Step 2.3: Move Types

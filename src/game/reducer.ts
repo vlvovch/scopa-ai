@@ -1,6 +1,6 @@
 // Phase 6: Game State Management
 
-import type { Card, GameState, Move, PlayerId } from './types';
+import type { Card, GameState, GameMode, Move, PlayerId } from './types';
 import { DEFAULT_TARGET_SCORE, CARDS_PER_HAND, INITIAL_TABLE_CARDS } from './constants';
 import { createDeck, shuffleDeck, dealCards, isValidInitialDeal } from './deck';
 import { executeMove, isValidMove } from './rules';
@@ -9,7 +9,7 @@ import { calculateRoundScore } from './scoring';
 // Step 6.1: Game Reducer Actions
 
 export type GameAction =
-  | { type: 'START_GAME'; payload: { targetScore: number } }
+  | { type: 'START_GAME'; payload: { targetScore: number; gameMode?: GameMode } }
   | { type: 'DEAL_CARDS' }
   | { type: 'PLAY_CARD'; payload: { move: Move } }
   | { type: 'END_ROUND' }
@@ -102,9 +102,10 @@ function dealInitialCards(state: GameState): GameState {
 /**
  * Step 6.3: Handle START_GAME action.
  */
-function handleStartGame(_state: GameState, targetScore: number): GameState {
+function handleStartGame(_state: GameState, targetScore: number, gameMode: GameMode = 'pvsCPU'): GameState {
   // Reset to initial state with target score
   const freshState = createInitialState(targetScore);
+  freshState.gameMode = gameMode;
 
   // Randomly select first dealer
   const dealer: PlayerId = Math.random() < 0.5 ? 'human' : 'cpu';
@@ -286,7 +287,7 @@ function handleNextRound(state: GameState): GameState {
 export function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'START_GAME':
-      return handleStartGame(state, action.payload.targetScore);
+      return handleStartGame(state, action.payload.targetScore, action.payload.gameMode);
 
     case 'PLAY_CARD':
       return handlePlayCard(state, action.payload.move);
