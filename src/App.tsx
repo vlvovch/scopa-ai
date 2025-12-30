@@ -484,125 +484,125 @@ function App() {
         </div>
       )}
       <GameLayout
-      scoreBoard={
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-          <ScoreBoard
-            humanScore={state.scores.human}
-            cpuScore={state.scores.cpu}
-            roundNumber={state.roundNumber}
-            targetScore={state.targetScore}
-            currentPlayer={state.round.currentPlayer}
-          />
-          <GameControls
-            onNewGame={handleNewGame}
-            onOpenSettings={() => setShowSettings(true)}
-          />
-        </div>
-      }
-      cpuHand={
-        <PlayerHand
-          cards={
-            // Filter out card being animated so it disappears from hand immediately
-            cpuAnimatingCard
-              ? state.players.cpu.hand.filter(c => c.id !== cpuAnimatingCard.card.id)
-              : state.players.cpu.hand
-          }
-          isHuman={false}
-        />
-      }
-      cpuPile={
-        <CapturedPile
-          cards={state.players.cpu.captured}
-          scopaCount={state.players.cpu.scopaCount}
-          player="cpu"
-        />
-      }
-      tableCards={
-        <TableCards
-          ref={tableRef}
-          cards={state.round.table}
-          highlightedCardIds={validCaptureTargetIds}
-          selectedCardIds={selectedTableCards.map(c => c.id)}
-          onCardClick={handleTableCardClick}
-          selectable={isHumanTurn && selectedCard !== null}
-          isDragOver={isDragging}
-          deckCount={state.round.deck.length}
-          dealer={state.round.dealer}
-        />
-      }
-      humanPile={
-        <CapturedPile
-          cards={state.players.human.captured}
-          scopaCount={state.players.human.scopaCount}
-          player="human"
-        />
-      }
-      humanHand={
-        <PlayerHand
-          cards={state.players.human.hand}
-          isHuman={true}
-          onCardClick={handleHandCardClick}
-          onCardDoubleClick={handleHandCardDoubleClick}
-          onCardDragStart={handleCardDragStart}
-          onCardDragEnd={handleCardDragEnd}
-          selectedCardId={selectedCard?.id}
-          disabled={!isHumanTurn}
-        />
-      }
-      controls={
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px' }}>
-          <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
-            {isHumanTurn ? 'Your turn' : 'CPU thinking...'}
-          </span>
-
-          {/* Action buttons container - always takes up space */}
-          <div style={{ minHeight: '36px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Show place button when card can only be placed */}
-            {isHumanTurn && selectedCard && canOnlyPlace && (
-              <button
-                onClick={executePlace}
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '14px',
-                  background: 'var(--color-accent)',
-                  color: '#000',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                Place Card
-              </button>
-            )}
-
-            {/* Show confirm button for multi-card capture */}
-            {isHumanTurn && selectedTableCards.length > 1 && (
-              <>
-                <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-                  Sum: {selectedSum}/{selectedCard?.value}
-                </span>
-                {isValidCapture && (
-                  <button
-                    onClick={executeCapture}
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '14px',
-                      background: 'var(--color-accent)',
-                      color: '#000',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Capture
-                  </button>
-                )}
-              </>
-            )}
+        scoreBoard={
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+            <ScoreBoard
+              humanScore={state.scores.human}
+              cpuScore={state.scores.cpu}
+              roundNumber={state.roundNumber}
+              targetScore={state.targetScore}
+              currentPlayer={state.round.currentPlayer}
+            />
+            <GameControls
+              onNewGame={handleNewGame}
+              onOpenSettings={() => setShowSettings(true)}
+            />
           </div>
-        </div>
-      }
-    />
+        }
+        cpuHand={
+          <PlayerHand
+            cards={
+              // Filter out card being animated so it disappears from hand immediately
+              cpuAnimatingCard
+                ? state.players.cpu.hand.filter(c => c.id !== cpuAnimatingCard.card.id)
+                : state.players.cpu.hand
+            }
+            isHuman={false}
+          />
+        }
+        cpuPile={
+          <CapturedPile
+            cards={state.players.cpu.captured}
+            scopaCount={state.players.cpu.scopaCount}
+            player="cpu"
+          />
+        }
+        tableCards={
+          <TableCards
+            ref={tableRef}
+            cards={state.round.table}
+            highlightedCardIds={validCaptureTargetIds}
+            selectedCardIds={selectedTableCards.map(c => c.id)}
+            onCardClick={handleTableCardClick}
+            selectable={isHumanTurn && selectedCard !== null}
+            isDragOver={isDragging}
+            deckCount={state.round.deck.length}
+            dealer={state.round.dealer}
+          />
+        }
+        humanPile={
+          <CapturedPile
+            cards={state.players.human.captured}
+            scopaCount={state.players.human.scopaCount}
+            player="human"
+          />
+        }
+        humanHand={
+          <PlayerHand
+            cards={state.players.human.hand}
+            isHuman={true}
+            onCardClick={handleHandCardClick}
+            onCardDoubleClick={handleHandCardDoubleClick}
+            onCardDragStart={handleCardDragStart}
+            onCardDragEnd={handleCardDragEnd}
+            selectedCardId={selectedCard?.id}
+            disabled={!isHumanTurn}
+          />
+        }
+        controls={
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+              {isHumanTurn ? 'Your turn' : 'CPU thinking...'}
+            </span>
+
+            {/* Action buttons container - always takes up space */}
+            <div style={{ minHeight: '36px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {/* Show place button when card can only be placed */}
+              {isHumanTurn && selectedCard && canOnlyPlace && (
+                <button
+                  onClick={executePlace}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    background: 'var(--color-accent)',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Place Card
+                </button>
+              )}
+
+              {/* Show confirm button for multi-card capture */}
+              {isHumanTurn && selectedTableCards.length > 1 && (
+                <>
+                  <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                    Sum: {selectedSum}/{selectedCard?.value}
+                  </span>
+                  {isValidCapture && (
+                    <button
+                      onClick={executeCapture}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        background: 'var(--color-accent)',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Capture
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        }
+      />
     </>
   );
 }

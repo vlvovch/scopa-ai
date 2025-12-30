@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2024-12-29
+**Last Updated:** 2025-12-30
 
 ---
 
@@ -168,11 +168,11 @@ npm run test:watch # Run tests in watch mode
 | `Card` | `{ suit, value, id }` - id format: `'{suit}-{value}'` |
 | `PlayerId` | `'human' \| 'cpu'` |
 | `GameStatus` | `'idle' \| 'dealing' \| 'playing' \| 'roundEnd' \| 'gameEnd'` |
-| `PlayerState` | `{ hand, captured, scopaCount }` |
+| `PlayerState` | `{ hand, captured, scopaCount, scopaCaptures }` |
 | `RoundState` | `{ deck, table, currentPlayer, dealer, lastCapture }` |
 | `GameState` | Complete game state with players, scores, round info, lastRoundScores |
 | `Move` | `{ player, cardPlayed, capturedCards, isScopa }` |
-| `RoundScore` | `{ cards, coins, setteBello, prime, scopas, total }` |
+| `RoundScore` | `{ cards, coins, setteBello, prime, scopas, total, counts }` |
 
 ### constants.ts
 
@@ -294,8 +294,9 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | File | Purpose |
 |------|---------|
 | `Table/PlayerHand.tsx` | Displays player's hand cards (face up for human, face down for CPU), supports drag |
-| `Table/TableCards.tsx` | Displays cards on table with valid target highlighting, drop target for drag |
+| `Table/TableCards.tsx` | Displays cards on table with valid target highlighting, drop target for drag, dealer deck |
 | `Table/CapturedPile.tsx` | Shows captured cards stack with denari count, scopa markers, sette bello indicator |
+| `Table/DealerDeck.tsx` | Shows remaining deck with visual stack effect, card count badge |
 
 ### UI Components
 
@@ -303,10 +304,11 @@ All action dispatchers wrapped in `useCallback` for stable references.
 |------|---------|
 | `UI/ScoreBoard.tsx` | Shows scores, round number, target score, turn indicator |
 | `UI/StartScreen.tsx` | Initial screen with target score selection (11, 16, 21) |
-| `UI/RoundEndScreen.tsx` | Score breakdown by category with cumulative totals |
+| `UI/RoundEndScreen.tsx` | Score breakdown with Italian names, counts, captured card display with hover highlighting |
 | `UI/GameEndScreen.tsx` | Winner announcement with final scores and play again |
 | `UI/ScopaCelebration.tsx` | Animated "SCOPA!" overlay with sparkle effects |
-| `UI/CpuCardAnimation.tsx` | CPU card play animation (reveal, move, capture indicator) |
+| `UI/SetteBelloCelebration.tsx` | Animated gold coin celebration for 7 of coins capture |
+| `UI/CpuCardAnimation.tsx` | CPU card play animation (3D flip reveal, move, capture indicator) |
 | `UI/SettingsModal.tsx` | Settings panel with target score, animation speed options |
 | `UI/GameControls.tsx` | New game and settings icon buttons |
 
@@ -384,11 +386,20 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - 12 sparkle particles animate outward
 - Shows for 1.5 seconds then fades
 
-**CPU Card Animation (Phase 11):**
+**CPU Card Animation (Phase 11-12):**
 - CpuCardAnimation component shows CPU's card being played
-- Animation phases: reveal (flip from face-down), moving (to table), capturing (shows count)
-- Reveal uses rotateY transform for 3D flip effect
+- Animation phases: reveal (3D flip in place), moving (to table), capturing (shows count)
+- Uses CSS 3D transforms with backface-visibility for true flip effect
+- Two-sided card: CardBack on front, CardImage on back, rotateY to reveal
+- Card is removed from CPU hand immediately when animation starts
 - Capture shows "+N captured" indicator
+
+**Sette Bello Celebration (Phase 12):**
+- SetteBelloCelebration triggers when 7 of coins is captured
+- Gold coin icon with spinning animation
+- "SETTE BELLO!" text with golden glow
+- 8 gold coin particles animate outward
+- Shows for 1.5 seconds then fades
 
 ---
 
@@ -427,9 +438,36 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ---
 
+## Round End Screen (Phase 12 - Enhanced)
+
+**Score Display:**
+- Italian category names: Carte Lungo, Denari, Primiera, Scopa
+- Shows actual counts (card count, coin count, prime value) not just 1/0
+- Sette Bello shows checkmark (✓) or dash (-)
+- Winner of each category highlighted in gold
+
+**Captured Cards Display:**
+- Card columns on left (human) and right (CPU) sides
+- Cards shown in capture order (not sorted)
+- 6 cards per row in grid layout (46×69px mini cards)
+- Hover over category row to highlight relevant cards:
+  - Carte Lungo: all cards
+  - Denari: coins suit only
+  - Sette Bello: 7 of coins
+  - Primiera: best prime card from each suit
+  - Scopa: cards that formed scopa captures
+- Non-highlighted cards dimmed when hovering
+
+**Scopa Card Tracking:**
+- `PlayerState.scopaCaptures: Card[][]` stores cards from each scopa
+- Updated in `executeMove` when `isScopa` is true
+- Reset in `handleNextRound` when new round starts
+
+---
+
 ## MVP Complete!
 
-All 10 phases implemented:
+All 12 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -440,6 +478,8 @@ All 10 phases implemented:
 8. Game Flow Integration
 9. Animations
 10. Settings & Polish
+11. UI Enhancements (Drag & Drop, CPU Animation)
+12. UX Polish (Dealer Deck, Enhanced Round Summary, Sette Bello Celebration)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)

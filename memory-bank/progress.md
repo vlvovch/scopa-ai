@@ -1,6 +1,6 @@
 # Scopa WebApp - Development Progress
 
-**Last Updated:** 2024-12-29
+**Last Updated:** 2025-12-30
 
 ---
 
@@ -197,15 +197,42 @@
 
 ---
 
+## Phase 12: UX Polish and Enhancements
+
+- [x] Step 12.1: Add Dealer Deck Display - Completed 2025-12-30
+- [x] Step 12.2: Improve CPU Card Animation - Completed 2025-12-30
+- [x] Step 12.3: Fix Card Drag Responsiveness - Completed 2025-12-30
+- [x] Step 12.4: Enhanced Round Summary - Completed 2025-12-30
+- [x] Step 12.5: Add Sette Bello Celebration - Completed 2025-12-30
+- [x] Step 12.6: Add Selection Visual Feedback - Completed 2025-12-30
+- [x] Step 12.7: Scopa Card Tracking and Highlighting - Completed 2025-12-30
+
+**Notes:**
+- DealerDeck component shows remaining deck with visual stack, switches sides based on dealer
+- CPU animation uses 3D flip with two faces (CardBack front, CardImage back), proper reveal-then-move sequence
+- Fixed card drag getting stuck by removing y animation conflicts and setting dragElastic to 1
+- Round summary now shows Italian names (Carte Lungo, Denari, Primiera, Scopa) with actual counts
+- RoundScore extended with `counts` object for display values
+- Card columns on sides of round summary show captured cards in capture order
+- Hover over category row highlights relevant cards (all for Carte, coins for Denari, 7 of coins for Sette Bello, best prime cards per suit for Primiera, scopa captures for Scopa)
+- 6 cards per row in summary grid
+- Sette Bello celebration with gold coin theme and particle effects
+- 250ms delay before auto-executing single card captures for visual feedback
+- PlayerState extended with `scopaCaptures: Card[][]` to track which cards formed scopas
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics
 - Human vs random AI gameplay
-- Animated card interactions (including CPU card reveal animation)
-- Drag and drop card play for human player
-- Enhanced captured pile display with stats
-- Round and game end screens with scoring breakdown
+- Animated card interactions (3D flip CPU card reveal, drag and drop)
+- Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
+- Sette Bello celebration animation
+- Dealer deck display that switches sides
+- Round and game end screens with detailed scoring breakdown
 - Settings persistence
 - New game and settings controls
