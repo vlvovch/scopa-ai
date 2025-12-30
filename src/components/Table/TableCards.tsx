@@ -22,6 +22,8 @@ interface TableCardsProps {
   isDragOver?: boolean;
   /** Number of cards remaining in the deck */
   deckCount?: number;
+  /** Current dealer ('human' = deck on right, 'cpu' = deck on left) */
+  dealer?: 'human' | 'cpu';
 }
 
 export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function TableCards({
@@ -32,6 +34,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
   selectable = false,
   isDragOver = false,
   deckCount,
+  dealer = 'cpu',
 }, ref) {
   const highlightedSet = new Set(highlightedCardIds);
   const selectedSet = new Set(selectedCardIds);
@@ -41,10 +44,13 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
     isDragOver && styles.dropTarget,
   ].filter(Boolean).join(' ');
 
+  // Position deck based on dealer: cpu dealer = left side, human dealer = right side
+  const deckOnRight = dealer === 'human';
+
   return (
     <div className={styles.tableContainer}>
-      {/* Dealer deck on the left */}
-      {deckCount !== undefined && (
+      {/* Dealer deck on left (cpu is dealer) */}
+      {deckCount !== undefined && !deckOnRight && (
         <div className={styles.deckArea}>
           <DealerDeck cardsRemaining={deckCount} />
         </div>
@@ -98,6 +104,13 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
           )}
         </AnimatePresence>
       </div>
+
+      {/* Dealer deck on right (human is dealer) */}
+      {deckCount !== undefined && deckOnRight && (
+        <div className={styles.deckArea}>
+          <DealerDeck cardsRemaining={deckCount} />
+        </div>
+      )}
     </div>
   );
 });

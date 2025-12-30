@@ -70,17 +70,17 @@ export function Card({
     }
   };
 
-  // Animation variants with smoother springs
+  // Animation variants - don't animate y for draggable cards (conflicts with drag)
   const cardVariants = {
     initial: {
       opacity: 0,
       scale: 0.85,
-      y: -30,
+      y: draggable ? 0 : -30,
     },
     animate: {
       opacity: 1,
       scale: 1,
-      y: selected ? -8 : 0,
+      y: 0, // Don't use y here - it conflicts with drag
       transition: {
         type: 'spring',
         stiffness: 200,
@@ -92,7 +92,7 @@ export function Card({
     exit: {
       opacity: 0,
       scale: 0.85,
-      y: 15,
+      y: draggable ? 0 : 15,
       transition: {
         duration: 0.25,
         ease: 'easeOut',
@@ -103,18 +103,22 @@ export function Card({
   const dragProps = draggable ? {
     drag: true,
     dragSnapToOrigin: true,
-    dragElastic: 0.1,
+    dragElastic: 1, // Full elasticity - card follows cursor exactly
+    dragMomentum: false,
     onDragStart,
     onDragEnd,
-    whileDrag: { scale: 1.1, zIndex: 100, cursor: 'grabbing' },
+    whileDrag: { scale: 1.08, zIndex: 100 },
   } : {};
 
-  // Hover/tap animation config
-  const hoverAnimation = !disabled ? {
+  // Hover/tap animation config - don't use y for draggable cards
+  const hoverAnimation = !disabled && !draggable ? {
     y: selected ? -10 : -4,
     scale: 1.02,
     transition: { type: 'spring', stiffness: 400, damping: 25 }
-  } : undefined;
+  } : (!disabled && draggable ? {
+    scale: 1.03,
+    transition: { type: 'spring', stiffness: 400, damping: 25 }
+  } : undefined);
 
   const tapAnimation = !disabled ? {
     scale: 0.97,
@@ -152,7 +156,7 @@ export function Card({
       animate="animate"
       exit="exit"
       layoutId={layoutId}
-      whileHover={!draggable ? hoverAnimation : undefined}
+      whileHover={hoverAnimation}
       whileTap={tapAnimation}
       {...dragProps}
     >

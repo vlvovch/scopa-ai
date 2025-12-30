@@ -483,6 +483,7 @@ function App() {
           selectable={isHumanTurn && selectedCard !== null}
           isDragOver={isDragging}
           deckCount={state.round.deck.length}
+          dealer={state.round.dealer}
         />
       }
       humanPile={
