@@ -20,12 +20,13 @@ export function RoundEndScreen({
   cumulativeCpu,
   onNextRound,
 }: RoundEndScreenProps) {
+  // Categories with Italian names
   const categories = [
-    { name: 'Cards', human: humanScore.cards, cpu: cpuScore.cards },
-    { name: 'Coins', human: humanScore.coins, cpu: cpuScore.coins },
-    { name: 'Sette Bello', human: humanScore.setteBello, cpu: cpuScore.setteBello },
-    { name: 'Prime', human: humanScore.prime, cpu: cpuScore.prime },
-    { name: 'Scopas', human: humanScore.scopas, cpu: cpuScore.scopas },
+    { name: 'Carte', human: humanScore.cards, cpu: cpuScore.cards, isCheckmark: false },
+    { name: 'Denari', human: humanScore.coins, cpu: cpuScore.coins, isCheckmark: false },
+    { name: 'Sette Bello', human: humanScore.setteBello, cpu: cpuScore.setteBello, isCheckmark: true },
+    { name: 'Primiera', human: humanScore.prime, cpu: cpuScore.prime, isCheckmark: false },
+    { name: 'Scope', human: humanScore.scopas, cpu: cpuScore.scopas, isCheckmark: false },
   ];
 
   return (
@@ -46,10 +47,16 @@ export function RoundEndScreen({
               <tr key={cat.name}>
                 <td>{cat.name}</td>
                 <td className={cat.human > cat.cpu ? styles.winner : ''}>
-                  {cat.human > 0 ? cat.human : '-'}
+                  {cat.isCheckmark
+                    ? (cat.human > 0 ? '✓' : '-')
+                    : (cat.human > 0 ? cat.human : '-')
+                  }
                 </td>
                 <td className={cat.cpu > cat.human ? styles.winner : ''}>
-                  {cat.cpu > 0 ? cat.cpu : '-'}
+                  {cat.isCheckmark
+                    ? (cat.cpu > 0 ? '✓' : '-')
+                    : (cat.cpu > 0 ? cat.cpu : '-')
+                  }
                 </td>
               </tr>
             ))}

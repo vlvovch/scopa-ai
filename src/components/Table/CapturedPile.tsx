@@ -1,5 +1,6 @@
-// Step 7.6: CapturedPile Component
+// Step 7.6: CapturedPile Component with enhanced stats
 
+import { useMemo } from 'react';
 import type { Card as CardType, PlayerId } from '../../game/types';
 import { Card } from '../Card/Card';
 import styles from './CapturedPile.module.css';
@@ -16,6 +17,13 @@ interface CapturedPileProps {
 export function CapturedPile({ cards, scopaCount, player }: CapturedPileProps) {
   // Show top 3 cards of the pile for visual stacking effect
   const visibleCards = cards.slice(-3);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const denariCount = cards.filter(c => c.suit === 'coins').length;
+    const hasSetteBello = cards.some(c => c.suit === 'coins' && c.value === 7);
+    return { denariCount, hasSetteBello };
+  }, [cards]);
 
   return (
     <div className={styles.pile}>
@@ -44,15 +52,28 @@ export function CapturedPile({ cards, scopaCount, player }: CapturedPileProps) {
       <div className={styles.pileInfo}>
         <span className={styles.cardCount}>{cards.length} cards</span>
 
-        {scopaCount > 0 && (
-          <div className={styles.scopaMarkers}>
-            {Array(scopaCount)
-              .fill(null)
-              .map((_, i) => (
-                <div key={i} className={styles.scopaMarker} title="Scopa!" />
-              ))}
+        <div className={styles.statsRow}>
+          {/* Denari (coins) count */}
+          <div className={styles.stat} title="Denari (Coins)">
+            <span className={styles.coinIcon}>●</span>
+            <span>{stats.denariCount}</span>
           </div>
-        )}
+
+          {/* Scopa count */}
+          {scopaCount > 0 && (
+            <div className={styles.stat} title={`${scopaCount} Scopa${scopaCount > 1 ? 's' : ''}`}>
+              <span className={styles.scopaIcon}>★</span>
+              <span>{scopaCount}</span>
+            </div>
+          )}
+
+          {/* Sette Bello indicator */}
+          {stats.hasSetteBello && (
+            <div className={styles.setteBello} title="Sette Bello (7 of Coins)">
+              7●
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

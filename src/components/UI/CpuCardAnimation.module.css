@@ -1,0 +1,51 @@
+/* CPU Card Animation Styles */
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.cardContainer {
+  perspective: 1000px;
+}
+
+.flipContainer {
+  position: relative;
+  width: 70px;
+  height: 105px;
+  transform-style: preserve-3d;
+}
+
+.cardFace {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.cardFront {
+  transform: rotateY(180deg);
+}
+
+.captureIndicator {
+  position: absolute;
+  bottom: 25%;
+  background: linear-gradient(135deg, var(--color-accent), #B8860B);
+  color: #000;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}

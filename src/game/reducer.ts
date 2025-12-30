@@ -253,6 +253,8 @@ function handleNextRound(state: GameState): GameState {
       },
     },
     roundNumber: state.roundNumber + 1,
+    // Clear lastRoundScores so endRound() triggers on next round end
+    lastRoundScores: undefined,
   };
 
   // Deal new cards

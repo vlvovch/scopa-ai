@@ -12,7 +12,9 @@ import { GameEndScreen } from './components/UI/GameEndScreen';
 import { ScopaCelebration } from './components/UI/ScopaCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
+import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { getValidMoves } from './game/rules';
+import type { PanInfo } from 'framer-motion';
 import type { Card, PlayerId } from './game/types';
 
 function App() {
@@ -29,6 +31,17 @@ function App() {
 
   // Track previous scopa counts to detect new scopas
   const prevScopaCounts = useRef({ human: 0, cpu: 0 });
+
+  // Ref for table area (for drag-and-drop detection)
+  const tableRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // CPU animation state
+  const [cpuAnimatingCard, setCpuAnimatingCard] = useState<{
+    card: Card;
+    phase: 'reveal' | 'moving' | 'capturing' | 'done';
+    capturedCards: Card[];
+  } | null>(null);
 
   // Clear selection when turn changes or game state changes
   useEffect(() => {
@@ -107,6 +120,54 @@ function App() {
     }
   }, [state.round.currentPlayer, state.round.table, playCard]);
 
+  // Handle card drag start
+  const handleCardDragStart = useCallback((card: Card) => {
+    setIsDragging(true);
+    setSelectedCard(card);
+    setSelectedTableCards([]);
+  }, []);
+
+  // Handle card drag end - check if dropped on table
+  const handleCardDragEnd = useCallback((card: Card, info: PanInfo) => {
+    setIsDragging(false);
+
+    if (state.round.currentPlayer !== 'human') return;
+
+    // Check if dropped on table area
+    if (tableRef.current) {
+      const tableRect = tableRef.current.getBoundingClientRect();
+      const { x, y } = info.point;
+
+      const isOverTable =
+        x >= tableRect.left &&
+        x <= tableRect.right &&
+        y >= tableRect.top &&
+        y <= tableRect.bottom;
+
+      if (isOverTable) {
+        const moves = getValidMoves(card, state.round.table, 'human');
+
+        // If only one move option (place or single capture), execute it
+        if (moves.length === 1) {
+          playCard(moves[0]);
+          setSelectedCard(null);
+          setSelectedTableCards([]);
+        } else if (moves.length > 1) {
+          // Multiple capture options - check if all are single card captures with same value
+          const captureOptions = moves.filter(m => m.capturedCards.length > 0);
+
+          if (captureOptions.length === 1) {
+            // Only one capture option, execute it
+            playCard(captureOptions[0]);
+            setSelectedCard(null);
+            setSelectedTableCards([]);
+          }
+          // Otherwise keep card selected for user to pick capture targets
+        }
+      }
+    }
+  }, [state.round.currentPlayer, state.round.table, playCard]);
+
   // Handle clicking a table card
   const handleTableCardClick = useCallback((card: Card) => {
     if (!selectedCard) return;
@@ -160,9 +221,14 @@ function App() {
     }
   }, [selectedTableCards, isValidCapture, executeCapture]);
 
-  // CPU turn execution with delay
+  // CPU turn execution with animation phases
   useEffect(() => {
     if (state.round.currentPlayer !== 'cpu' || state.status !== 'playing') {
+      return;
+    }
+
+    // Don't start new animation if one is in progress
+    if (cpuAnimatingCard) {
       return;
     }
 
@@ -171,7 +237,7 @@ function App() {
       return;
     }
 
-    // Add delay for UX (500-1000ms)
+    // Add delay for UX (500-1000ms) before starting animation
     const delay = 500 + Math.random() * 500;
     const timeoutId = setTimeout(() => {
       // Select a random card from CPU's hand
@@ -185,12 +251,37 @@ function App() {
         // Select a random valid move (MVP random AI)
         const randomMoveIndex = Math.floor(Math.random() * cpuMoves.length);
         const moveToExecute = cpuMoves[randomMoveIndex];
-        playCard(moveToExecute);
+
+        // Start animation: reveal phase (flip card in place)
+        setCpuAnimatingCard({
+          card: cardToPlay,
+          phase: 'reveal',
+          capturedCards: moveToExecute.capturedCards,
+        });
+
+        // Phase 2: moving to table (after flip completes)
+        setTimeout(() => {
+          setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
+
+          // Phase 3: execute move and show capture (after card reaches table)
+          setTimeout(() => {
+            playCard(moveToExecute);
+            if (moveToExecute.capturedCards.length > 0) {
+              setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+              // Phase 4: done
+              setTimeout(() => {
+                setCpuAnimatingCard(null);
+              }, 400);
+            } else {
+              setCpuAnimatingCard(null);
+            }
+          }, 500);
+        }, 600);  // Give more time for flip animation
       }
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, cpuAnimatingCard]);
 
   // Calculate and store round scores when entering roundEnd status
   useEffect(() => {
@@ -278,6 +369,11 @@ function App() {
       <ScopaCelebration
         show={scopaCelebration.show}
         player={scopaCelebration.player}
+      />
+      <CpuCardAnimation
+        card={cpuAnimatingCard?.card ?? null}
+        phase={cpuAnimatingCard?.phase ?? null}
+        capturedCardIds={cpuAnimatingCard?.capturedCards.map(c => c.id) ?? []}
       />
       <SettingsModal
         isOpen={showSettings}
@@ -379,11 +475,14 @@ function App() {
       }
       tableCards={
         <TableCards
+          ref={tableRef}
           cards={state.round.table}
           highlightedCardIds={validCaptureTargetIds}
           selectedCardIds={selectedTableCards.map(c => c.id)}
           onCardClick={handleTableCardClick}
           selectable={isHumanTurn && selectedCard !== null}
+          isDragOver={isDragging}
+          deckCount={state.round.deck.length}
         />
       }
       humanPile={
@@ -399,6 +498,8 @@ function App() {
           isHuman={true}
           onCardClick={handleHandCardClick}
           onCardDoubleClick={handleHandCardDoubleClick}
+          onCardDragStart={handleCardDragStart}
+          onCardDragEnd={handleCardDragEnd}
           selectedCardId={selectedCard?.id}
           disabled={!isHumanTurn}
         />

@@ -1,6 +1,6 @@
 // Card Component with Neapolitan-style SVG graphics and animations
 
-import { motion } from 'framer-motion';
+import { motion, PanInfo } from 'framer-motion';
 import type { Card as CardType } from '../../game/types';
 import { CardImage, CardBack } from './CardImage';
 import styles from './Card.module.css';
@@ -24,6 +24,12 @@ interface CardProps {
   animationDelay?: number;
   /** Layout ID for shared element transitions */
   layoutId?: string;
+  /** Whether the card is draggable */
+  draggable?: boolean;
+  /** Called when drag starts */
+  onDragStart?: () => void;
+  /** Called when drag ends with position info */
+  onDragEnd?: (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => void;
 }
 
 export function Card({
@@ -36,6 +42,9 @@ export function Card({
   disabled = false,
   animationDelay = 0,
   layoutId,
+  draggable = false,
+  onDragStart,
+  onDragEnd,
 }: CardProps) {
   const showBack = faceDown || card === null;
 
@@ -44,6 +53,7 @@ export function Card({
     selected && styles.selected,
     highlighted && styles.highlighted,
     disabled && styles.disabled,
+    draggable && styles.draggable,
   ]
     .filter(Boolean)
     .join(' ');
@@ -60,33 +70,56 @@ export function Card({
     }
   };
 
-  // Animation variants
+  // Animation variants with smoother springs
   const cardVariants = {
     initial: {
       opacity: 0,
-      scale: 0.8,
-      y: -50,
+      scale: 0.85,
+      y: -30,
     },
     animate: {
       opacity: 1,
       scale: 1,
-      y: 0,
+      y: selected ? -8 : 0,
       transition: {
         type: 'spring',
-        stiffness: 300,
-        damping: 25,
+        stiffness: 200,
+        damping: 22,
+        mass: 0.8,
         delay: animationDelay,
       },
     },
     exit: {
       opacity: 0,
-      scale: 0.8,
-      y: 20,
+      scale: 0.85,
+      y: 15,
       transition: {
-        duration: 0.2,
+        duration: 0.25,
+        ease: 'easeOut',
       },
     },
   };
+
+  const dragProps = draggable ? {
+    drag: true,
+    dragSnapToOrigin: true,
+    dragElastic: 0.1,
+    onDragStart,
+    onDragEnd,
+    whileDrag: { scale: 1.1, zIndex: 100, cursor: 'grabbing' },
+  } : {};
+
+  // Hover/tap animation config
+  const hoverAnimation = !disabled ? {
+    y: selected ? -10 : -4,
+    scale: 1.02,
+    transition: { type: 'spring', stiffness: 400, damping: 25 }
+  } : undefined;
+
+  const tapAnimation = !disabled ? {
+    scale: 0.97,
+    transition: { type: 'spring', stiffness: 500, damping: 30 }
+  } : undefined;
 
   // Card Back (Neapolitan style)
   if (showBack) {
@@ -100,8 +133,8 @@ export function Card({
         animate="animate"
         exit="exit"
         layoutId={layoutId}
-        whileHover={!disabled ? { scale: 1.02 } : undefined}
-        whileTap={!disabled ? { scale: 0.98 } : undefined}
+        whileHover={hoverAnimation}
+        whileTap={tapAnimation}
       >
         <CardBack />
       </motion.div>
@@ -119,8 +152,9 @@ export function Card({
       animate="animate"
       exit="exit"
       layoutId={layoutId}
-      whileHover={!disabled ? { scale: 1.02 } : undefined}
-      whileTap={!disabled ? { scale: 0.98 } : undefined}
+      whileHover={!draggable ? hoverAnimation : undefined}
+      whileTap={tapAnimation}
+      {...dragProps}
     >
       <CardImage card={card} />
     </motion.div>

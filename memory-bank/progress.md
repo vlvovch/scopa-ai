@@ -182,13 +182,30 @@
 
 ---
 
+## Phase 11: UI Enhancements
+
+- [x] Step 11.1: Enhanced Captured Pile Display - Completed 2024-12-29
+- [x] Step 11.2: Add Drag and Drop for Human Player - Completed 2024-12-29
+- [x] Step 11.3: Add CPU Card Play Animation - Completed 2024-12-29
+
+**Notes:**
+- CapturedPile now shows: card count, denari (coins) count, scopa count, sette bello indicator
+- Human cards are draggable to table for playing (drag and drop as alternative to click)
+- CPU turn shows animated card reveal (flip from face-down), moves to table, capture indicator
+- Table area highlights when dragging a card
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics
 - Human vs random AI gameplay
-- Animated card interactions
+- Animated card interactions (including CPU card reveal animation)
+- Drag and drop card play for human player
+- Enhanced captured pile display with stats
 - Round and game end screens with scoring breakdown
 - Settings persistence
 - New game and settings controls

@@ -1,5 +1,16 @@
 /* TableCards Component Styles */
 
+.tableContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.deckArea {
+  flex-shrink: 0;
+}
+
 .tableArea {
   display: flex;
   flex-wrap: wrap;
@@ -8,6 +19,8 @@
   gap: var(--space-3);
   padding: var(--space-6);
   min-height: 140px;
+  min-width: 280px;
+  flex: 1;
   background: rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   border: 2px dashed rgba(255, 255, 255, 0.1);
@@ -21,4 +34,11 @@
   color: var(--color-text-secondary);
   font-style: italic;
   font-size: 14px;
+}
+
+/* Drop target state when card is being dragged */
+.dropTarget {
+  border-color: var(--color-accent);
+  background: rgba(212, 175, 55, 0.1);
+  box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.15);
 }

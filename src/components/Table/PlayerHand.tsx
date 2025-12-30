@@ -1,6 +1,6 @@
 // Step 7.4: PlayerHand Component with animations
 
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, PanInfo } from 'framer-motion';
 import type { Card as CardType } from '../../game/types';
 import { Card } from '../Card/Card';
 import styles from './PlayerHand.module.css';
@@ -14,6 +14,10 @@ interface PlayerHandProps {
   onCardClick?: (card: CardType) => void;
   /** Called when a card is double-clicked (human only, for placing) */
   onCardDoubleClick?: (card: CardType) => void;
+  /** Called when a card drag starts (human only) */
+  onCardDragStart?: (card: CardType) => void;
+  /** Called when a card drag ends (human only) */
+  onCardDragEnd?: (card: CardType, info: PanInfo) => void;
   /** Currently selected card ID */
   selectedCardId?: string | null;
   /** Whether interactions are disabled */
@@ -25,6 +29,8 @@ export function PlayerHand({
   isHuman,
   onCardClick,
   onCardDoubleClick,
+  onCardDragStart,
+  onCardDragEnd,
   selectedCardId,
   disabled = false,
 }: PlayerHandProps) {
@@ -41,14 +47,20 @@ export function PlayerHand({
             key={card.id}
             className={styles.handCard}
             layout
-            initial={{ opacity: 0, scale: 0.8, y: isHuman ? 50 : -50 }}
+            initial={{ opacity: 0, scale: 0.85, y: isHuman ? 40 : -40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: isHuman ? -30 : 30 }}
+            exit={{
+              opacity: 0,
+              scale: 0.85,
+              y: isHuman ? -20 : 20,
+              transition: { duration: 0.25, ease: 'easeOut' }
+            }}
             transition={{
               type: 'spring',
-              stiffness: 400,
-              damping: 30,
-              delay: index * 0.1,
+              stiffness: 220,
+              damping: 24,
+              mass: 0.8,
+              delay: index * 0.08,
             }}
           >
             <Card
@@ -59,6 +71,9 @@ export function PlayerHand({
               selected={isHuman && selectedCardId === card.id}
               disabled={disabled || !isHuman}
               layoutId={`hand-${card.id}`}
+              draggable={isHuman && !disabled}
+              onDragStart={isHuman && onCardDragStart ? () => onCardDragStart(card) : undefined}
+              onDragEnd={isHuman && onCardDragEnd ? (_e, info: PanInfo) => onCardDragEnd(card, info) : undefined}
             />
           </motion.div>
         ))}

@@ -293,9 +293,9 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 | File | Purpose |
 |------|---------|
-| `Table/PlayerHand.tsx` | Displays player's hand cards (face up for human, face down for CPU) |
-| `Table/TableCards.tsx` | Displays cards on table with valid target highlighting |
-| `Table/CapturedPile.tsx` | Shows captured cards stack with scopa count markers |
+| `Table/PlayerHand.tsx` | Displays player's hand cards (face up for human, face down for CPU), supports drag |
+| `Table/TableCards.tsx` | Displays cards on table with valid target highlighting, drop target for drag |
+| `Table/CapturedPile.tsx` | Shows captured cards stack with denari count, scopa markers, sette bello indicator |
 
 ### UI Components
 
@@ -306,6 +306,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `UI/RoundEndScreen.tsx` | Score breakdown by category with cumulative totals |
 | `UI/GameEndScreen.tsx` | Winner announcement with final scores and play again |
 | `UI/ScopaCelebration.tsx` | Animated "SCOPA!" overlay with sparkle effects |
+| `UI/CpuCardAnimation.tsx` | CPU card play animation (reveal, move, capture indicator) |
 | `UI/SettingsModal.tsx` | Settings panel with target score, animation speed options |
 | `UI/GameControls.tsx` | New game and settings icon buttons |
 
@@ -382,6 +383,28 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - "SCOPA!" text with pulsing glow effect
 - 12 sparkle particles animate outward
 - Shows for 1.5 seconds then fades
+
+**CPU Card Animation (Phase 11):**
+- CpuCardAnimation component shows CPU's card being played
+- Animation phases: reveal (flip from face-down), moving (to table), capturing (shows count)
+- Reveal uses rotateY transform for 3D flip effect
+- Capture shows "+N captured" indicator
+
+---
+
+## Drag and Drop (Phase 11 - Completed)
+
+**Human Card Drag:**
+- Cards in human hand are draggable using Framer Motion's drag
+- Drag uses `dragSnapToOrigin: true` to return card if not dropped on valid target
+- `isDragging` state highlights table area as drop target
+- On drop over table: auto-plays if single valid move, otherwise selects card for target picking
+
+**Implementation:**
+- Card component accepts `draggable`, `onDragStart`, `onDragEnd` props
+- PlayerHand passes drag handlers to human cards
+- TableCards uses `forwardRef` to expose DOM element for drop detection
+- App.tsx checks drop position against table bounding rect
 
 ---
 
