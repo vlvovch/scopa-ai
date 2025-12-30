@@ -1,7 +1,12 @@
-// Step 8.4: RoundEndScreen Component
+// Step 8.4: RoundEndScreen Component with card display and hover highlighting
 
-import type { RoundScore } from '../../game/types';
+import { useState, useMemo } from 'react';
+import type { Card, RoundScore, Suit } from '../../game/types';
+import { PRIME_VALUES, SUITS } from '../../game/constants';
+import { CardImage } from '../Card/CardImage';
 import styles from './RoundEndScreen.module.css';
+
+type HoverCategory = 'carte' | 'denari' | 'settebello' | 'primiera' | 'scopa' | null;
 
 interface RoundEndScreenProps {
   roundNumber: number;
@@ -9,7 +14,45 @@ interface RoundEndScreenProps {
   cpuScore: RoundScore;
   cumulativeHuman: number;
   cumulativeCpu: number;
+  humanCaptured: Card[];
+  cpuCaptured: Card[];
   onNextRound: () => void;
+}
+
+// Get the best prime card for each suit
+function getPrimeCards(captured: Card[]): Card[] {
+  const primeCards: Card[] = [];
+  for (const suit of SUITS) {
+    const suitCards = captured.filter(c => c.suit === suit);
+    if (suitCards.length > 0) {
+      // Find card with highest prime value
+      const bestCard = suitCards.reduce((best, card) =>
+        PRIME_VALUES[card.value] > PRIME_VALUES[best.value] ? card : best
+      );
+      primeCards.push(bestCard);
+    }
+  }
+  return primeCards;
+}
+
+// Check if a card should be highlighted based on current hover
+function shouldHighlight(card: Card, category: HoverCategory): boolean {
+  if (!category) return false;
+
+  switch (category) {
+    case 'carte':
+      return true; // All cards count for carte lungo
+    case 'denari':
+      return card.suit === 'coins';
+    case 'settebello':
+      return card.suit === 'coins' && card.value === 7;
+    case 'primiera':
+      return false; // Handled separately with getPrimeCards
+    case 'scopa':
+      return false; // Scopas aren't tied to specific cards
+    default:
+      return false;
+  }
 }
 
 export function RoundEndScreen({
@@ -18,14 +61,55 @@ export function RoundEndScreen({
   cpuScore,
   cumulativeHuman,
   cumulativeCpu,
+  humanCaptured,
+  cpuCaptured,
   onNextRound,
 }: RoundEndScreenProps) {
+  const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
+
   // Helper to format primiera score
   const formatPrime = (prime: number | null) => prime !== null ? prime.toString() : '-';
 
+  // Get prime cards for each player
+  const humanPrimeCards = useMemo(() => getPrimeCards(humanCaptured), [humanCaptured]);
+  const cpuPrimeCards = useMemo(() => getPrimeCards(cpuCaptured), [cpuCaptured]);
+  const humanPrimeIds = useMemo(() => new Set(humanPrimeCards.map(c => c.id)), [humanPrimeCards]);
+  const cpuPrimeIds = useMemo(() => new Set(cpuPrimeCards.map(c => c.id)), [cpuPrimeCards]);
+
+  // Sort cards by suit then value for display
+  const sortCards = (cards: Card[]) => {
+    const suitOrder: Record<Suit, number> = { coins: 0, cups: 1, swords: 2, clubs: 3 };
+    return [...cards].sort((a, b) => {
+      if (suitOrder[a.suit] !== suitOrder[b.suit]) {
+        return suitOrder[a.suit] - suitOrder[b.suit];
+      }
+      return a.value - b.value;
+    });
+  };
+
+  const sortedHumanCards = useMemo(() => sortCards(humanCaptured), [humanCaptured]);
+  const sortedCpuCards = useMemo(() => sortCards(cpuCaptured), [cpuCaptured]);
+
+  // Check if card is highlighted
+  const isHighlighted = (card: Card, isHuman: boolean) => {
+    if (!hoveredCategory) return false;
+    if (hoveredCategory === 'primiera') {
+      return isHuman ? humanPrimeIds.has(card.id) : cpuPrimeIds.has(card.id);
+    }
+    return shouldHighlight(card, hoveredCategory);
+  };
+
   // Categories with counts and winner highlighting
-  const categories = [
+  const categories: Array<{
+    id: HoverCategory;
+    name: string;
+    humanCount: string | number;
+    cpuCount: string | number;
+    humanWon: boolean;
+    cpuWon: boolean;
+  }> = [
     {
+      id: 'carte',
       name: 'Carte Lungo',
       humanCount: humanScore.counts.cards,
       cpuCount: cpuScore.counts.cards,
@@ -33,6 +117,7 @@ export function RoundEndScreen({
       cpuWon: cpuScore.cards > 0,
     },
     {
+      id: 'denari',
       name: 'Denari',
       humanCount: humanScore.counts.coins,
       cpuCount: cpuScore.counts.coins,
@@ -40,14 +125,15 @@ export function RoundEndScreen({
       cpuWon: cpuScore.coins > 0,
     },
     {
+      id: 'settebello',
       name: 'Sette Bello',
       humanCount: humanScore.setteBello > 0 ? '✓' : '-',
       cpuCount: cpuScore.setteBello > 0 ? '✓' : '-',
       humanWon: humanScore.setteBello > 0,
       cpuWon: cpuScore.setteBello > 0,
-      isCheckmark: true,
     },
     {
+      id: 'primiera',
       name: 'Primiera',
       humanCount: formatPrime(humanScore.counts.prime),
       cpuCount: formatPrime(cpuScore.counts.prime),
@@ -55,6 +141,7 @@ export function RoundEndScreen({
       cpuWon: cpuScore.prime > 0,
     },
     {
+      id: 'scopa',
       name: 'Scopa',
       humanCount: humanScore.scopas || '-',
       cpuCount: cpuScore.scopas || '-',
@@ -65,6 +152,22 @@ export function RoundEndScreen({
 
   return (
     <div className={styles.overlay}>
+      {/* Human cards on the left */}
+      <div className={styles.cardColumn}>
+        <div className={styles.cardColumnLabel}>Your Cards</div>
+        <div className={styles.cardGrid}>
+          {sortedHumanCards.map(card => (
+            <div
+              key={card.id}
+              className={`${styles.miniCard} ${isHighlighted(card, true) ? styles.highlighted : ''} ${hoveredCategory && !isHighlighted(card, true) ? styles.dimmed : ''}`}
+            >
+              <CardImage card={card} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Score modal in center */}
       <div className={styles.modal}>
         <h2 className={styles.title}>Round {roundNumber} Complete</h2>
 
@@ -78,7 +181,12 @@ export function RoundEndScreen({
           </thead>
           <tbody>
             {categories.map((cat) => (
-              <tr key={cat.name}>
+              <tr
+                key={cat.name}
+                className={`${styles.categoryRow} ${hoveredCategory === cat.id ? styles.hoveredRow : ''}`}
+                onMouseEnter={() => setHoveredCategory(cat.id)}
+                onMouseLeave={() => setHoveredCategory(null)}
+              >
                 <td>{cat.name}</td>
                 <td className={cat.humanWon ? styles.winner : ''}>
                   {cat.humanCount}
@@ -115,6 +223,21 @@ export function RoundEndScreen({
         <button className={styles.nextButton} onClick={onNextRound}>
           Next Round
         </button>
+      </div>
+
+      {/* CPU cards on the right */}
+      <div className={styles.cardColumn}>
+        <div className={styles.cardColumnLabel}>CPU Cards</div>
+        <div className={styles.cardGrid}>
+          {sortedCpuCards.map(card => (
+            <div
+              key={card.id}
+              className={`${styles.miniCard} ${isHighlighted(card, false) ? styles.highlighted : ''} ${hoveredCategory && !isHighlighted(card, false) ? styles.dimmed : ''}`}
+            >
+              <CardImage card={card} />
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -241,11 +241,14 @@ function App() {
     setSelectedCard(null);
   }, [selectedCard, canOnlyPlace, validMoves, playCard]);
 
-  // Auto-execute single card capture when table card is clicked
+  // Auto-execute single card capture when table card is clicked (with brief delay for visual feedback)
   useEffect(() => {
     if (selectedTableCards.length === 1 && isValidCapture) {
-      // Single card capture - auto-execute
-      executeCapture();
+      // Single card capture - auto-execute after a brief delay to show selection
+      const timeoutId = setTimeout(() => {
+        executeCapture();
+      }, 250);
+      return () => clearTimeout(timeoutId);
     }
   }, [selectedTableCards, isValidCapture, executeCapture]);
 
@@ -373,6 +376,8 @@ function App() {
         cpuScore={state.lastRoundScores.cpu}
         cumulativeHuman={state.scores.human}
         cumulativeCpu={state.scores.cpu}
+        humanCaptured={state.players.human.captured}
+        cpuCaptured={state.players.cpu.captured}
         onNextRound={nextRound}
       />
     );
