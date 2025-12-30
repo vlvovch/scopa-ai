@@ -260,7 +260,7 @@ describe('Scoring System', () => {
             card('clubs', 1), card('clubs', 2), card('clubs', 3),
             card('clubs', 6), card('clubs', 7),
           ],
-          scopaCount: 2,
+          scopaCount: 2, scopaCaptures: [],
         },
         cpu: {
           hand: [],
@@ -273,7 +273,7 @@ describe('Scoring System', () => {
             card('clubs', 4), card('clubs', 5), card('clubs', 8),
             card('clubs', 9), card('clubs', 10),
           ],
-          scopaCount: 1,
+          scopaCount: 1, scopaCaptures: [],
         },
       },
       scores: { human: 5, cpu: 3 },

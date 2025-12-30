@@ -1,7 +1,7 @@
 // Step 8.4: RoundEndScreen Component with card display and hover highlighting
 
 import { useState, useMemo } from 'react';
-import type { Card, RoundScore, Suit } from '../../game/types';
+import type { Card, RoundScore } from '../../game/types';
 import { PRIME_VALUES, SUITS } from '../../game/constants';
 import { CardImage } from '../Card/CardImage';
 import styles from './RoundEndScreen.module.css';
@@ -16,6 +16,8 @@ interface RoundEndScreenProps {
   cumulativeCpu: number;
   humanCaptured: Card[];
   cpuCaptured: Card[];
+  humanScopaCaptures: Card[][];
+  cpuScopaCaptures: Card[][];
   onNextRound: () => void;
 }
 
@@ -36,7 +38,7 @@ function getPrimeCards(captured: Card[]): Card[] {
 }
 
 // Check if a card should be highlighted based on current hover
-function shouldHighlight(card: Card, category: HoverCategory): boolean {
+function shouldHighlight(card: Card, category: HoverCategory, scopaCardIds: Set<string>): boolean {
   if (!category) return false;
 
   switch (category) {
@@ -49,7 +51,7 @@ function shouldHighlight(card: Card, category: HoverCategory): boolean {
     case 'primiera':
       return false; // Handled separately with getPrimeCards
     case 'scopa':
-      return false; // Scopas aren't tied to specific cards
+      return scopaCardIds.has(card.id); // Highlight cards that formed scopas
     default:
       return false;
   }
@@ -63,6 +65,8 @@ export function RoundEndScreen({
   cumulativeCpu,
   humanCaptured,
   cpuCaptured,
+  humanScopaCaptures,
+  cpuScopaCaptures,
   onNextRound,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
@@ -76,19 +80,15 @@ export function RoundEndScreen({
   const humanPrimeIds = useMemo(() => new Set(humanPrimeCards.map(c => c.id)), [humanPrimeCards]);
   const cpuPrimeIds = useMemo(() => new Set(cpuPrimeCards.map(c => c.id)), [cpuPrimeCards]);
 
-  // Sort cards by suit then value for display
-  const sortCards = (cards: Card[]) => {
-    const suitOrder: Record<Suit, number> = { coins: 0, cups: 1, swords: 2, clubs: 3 };
-    return [...cards].sort((a, b) => {
-      if (suitOrder[a.suit] !== suitOrder[b.suit]) {
-        return suitOrder[a.suit] - suitOrder[b.suit];
-      }
-      return a.value - b.value;
-    });
-  };
-
-  const sortedHumanCards = useMemo(() => sortCards(humanCaptured), [humanCaptured]);
-  const sortedCpuCards = useMemo(() => sortCards(cpuCaptured), [cpuCaptured]);
+  // Get scopa card IDs for each player
+  const humanScopaIds = useMemo(
+    () => new Set(humanScopaCaptures.flat().map(c => c.id)),
+    [humanScopaCaptures]
+  );
+  const cpuScopaIds = useMemo(
+    () => new Set(cpuScopaCaptures.flat().map(c => c.id)),
+    [cpuScopaCaptures]
+  );
 
   // Check if card is highlighted
   const isHighlighted = (card: Card, isHuman: boolean) => {
@@ -96,7 +96,8 @@ export function RoundEndScreen({
     if (hoveredCategory === 'primiera') {
       return isHuman ? humanPrimeIds.has(card.id) : cpuPrimeIds.has(card.id);
     }
-    return shouldHighlight(card, hoveredCategory);
+    const scopaIds = isHuman ? humanScopaIds : cpuScopaIds;
+    return shouldHighlight(card, hoveredCategory, scopaIds);
   };
 
   // Categories with counts and winner highlighting
@@ -156,7 +157,7 @@ export function RoundEndScreen({
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel}>Your Cards</div>
         <div className={styles.cardGrid}>
-          {sortedHumanCards.map(card => (
+          {humanCaptured.map(card => (
             <div
               key={card.id}
               className={`${styles.miniCard} ${isHighlighted(card, true) ? styles.highlighted : ''} ${hoveredCategory && !isHighlighted(card, true) ? styles.dimmed : ''}`}
@@ -229,7 +230,7 @@ export function RoundEndScreen({
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel}>CPU Cards</div>
         <div className={styles.cardGrid}>
-          {sortedCpuCards.map(card => (
+          {cpuCaptured.map(card => (
             <div
               key={card.id}
               className={`${styles.miniCard} ${isHighlighted(card, false) ? styles.highlighted : ''} ${hoveredCategory && !isHighlighted(card, false) ? styles.dimmed : ''}`}

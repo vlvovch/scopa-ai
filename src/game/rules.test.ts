@@ -311,12 +311,12 @@ describe('Game Rules Engine', () => {
         human: {
           hand: [card('coins', 7), card('coins', 5), card('coins', 1)],
           captured: [],
-          scopaCount: 0,
+          scopaCount: 0, scopaCaptures: [],
         },
         cpu: {
           hand: [card('swords', 4), card('cups', 6), card('clubs', 9)],
           captured: [],
-          scopaCount: 0,
+          scopaCount: 0, scopaCaptures: [],
         },
       },
       scores: { human: 0, cpu: 0 },

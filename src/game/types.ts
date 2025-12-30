@@ -30,6 +30,8 @@ export interface PlayerState {
   captured: Card[];
   /** Number of scopas scored this round */
   scopaCount: number;
+  /** Cards captured in each scopa (for highlighting) */
+  scopaCaptures: Card[][];
 }
 
 /** State of the current round */

@@ -34,11 +34,13 @@ export function createInitialState(targetScore: number = DEFAULT_TARGET_SCORE): 
         hand: [],
         captured: [],
         scopaCount: 0,
+        scopaCaptures: [],
       },
       cpu: {
         hand: [],
         captured: [],
         scopaCount: 0,
+        scopaCaptures: [],
       },
     },
     scores: {
@@ -245,11 +247,13 @@ function handleNextRound(state: GameState): GameState {
         hand: [],
         captured: [],
         scopaCount: 0,
+        scopaCaptures: [],
       },
       cpu: {
         hand: [],
         captured: [],
         scopaCount: 0,
+        scopaCaptures: [],
       },
     },
     roundNumber: state.roundNumber + 1,

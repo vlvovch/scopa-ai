@@ -142,12 +142,12 @@ describe('Game State Management', () => {
         human: {
           hand: [card('coins', 7), card('coins', 5), card('coins', 1)],
           captured: [],
-          scopaCount: 0,
+          scopaCount: 0, scopaCaptures: [],
         },
         cpu: {
           hand: [card('swords', 4), card('cups', 6), card('clubs', 9)],
           captured: [],
-          scopaCount: 0,
+          scopaCount: 0, scopaCaptures: [],
         },
       },
       scores: { human: 0, cpu: 0 },
@@ -250,12 +250,12 @@ describe('Game State Management', () => {
           human: {
             hand: [card('coins', 5)], // Last card
             captured: [],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
           cpu: {
             hand: [], // Already empty
             captured: [],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
         },
         scores: { human: 0, cpu: 0 },
@@ -293,12 +293,12 @@ describe('Game State Management', () => {
           human: {
             hand: [card('coins', 5)], // Last card
             captured: [],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
           cpu: {
             hand: [],
             captured: [],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
         },
         scores: { human: 0, cpu: 0 },
@@ -335,12 +335,12 @@ describe('Game State Management', () => {
           human: {
             hand: [],
             captured: [card('coins', 7)],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
           cpu: {
             hand: [],
             captured: [],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
         },
         scores: { human: 0, cpu: 0 },
@@ -374,7 +374,7 @@ describe('Game State Management', () => {
               ...Array(10).fill(null).map((_, i) => card('cups', (i + 1) as Card['value'])),
               card('swords', 7), card('clubs', 7),
             ],
-            scopaCount: 2,
+            scopaCount: 2, scopaCaptures: [],
           },
           cpu: {
             hand: [],
@@ -382,7 +382,7 @@ describe('Game State Management', () => {
               ...Array(8).fill(null).map((_, i) => card('swords', (i + 1) as Card['value'])),
               ...Array(8).fill(null).map((_, i) => card('clubs', (i + 1) as Card['value'])),
             ],
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
         },
         scores: { human: 3, cpu: 2 },
@@ -415,7 +415,7 @@ describe('Game State Management', () => {
               const suits: Card['suit'][] = ['coins', 'cups', 'swords', 'clubs'];
               return card(suits[i % 4], ((i % 10) + 1) as Card['value']);
             }),
-            scopaCount: 3,
+            scopaCount: 3, scopaCaptures: [],
           },
           cpu: {
             hand: [],
@@ -423,7 +423,7 @@ describe('Game State Management', () => {
               const suits: Card['suit'][] = ['coins', 'cups', 'swords', 'clubs'];
               return card(suits[i % 4], ((i % 10) + 1) as Card['value']);
             }),
-            scopaCount: 0,
+            scopaCount: 0, scopaCaptures: [],
           },
         },
         scores: { human: 9, cpu: 5 },
@@ -450,8 +450,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 0 },
-          cpu: { hand: [], captured: [], scopaCount: 0 },
+          human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
@@ -475,8 +475,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 0 },
-          cpu: { hand: [], captured: [], scopaCount: 0 },
+          human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
@@ -501,8 +501,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 0 },
-          cpu: { hand: [], captured: [], scopaCount: 0 },
+          human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
@@ -530,8 +530,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 0 },
-          cpu: { hand: [], captured: [], scopaCount: 0 },
+          human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 2,
@@ -555,8 +555,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 0 },
-          cpu: { hand: [], captured: [], scopaCount: 0 },
+          human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
@@ -580,8 +580,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 3 },
-          cpu: { hand: [], captured: [], scopaCount: 1 },
+          human: { hand: [], captured: [], scopaCount: 3, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 1, scopaCaptures: [] },
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
@@ -608,8 +608,8 @@ describe('Game State Management', () => {
           lastCapture: 'human',
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 2 },
-          cpu: { hand: [], captured: [], scopaCount: 1 },
+          human: { hand: [], captured: [], scopaCount: 2, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 1, scopaCaptures: [] },
         },
         scores: { human: 11, cpu: 8 },
         roundNumber: 4,

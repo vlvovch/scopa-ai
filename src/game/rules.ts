@@ -189,8 +189,11 @@ export function executeMove(state: GameState, move: Move): GameState {
     newCaptured = playerState.captured;
   }
 
-  // Update scopa count if applicable
+  // Update scopa count and track scopa captures if applicable
   const newScopaCount = isScopa ? playerState.scopaCount + 1 : playerState.scopaCount;
+  const newScopaCaptures = isScopa
+    ? [...playerState.scopaCaptures, [cardPlayed, ...capturedCards]]
+    : playerState.scopaCaptures;
 
   // Switch to other player
   const nextPlayer: PlayerId = player === 'human' ? 'cpu' : 'human';
@@ -211,6 +214,7 @@ export function executeMove(state: GameState, move: Move): GameState {
         hand: newHand,
         captured: newCaptured,
         scopaCount: newScopaCount,
+        scopaCaptures: newScopaCaptures,
       },
     },
   };

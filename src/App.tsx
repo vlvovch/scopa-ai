@@ -378,6 +378,8 @@ function App() {
         cumulativeCpu={state.scores.cpu}
         humanCaptured={state.players.human.captured}
         cpuCaptured={state.players.cpu.captured}
+        humanScopaCaptures={state.players.human.scopaCaptures}
+        cpuScopaCaptures={state.players.cpu.scopaCaptures}
         onNextRound={nextRound}
       />
     );

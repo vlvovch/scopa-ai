@@ -61,7 +61,7 @@ describe('Type Definitions', () => {
       const state: PlayerState = {
         hand: [],
         captured: [],
-        scopaCount: 0,
+        scopaCount: 0, scopaCaptures: [],
       };
       expect(state.hand).toEqual([]);
       expect(state.captured).toEqual([]);
@@ -125,8 +125,8 @@ describe('Type Definitions', () => {
           lastCapture: null,
         },
         players: {
-          human: { hand: [], captured: [], scopaCount: 0 },
-          cpu: { hand: [], captured: [], scopaCount: 0 },
+          human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+          cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
         },
         scores: {
           human: 0,
