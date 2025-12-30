@@ -15,6 +15,7 @@ import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { getValidMoves } from './game/rules';
+import { AI_PLAYERS } from './ai';
 import type { PanInfo } from 'framer-motion';
 import type { Card, PlayerId } from './game/types';
 
@@ -271,48 +272,43 @@ function App() {
     // Add delay for UX (500-1000ms) before starting animation
     const delay = 500 + Math.random() * 500;
     const timeoutId = setTimeout(() => {
-      // Select a random card from CPU's hand
-      const randomCardIndex = Math.floor(Math.random() * cpuHand.length);
-      const cardToPlay = cpuHand[randomCardIndex];
+      // Use selected AI to select move
+      const ai = AI_PLAYERS[settings.cpuAI];
+      const moveToExecute = ai.selectMove({
+        hand: cpuHand,
+        table: state.round.table,
+        player: 'cpu',
+      });
 
-      // Get valid moves for this card
-      const cpuMoves = getValidMoves(cardToPlay, state.round.table, 'cpu');
+      // Start animation: reveal phase (flip card in place)
+      setCpuAnimatingCard({
+        card: moveToExecute.cardPlayed,
+        phase: 'reveal',
+        capturedCards: moveToExecute.capturedCards,
+      });
 
-      if (cpuMoves.length > 0) {
-        // Select a random valid move (MVP random AI)
-        const randomMoveIndex = Math.floor(Math.random() * cpuMoves.length);
-        const moveToExecute = cpuMoves[randomMoveIndex];
+      // Phase 2: moving to table (after flip completes)
+      setTimeout(() => {
+        setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
 
-        // Start animation: reveal phase (flip card in place)
-        setCpuAnimatingCard({
-          card: cardToPlay,
-          phase: 'reveal',
-          capturedCards: moveToExecute.capturedCards,
-        });
-
-        // Phase 2: moving to table (after flip completes)
+        // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
-          setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
-
-          // Phase 3: execute move and show capture (after card reaches table)
-          setTimeout(() => {
-            playCardWithCelebration(moveToExecute);
-            if (moveToExecute.capturedCards.length > 0) {
-              setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
-              // Phase 4: done
-              setTimeout(() => {
-                setCpuAnimatingCard(null);
-              }, 400);
-            } else {
+          playCardWithCelebration(moveToExecute);
+          if (moveToExecute.capturedCards.length > 0) {
+            setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+            // Phase 4: done
+            setTimeout(() => {
               setCpuAnimatingCard(null);
-            }
-          }, 500);
-        }, 600);  // Give more time for flip animation
-      }
+            }, 400);
+          } else {
+            setCpuAnimatingCard(null);
+          }
+        }, 500);
+      }, 600);  // Give more time for flip animation
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, cpuAnimatingCard]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, cpuAnimatingCard, settings.cpuAI]);
 
   // Calculate and store round scores when entering roundEnd status
   useEffect(() => {

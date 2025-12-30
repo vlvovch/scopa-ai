@@ -2,7 +2,13 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings } from '../../hooks/useSettings';
+import type { AIType } from '../../ai';
 import styles from './SettingsModal.module.css';
+
+const AI_OPTIONS: { value: AIType; label: string; description: string }[] = [
+  { value: 'random', label: 'Random', description: 'Plays randomly' },
+  { value: 'heuristic', label: 'Greedy', description: 'Prioritizes valuable captures' },
+];
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -76,6 +82,22 @@ export function SettingsModal({
               >
                 <span className={styles.toggleKnob} />
               </button>
+            </div>
+
+            <div className={styles.setting}>
+              <label className={styles.label}>CPU Opponent</label>
+              <div className={styles.options}>
+                {AI_OPTIONS.map((ai) => (
+                  <button
+                    key={ai.value}
+                    className={`${styles.option} ${settings.cpuAI === ai.value ? styles.selected : ''}`}
+                    onClick={() => onUpdateSetting('cpuAI', ai.value)}
+                    title={ai.description}
+                  >
+                    {ai.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className={styles.actions}>

@@ -223,16 +223,45 @@
 
 ---
 
+## Phase 13: AI Refactoring and Enhancements
+
+- [x] Step 13.1: Create AI Module Structure - Completed 2025-12-30
+- [x] Step 13.2: Implement Random AI - Completed 2025-12-30
+- [x] Step 13.3: Implement Heuristic (Greedy) AI - Completed 2025-12-30
+- [x] Step 13.4: Add AI Selection to Settings - Completed 2025-12-30
+- [x] Step 13.5: Fix Last-Hand Scopa Exception - Completed 2025-12-30
+- [x] Step 13.6: Show Round Summary Before Game End - Completed 2025-12-30
+
+**Notes:**
+- Refactored AI logic from App.tsx into dedicated `src/ai/` module
+- Created `AIPlayer` interface with `selectMove(context)` method
+- Random AI: Selects random card and random valid move (original behavior)
+- Heuristic AI: Greedy strategy with priority-based move scoring:
+  - Scopa (+1000): Clearing the table
+  - Sette Bello (+500): Capturing 7 of coins
+  - Denari (+50 each): Capturing coins for majority
+  - Primiera (+30/+20/+15): High prime value cards (7s, 6s, aces)
+  - Card count (+5 per card): More captures as tiebreaker
+  - Placing strategy: Avoids giving away coins and 7s
+- Added `cpuAI` setting to select opponent (Random or Greedy)
+- Heuristic AI is now the default opponent
+- Fixed bug: Scopa on last hand of round no longer counts (cards still captured)
+- Fixed flow: Round summary now shown before game end screen
+- Added `isGameOver` flag to GameState for proper flow control
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics
-- Human vs random AI gameplay
+- Selectable AI opponents (Random or Greedy heuristic)
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
 - Sette Bello celebration animation
 - Dealer deck display that switches sides
 - Round and game end screens with detailed scoring breakdown
-- Settings persistence
+- Settings persistence (including AI selection)
 - New game and settings controls

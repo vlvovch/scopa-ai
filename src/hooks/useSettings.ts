@@ -1,6 +1,7 @@
 // Step 10.1: Settings Hook with localStorage persistence
 
 import { useState, useEffect, useCallback } from 'react';
+import type { AIType } from '../ai';
 
 export interface GameSettings {
   /** Default target score for new games */
@@ -9,6 +10,8 @@ export interface GameSettings {
   animationSpeed: 'fast' | 'normal' | 'slow';
   /** Whether to show card values in corners */
   showCardValues: boolean;
+  /** CPU AI type */
+  cpuAI: AIType;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -17,6 +20,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   defaultTargetScore: 11,
   animationSpeed: 'normal',
   showCardValues: true,
+  cpuAI: 'heuristic',
 };
 
 function loadSettings(): GameSettings {
