@@ -1,0 +1,122 @@
+/* Step 8.5: GameEndScreen Styles */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
+  border: 3px solid var(--color-accent);
+  border-radius: 16px;
+  padding: var(--space-8);
+  min-width: 360px;
+  max-width: 440px;
+  text-align: center;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 60px rgba(212, 175, 55, 0.2);
+}
+
+.gameOver {
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0 0 var(--space-2);
+}
+
+.result {
+  font-size: 2.5rem;
+  margin: 0 0 var(--space-6);
+}
+
+.win {
+  color: var(--color-accent);
+  text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+}
+
+.lose {
+  color: #c0392b;
+}
+
+.tie {
+  color: var(--color-text-primary);
+}
+
+.finalScores {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.scoreBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  min-width: 100px;
+  transition: transform 0.2s;
+}
+
+.winnerBox {
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
+}
+
+.scoreLabel {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.scoreValue {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: var(--color-text-primary);
+}
+
+.scoreDivider {
+  font-size: 2rem;
+  color: var(--color-text-secondary);
+}
+
+.roundsInfo {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin: 0 0 var(--space-6);
+}
+
+.playAgainButton {
+  display: inline-block;
+  padding: var(--space-4) var(--space-8);
+  font-size: 1.125rem;
+  font-weight: 600;
+  background: var(--color-accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.playAgainButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+}
+
+.playAgainButton:active {
+  transform: translateY(0);
+}

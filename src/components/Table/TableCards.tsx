@@ -1,5 +1,6 @@
-// Step 7.5: TableCards Component
+// Step 7.5: TableCards Component with animations
 
+import { AnimatePresence, motion } from 'framer-motion';
 import type { Card as CardType } from '../../game/types';
 import { Card } from '../Card/Card';
 import styles from './TableCards.module.css';
@@ -29,21 +30,50 @@ export function TableCards({
 
   return (
     <div className={styles.tableArea}>
-      {cards.length === 0 ? (
-        <span className={styles.emptyMessage}>Table is empty</span>
-      ) : (
-        cards.map((card) => (
-          <div key={card.id} className={styles.tableCard}>
-            <Card
-              card={card}
-              highlighted={highlightedSet.has(card.id)}
-              selected={selectedSet.has(card.id)}
-              onClick={selectable && onCardClick ? () => onCardClick(card) : undefined}
-              disabled={!selectable}
-            />
-          </div>
-        ))
-      )}
+      <AnimatePresence mode="popLayout">
+        {cards.length === 0 ? (
+          <motion.span
+            key="empty"
+            className={styles.emptyMessage}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            Table is empty
+          </motion.span>
+        ) : (
+          cards.map((card, index) => (
+            <motion.div
+              key={card.id}
+              className={styles.tableCard}
+              layout
+              initial={{ opacity: 0, scale: 0.5, y: -30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{
+                opacity: 0,
+                scale: 0.5,
+                y: 30,
+                transition: { duration: 0.2 }
+              }}
+              transition={{
+                type: 'spring',
+                stiffness: 400,
+                damping: 25,
+                delay: index * 0.05,
+              }}
+            >
+              <Card
+                card={card}
+                highlighted={highlightedSet.has(card.id)}
+                selected={selectedSet.has(card.id)}
+                onClick={selectable && onCardClick ? () => onCardClick(card) : undefined}
+                disabled={!selectable}
+                layoutId={`table-${card.id}`}
+              />
+            </motion.div>
+          ))
+        )}
+      </AnimatePresence>
     </div>
   );
 }

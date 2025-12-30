@@ -1,5 +1,6 @@
-// Card Component with Neapolitan-style SVG graphics
+// Card Component with Neapolitan-style SVG graphics and animations
 
+import { motion } from 'framer-motion';
 import type { Card as CardType } from '../../game/types';
 import { CardImage, CardBack } from './CardImage';
 import styles from './Card.module.css';
@@ -19,6 +20,10 @@ interface CardProps {
   highlighted?: boolean;
   /** Whether interactions are disabled */
   disabled?: boolean;
+  /** Animation delay for staggered dealing */
+  animationDelay?: number;
+  /** Layout ID for shared element transitions */
+  layoutId?: string;
 }
 
 export function Card({
@@ -29,6 +34,8 @@ export function Card({
   selected = false,
   highlighted = false,
   disabled = false,
+  animationDelay = 0,
+  layoutId,
 }: CardProps) {
   const showBack = faceDown || card === null;
 
@@ -53,19 +60,69 @@ export function Card({
     }
   };
 
+  // Animation variants
+  const cardVariants = {
+    initial: {
+      opacity: 0,
+      scale: 0.8,
+      y: -50,
+    },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 300,
+        damping: 25,
+        delay: animationDelay,
+      },
+    },
+    exit: {
+      opacity: 0,
+      scale: 0.8,
+      y: 20,
+      transition: {
+        duration: 0.2,
+      },
+    },
+  };
+
   // Card Back (Neapolitan style)
   if (showBack) {
     return (
-      <div className={cardClasses} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+      <motion.div
+        className={cardClasses}
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+        variants={cardVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        layoutId={layoutId}
+        whileHover={!disabled ? { scale: 1.02 } : undefined}
+        whileTap={!disabled ? { scale: 0.98 } : undefined}
+      >
         <CardBack />
-      </div>
+      </motion.div>
     );
   }
 
   // Card Face (Neapolitan style SVG)
   return (
-    <div className={cardClasses} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+    <motion.div
+      className={cardClasses}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      variants={cardVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      layoutId={layoutId}
+      whileHover={!disabled ? { scale: 1.02 } : undefined}
+      whileTap={!disabled ? { scale: 0.98 } : undefined}
+    >
       <CardImage card={card} />
-    </div>
+    </motion.div>
   );
 }

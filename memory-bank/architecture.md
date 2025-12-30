@@ -70,7 +70,7 @@ scopa-ai-claude/
 │   │
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
-│   │   └── (useSettings.ts, useAI.ts - future)
+│   │   └── useSettings.ts  # Settings with localStorage
 │   │
 │   └── utils/              # Utility functions
 │       └── (storage.ts, cards.ts)
@@ -305,6 +305,9 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `UI/StartScreen.tsx` | Initial screen with target score selection (11, 16, 21) |
 | `UI/RoundEndScreen.tsx` | Score breakdown by category with cumulative totals |
 | `UI/GameEndScreen.tsx` | Winner announcement with final scores and play again |
+| `UI/ScopaCelebration.tsx` | Animated "SCOPA!" overlay with sparkle effects |
+| `UI/SettingsModal.tsx` | Settings panel with target score, animation speed options |
+| `UI/GameControls.tsx` | New game and settings icon buttons |
 
 ### Layout Components
 
@@ -366,19 +369,58 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ---
 
-## Next Steps
+## Animations (Phase 9 - Completed)
 
-Phase 9 will add:
-- Card deal animation with stagger
-- Card play animation (hand to table)
-- Capture animation (gather and slide to pile)
-- Scopa celebration effect
-- Turn indicator animation
+**Framer Motion Integration:**
+- Card component uses `motion.div` with spring animations
+- PlayerHand uses `AnimatePresence` with staggered delays for deal animation
+- TableCards uses `AnimatePresence` for smooth card entry/exit
+- Cards have `whileHover` and `whileTap` for interactive feedback
 
-Phase 10 will add:
-- Settings storage (localStorage)
-- Settings modal
-- Game controls (new game, settings buttons)
-- Loading states
-- Error handling
-- Visual polish
+**Scopa Celebration:**
+- ScopaCelebration component triggers when table is cleared
+- "SCOPA!" text with pulsing glow effect
+- 12 sparkle particles animate outward
+- Shows for 1.5 seconds then fades
+
+---
+
+## Settings & Controls (Phase 10 - Completed)
+
+**useSettings Hook:**
+- Persists to localStorage under key `scopa-settings`
+- Settings: `defaultTargetScore`, `animationSpeed`, `showCardValues`
+- Auto-saves on any change
+
+**SettingsModal:**
+- Target score selection (11, 16, 21)
+- Animation speed (fast, normal, slow)
+- Show card values toggle
+
+**GameControls:**
+- New game button with confirmation dialog
+- Settings button opens modal
+- Displayed in scoreboard area
+
+---
+
+## MVP Complete!
+
+All 10 phases implemented:
+1. Project Setup
+2. Core Types & Constants
+3. Deck Management
+4. Game Rules Engine
+5. Scoring System
+6. Game State Management
+7. UI Components
+8. Game Flow Integration
+9. Animations
+10. Settings & Polish
+
+**Future Enhancements:**
+- Smarter AI (rule-based or LLM)
+- Multiplayer support
+- Sound effects
+- More card themes
+- Game statistics tracking

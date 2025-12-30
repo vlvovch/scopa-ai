@@ -145,6 +145,50 @@
 
 ---
 
-## Phases 9-10
+## Phase 9: Basic Animations
 
-See `implementation-plan.md` for remaining phases (animations and polish).
+- [x] Step 9.1: Add Card Deal Animation - Completed 2024-12-29
+- [x] Step 9.2: Add Card Play Animation - Completed 2024-12-29
+- [x] Step 9.3: Add Capture Animation - Completed 2024-12-29
+- [x] Step 9.4: Add Scopa Celebration Animation - Completed 2024-12-29
+- [x] Step 9.5: Add Turn Indicator Animation - Completed 2024-12-29
+
+**Notes:**
+- Using Framer Motion for all animations
+- Card component now uses motion.div with spring animations
+- PlayerHand uses AnimatePresence with staggered delays for dealing
+- TableCards uses AnimatePresence for card entry/exit
+- ScopaCelebration component shows "SCOPA!" with sparkle effects when table is cleared
+- Cards have hover/tap animations for interactivity
+- 130 tests passing
+
+---
+
+## Phase 10: Settings and Polish
+
+- [x] Step 10.1: Implement Settings Storage - Completed 2024-12-29
+- [x] Step 10.2: Create Settings Modal - Completed 2024-12-29
+- [x] Step 10.3: Add Game Controls - Completed 2024-12-29
+- [x] Step 10.4: Add Loading States - Completed 2024-12-29
+- [x] Step 10.5: Add Error Handling - Completed 2024-12-29
+
+**Notes:**
+- useSettings hook manages settings in localStorage
+- Settings: defaultTargetScore, animationSpeed, showCardValues
+- SettingsModal with toggle and option buttons
+- GameControls component with new game and settings buttons
+- New game confirmation dialog prevents accidental loss of progress
+- 130 tests passing
+
+---
+
+## MVP Complete!
+
+The Scopa game is now fully playable with:
+- Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
+- Neapolitan card graphics
+- Human vs random AI gameplay
+- Animated card interactions
+- Round and game end screens with scoring breakdown
+- Settings persistence
+- New game and settings controls
