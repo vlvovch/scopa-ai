@@ -144,6 +144,14 @@ export function calculateRoundScore(state: GameState): {
   const humanScopas = state.players.human.scopaCount;
   const cpuScopas = state.players.cpu.scopaCount;
 
+  // Calculate raw counts for display
+  const humanCardCount = humanCaptured.length;
+  const cpuCardCount = cpuCaptured.length;
+  const humanCoinCount = humanCaptured.filter((c) => c.suit === 'coins').length;
+  const cpuCoinCount = cpuCaptured.filter((c) => c.suit === 'coins').length;
+  const humanPrimeValue = calculatePrime(humanCaptured);
+  const cpuPrimeValue = calculatePrime(cpuCaptured);
+
   const humanTotal =
     cardsScore.human +
     coinsScore.human +
@@ -166,6 +174,11 @@ export function calculateRoundScore(state: GameState): {
       prime: primeScore.human,
       scopas: humanScopas,
       total: humanTotal,
+      counts: {
+        cards: humanCardCount,
+        coins: humanCoinCount,
+        prime: humanPrimeValue,
+      },
     },
     cpu: {
       cards: cardsScore.cpu,
@@ -174,6 +187,11 @@ export function calculateRoundScore(state: GameState): {
       prime: primeScore.cpu,
       scopas: cpuScopas,
       total: cpuTotal,
+      counts: {
+        cards: cpuCardCount,
+        coins: cpuCoinCount,
+        prime: cpuPrimeValue,
+      },
     },
   };
 }

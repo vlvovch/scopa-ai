@@ -98,4 +98,13 @@ export interface RoundScore {
   scopas: number;
   /** Total points this round */
   total: number;
+  /** Raw counts for display */
+  counts: {
+    /** Total cards captured */
+    cards: number;
+    /** Total coins captured */
+    coins: number;
+    /** Primiera score (null if missing a suit) */
+    prime: number | null;
+  };
 }

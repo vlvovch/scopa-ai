@@ -20,13 +20,47 @@ export function RoundEndScreen({
   cumulativeCpu,
   onNextRound,
 }: RoundEndScreenProps) {
-  // Categories with Italian names
+  // Helper to format primiera score
+  const formatPrime = (prime: number | null) => prime !== null ? prime.toString() : '-';
+
+  // Categories with counts and winner highlighting
   const categories = [
-    { name: 'Carte', human: humanScore.cards, cpu: cpuScore.cards, isCheckmark: false },
-    { name: 'Denari', human: humanScore.coins, cpu: cpuScore.coins, isCheckmark: false },
-    { name: 'Sette Bello', human: humanScore.setteBello, cpu: cpuScore.setteBello, isCheckmark: true },
-    { name: 'Primiera', human: humanScore.prime, cpu: cpuScore.prime, isCheckmark: false },
-    { name: 'Scope', human: humanScore.scopas, cpu: cpuScore.scopas, isCheckmark: false },
+    {
+      name: 'Carte',
+      humanCount: humanScore.counts.cards,
+      cpuCount: cpuScore.counts.cards,
+      humanWon: humanScore.cards > 0,
+      cpuWon: cpuScore.cards > 0,
+    },
+    {
+      name: 'Denari',
+      humanCount: humanScore.counts.coins,
+      cpuCount: cpuScore.counts.coins,
+      humanWon: humanScore.coins > 0,
+      cpuWon: cpuScore.coins > 0,
+    },
+    {
+      name: 'Sette Bello',
+      humanCount: humanScore.setteBello > 0 ? '✓' : '-',
+      cpuCount: cpuScore.setteBello > 0 ? '✓' : '-',
+      humanWon: humanScore.setteBello > 0,
+      cpuWon: cpuScore.setteBello > 0,
+      isCheckmark: true,
+    },
+    {
+      name: 'Primiera',
+      humanCount: formatPrime(humanScore.counts.prime),
+      cpuCount: formatPrime(cpuScore.counts.prime),
+      humanWon: humanScore.prime > 0,
+      cpuWon: cpuScore.prime > 0,
+    },
+    {
+      name: 'Scopa',
+      humanCount: humanScore.scopas || '-',
+      cpuCount: cpuScore.scopas || '-',
+      humanWon: humanScore.scopas > cpuScore.scopas,
+      cpuWon: cpuScore.scopas > humanScore.scopas,
+    },
   ];
 
   return (
@@ -46,17 +80,11 @@ export function RoundEndScreen({
             {categories.map((cat) => (
               <tr key={cat.name}>
                 <td>{cat.name}</td>
-                <td className={cat.human > cat.cpu ? styles.winner : ''}>
-                  {cat.isCheckmark
-                    ? (cat.human > 0 ? '✓' : '-')
-                    : (cat.human > 0 ? cat.human : '-')
-                  }
+                <td className={cat.humanWon ? styles.winner : ''}>
+                  {cat.humanCount}
                 </td>
-                <td className={cat.cpu > cat.human ? styles.winner : ''}>
-                  {cat.isCheckmark
-                    ? (cat.cpu > 0 ? '✓' : '-')
-                    : (cat.cpu > 0 ? cat.cpu : '-')
-                  }
+                <td className={cat.cpuWon ? styles.winner : ''}>
+                  {cat.cpuCount}
                 </td>
               </tr>
             ))}
