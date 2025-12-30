@@ -9,6 +9,8 @@ interface TableCardsProps {
   cards: CardType[];
   /** Card IDs that are highlighted as valid capture targets */
   highlightedCardIds?: string[];
+  /** Card IDs that are currently selected for capture */
+  selectedCardIds?: string[];
   /** Called when a table card is clicked */
   onCardClick?: (card: CardType) => void;
   /** Whether table cards are selectable */
@@ -18,10 +20,12 @@ interface TableCardsProps {
 export function TableCards({
   cards,
   highlightedCardIds = [],
+  selectedCardIds = [],
   onCardClick,
   selectable = false,
 }: TableCardsProps) {
   const highlightedSet = new Set(highlightedCardIds);
+  const selectedSet = new Set(selectedCardIds);
 
   return (
     <div className={styles.tableArea}>
@@ -33,6 +37,7 @@ export function TableCards({
             <Card
               card={card}
               highlighted={highlightedSet.has(card.id)}
+              selected={selectedSet.has(card.id)}
               onClick={selectable && onCardClick ? () => onCardClick(card) : undefined}
               disabled={!selectable}
             />

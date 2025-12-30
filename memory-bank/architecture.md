@@ -170,7 +170,7 @@ npm run test:watch # Run tests in watch mode
 | `GameStatus` | `'idle' \| 'dealing' \| 'playing' \| 'roundEnd' \| 'gameEnd'` |
 | `PlayerState` | `{ hand, captured, scopaCount }` |
 | `RoundState` | `{ deck, table, currentPlayer, dealer, lastCapture }` |
-| `GameState` | Complete game state with players, scores, round info |
+| `GameState` | Complete game state with players, scores, round info, lastRoundScores |
 | `Move` | `{ player, cardPlayed, capturedCards, isScopa }` |
 | `RoundScore` | `{ cards, coins, setteBello, prime, scopas, total }` |
 
@@ -272,7 +272,113 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ---
 
+## UI Components (src/components/)
+
+### Card Component
+
+| File | Purpose |
+|------|---------|
+| `Card/Card.tsx` | Card wrapper with selection states, renders CardImage or CardBack |
+| `Card/CardImage.tsx` | SVG-based Neapolitan card graphics (faces + backs) |
+| `Card/Card.module.css` | Card styling, hover/selected/highlighted states |
+
+**Neapolitan Card Design:**
+- Pure SVG, no external images required
+- 70×105 viewBox (2:3 aspect ratio)
+- Suit colors: Coins=#DAA520 (gold), Cups=#C41E3A (crimson), Swords=#4169E1 (blue), Clubs=#228B22 (green)
+- Face cards: Fante (8), Cavallo (9), Re (10) with Italian labels
+- Card back: Navy blue (#1a237e) with gold ornamental pattern
+
+### Table Components
+
+| File | Purpose |
+|------|---------|
+| `Table/PlayerHand.tsx` | Displays player's hand cards (face up for human, face down for CPU) |
+| `Table/TableCards.tsx` | Displays cards on table with valid target highlighting |
+| `Table/CapturedPile.tsx` | Shows captured cards stack with scopa count markers |
+
+### UI Components
+
+| File | Purpose |
+|------|---------|
+| `UI/ScoreBoard.tsx` | Shows scores, round number, target score, turn indicator |
+| `UI/StartScreen.tsx` | Initial screen with target score selection (11, 16, 21) |
+| `UI/RoundEndScreen.tsx` | Score breakdown by category with cumulative totals |
+| `UI/GameEndScreen.tsx` | Winner announcement with final scores and play again |
+
+### Layout Components
+
+| File | Purpose |
+|------|---------|
+| `Layout/GameLayout.tsx` | CSS Grid layout: CPU top, table center, human bottom, piles on sides |
+
+---
+
+## CSS Architecture
+
+**Card Selection States:**
+- Default: normal shadow
+- Hover (non-selected, non-disabled): translateY(-4px), enhanced shadow
+- Selected: translateY(-8px), 3px gold border, enhanced shadow
+- Highlighted: pulsing 2-4px gold glow animation
+
+**Layout Grid:**
+```
++---------------------------+
+|        CPU Hand           |
+|      (face down)          |
++-------+-----------+-------+
+| CPU   |   Table   | Human |
+| Pile  |   Cards   | Pile  |
++-------+-----------+-------+
+|       Human Hand          |
+|       (face up)           |
++---------------------------+
+|      Score Board          |
++---------------------------+
+```
+
+---
+
+## Game Flow (Phase 8 - Completed)
+
+**Human Turn:**
+1. Human clicks card in hand to select
+2. Valid capture targets highlighted on table
+3. Click single table card → auto-executes capture
+4. Click multiple table cards → shows sum, "Capture" button when valid
+5. Double-click or "Place Card" button → places card (when no capture possible)
+
+**CPU Turn:**
+- Random AI selects random card and random valid move
+- 500-1000ms delay for "thinking" feel
+- Auto-executes move, switches back to human
+
+**Round End:**
+- Triggers when deck and hands empty
+- `endRound()` awards remaining table cards to last capture player
+- Calculates and stores `lastRoundScores` for display
+- RoundEndScreen shows breakdown: cards, coins, sette bello, prime, scopas
+
+**Game End:**
+- Triggers when either player reaches target score after round
+- GameEndScreen shows winner and final scores
+
+---
+
 ## Next Steps
 
-Phase 7 will add:
-- UI components: Card, PlayerHand, TableCards, CapturedPile, ScoreBoard, GameLayout
+Phase 9 will add:
+- Card deal animation with stagger
+- Card play animation (hand to table)
+- Capture animation (gather and slide to pile)
+- Scopa celebration effect
+- Turn indicator animation
+
+Phase 10 will add:
+- Settings storage (localStorage)
+- Settings modal
+- Game controls (new game, settings buttons)
+- Loading states
+- Error handling
+- Visual polish

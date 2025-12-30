@@ -11,6 +11,8 @@ interface PlayerHandProps {
   isHuman: boolean;
   /** Called when a card is clicked (human only) */
   onCardClick?: (card: CardType) => void;
+  /** Called when a card is double-clicked (human only, for placing) */
+  onCardDoubleClick?: (card: CardType) => void;
   /** Currently selected card ID */
   selectedCardId?: string | null;
   /** Whether interactions are disabled */
@@ -21,6 +23,7 @@ export function PlayerHand({
   cards,
   isHuman,
   onCardClick,
+  onCardDoubleClick,
   selectedCardId,
   disabled = false,
 }: PlayerHandProps) {
@@ -37,6 +40,7 @@ export function PlayerHand({
             card={card}
             faceDown={!isHuman}
             onClick={isHuman && onCardClick ? () => onCardClick(card) : undefined}
+            onDoubleClick={isHuman && onCardDoubleClick ? () => onCardDoubleClick(card) : undefined}
             selected={isHuman && selectedCardId === card.id}
             disabled={disabled || !isHuman}
           />

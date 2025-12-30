@@ -1,31 +1,8 @@
-// Steps 7.1, 7.2, 7.3: Card Component with Back Design and Suit Symbols
+// Card Component with Neapolitan-style SVG graphics
 
 import type { Card as CardType } from '../../game/types';
+import { CardImage, CardBack } from './CardImage';
 import styles from './Card.module.css';
-
-/** Step 7.3: Suit symbols using Unicode/emoji */
-const SUIT_SYMBOLS: Record<CardType['suit'], string> = {
-  coins: '🪙',
-  cups: '🏆',
-  swords: '⚔️',
-  clubs: '♣',
-};
-
-/** Display value (face cards use letters) */
-function getDisplayValue(value: number): string {
-  switch (value) {
-    case 1:
-      return 'A';
-    case 8:
-      return 'J'; // Fante (Jack)
-    case 9:
-      return 'C'; // Cavallo (Knight)
-    case 10:
-      return 'K'; // Re (King)
-    default:
-      return String(value);
-  }
-}
 
 interface CardProps {
   /** The card to display, or null for face-down */
@@ -34,6 +11,8 @@ interface CardProps {
   faceDown?: boolean;
   /** Called when the card is clicked */
   onClick?: () => void;
+  /** Called when the card is double-clicked */
+  onDoubleClick?: () => void;
   /** Whether this card is selected */
   selected?: boolean;
   /** Whether this card is highlighted (valid target) */
@@ -46,6 +25,7 @@ export function Card({
   card,
   faceDown = false,
   onClick,
+  onDoubleClick,
   selected = false,
   highlighted = false,
   disabled = false,
@@ -67,38 +47,25 @@ export function Card({
     }
   };
 
-  // Step 7.2: Card Back
+  const handleDoubleClick = () => {
+    if (!disabled && onDoubleClick) {
+      onDoubleClick();
+    }
+  };
+
+  // Card Back (Neapolitan style)
   if (showBack) {
     return (
-      <div className={cardClasses} onClick={handleClick}>
-        <div className={styles.cardBack} />
+      <div className={cardClasses} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+        <CardBack />
       </div>
     );
   }
 
-  // Step 7.1 & 7.3: Card Face with suit symbols
-  const suitSymbol = SUIT_SYMBOLS[card.suit];
-  const displayValue = getDisplayValue(card.value);
-  const suitClass = styles[card.suit];
-
+  // Card Face (Neapolitan style SVG)
   return (
-    <div className={cardClasses} onClick={handleClick}>
-      <div className={styles.cardFace}>
-        {/* Top-left corner */}
-        <div className={`${styles.cornerValue} ${styles.topLeft} ${suitClass}`}>
-          <span>{displayValue}</span>
-          <span className={styles.cornerSuit}>{suitSymbol}</span>
-        </div>
-
-        {/* Center suit */}
-        <div className={`${styles.centerSuit} ${suitClass}`}>{suitSymbol}</div>
-
-        {/* Bottom-right corner (rotated) */}
-        <div className={`${styles.cornerValue} ${styles.bottomRight} ${suitClass}`}>
-          <span>{displayValue}</span>
-          <span className={styles.cornerSuit}>{suitSymbol}</span>
-        </div>
-      </div>
+    <div className={cardClasses} onClick={handleClick} onDoubleClick={handleDoubleClick}>
+      <CardImage card={card} />
     </div>
   );
 }

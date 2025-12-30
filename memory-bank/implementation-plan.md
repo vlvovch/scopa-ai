@@ -709,56 +709,65 @@ Notes: [Any relevant notes]
 **Instructions:**
 1. Create `src/components/Card/Card.tsx`
 2. Accept props: `card: Card | null`, `faceDown: boolean`, `onClick`, `selected`, `highlighted`
-3. If `faceDown` or `card` is null, render card back
-4. Otherwise, render card face showing suit and value
-5. Use CSS modules for styling
-6. Display value in corner(s) and suit symbol in center
-7. Apply visual states for selected/highlighted
+3. If `faceDown` or `card` is null, render card back using `CardBack` component
+4. Otherwise, render card face using `CardImage` component
+5. Use CSS modules for styling wrapper states (selected, highlighted, disabled)
+6. Apply visual states for selected/highlighted
 
 **Validation Test:**
 - Card renders without errors
 - Face-down card shows back design
 - Face-up card shows correct suit and value
 - Clicking card triggers onClick callback
-- Selected state visually distinct
-- Highlighted state visually distinct
+- Selected state visually distinct (gold border)
+- Highlighted state visually distinct (pulsing glow)
 
 ---
 
-### Step 7.2: Create Card Back Design
+### Step 7.2: Create Card Back Design (Neapolitan Style)
 
-**Task:** Design and implement the card back appearance.
+**Task:** Design and implement a Neapolitan-style card back using SVG.
 
 **Instructions:**
-1. In Card component styles, create card back design
-2. Use CSS patterns or gradients (no external images required for MVP)
-3. Design should be navy/dark blue with subtle pattern
-4. Maintain consistent card dimensions (2:3 ratio recommended)
+1. Create `src/components/Card/CardImage.tsx` with `CardBack` export
+2. Use pure SVG for card back (navy blue with gold ornamental pattern)
+3. Include outer/inner gold borders and diamond pattern
+4. Add center ornament (oval medallion)
+5. Maintain 70×105 viewBox (2:3 ratio)
 
 **Validation Test:**
-- Card back is visually distinct from card faces
-- Pattern/design is centered and doesn't overflow
-- Looks good at various sizes
+- Card back is navy blue with gold accents
+- Pattern is centered and renders at any scale
+- SVG scales smoothly without pixelation
 
 ---
 
-### Step 7.3: Create Suit Symbols
+### Step 7.3: Create Neapolitan Card Graphics
 
-**Task:** Create visual representations for each suit.
+**Task:** Create SVG-based Neapolitan card faces with traditional Italian suits.
 
 **Instructions:**
-1. Create suit symbol components or use Unicode symbols:
-   - Coins: 🪙 or ◉ or custom SVG
-   - Cups: 🏆 or custom SVG
-   - Swords: ⚔ or custom SVG  
-   - Clubs: ♣ or custom SVG
-2. Apply suit-specific colors (coins=gold, cups=blue, swords=gray, clubs=green)
-3. Ensure symbols scale appropriately
+1. In `src/components/Card/CardImage.tsx`, create `CardImage` component
+2. Define Neapolitan suit colors:
+   - Coins: Gold (#DAA520)
+   - Cups: Crimson (#C41E3A)
+   - Swords: Royal Blue (#4169E1)
+   - Clubs/Batons: Forest Green (#228B22)
+3. Create SVG paths for each suit symbol:
+   - Coins: Circle with inner detail
+   - Cups: Chalice shape with base
+   - Swords: Curved blade with crossguard
+   - Clubs: Wooden baton with leaf decorations
+4. Number cards (1-7): Display pips arranged by value
+5. Face cards (8-10): Show "Fante", "Cavallo", "Re" labels with large suit symbol
+6. Include corner value indicators
 
 **Validation Test:**
-- All four suits render distinctly
-- Symbols are recognizable at card size
-- Colors match traditional Italian deck aesthetics
+- All four suits render with distinct Neapolitan-style symbols
+- Coins are gold circles, cups are red chalices, swords are blue blades, clubs are green batons
+- Number cards show correct pip count
+- Face cards show Italian names (Fante=Jack, Cavallo=Knight, Re=King)
+- 7 of Coins (sette bello) is clearly identifiable
 
 ---
 

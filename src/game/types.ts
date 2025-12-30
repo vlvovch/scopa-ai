@@ -60,6 +60,11 @@ export interface GameState {
   roundNumber: number;
   /** Points needed to win the game */
   targetScore: number;
+  /** Last calculated round scores (for display in round end screen) */
+  lastRoundScores?: {
+    human: RoundScore;
+    cpu: RoundScore;
+  };
 }
 
 // Step 2.3: Move Types

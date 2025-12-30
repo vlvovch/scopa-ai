@@ -102,6 +102,49 @@
 
 ---
 
-## Phases 7-10
+## Phase 7: Basic UI Components
 
-See `implementation-plan.md` for remaining phases.
+- [x] Step 7.1: Create Card Component - Completed 2024-12-29
+- [x] Step 7.2: Create Card Back Design (Neapolitan Style) - Completed 2024-12-29
+- [x] Step 7.3: Create Neapolitan Card Graphics - Completed 2024-12-29
+- [x] Step 7.4: Create PlayerHand Component - Completed 2024-12-29
+- [x] Step 7.5: Create TableCards Component - Completed 2024-12-29
+- [x] Step 7.6: Create CapturedPile Component - Completed 2024-12-29
+- [x] Step 7.7: Create ScoreBoard Component - Completed 2024-12-29
+- [x] Step 7.8: Create GameTable Layout Component - Completed 2024-12-29
+
+**Notes:**
+- Card component uses Neapolitan-style SVG graphics (not Unicode/emoji)
+- CardImage.tsx contains pure SVG components for card faces and backs
+- Suit colors: Coins=Gold, Cups=Crimson, Swords=Blue, Clubs=Green
+- Face cards display Italian names: Fante (Jack), Cavallo (Knight), Re (King)
+- CSS hover/selected states properly layered to avoid conflicts
+- 130 total tests passing (no UI unit tests yet)
+
+---
+
+## Phase 8: Game Flow Integration
+
+- [x] Step 8.1: Wire Up Human Player Input - Completed 2024-12-29
+- [x] Step 8.2: Implement Move Confirmation UX - Completed 2024-12-29
+- [x] Step 8.3: Implement CPU Turn Execution - Completed 2024-12-29
+- [x] Step 8.4: Create RoundEndScreen Component - Completed 2024-12-29
+- [x] Step 8.5: Create GameEndScreen Component - Completed 2024-12-29
+- [x] Step 8.6: Create StartScreen Component - Completed 2024-12-29
+
+**Notes:**
+- Human input: Click card to select, click table cards to capture, double-click or "Place Card" button to place
+- Single card captures auto-execute on click; multi-card captures require "Capture" button confirmation
+- Sum display shows selected table cards total vs played card value
+- CPU uses random AI with 500-1000ms delay for thinking feel
+- RoundEndScreen shows detailed score breakdown (cards, coins, sette bello, prime, scopas)
+- GameEndScreen announces winner with final scores and round count
+- StartScreen allows target score selection (11, 16, or 21)
+- Added `lastRoundScores` to GameState for displaying round breakdown
+- 130 total tests passing
+
+---
+
+## Phases 9-10
+
+See `implementation-plan.md` for remaining phases (animations and polish).

@@ -218,6 +218,7 @@ function handleEndRound(state: GameState): GameState {
       human: newHumanScore,
       cpu: newCpuScore,
     },
+    lastRoundScores: roundScores,
   };
 }
 
