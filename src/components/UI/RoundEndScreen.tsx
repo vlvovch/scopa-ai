@@ -114,6 +114,8 @@ export function RoundEndScreen({
   const categories: Array<{
     id: HoverCategory;
     name: string;
+    icon: string;
+    iconColor?: string;
     humanCount: string | number;
     cpuCount: string | number;
     humanWon: boolean;
@@ -122,6 +124,7 @@ export function RoundEndScreen({
     {
       id: 'carte',
       name: 'Carte Lungo',
+      icon: '📋',
       humanCount: humanScore.counts.cards,
       cpuCount: cpuScore.counts.cards,
       humanWon: humanScore.cards > 0,
@@ -130,6 +133,8 @@ export function RoundEndScreen({
     {
       id: 'denari',
       name: 'Denari',
+      icon: '●',
+      iconColor: '#DAA520',
       humanCount: humanScore.counts.coins,
       cpuCount: cpuScore.counts.coins,
       humanWon: humanScore.coins > 0,
@@ -138,6 +143,8 @@ export function RoundEndScreen({
     {
       id: 'settebello',
       name: 'Sette Bello',
+      icon: '7●',
+      iconColor: '#DAA520',
       humanCount: humanScore.setteBello > 0 ? '✓' : '-',
       cpuCount: cpuScore.setteBello > 0 ? '✓' : '-',
       humanWon: humanScore.setteBello > 0,
@@ -146,6 +153,8 @@ export function RoundEndScreen({
     {
       id: 'primiera',
       name: 'Primiera',
+      icon: '★',
+      iconColor: '#DAA520',
       humanCount: formatPrime(humanScore.counts.prime),
       cpuCount: formatPrime(cpuScore.counts.prime),
       humanWon: humanScore.prime > 0,
@@ -153,7 +162,8 @@ export function RoundEndScreen({
     },
     {
       id: 'scopa',
-      name: '🧹 Scopa',
+      name: 'Scopa',
+      icon: '🧹',
       humanCount: humanScore.scopas || '-',
       cpuCount: cpuScore.scopas || '-',
       humanWon: humanScore.scopas > cpuScore.scopas,
@@ -198,7 +208,12 @@ export function RoundEndScreen({
                 onMouseEnter={() => setHoveredCategory(cat.id)}
                 onMouseLeave={() => setHoveredCategory(null)}
               >
-                <td>{cat.name}</td>
+                <td>
+                  <span className={styles.categoryIcon} style={cat.iconColor ? { color: cat.iconColor } : undefined}>
+                    {cat.icon}
+                  </span>
+                  {cat.name}
+                </td>
                 <td className={cat.humanWon ? styles.winner : ''}>
                   {cat.humanCount}
                 </td>

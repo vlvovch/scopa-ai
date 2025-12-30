@@ -66,6 +66,7 @@ body {
   color: var(--color-text-primary);
   min-height: 100vh;
   line-height: 1.5;
+  overflow: hidden;
 }
 
 #root {

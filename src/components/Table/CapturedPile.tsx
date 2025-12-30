@@ -14,11 +14,9 @@ interface CapturedPileProps {
   player: PlayerId;
   /** Optional custom label (for spectator mode) */
   playerLabel?: string;
-  /** Whether this player is the current dealer */
-  isDealer?: boolean;
 }
 
-export function CapturedPile({ cards, scopaCount, player, playerLabel, isDealer = false }: CapturedPileProps) {
+export function CapturedPile({ cards, scopaCount, player, playerLabel }: CapturedPileProps) {
   // Show top 3 cards of the pile for visual stacking effect
   const visibleCards = cards.slice(-3);
 
@@ -34,10 +32,7 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, isDealer 
 
   return (
     <div className={styles.pile}>
-      <span className={styles.playerLabel}>
-        {displayLabel}
-        {isDealer && <span className={styles.dealerBadge} title="Dealer">D</span>}
-      </span>
+      <span className={styles.playerLabel}>{displayLabel}</span>
 
       <div className={styles.pileStack}>
         {cards.length === 0 ? (

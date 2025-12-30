@@ -118,6 +118,13 @@
   transition: background-color 0.15s ease;
 }
 
+.categoryIcon {
+  display: inline-block;
+  width: 1.5em;
+  margin-right: 0.4em;
+  font-size: 0.9em;
+}
+
 .categoryRow:hover,
 .hoveredRow {
   background: rgba(212, 175, 55, 0.1);

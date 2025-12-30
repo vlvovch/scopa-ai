@@ -79,9 +79,10 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
           ) : (
             cards.map((card, index) => {
               const isCapturing = capturingSet.has(card.id);
-              // Determine exit animation based on capture direction
-              const exitY = captureDirection === 'cpu' ? -200 : captureDirection === 'human' ? 200 : 20;
-              const exitX = captureDirection === 'cpu' ? -80 : captureDirection === 'human' ? 80 : 0;
+              // Determine exit animation based on capture direction - fly toward the pile
+              // CPU pile is top-RIGHT, human pile is bottom-LEFT
+              const exitY = captureDirection === 'cpu' ? -400 : captureDirection === 'human' ? 400 : 20;
+              const exitX = captureDirection === 'cpu' ? 200 : captureDirection === 'human' ? -200 : 0;
               const isBeingCaptured = isCapturing && captureDirection;
               return (
                 <motion.div
@@ -91,25 +92,27 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
                   initial={{ opacity: 0, scale: 0.8, y: -20 }}
                   animate={isCapturing ? {
                     opacity: 1,
-                    scale: 1.2,
-                    y: -25,
+                    scale: 1.15,
+                    y: -20,
                     boxShadow: '0 12px 32px rgba(212, 175, 55, 0.7)',
                   } : { opacity: 1, scale: 1, y: 0 }}
                   exit={{
-                    opacity: 0,
-                    scale: isBeingCaptured ? 0.5 : 0.8,
+                    opacity: isBeingCaptured ? [1, 1, 0] : 0,
+                    scale: isBeingCaptured ? [1.15, 0.8, 0.3] : 0.8,
                     y: exitY,
                     x: exitX,
-                    rotate: isBeingCaptured ? (captureDirection === 'cpu' ? -15 : 15) : 0,
+                    rotate: isBeingCaptured ? (captureDirection === 'cpu' ? 30 : -30) : 0,
                     transition: {
-                      duration: isBeingCaptured ? 0.5 : 0.25,
-                      ease: [0.4, 0, 0.2, 1]
+                      duration: isBeingCaptured ? 0.85 : 0.25,
+                      ease: [0.25, 0.1, 0.25, 1],
+                      opacity: isBeingCaptured ? { times: [0, 0.75, 1] } : undefined,
+                      scale: isBeingCaptured ? { times: [0, 0.4, 1] } : undefined,
                     }
                   }}
                   transition={{
                     type: 'spring',
-                    stiffness: isCapturing ? 300 : 250,
-                    damping: isCapturing ? 15 : 22,
+                    stiffness: isCapturing ? 350 : 250,
+                    damping: isCapturing ? 18 : 22,
                     mass: 0.8,
                     delay: isCapturing ? 0 : index * 0.04,
                   }}

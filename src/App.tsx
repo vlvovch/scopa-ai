@@ -19,7 +19,7 @@ import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
 import type { PanInfo } from 'framer-motion';
-import type { Card, PlayerId } from './game/types';
+import type { Card, Move, PlayerId } from './game/types';
 
 function App() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
@@ -169,6 +169,36 @@ function App() {
     setSelectedTableCards([]);
   }, []);
 
+  // Execute a move with capture animation
+  const executeMoveWithAnimation = useCallback((move: Move) => {
+    if (move.capturedCards.length > 0) {
+      // Start capture animation - show levitate then fly to pile
+      setAnimatingCard({
+        card: move.cardPlayed,
+        phase: 'moving',
+        capturedCards: move.capturedCards,
+        player: 'human',
+      });
+
+      // Brief delay for levitate animation, then execute and show fly-to-pile
+      setTimeout(() => {
+        playCard(move);
+        setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+        setSelectedCard(null);
+        setSelectedTableCards([]);
+        // Clear animation after exit animation completes
+        setTimeout(() => {
+          setAnimatingCard(null);
+        }, 900);
+      }, 400);
+    } else {
+      // No capture, just place
+      playCard(move);
+      setSelectedCard(null);
+      setSelectedTableCards([]);
+    }
+  }, [playCard]);
+
   // Handle card drag end - check if dropped on table
   const handleCardDragEnd = useCallback((card: Card, info: PanInfo) => {
     setIsDragging(false);
@@ -191,24 +221,20 @@ function App() {
 
         // If only one move option (place or single capture), execute it
         if (moves.length === 1) {
-          playCard(moves[0]);
-          setSelectedCard(null);
-          setSelectedTableCards([]);
+          executeMoveWithAnimation(moves[0]);
         } else if (moves.length > 1) {
           // Multiple capture options - check if all are single card captures with same value
           const captureOptions = moves.filter(m => m.capturedCards.length > 0);
 
           if (captureOptions.length === 1) {
             // Only one capture option, execute it
-            playCard(captureOptions[0]);
-            setSelectedCard(null);
-            setSelectedTableCards([]);
+            executeMoveWithAnimation(captureOptions[0]);
           }
           // Otherwise keep card selected for user to pick capture targets
         }
       }
     }
-  }, [state.round.currentPlayer, state.round.table, playCard]);
+  }, [state.round.currentPlayer, state.round.table, executeMoveWithAnimation]);
 
   // Handle clicking a table card
   const handleTableCardClick = useCallback((card: Card) => {
@@ -228,7 +254,7 @@ function App() {
     });
   }, [selectedCard, validCaptureTargetIds]);
 
-  // Execute capture
+  // Execute capture with animation
   const executeCapture = useCallback(() => {
     if (!selectedCard || !isValidCapture) return;
 
@@ -240,11 +266,9 @@ function App() {
     });
 
     if (move) {
-      playCard(move);
-      setSelectedCard(null);
-      setSelectedTableCards([]);
+      executeMoveWithAnimation(move);
     }
-  }, [selectedCard, selectedTableCards, validMoves, isValidCapture, playCard]);
+  }, [selectedCard, selectedTableCards, validMoves, isValidCapture, executeMoveWithAnimation]);
 
   // Execute place
   const executePlace = useCallback(() => {
@@ -321,10 +345,10 @@ function App() {
           playCard(moveToExecute);
           if (moveToExecute.capturedCards.length > 0) {
             setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
-            // Phase 4: done
+            // Phase 4: done (wait for cards to fly to pile)
             setTimeout(() => {
               setAnimatingCard(null);
-            }, 400);
+            }, 900);
           } else {
             setAnimatingCard(null);
           }
@@ -371,10 +395,10 @@ function App() {
       return;
     }
 
-    // Small delay for final card animations to settle, then calculate scores
+    // Longer delay before showing round summary to let final animations complete
     const timeoutId = setTimeout(() => {
       endRound();
-    }, 400);
+    }, 1500);
 
     return () => clearTimeout(timeoutId);
   }, [state.status, state.lastRoundScores, state.round.table, state.round.lastCapture, animatingCard, scopaCelebration.show, setteBelloCelebration.show, endRound, isSpectatorMode, spectatorAIs, settings.cpuAI]);
@@ -498,10 +522,10 @@ function App() {
           playCard(moveToExecute);
           if (moveToExecute.capturedCards.length > 0) {
             setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
-            // Phase 4: done
+            // Phase 4: done (wait for cards to fly to pile)
             setTimeout(() => {
               setAnimatingCard(null);
-            }, 400);
+            }, 900);
           } else {
             setAnimatingCard(null);
           }
@@ -700,7 +724,6 @@ function App() {
             scopaCount={state.players.cpu.scopaCount}
             player="cpu"
             playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
-            isDealer={state.round.dealer === 'cpu'}
           />
         }
         tableCards={
@@ -709,7 +732,7 @@ function App() {
             cards={state.round.table}
             highlightedCardIds={validCaptureTargetIds}
             selectedCardIds={selectedTableCards.map(c => c.id)}
-            capturingCardIds={animatingCard?.phase === 'moving' && animatingCard.capturedCards.length > 0
+            capturingCardIds={(animatingCard?.phase === 'moving' || animatingCard?.phase === 'capturing') && animatingCard?.capturedCards.length
               ? animatingCard.capturedCards.map(c => c.id)
               : undefined}
             captureDirection={animatingCard?.capturedCards.length ? animatingCard.player : undefined}
@@ -726,7 +749,6 @@ function App() {
             scopaCount={state.players.human.scopaCount}
             player="human"
             playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
-            isDealer={state.round.dealer === 'human'}
           />
         }
         humanHand={

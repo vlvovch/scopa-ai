@@ -24,6 +24,7 @@ export function DealerDeck({ cardsRemaining }: DealerDeckProps) {
 
   return (
     <div className={styles.deckContainer}>
+      <span className={styles.dealerBadge} title="Dealer">D</span>
       <div className={styles.deckStack}>
         {/* Render stack layers for 3D effect */}
         {Array.from({ length: stackLayers }).map((_, i) => (
