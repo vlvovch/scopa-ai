@@ -18,12 +18,21 @@
 
 .card.selected,
 .card.selected:hover {
-  box-shadow: 0 0 0 3px var(--color-accent), var(--shadow-card-hover);
+  box-shadow: 0 0 0 4px var(--color-accent), 0 0 20px rgba(212, 175, 55, 0.6), var(--shadow-card-hover);
+  z-index: 10;
 }
 
 .card.highlighted {
   box-shadow: 0 0 0 2px var(--color-accent-light), var(--shadow-card);
   animation: pulse 1.5s infinite;
+}
+
+/* Selected overrides highlighted */
+.card.highlighted.selected,
+.card.highlighted.selected:hover {
+  box-shadow: 0 0 0 4px var(--color-accent), 0 0 20px rgba(212, 175, 55, 0.6), var(--shadow-card-hover);
+  animation: none;
+  z-index: 10;
 }
 
 .card.disabled {

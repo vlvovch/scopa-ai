@@ -79,8 +79,8 @@ export function Card({
     },
     animate: {
       opacity: 1,
-      scale: 1,
-      y: 0, // Don't use y here - it conflicts with drag
+      scale: selected ? 1.08 : 1,
+      y: selected && !draggable ? -10 : 0,
       transition: {
         type: 'spring',
         stiffness: 200,
