@@ -15,7 +15,8 @@ import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS } from './ai';
+import { AI_PLAYERS, AI_INFO } from './ai';
+import type { AIType } from './ai';
 import type { PanInfo } from 'framer-motion';
 import type { Card, PlayerId } from './game/types';
 
@@ -347,11 +348,20 @@ function App() {
     resetGame();
   }, [resetGame]);
 
+  // Handle AI selection change
+  const handleSelectAI = useCallback((ai: AIType) => {
+    updateSetting('cpuAI', ai);
+  }, [updateSetting]);
+
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
     return (
       <>
-        <StartScreen onStartGame={startGame} />
+        <StartScreen
+          onStartGame={startGame}
+          selectedAI={settings.cpuAI}
+          onSelectAI={handleSelectAI}
+        />
         <SettingsModal
           isOpen={showSettings}
           onClose={() => setShowSettings(false)}
@@ -490,6 +500,7 @@ function App() {
               roundNumber={state.roundNumber}
               targetScore={state.targetScore}
               currentPlayer={state.round.currentPlayer}
+              cpuName={AI_INFO[settings.cpuAI].name}
             />
             <GameControls
               onNewGame={handleNewGame}

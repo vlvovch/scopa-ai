@@ -231,6 +231,8 @@
 - [x] Step 13.4: Add AI Selection to Settings - Completed 2025-12-30
 - [x] Step 13.5: Fix Last-Hand Scopa Exception - Completed 2025-12-30
 - [x] Step 13.6: Show Round Summary Before Game End - Completed 2025-12-30
+- [x] Step 13.7: Add AI Selection to Start Screen - Completed 2025-12-30
+- [x] Step 13.8: Display AI Name on ScoreBoard - Completed 2025-12-30
 
 **Notes:**
 - Refactored AI logic from App.tsx into dedicated `src/ai/` module
@@ -248,6 +250,8 @@
 - Fixed bug: Scopa on last hand of round no longer counts (cards still captured)
 - Fixed flow: Round summary now shown before game end screen
 - Added `isGameOver` flag to GameState for proper flow control
+- StartScreen now allows selecting opponent (Scimmia or Furbo) before starting game
+- ScoreBoard displays selected AI name instead of generic "CPU"
 - 130 tests passing
 
 ---

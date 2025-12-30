@@ -17,3 +17,9 @@ export const AI_PLAYERS = {
 } as const;
 
 export type AIType = keyof typeof AI_PLAYERS;
+
+// Display info for each AI
+export const AI_INFO: Record<AIType, { name: string; description: string }> = {
+  random: { name: 'Scimmia', description: 'Plays randomly like a monkey' },
+  heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures' },
+};

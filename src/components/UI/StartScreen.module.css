@@ -79,6 +79,20 @@
   box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
 }
 
+.scoreOption.aiOption {
+  width: auto;
+  min-width: 80px;
+  padding: 0 var(--space-4);
+  font-size: 1rem;
+}
+
+.aiDescription {
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-style: italic;
+  margin: var(--space-2) 0 0;
+}
+
 .startButton {
   display: block;
   width: 100%;

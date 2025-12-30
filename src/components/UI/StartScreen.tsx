@@ -1,15 +1,19 @@
 // Step 8.6: StartScreen Component
 
 import { useState } from 'react';
+import { AI_INFO, type AIType } from '../../ai';
 import styles from './StartScreen.module.css';
 
 interface StartScreenProps {
   onStartGame: (targetScore: number) => void;
+  selectedAI: AIType;
+  onSelectAI: (ai: AIType) => void;
 }
 
 const SCORE_OPTIONS = [11, 16, 21] as const;
+const AI_OPTIONS: AIType[] = ['random', 'heuristic'];
 
-export function StartScreen({ onStartGame }: StartScreenProps) {
+export function StartScreen({ onStartGame, selectedAI, onSelectAI }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(11);
 
   return (
@@ -31,6 +35,23 @@ export function StartScreen({ onStartGame }: StartScreenProps) {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className={styles.scoreSelection}>
+          <label className={styles.label}>Opponent</label>
+          <div className={styles.scoreOptions}>
+            {AI_OPTIONS.map((ai) => (
+              <button
+                key={ai}
+                className={`${styles.scoreOption} ${styles.aiOption} ${selectedAI === ai ? styles.selected : ''}`}
+                onClick={() => onSelectAI(ai)}
+                title={AI_INFO[ai].description}
+              >
+                {AI_INFO[ai].name}
+              </button>
+            ))}
+          </div>
+          <p className={styles.aiDescription}>{AI_INFO[selectedAI].description}</p>
         </div>
 
         <button

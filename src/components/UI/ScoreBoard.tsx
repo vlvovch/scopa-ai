@@ -14,6 +14,8 @@ interface ScoreBoardProps {
   targetScore: number;
   /** Whose turn it is (optional) */
   currentPlayer?: PlayerId;
+  /** CPU AI name to display */
+  cpuName?: string;
 }
 
 export function ScoreBoard({
@@ -22,6 +24,7 @@ export function ScoreBoard({
   roundNumber,
   targetScore,
   currentPlayer,
+  cpuName = 'CPU',
 }: ScoreBoardProps) {
   return (
     <div className={styles.scoreBoard}>
@@ -44,7 +47,7 @@ export function ScoreBoard({
           <span
             className={`${styles.playerName} ${currentPlayer === 'cpu' ? styles.current : ''}`}
           >
-            CPU
+            {cpuName}
           </span>
           <span className={styles.scoreValue}>{cpuScore}</span>
         </div>
