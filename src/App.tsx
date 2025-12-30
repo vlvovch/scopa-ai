@@ -10,6 +10,7 @@ import { StartScreen } from './components/UI/StartScreen';
 import { RoundEndScreen } from './components/UI/RoundEndScreen';
 import { GameEndScreen } from './components/UI/GameEndScreen';
 import { ScopaCelebration } from './components/UI/ScopaCelebration';
+import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
@@ -26,11 +27,17 @@ function App() {
     show: false,
     player: 'human',
   });
+  const [setteBelloCelebration, setSetteBelloCelebration] = useState<{ show: boolean; player: PlayerId }>({
+    show: false,
+    player: 'human',
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
   // Track previous scopa counts to detect new scopas
   const prevScopaCounts = useRef({ human: 0, cpu: 0 });
+  // Track if sette bello has been captured this round
+  const setteBelloCaptured = useRef(false);
 
   // Ref for table area (for drag-and-drop detection)
   const tableRef = useRef<HTMLDivElement>(null);
@@ -48,6 +55,11 @@ function App() {
     setSelectedCard(null);
     setSelectedTableCards([]);
   }, [state.round.currentPlayer, state.status]);
+
+  // Reset sette bello tracking when a new round starts
+  useEffect(() => {
+    setteBelloCaptured.current = false;
+  }, [state.roundNumber]);
 
   // Calculate valid moves for selected card
   const validMoves = useMemo(() => {
@@ -93,6 +105,22 @@ function App() {
     });
   }, [selectedCard, selectedTableCards, validMoves]);
 
+  // Helper to check if captured cards include sette bello (7 of coins)
+  const hasSetteBello = useCallback((capturedCards: Card[]) => {
+    return capturedCards.some(c => c.suit === 'coins' && c.value === 7);
+  }, []);
+
+  // Wrapper for playCard that triggers sette bello celebration
+  const playCardWithCelebration = useCallback((move: Parameters<typeof playCard>[0]) => {
+    // Check for sette bello capture before playing
+    if (!setteBelloCaptured.current && hasSetteBello(move.capturedCards)) {
+      setteBelloCaptured.current = true;
+      setSetteBelloCelebration({ show: true, player: move.player });
+      setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+    }
+    playCard(move);
+  }, [playCard, hasSetteBello]);
+
   // Handle clicking a card in hand
   const handleHandCardClick = useCallback((card: Card) => {
     if (selectedCard?.id === card.id) {
@@ -114,7 +142,7 @@ function App() {
     const placeMove = moves.find(m => m.capturedCards.length === 0);
 
     if (placeMove) {
-      playCard(placeMove);
+      playCardWithCelebration(placeMove);
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
@@ -149,7 +177,7 @@ function App() {
 
         // If only one move option (place or single capture), execute it
         if (moves.length === 1) {
-          playCard(moves[0]);
+          playCardWithCelebration(moves[0]);
           setSelectedCard(null);
           setSelectedTableCards([]);
         } else if (moves.length > 1) {
@@ -158,7 +186,7 @@ function App() {
 
           if (captureOptions.length === 1) {
             // Only one capture option, execute it
-            playCard(captureOptions[0]);
+            playCardWithCelebration(captureOptions[0]);
             setSelectedCard(null);
             setSelectedTableCards([]);
           }
@@ -198,7 +226,7 @@ function App() {
     });
 
     if (move) {
-      playCard(move);
+      playCardWithCelebration(move);
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
@@ -209,7 +237,7 @@ function App() {
     if (!selectedCard || !canOnlyPlace) return;
 
     const placeMove = validMoves[0];
-    playCard(placeMove);
+    playCardWithCelebration(placeMove);
     setSelectedCard(null);
   }, [selectedCard, canOnlyPlace, validMoves, playCard]);
 
@@ -265,7 +293,7 @@ function App() {
 
           // Phase 3: execute move and show capture (after card reaches table)
           setTimeout(() => {
-            playCard(moveToExecute);
+            playCardWithCelebration(moveToExecute);
             if (moveToExecute.capturedCards.length > 0) {
               setCpuAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
               // Phase 4: done
@@ -369,6 +397,10 @@ function App() {
       <ScopaCelebration
         show={scopaCelebration.show}
         player={scopaCelebration.player}
+      />
+      <SetteBelloCelebration
+        show={setteBelloCelebration.show}
+        player={setteBelloCelebration.player}
       />
       <CpuCardAnimation
         card={cpuAnimatingCard?.card ?? null}
