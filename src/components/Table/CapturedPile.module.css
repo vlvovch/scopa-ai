@@ -102,6 +102,19 @@
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dealerBadge {
+  background: var(--color-accent);
+  color: #000;
+  font-size: 9px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
 }
 
 .emptyPile {

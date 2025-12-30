@@ -14,7 +14,7 @@ import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
-import { DealingAnimation } from './components/UI/DealingAnimation';
+import { DealingAnimation, DEALING_ANIMATION_DURATION } from './components/UI/DealingAnimation';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -49,8 +49,8 @@ function App() {
 
   // Track previous scopa counts to detect new scopas
   const prevScopaCounts = useRef({ human: 0, cpu: 0 });
-  // Track if sette bello has been captured this round
-  const setteBelloCaptured = useRef(false);
+  // Track who has sette bello (null = neither, 'human' or 'cpu' = that player has it)
+  const prevSetteBelloOwner = useRef<PlayerId | null>(null);
 
   // Ref for table area (for drag-and-drop detection)
   const tableRef = useRef<HTMLDivElement>(null);
@@ -76,7 +76,7 @@ function App() {
 
   // Reset sette bello tracking when a new round starts
   useEffect(() => {
-    setteBelloCaptured.current = false;
+    prevSetteBelloOwner.current = null;
   }, [state.roundNumber]);
 
   // Detect dealing and trigger animation
@@ -85,8 +85,8 @@ function App() {
     // Dealing detected when hand goes from 0 to 3 cards
     if (prevHandCount.current === 0 && currentHandCount === 3 && state.status === 'playing') {
       setIsDealing(true);
-      // End animation after cards have flown (6 cards * 120ms stagger + 500ms duration)
-      setTimeout(() => setIsDealing(false), 1200);
+      // End animation after cards have flown
+      setTimeout(() => setIsDealing(false), DEALING_ANIMATION_DURATION);
     }
     prevHandCount.current = currentHandCount;
   }, [state.players.human.hand.length, state.status]);
@@ -135,33 +135,6 @@ function App() {
     });
   }, [selectedCard, selectedTableCards, validMoves]);
 
-  // Helper to check if captured cards include sette bello (7 of coins)
-  const hasSetteBello = useCallback((capturedCards: Card[]) => {
-    return capturedCards.some(c => c.suit === 'coins' && c.value === 7);
-  }, []);
-
-  // Helper to get player name for celebrations
-  const getPlayerName = useCallback((player: PlayerId): string | undefined => {
-    if (!isSpectatorMode) return undefined; // Use default "You"/"CPU"
-    return player === 'human'
-      ? AI_INFO[spectatorAIs.player1].name
-      : AI_INFO[spectatorAIs.player2].name;
-  }, [isSpectatorMode, spectatorAIs]);
-
-  // Wrapper for playCard that triggers sette bello celebration
-  const playCardWithCelebration = useCallback((move: Parameters<typeof playCard>[0]) => {
-    // Check for sette bello capture before playing
-    if (!setteBelloCaptured.current && hasSetteBello(move.capturedCards)) {
-      setteBelloCaptured.current = true;
-      // Small delay to let capture animation start first
-      setTimeout(() => {
-        setSetteBelloCelebration({ show: true, player: move.player, playerName: getPlayerName(move.player) });
-        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1800);
-      }, 200);
-    }
-    playCard(move);
-  }, [playCard, hasSetteBello, getPlayerName]);
-
   // Handle clicking a card in hand
   const handleHandCardClick = useCallback((card: Card) => {
     if (selectedCard?.id === card.id) {
@@ -183,11 +156,11 @@ function App() {
     const placeMove = moves.find(m => m.capturedCards.length === 0);
 
     if (placeMove) {
-      playCardWithCelebration(placeMove);
+      playCard(placeMove);
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
-  }, [state.round.currentPlayer, state.round.table, playCardWithCelebration]);
+  }, [state.round.currentPlayer, state.round.table, playCard]);
 
   // Handle card drag start
   const handleCardDragStart = useCallback((card: Card) => {
@@ -218,7 +191,7 @@ function App() {
 
         // If only one move option (place or single capture), execute it
         if (moves.length === 1) {
-          playCardWithCelebration(moves[0]);
+          playCard(moves[0]);
           setSelectedCard(null);
           setSelectedTableCards([]);
         } else if (moves.length > 1) {
@@ -227,7 +200,7 @@ function App() {
 
           if (captureOptions.length === 1) {
             // Only one capture option, execute it
-            playCardWithCelebration(captureOptions[0]);
+            playCard(captureOptions[0]);
             setSelectedCard(null);
             setSelectedTableCards([]);
           }
@@ -235,7 +208,7 @@ function App() {
         }
       }
     }
-  }, [state.round.currentPlayer, state.round.table, playCardWithCelebration]);
+  }, [state.round.currentPlayer, state.round.table, playCard]);
 
   // Handle clicking a table card
   const handleTableCardClick = useCallback((card: Card) => {
@@ -267,20 +240,20 @@ function App() {
     });
 
     if (move) {
-      playCardWithCelebration(move);
+      playCard(move);
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
-  }, [selectedCard, selectedTableCards, validMoves, isValidCapture, playCardWithCelebration]);
+  }, [selectedCard, selectedTableCards, validMoves, isValidCapture, playCard]);
 
   // Execute place
   const executePlace = useCallback(() => {
     if (!selectedCard || !canOnlyPlace) return;
 
     const placeMove = validMoves[0];
-    playCardWithCelebration(placeMove);
+    playCard(placeMove);
     setSelectedCard(null);
-  }, [selectedCard, canOnlyPlace, validMoves, playCardWithCelebration]);
+  }, [selectedCard, canOnlyPlace, validMoves, playCard]);
 
   // Auto-execute single card capture when table card is clicked (with brief delay for visual feedback)
   useEffect(() => {
@@ -301,6 +274,11 @@ function App() {
 
     // Pause in spectator mode
     if (isSpectatorMode && isSpectatorPaused) {
+      return;
+    }
+
+    // Wait for celebration animations to complete
+    if (scopaCelebration.show || setteBelloCelebration.show) {
       return;
     }
 
@@ -340,7 +318,7 @@ function App() {
 
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
-          playCardWithCelebration(moveToExecute);
+          playCard(moveToExecute);
           if (moveToExecute.capturedCards.length > 0) {
             setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
             // Phase 4: done
@@ -355,14 +333,51 @@ function App() {
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCardWithCelebration, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show]);
 
   // Calculate and store round scores when entering roundEnd status
+  // Handles final animations and Sette Bello detection for cards awarded at round end
   useEffect(() => {
-    if (state.status === 'roundEnd' && !state.lastRoundScores) {
-      endRound();
+    if (state.status !== 'roundEnd' || state.lastRoundScores) {
+      return;
     }
-  }, [state.status, state.lastRoundScores, endRound]);
+
+    // Wait for any card animation to complete
+    if (animatingCard) {
+      return;
+    }
+
+    // Wait for any celebration to complete
+    if (scopaCelebration.show || setteBelloCelebration.show) {
+      return;
+    }
+
+    // Check if 7 of coins is on the table and will be awarded to lastCapture player
+    const setteBelloOnTable = state.round.table.some(c => c.suit === 'coins' && c.value === 7);
+    const lastCapturePlayer = state.round.lastCapture;
+
+    if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null) {
+      // Sette Bello will be awarded in final hand - trigger celebration
+      const playerName = lastCapturePlayer === 'human'
+        ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
+        : (isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name);
+
+      // Mark as captured to prevent re-triggering
+      prevSetteBelloOwner.current = lastCapturePlayer;
+
+      setSetteBelloCelebration({ show: true, player: lastCapturePlayer, playerName });
+      setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1800);
+      // The effect will re-run after celebration ends and then call endRound()
+      return;
+    }
+
+    // Small delay for final card animations to settle, then calculate scores
+    const timeoutId = setTimeout(() => {
+      endRound();
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [state.status, state.lastRoundScores, state.round.table, state.round.lastCapture, animatingCard, scopaCelebration.show, setteBelloCelebration.show, endRound, isSpectatorMode, spectatorAIs, settings.cpuAI]);
 
   // Detect scopa and show celebration
   useEffect(() => {
@@ -381,6 +396,34 @@ function App() {
 
     prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
   }, [state.players.human.scopaCount, state.players.cpu.scopaCount, isSpectatorMode, spectatorAIs, settings.cpuAI]);
+
+  // Detect sette bello capture and show celebration
+  useEffect(() => {
+    // Check who currently has the 7 of coins
+    const humanHasSetteBello = state.players.human.captured.some(
+      c => c.suit === 'coins' && c.value === 7
+    );
+    const cpuHasSetteBello = state.players.cpu.captured.some(
+      c => c.suit === 'coins' && c.value === 7
+    );
+
+    const currentOwner: PlayerId | null = humanHasSetteBello ? 'human' : cpuHasSetteBello ? 'cpu' : null;
+
+    // If someone just captured it (previous was null, now someone has it)
+    if (prevSetteBelloOwner.current === null && currentOwner !== null) {
+      const playerName = currentOwner === 'human'
+        ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
+        : (isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name);
+
+      // Small delay to let capture animation start first
+      setTimeout(() => {
+        setSetteBelloCelebration({ show: true, player: currentOwner, playerName });
+        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1800);
+      }, 300);
+    }
+
+    prevSetteBelloOwner.current = currentOwner;
+  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI]);
 
   // Handle new game request
   const handleNewGame = useCallback(() => {
@@ -419,6 +462,9 @@ function App() {
     if (!isSpectatorMode || isSpectatorPaused) return;
     if (state.round.currentPlayer !== 'human' || state.status !== 'playing') return;
 
+    // Wait for celebration animations to complete
+    if (scopaCelebration.show || setteBelloCelebration.show) return;
+
     // Don't start new animation if one is in progress
     if (animatingCard) return;
 
@@ -449,7 +495,7 @@ function App() {
 
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
-          playCardWithCelebration(moveToExecute);
+          playCard(moveToExecute);
           if (moveToExecute.capturedCards.length > 0) {
             setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
             // Phase 4: done
@@ -464,7 +510,7 @@ function App() {
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCardWithCelebration, animatingCard]);
+  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show]);
 
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
@@ -654,6 +700,7 @@ function App() {
             scopaCount={state.players.cpu.scopaCount}
             player="cpu"
             playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
+            isDealer={state.round.dealer === 'cpu'}
           />
         }
         tableCards={
@@ -679,6 +726,7 @@ function App() {
             scopaCount={state.players.human.scopaCount}
             player="human"
             playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+            isDealer={state.round.dealer === 'human'}
           />
         }
         humanHand={

@@ -153,7 +153,7 @@ export function RoundEndScreen({
     },
     {
       id: 'scopa',
-      name: 'Scopa',
+      name: '🧹 Scopa',
       humanCount: humanScore.scopas || '-',
       cpuCount: cpuScore.scopas || '-',
       humanWon: humanScore.scopas > cpuScore.scopas,

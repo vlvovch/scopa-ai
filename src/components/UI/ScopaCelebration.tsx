@@ -43,6 +43,20 @@ export function ScopaCelebration({ show, player, onComplete, playerName }: Scopa
               ease: 'easeOut',
             }}
           >
+            {/* Broom icon */}
+            <motion.div
+              className={styles.broomIcon}
+              animate={{
+                rotate: [0, -15, 15, -10, 10, 0],
+                scale: [1, 1.1, 1],
+              }}
+              transition={{
+                rotate: { duration: 0.6, ease: 'easeInOut' },
+                scale: { duration: 0.4, repeat: 2, repeatType: 'reverse' },
+              }}
+            >
+              🧹
+            </motion.div>
             <motion.span
               className={styles.text}
               animate={{

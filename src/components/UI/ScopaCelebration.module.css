@@ -18,6 +18,11 @@
   gap: var(--space-2);
 }
 
+.broomIcon {
+  font-size: 4rem;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+}
+
 .text {
   font-size: 4rem;
   font-weight: bold;

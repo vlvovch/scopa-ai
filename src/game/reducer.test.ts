@@ -598,6 +598,216 @@ describe('Game State Management', () => {
     });
   });
 
+  describe('Sette Bello (7 of coins) capture tracking', () => {
+    it('should include 7 of coins in captured pile when player captures it directly', () => {
+      const state: GameState = {
+        status: 'playing',
+        round: {
+          deck: Array(24).fill(null).map((_, i) => card('cups', ((i % 10) + 1) as Card['value'])),
+          table: [card('coins', 7), card('swords', 3)], // 7 of coins on table
+          currentPlayer: 'human',
+          dealer: 'cpu',
+          lastCapture: null,
+        },
+        players: {
+          human: {
+            hand: [card('cups', 7), card('coins', 5)], // Can capture with 7
+            captured: [],
+            scopaCount: 0, scopaCaptures: [],
+          },
+          cpu: {
+            hand: [card('swords', 4)],
+            captured: [],
+            scopaCount: 0, scopaCaptures: [],
+          },
+        },
+        scores: { human: 0, cpu: 0 },
+        roundNumber: 1,
+        targetScore: 11,
+      };
+
+      const move: Move = {
+        player: 'human',
+        cardPlayed: card('cups', 7),
+        capturedCards: [card('coins', 7)], // Capturing the 7 of coins
+        isScopa: false,
+      };
+      const action: GameAction = { type: 'PLAY_CARD', payload: { move } };
+
+      const newState = gameReducer(state, action);
+
+      // Verify 7 of coins is in human's captured pile
+      const hasSetteBello = newState.players.human.captured.some(
+        c => c.suit === 'coins' && c.value === 7
+      );
+      expect(hasSetteBello).toBe(true);
+    });
+
+    it('should include 7 of coins in captured pile when CPU captures it', () => {
+      const state: GameState = {
+        status: 'playing',
+        round: {
+          deck: Array(24).fill(null).map((_, i) => card('cups', ((i % 10) + 1) as Card['value'])),
+          table: [card('coins', 7), card('swords', 3)], // 7 of coins on table
+          currentPlayer: 'cpu',
+          dealer: 'human',
+          lastCapture: null,
+        },
+        players: {
+          human: {
+            hand: [card('coins', 5)],
+            captured: [],
+            scopaCount: 0, scopaCaptures: [],
+          },
+          cpu: {
+            hand: [card('swords', 7), card('cups', 4)], // Can capture with 7
+            captured: [],
+            scopaCount: 0, scopaCaptures: [],
+          },
+        },
+        scores: { human: 0, cpu: 0 },
+        roundNumber: 1,
+        targetScore: 11,
+      };
+
+      const move: Move = {
+        player: 'cpu',
+        cardPlayed: card('swords', 7),
+        capturedCards: [card('coins', 7)], // Capturing the 7 of coins
+        isScopa: false,
+      };
+      const action: GameAction = { type: 'PLAY_CARD', payload: { move } };
+
+      const newState = gameReducer(state, action);
+
+      // Verify 7 of coins is in CPU's captured pile
+      const hasSetteBello = newState.players.cpu.captured.some(
+        c => c.suit === 'coins' && c.value === 7
+      );
+      expect(hasSetteBello).toBe(true);
+    });
+
+    it('should award 7 of coins to lastCapture player at round end', () => {
+      const state: GameState = {
+        status: 'roundEnd',
+        round: {
+          deck: [],
+          table: [card('coins', 7), card('cups', 4)], // 7 of coins still on table at round end
+          currentPlayer: 'human',
+          dealer: 'cpu',
+          lastCapture: 'cpu', // CPU was last to capture
+        },
+        players: {
+          human: {
+            hand: [],
+            captured: [card('cups', 1), card('cups', 2)],
+            scopaCount: 0, scopaCaptures: [],
+          },
+          cpu: {
+            hand: [],
+            captured: [card('swords', 5), card('swords', 6)],
+            scopaCount: 0, scopaCaptures: [],
+          },
+        },
+        scores: { human: 0, cpu: 0 },
+        roundNumber: 1,
+        targetScore: 11,
+      };
+
+      const action: GameAction = { type: 'END_ROUND' };
+      const newState = gameReducer(state, action);
+
+      // Verify 7 of coins went to CPU (lastCapture player)
+      const cpuHasSetteBello = newState.players.cpu.captured.some(
+        c => c.suit === 'coins' && c.value === 7
+      );
+      const humanHasSetteBello = newState.players.human.captured.some(
+        c => c.suit === 'coins' && c.value === 7
+      );
+
+      expect(cpuHasSetteBello).toBe(true);
+      expect(humanHasSetteBello).toBe(false);
+      expect(newState.round.table).toHaveLength(0); // Table should be empty
+    });
+
+    it('should award 7 of coins to human if they were last to capture', () => {
+      const state: GameState = {
+        status: 'roundEnd',
+        round: {
+          deck: [],
+          table: [card('coins', 7), card('swords', 2)], // 7 of coins still on table
+          currentPlayer: 'cpu',
+          dealer: 'human',
+          lastCapture: 'human', // Human was last to capture
+        },
+        players: {
+          human: {
+            hand: [],
+            captured: [card('cups', 3)],
+            scopaCount: 0, scopaCaptures: [],
+          },
+          cpu: {
+            hand: [],
+            captured: [card('clubs', 8)],
+            scopaCount: 0, scopaCaptures: [],
+          },
+        },
+        scores: { human: 0, cpu: 0 },
+        roundNumber: 1,
+        targetScore: 11,
+      };
+
+      const action: GameAction = { type: 'END_ROUND' };
+      const newState = gameReducer(state, action);
+
+      // Verify 7 of coins went to human (lastCapture player)
+      const humanHasSetteBello = newState.players.human.captured.some(
+        c => c.suit === 'coins' && c.value === 7
+      );
+      const cpuHasSetteBello = newState.players.cpu.captured.some(
+        c => c.suit === 'coins' && c.value === 7
+      );
+
+      expect(humanHasSetteBello).toBe(true);
+      expect(cpuHasSetteBello).toBe(false);
+    });
+
+    it('should correctly score Sette Bello point after final hand award', () => {
+      const state: GameState = {
+        status: 'roundEnd',
+        round: {
+          deck: [],
+          table: [card('coins', 7)], // Only 7 of coins on table
+          currentPlayer: 'human',
+          dealer: 'cpu',
+          lastCapture: 'human',
+        },
+        players: {
+          human: {
+            hand: [],
+            captured: Array(20).fill(null).map((_, i) => card('cups', ((i % 10) + 1) as Card['value'])),
+            scopaCount: 0, scopaCaptures: [],
+          },
+          cpu: {
+            hand: [],
+            captured: Array(19).fill(null).map((_, i) => card('swords', ((i % 10) + 1) as Card['value'])),
+            scopaCount: 0, scopaCaptures: [],
+          },
+        },
+        scores: { human: 0, cpu: 0 },
+        roundNumber: 1,
+        targetScore: 11,
+      };
+
+      const action: GameAction = { type: 'END_ROUND' };
+      const newState = gameReducer(state, action);
+
+      // Verify Sette Bello point was awarded to human
+      expect(newState.lastRoundScores?.human.setteBello).toBe(1);
+      expect(newState.lastRoundScores?.cpu.setteBello).toBe(0);
+    });
+  });
+
   describe('RESET_GAME action', () => {
     it('should return to initial state', () => {
       const state: GameState = {

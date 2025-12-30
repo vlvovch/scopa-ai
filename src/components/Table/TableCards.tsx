@@ -80,7 +80,8 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
             cards.map((card, index) => {
               const isCapturing = capturingSet.has(card.id);
               // Determine exit animation based on capture direction
-              const exitY = captureDirection === 'cpu' ? -150 : captureDirection === 'human' ? 150 : 20;
+              const exitY = captureDirection === 'cpu' ? -200 : captureDirection === 'human' ? 200 : 20;
+              const exitX = captureDirection === 'cpu' ? -80 : captureDirection === 'human' ? 80 : 0;
               const isBeingCaptured = isCapturing && captureDirection;
               return (
                 <motion.div
@@ -90,17 +91,19 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
                   initial={{ opacity: 0, scale: 0.8, y: -20 }}
                   animate={isCapturing ? {
                     opacity: 1,
-                    scale: 1.15,
-                    y: -20,
-                    boxShadow: '0 8px 24px rgba(212, 175, 55, 0.6)',
+                    scale: 1.2,
+                    y: -25,
+                    boxShadow: '0 12px 32px rgba(212, 175, 55, 0.7)',
                   } : { opacity: 1, scale: 1, y: 0 }}
                   exit={{
                     opacity: 0,
-                    scale: isBeingCaptured ? 0.6 : 0.8,
+                    scale: isBeingCaptured ? 0.5 : 0.8,
                     y: exitY,
+                    x: exitX,
+                    rotate: isBeingCaptured ? (captureDirection === 'cpu' ? -15 : 15) : 0,
                     transition: {
-                      duration: isBeingCaptured ? 0.4 : 0.25,
-                      ease: 'easeIn'
+                      duration: isBeingCaptured ? 0.5 : 0.25,
+                      ease: [0.4, 0, 0.2, 1]
                     }
                   }}
                   transition={{

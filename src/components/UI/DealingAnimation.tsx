@@ -14,6 +14,12 @@ interface DealingAnimationProps {
   deckPosition: 'left' | 'right';
 }
 
+// Animation timing constants
+const CARD_DURATION = 0.65; // Duration for each card to fly (seconds)
+const CARD_STAGGER = 0.2;   // Delay between each card (seconds)
+// Total duration in ms: last card starts at 5*200ms, flies for 650ms, plus 200ms buffer
+export const DEALING_ANIMATION_DURATION = (CARD_DURATION * 1000) + (5 * CARD_STAGGER * 1000) + 200; // ~1850ms
+
 export function DealingAnimation({ isDealing, startPlayer, deckPosition }: DealingAnimationProps) {
   if (!isDealing) return null;
 
@@ -28,16 +34,16 @@ export function DealingAnimation({ isDealing, startPlayer, deckPosition }: Deali
   });
 
   // Calculate start position based on deck position
-  const startX = deckPosition === 'left' ? -250 : 250;
+  const startX = deckPosition === 'left' ? -280 : 280;
 
   return (
     <AnimatePresence>
       <div className={styles.overlay}>
         {cards.map((card) => {
           // Target position: human hand at bottom, cpu hand at top
-          const targetY = card.player === 'human' ? 250 : -250;
+          const targetY = card.player === 'human' ? 280 : -280;
           // Spread cards horizontally based on card index
-          const targetX = (card.cardIndex - 1) * 60;
+          const targetX = (card.cardIndex - 1) * 70;
 
           return (
             <motion.div
@@ -46,22 +52,24 @@ export function DealingAnimation({ isDealing, startPlayer, deckPosition }: Deali
               initial={{
                 x: startX,
                 y: 0,
-                scale: 0.9,
+                scale: 0.85,
                 opacity: 1,
+                rotate: deckPosition === 'left' ? -5 : 5,
               }}
               animate={{
                 x: targetX,
                 y: targetY,
                 scale: 1,
                 opacity: [1, 1, 1, 0],
+                rotate: 0,
               }}
               transition={{
-                duration: 0.5,
-                delay: card.id * 0.12, // Stagger each card
-                ease: [0.2, 0.8, 0.4, 1], // Custom ease for arc-like motion
+                duration: CARD_DURATION,
+                delay: card.id * CARD_STAGGER,
+                ease: [0.25, 0.1, 0.25, 1], // Smooth ease-out curve
                 opacity: {
-                  times: [0, 0.6, 0.9, 1],
-                  duration: 0.5,
+                  times: [0, 0.5, 0.85, 1],
+                  duration: CARD_DURATION,
                 }
               }}
             >
