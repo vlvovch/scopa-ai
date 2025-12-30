@@ -462,7 +462,12 @@ function App() {
       }
       cpuHand={
         <PlayerHand
-          cards={state.players.cpu.hand}
+          cards={
+            // Filter out card being animated so it disappears from hand immediately
+            cpuAnimatingCard
+              ? state.players.cpu.hand.filter(c => c.id !== cpuAnimatingCard.card.id)
+              : state.players.cpu.hand
+          }
           isHuman={false}
         />
       }

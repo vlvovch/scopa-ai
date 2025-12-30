@@ -26,7 +26,7 @@ export function RoundEndScreen({
   // Categories with counts and winner highlighting
   const categories = [
     {
-      name: 'Carte',
+      name: 'Carte Lungo',
       humanCount: humanScore.counts.cards,
       cpuCount: cpuScore.counts.cards,
       humanWon: humanScore.cards > 0,
