@@ -15,6 +15,7 @@ import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
+import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -39,6 +40,13 @@ function App() {
   const [celebrationActive, setCelebrationActive] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
+
+  // Capture choice modal state (shown when multiple capture options exist)
+  const [captureChoiceModal, setCaptureChoiceModal] = useState<{
+    isOpen: boolean;
+    playedCard: Card | null;
+    captureOptions: Move[];
+  }>({ isOpen: false, playedCard: null, captureOptions: [] });
 
   // Spectator mode state
   const [spectatorAIs, setSpectatorAIs] = useState<{ player1: AIType; player2: AIType }>({
@@ -293,14 +301,20 @@ function App() {
         if (moves.length === 1) {
           executeMoveWithAnimation(moves[0]);
         } else if (moves.length > 1) {
-          // Multiple capture options - check if all are single card captures with same value
+          // Multiple options - filter to capture moves only
           const captureOptions = moves.filter(m => m.capturedCards.length > 0);
 
           if (captureOptions.length === 1) {
             // Only one capture option, execute it
             executeMoveWithAnimation(captureOptions[0]);
+          } else if (captureOptions.length > 1) {
+            // Multiple capture options - show choice modal
+            setCaptureChoiceModal({
+              isOpen: true,
+              playedCard: card,
+              captureOptions,
+            });
           }
-          // Otherwise keep card selected for user to pick capture targets
         }
       }
     }
@@ -349,6 +363,17 @@ function App() {
     playCard(placeMove);
     setSelectedCard(null);
   }, [selectedCard, canOnlyPlace, validMoves, playCard]);
+
+  // Handle capture selection from modal
+  const handleCaptureChoice = useCallback((move: Move) => {
+    setCaptureChoiceModal({ isOpen: false, playedCard: null, captureOptions: [] });
+    executeMoveWithAnimation(move);
+  }, [executeMoveWithAnimation]);
+
+  // Handle cancel capture choice modal
+  const handleCancelCaptureChoice = useCallback(() => {
+    setCaptureChoiceModal({ isOpen: false, playedCard: null, captureOptions: [] });
+  }, []);
 
   // Auto-execute single card capture when table card is clicked (with brief delay for visual feedback)
   useEffect(() => {
@@ -767,6 +792,13 @@ function App() {
         settings={settings}
         onUpdateSetting={updateSetting}
         onResetSettings={resetSettings}
+      />
+      <CaptureChoiceModal
+        isOpen={captureChoiceModal.isOpen}
+        playedCard={captureChoiceModal.playedCard}
+        captureOptions={captureChoiceModal.captureOptions}
+        onSelectCapture={handleCaptureChoice}
+        onCancel={handleCancelCaptureChoice}
       />
       {/* New Game Confirmation Dialog */}
       {confirmNewGame && (
