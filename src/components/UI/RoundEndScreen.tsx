@@ -8,6 +8,82 @@ import styles from './RoundEndScreen.module.css';
 
 type HoverCategory = 'carte' | 'denari' | 'settebello' | 'primiera' | 'scopa' | null;
 
+// Custom SVG icons for score categories
+function CardsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      {/* Back card */}
+      <rect x="2" y="4" width="14" height="18" rx="2" fill="#1a472a" stroke="#c9a227" strokeWidth="1.5"/>
+      <rect x="4" y="6" width="10" height="14" rx="1" fill="none" stroke="#c9a227" strokeWidth="0.5" opacity="0.5"/>
+      {/* Front card */}
+      <rect x="8" y="2" width="14" height="18" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
+      <text x="15" y="13" fontSize="8" fontWeight="bold" fill="#c41e3a" textAnchor="middle">A</text>
+      <text x="11" y="8" fontSize="5" fill="#c41e3a">♠</text>
+    </svg>
+  );
+}
+
+function CoinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      <circle cx="12" cy="12" r="10" fill="url(#coinGradient)" stroke="#8B6914" strokeWidth="1.5"/>
+      <circle cx="12" cy="12" r="7" fill="none" stroke="#8B6914" strokeWidth="1" opacity="0.6"/>
+      <circle cx="12" cy="12" r="4" fill="none" stroke="#8B6914" strokeWidth="0.8" opacity="0.4"/>
+      <circle cx="12" cy="12" r="1.5" fill="#8B6914" opacity="0.5"/>
+      <defs>
+        <radialGradient id="coinGradient" cx="35%" cy="35%">
+          <stop offset="0%" stopColor="#FFD700"/>
+          <stop offset="50%" stopColor="#DAA520"/>
+          <stop offset="100%" stopColor="#B8860B"/>
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function SetteBelloIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      {/* Card background */}
+      <rect x="3" y="1" width="18" height="22" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
+      {/* Large 7 */}
+      <text x="12" y="15" fontSize="12" fontWeight="bold" fill="#1a472a" textAnchor="middle">7</text>
+      {/* Small coin */}
+      <circle cx="17" cy="6" r="3.5" fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.8"/>
+      <circle cx="17" cy="6" r="2" fill="none" stroke="#8B6914" strokeWidth="0.5" opacity="0.5"/>
+      <defs>
+        <radialGradient id="setteCoinGrad" cx="35%" cy="35%">
+          <stop offset="0%" stopColor="#FFD700"/>
+          <stop offset="100%" stopColor="#DAA520"/>
+        </radialGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function PrimieraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      <polygon
+        points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9"
+        fill="url(#starGradient)"
+        stroke="#8B6914"
+        strokeWidth="1"
+      />
+      <defs>
+        <linearGradient id="starGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFD700"/>
+          <stop offset="100%" stopColor="#DAA520"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function ScopaIcon() {
+  return <span className={styles.emojiIcon}>🧹</span>;
+}
+
 interface RoundEndScreenProps {
   roundNumber: number;
   humanScore: RoundScore;
@@ -114,9 +190,7 @@ export function RoundEndScreen({
   const categories: Array<{
     id: HoverCategory;
     name: string;
-    icon: string;
-    iconColor?: string;
-    iconClass?: string;
+    icon: React.ReactNode;
     humanCount: string | number;
     cpuCount: string | number;
     humanWon: boolean;
@@ -125,7 +199,7 @@ export function RoundEndScreen({
     {
       id: 'carte',
       name: 'Carte Lungo',
-      icon: '🂠',
+      icon: <CardsIcon />,
       humanCount: humanScore.counts.cards,
       cpuCount: cpuScore.counts.cards,
       humanWon: humanScore.cards > 0,
@@ -134,8 +208,7 @@ export function RoundEndScreen({
     {
       id: 'denari',
       name: 'Denari',
-      icon: '●',
-      iconColor: '#DAA520',
+      icon: <CoinIcon />,
       humanCount: humanScore.counts.coins,
       cpuCount: cpuScore.counts.coins,
       humanWon: humanScore.coins > 0,
@@ -144,9 +217,7 @@ export function RoundEndScreen({
     {
       id: 'settebello',
       name: 'Sette Bello',
-      icon: '7',
-      iconColor: '#DAA520',
-      iconClass: 'setteBelloIcon',
+      icon: <SetteBelloIcon />,
       humanCount: humanScore.setteBello > 0 ? '✓' : '-',
       cpuCount: cpuScore.setteBello > 0 ? '✓' : '-',
       humanWon: humanScore.setteBello > 0,
@@ -155,8 +226,7 @@ export function RoundEndScreen({
     {
       id: 'primiera',
       name: 'Primiera',
-      icon: '★',
-      iconColor: '#DAA520',
+      icon: <PrimieraIcon />,
       humanCount: formatPrime(humanScore.counts.prime),
       cpuCount: formatPrime(cpuScore.counts.prime),
       humanWon: humanScore.prime > 0,
@@ -165,7 +235,7 @@ export function RoundEndScreen({
     {
       id: 'scopa',
       name: 'Scopa',
-      icon: '🧹',
+      icon: <ScopaIcon />,
       humanCount: humanScore.scopas || '-',
       cpuCount: cpuScore.scopas || '-',
       humanWon: humanScore.scopas > cpuScore.scopas,
@@ -210,14 +280,11 @@ export function RoundEndScreen({
                 onMouseEnter={() => setHoveredCategory(cat.id)}
                 onMouseLeave={() => setHoveredCategory(null)}
               >
-                <td>
-                  <span
-                    className={`${styles.categoryIcon} ${cat.iconClass ? styles[cat.iconClass] : ''}`}
-                    style={cat.iconColor ? { color: cat.iconColor } : undefined}
-                  >
+                <td className={styles.categoryCell}>
+                  <span className={styles.categoryIcon}>
                     {cat.icon}
                   </span>
-                  {cat.name}
+                  <span className={styles.categoryName}>{cat.name}</span>
                 </td>
                 <td className={cat.humanWon ? styles.winner : ''}>
                   {cat.humanCount}
