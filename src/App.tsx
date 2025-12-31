@@ -16,6 +16,7 @@ import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
+import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -684,13 +685,15 @@ function App() {
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
     return (
-      <>
+      <DeckProvider deck={settings.deck}>
         <StartScreen
           onStartGame={startGame}
           selectedAI={settings.cpuAI}
           onSelectAI={handleSelectAI}
           spectatorAIs={spectatorAIs}
           onSelectSpectatorAI={handleSelectSpectatorAI}
+          selectedDeck={settings.deck}
+          onSelectDeck={(deck) => updateSetting('deck', deck)}
         />
         <SettingsModal
           isOpen={showSettings}
@@ -699,50 +702,54 @@ function App() {
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
         />
-      </>
+      </DeckProvider>
     );
   }
 
   // Round end screen (wait for scores to be calculated)
   if (state.status === 'roundEnd' && state.lastRoundScores) {
     return (
-      <RoundEndScreen
-        roundNumber={state.roundNumber}
-        humanScore={state.lastRoundScores.human}
-        cpuScore={state.lastRoundScores.cpu}
-        cumulativeHuman={state.scores.human}
-        cumulativeCpu={state.scores.cpu}
-        humanCaptured={state.players.human.captured}
-        cpuCaptured={state.players.cpu.captured}
-        humanScopaCaptures={state.players.human.scopaCaptures}
-        cpuScopaCaptures={state.players.cpu.scopaCaptures}
-        isGameOver={state.isGameOver}
-        onNextRound={nextRound}
-        onShowGameEnd={showGameEnd}
-        player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
-        player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
-      />
+      <DeckProvider deck={settings.deck}>
+        <RoundEndScreen
+          roundNumber={state.roundNumber}
+          humanScore={state.lastRoundScores.human}
+          cpuScore={state.lastRoundScores.cpu}
+          cumulativeHuman={state.scores.human}
+          cumulativeCpu={state.scores.cpu}
+          humanCaptured={state.players.human.captured}
+          cpuCaptured={state.players.cpu.captured}
+          humanScopaCaptures={state.players.human.scopaCaptures}
+          cpuScopaCaptures={state.players.cpu.scopaCaptures}
+          isGameOver={state.isGameOver}
+          onNextRound={nextRound}
+          onShowGameEnd={showGameEnd}
+          player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+          player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
+        />
+      </DeckProvider>
     );
   }
 
   // Game end screen
   if (state.status === 'gameEnd') {
     return (
-      <GameEndScreen
-        humanScore={state.scores.human}
-        cpuScore={state.scores.cpu}
-        roundsPlayed={state.roundNumber}
-        onPlayAgain={resetGame}
-        player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
-        player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
-      />
+      <DeckProvider deck={settings.deck}>
+        <GameEndScreen
+          humanScore={state.scores.human}
+          cpuScore={state.scores.cpu}
+          roundsPlayed={state.roundNumber}
+          onPlayAgain={resetGame}
+          player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+          player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
+        />
+      </DeckProvider>
     );
   }
 
   const isHumanTurn = state.round.currentPlayer === 'human';
 
   return (
-    <>
+    <DeckProvider deck={settings.deck}>
       <ScopaCelebration
         show={scopaCelebration.show}
         player={scopaCelebration.player}
@@ -1020,7 +1027,7 @@ function App() {
           </div>
         }
       />
-    </>
+    </DeckProvider>
   );
 }
 

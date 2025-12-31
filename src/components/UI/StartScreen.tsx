@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { AI_INFO, type AIType } from '../../ai';
 import type { GameMode } from '../../game/types';
+import type { DeckType } from '../../hooks/useSettings';
 import styles from './StartScreen.module.css';
 
 type GameModeOption = 'play' | 'watch';
@@ -13,10 +14,16 @@ interface StartScreenProps {
   onSelectAI: (ai: AIType) => void;
   spectatorAIs: { player1: AIType; player2: AIType };
   onSelectSpectatorAI: (player: 'player1' | 'player2', ai: AIType) => void;
+  selectedDeck: DeckType;
+  onSelectDeck: (deck: DeckType) => void;
 }
 
 const SCORE_OPTIONS = [11, 16, 21] as const;
 const AI_OPTIONS: AIType[] = ['random', 'heuristic'];
+const DECK_OPTIONS: { value: DeckType; label: string }[] = [
+  { value: 'napoletane', label: 'Napoletane' },
+  { value: 'siciliane', label: 'Siciliane' },
+];
 
 export function StartScreen({
   onStartGame,
@@ -24,6 +31,8 @@ export function StartScreen({
   onSelectAI,
   spectatorAIs,
   onSelectSpectatorAI,
+  selectedDeck,
+  onSelectDeck,
 }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(11);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
@@ -70,6 +79,21 @@ export function StartScreen({
                 onClick={() => setSelectedScore(score)}
               >
                 {score}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.scoreSelection}>
+          <label className={styles.label}>Card Deck</label>
+          <div className={styles.scoreOptions}>
+            {DECK_OPTIONS.map((deck) => (
+              <button
+                key={deck.value}
+                className={`${styles.scoreOption} ${styles.deckOption} ${selectedDeck === deck.value ? styles.selected : ''}`}
+                onClick={() => onSelectDeck(deck.value)}
+              >
+                {deck.label}
               </button>
             ))}
           </div>

@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { AIType } from '../ai';
 
+export type DeckType = 'napoletane' | 'siciliane';
+
 export interface GameSettings {
   /** Default target score for new games */
   defaultTargetScore: 11 | 16 | 21;
@@ -12,6 +14,8 @@ export interface GameSettings {
   showCardValues: boolean;
   /** CPU AI type */
   cpuAI: AIType;
+  /** Card deck style */
+  deck: DeckType;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -21,6 +25,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   animationSpeed: 'normal',
   showCardValues: true,
   cpuAI: 'heuristic',
+  deck: 'napoletane',
 };
 
 function loadSettings(): GameSettings {

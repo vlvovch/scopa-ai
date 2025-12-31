@@ -1,20 +1,23 @@
-// Neapolitan Card Image Component
-// Uses authentic Neapolitan card graphics converted to WebP for fast loading
+// Card Image Component
+// Uses authentic Italian card graphics converted to WebP for fast loading
 
 import type { Card } from '../../game/types';
+import { useDeck } from '../../contexts/DeckContext';
+import type { DeckType } from '../../hooks/useSettings';
 
 interface CardImageProps {
   card: Card;
 }
 
 // Get the path to the individual card WebP file
-function getCardImagePath(suit: Card['suit'], value: number): string {
-  return `./cards/napoletane/${suit}-${value}.webp`;
+function getCardImagePath(deck: DeckType, suit: Card['suit'], value: number): string {
+  return `./cards/${deck}/${suit}-${value}.webp`;
 }
 
 export function CardImage({ card }: CardImageProps) {
+  const deck = useDeck();
   const { suit, value } = card;
-  const imagePath = getCardImagePath(suit, value);
+  const imagePath = getCardImagePath(deck, suit, value);
 
   return (
     <img
@@ -26,11 +29,13 @@ export function CardImage({ card }: CardImageProps) {
   );
 }
 
-// Card back - Neapolitan design
+// Card back - uses selected deck style
 export function CardBack() {
+  const deck = useDeck();
+
   return (
     <img
-      src="./cards/napoletane/back.webp"
+      src={`./cards/${deck}/back.webp`}
       alt="Card back"
       style={{
         display: 'block',
