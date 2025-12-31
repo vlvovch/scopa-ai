@@ -67,11 +67,11 @@ export function CpuCardAnimation({ card, phase, capturedCardIds, player = 'cpu' 
           </motion.div>
         </motion.div>
 
-        {/* Show captured card indicators */}
+        {/* Show captured card indicators - positioned on capturing player's side */}
         {phase === 'capturing' && capturedCardIds.length > 0 && (
           <motion.div
-            className={styles.captureIndicator}
-            initial={{ opacity: 0, scale: 0.5, y: 20 }}
+            className={`${styles.captureIndicator} ${isHumanPlayer ? styles.captureBottom : styles.captureTop}`}
+            initial={{ opacity: 0, scale: 0.5, y: isHumanPlayer ? 20 : -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
