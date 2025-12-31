@@ -47,7 +47,7 @@ export function PlayerHand({
   return (
     <div className={handClasses}>
       <AnimatePresence mode="popLayout">
-        {cards.map((card, index) => (
+        {cards.map((card) => (
           <motion.div
             key={card.id}
             className={styles.handCard}
@@ -62,10 +62,10 @@ export function PlayerHand({
             }}
             transition={{
               type: 'spring',
-              stiffness: 400,
-              damping: 30,
-              mass: 0.5,
-              delay: index * 0.05,
+              stiffness: 500,
+              damping: 35,
+              mass: 0.4,
+              // No stagger delay - cards appear instantly after dealing animation
             }}
           >
             <Card

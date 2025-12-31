@@ -77,7 +77,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
               Table is empty
             </motion.span>
           ) : (
-            cards.map((card, index) => {
+            cards.map((card) => {
               const isCapturing = capturingSet.has(card.id);
               // Determine exit animation based on capture direction - fly toward the pile
               // CPU pile is top-RIGHT, human pile is bottom-LEFT
@@ -111,10 +111,10 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
                   }}
                   transition={{
                     type: 'spring',
-                    stiffness: isCapturing ? 350 : 400,
-                    damping: isCapturing ? 18 : 28,
-                    mass: isCapturing ? 0.8 : 0.5,
-                    delay: isCapturing ? 0 : index * 0.03,
+                    stiffness: isCapturing ? 350 : 500,
+                    damping: isCapturing ? 18 : 35,
+                    mass: isCapturing ? 0.8 : 0.4,
+                    // No stagger delay - cards appear instantly after dealing animation
                   }}
                 >
                   <Card
