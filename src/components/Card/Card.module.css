@@ -10,6 +10,7 @@
   transition: box-shadow var(--duration-fast) ease-out;
   user-select: none;
   will-change: transform;
+  background-color: #ffffff;
 }
 
 .card:hover:not(.disabled):not(.selected) {
