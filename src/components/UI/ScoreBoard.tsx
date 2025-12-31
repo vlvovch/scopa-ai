@@ -48,15 +48,7 @@ export function ScoreBoard({
       </div>
 
       <div className={styles.scores}>
-        <div className={styles.playerScore}>
-          <span
-            className={`${styles.playerName} ${currentPlayer === 'human' ? styles.current : ''}`}
-          >
-            {player1DisplayName}
-          </span>
-          <span className={styles.scoreValue}>{humanScore}</span>
-        </div>
-
+        {/* CPU shown first (matches top position on game board) */}
         <div className={styles.playerScore}>
           <span
             className={`${styles.playerName} ${currentPlayer === 'cpu' ? styles.current : ''}`}
@@ -64,6 +56,16 @@ export function ScoreBoard({
             {player2DisplayName}
           </span>
           <span className={styles.scoreValue}>{cpuScore}</span>
+        </div>
+
+        {/* Human/Player1 shown second (matches bottom position on game board) */}
+        <div className={styles.playerScore}>
+          <span
+            className={`${styles.playerName} ${currentPlayer === 'human' ? styles.current : ''}`}
+          >
+            {player1DisplayName}
+          </span>
+          <span className={styles.scoreValue}>{humanScore}</span>
         </div>
       </div>
 

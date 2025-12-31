@@ -333,7 +333,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 | File | Purpose |
 |------|---------|
-| `UI/ScoreBoard.tsx` | Shows scores, round number, target score, turn indicator |
+| `UI/ScoreBoard.tsx` | Shows scores, round number, target score, turn indicator (CPU first to match board layout) |
 | `UI/StartScreen.tsx` | Initial screen with target score selection (11, 16, 21) |
 | `UI/RoundEndScreen.tsx` | Score breakdown with Italian names, counts, captured card display with hover highlighting |
 | `UI/GameEndScreen.tsx` | Winner announcement with final scores and play again |
@@ -405,7 +405,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 **Spectator Mode (Watch Mode - Phase 14):**
 - Both players are AI-controlled
 - Both hands displayed face-down for suspense
-- ScoreBoard shows AI names with "(CPU)" suffix (e.g., "Furbo (CPU)" vs "Scimmia (CPU)")
+- ScoreBoard shows AI names with "(CPU)" suffix, ordered to match board (top player first)
 - Card animation for both players:
   - Card flips near player's hand position
   - Moves to table center
@@ -490,8 +490,9 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 **SettingsModal:**
 - Target score selection (11, 16, 21)
-- Animation speed (fast, normal, slow)
+- Animation speed (fast=0.5x, normal=1x, slow=2x) - affects CPU thinking, flip, move, capture delays
 - Show card values toggle
+- Opening settings pauses spectator mode; closing restores previous pause state
 
 **GameControls:**
 - New game button with confirmation dialog

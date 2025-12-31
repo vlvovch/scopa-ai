@@ -385,6 +385,9 @@
 - [x] Step 19.2: Reduce StartScreen font/control sizes for compact layout - Completed 2025-12-31
 - [x] Step 19.3: Download authentic Siciliane suit SVGs from Wikimedia Commons - Completed 2025-12-31
 - [x] Step 19.4: Make RoundEndScreen icons deck-aware - Completed 2025-12-31
+- [x] Step 19.5: Pause CPU vs CPU match when settings modal opens - Completed 2025-12-31
+- [x] Step 19.6: Implement animation speed setting - Completed 2025-12-31
+- [x] Step 19.7: Fix ScoreBoard player order to match game layout - Completed 2025-12-31
 
 **Notes:**
 - Fixed card deck selection buttons being cut off ("Napole" instead of "Napoletane")
@@ -394,6 +397,10 @@
   - coins.svg (148KB), cups.svg (162KB), swords.svg (29KB), clubs.svg (129KB)
 - Updated `CoinIcon` and `SetteBelloIcon` in RoundEndScreen to use `useDeck()` context
 - Icons now dynamically load `./cards/${deckType}/suits/coins.svg` based on selected deck
+- Settings modal now pauses spectator mode and restores previous pause state on close
+- Animation speed setting now functional with multipliers: fast (0.5x), normal (1x), slow (2x)
+- `getAnimationDelay()` helper applies speed to CPU thinking, flip, move, and capture delays
+- ScoreBoard now shows CPU first (top of game board), human second (bottom of game board)
 - 130 tests passing
 
 ---
