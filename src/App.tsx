@@ -55,9 +55,17 @@ function App() {
     player2: 'random',
   });
   const [isSpectatorPaused, setIsSpectatorPaused] = useState(false);
+  // Track pause state before settings opened (to restore on close)
+  const pausedBeforeSettings = useRef(false);
 
   // Check if in spectator mode
   const isSpectatorMode = state.gameMode === 'cpuVsCPU';
+
+  // Animation speed multipliers based on settings
+  const getAnimationDelay = useCallback((baseMs: number) => {
+    const multipliers = { fast: 0.5, normal: 1, slow: 2 };
+    return baseMs * multipliers[settings.animationSpeed];
+  }, [settings.animationSpeed]);
 
   // Track previous scopa counts to detect new scopas
   const prevScopaCounts = useRef({ human: 0, cpu: 0 });
@@ -422,8 +430,9 @@ function App() {
     // Mark as scheduled to prevent double-firing
     cpuAnimationScheduled.current = true;
 
-    // Add delay for UX (500-1000ms) before starting animation
-    const delay = 500 + Math.random() * 500;
+    // Add delay for UX before starting animation (scaled by animation speed)
+    const baseDelay = 500 + Math.random() * 500;
+    const delay = getAnimationDelay(baseDelay);
     const timeoutId = setTimeout(() => {
       // Use selected AI to select move (use spectator AI in spectator mode)
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
@@ -455,13 +464,13 @@ function App() {
             setTimeout(() => {
               setAnimatingCard(null);
               cpuAnimationScheduled.current = false;
-            }, 900);
+            }, getAnimationDelay(900));
           } else {
             setAnimatingCard(null);
             cpuAnimationScheduled.current = false;
           }
-        }, 500);
-      }, 600);  // Give more time for flip animation
+        }, getAnimationDelay(500));
+      }, getAnimationDelay(600));  // Give more time for flip animation
     }, delay);
 
     return () => {
@@ -471,7 +480,7 @@ function App() {
         cpuAnimationScheduled.current = false;
       }
     };
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay]);
 
   // Calculate and store round scores when entering roundEnd status
   // Handles final animations and Sette Bello detection for cards awarded at round end
@@ -610,6 +619,23 @@ function App() {
     return spectatorAIs.player2;
   }, [spectatorAIs]);
 
+  // Handle opening settings - pause spectator mode if active
+  const handleOpenSettings = useCallback(() => {
+    if (isSpectatorMode) {
+      pausedBeforeSettings.current = isSpectatorPaused;
+      setIsSpectatorPaused(true);
+    }
+    setShowSettings(true);
+  }, [isSpectatorMode, isSpectatorPaused]);
+
+  // Handle closing settings - restore previous pause state
+  const handleCloseSettings = useCallback(() => {
+    setShowSettings(false);
+    if (isSpectatorMode) {
+      setIsSpectatorPaused(pausedBeforeSettings.current);
+    }
+  }, [isSpectatorMode]);
+
   // Human turn auto-play in spectator mode (with animation)
   // Uses same cpuAnimationScheduled ref since only one player moves at a time
   useEffect(() => {
@@ -634,8 +660,9 @@ function App() {
     // Mark as scheduled to prevent double-firing
     cpuAnimationScheduled.current = true;
 
-    // Add delay for UX
-    const delay = 500 + Math.random() * 500;
+    // Add delay for UX (scaled by animation speed)
+    const baseDelay = 500 + Math.random() * 500;
+    const delay = getAnimationDelay(baseDelay);
     const timeoutId = setTimeout(() => {
       const ai = AI_PLAYERS[spectatorAIs.player1];
       const moveToExecute = ai.selectMove({
@@ -665,13 +692,13 @@ function App() {
             setTimeout(() => {
               setAnimatingCard(null);
               cpuAnimationScheduled.current = false;
-            }, 900);
+            }, getAnimationDelay(900));
           } else {
             setAnimatingCard(null);
             cpuAnimationScheduled.current = false;
           }
-        }, 500);
-      }, 600);  // Give more time for flip animation
+        }, getAnimationDelay(500));
+      }, getAnimationDelay(600));  // Give more time for flip animation
     }, delay);
 
     return () => {
@@ -680,7 +707,7 @@ function App() {
         cpuAnimationScheduled.current = false;
       }
     };
-  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing]);
+  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay]);
 
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
@@ -697,7 +724,7 @@ function App() {
         />
         <SettingsModal
           isOpen={showSettings}
-          onClose={() => setShowSettings(false)}
+          onClose={handleCloseSettings}
           settings={settings}
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
@@ -884,7 +911,7 @@ function App() {
             />
             <GameControls
               onNewGame={handleNewGame}
-              onOpenSettings={() => setShowSettings(true)}
+              onOpenSettings={handleOpenSettings}
             />
           </div>
         }
