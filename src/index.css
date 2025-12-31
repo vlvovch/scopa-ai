@@ -42,6 +42,10 @@
   --card-img-scale: 100%;
   --card-img-offset: 0%;
 
+  /* Card back image scaling */
+  --card-back-scale: 100%;
+  --card-back-offset: 0%;
+
   /* Shadows */
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
   --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.4);
