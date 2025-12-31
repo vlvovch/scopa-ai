@@ -48,12 +48,15 @@
   overflow: hidden;
   transition: all 0.2s ease;
   opacity: 1;
+  background-color: #ffffff;
 }
 
+/* Scale img to clip SVG's built-in border */
 .miniCard svg,
 .miniCard img {
-  width: 100%;
-  height: 100%;
+  width: 108%;
+  height: 108%;
+  margin: -4%;
   object-fit: cover;
 }
 
