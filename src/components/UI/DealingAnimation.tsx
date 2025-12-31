@@ -1,6 +1,7 @@
 // DealingAnimation Component
 // Shows cards flying from deck to player hands and table during dealing
 
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardBack } from '../Card/CardImage';
 import styles from './DealingAnimation.module.css';
@@ -14,19 +15,34 @@ interface DealingAnimationProps {
   deckPosition: 'left' | 'right';
   /** Whether to include table cards (true for round start, false for mid-round deals) */
   includeTableCards?: boolean;
+  /** Called when all cards have finished animating */
+  onComplete?: () => void;
 }
 
 // Animation timing constants
-const CARD_DURATION = 0.55; // Duration for each card to fly (seconds)
-const CARD_STAGGER = 0.15;   // Delay between each card (seconds)
-// Total duration: table cards (4) + hand cards (6) = 10 cards
-// With table: last card starts at 9*150ms, flies for 550ms, plus 200ms buffer = ~2100ms
-// Without table: last card starts at 5*150ms, flies for 550ms, plus 200ms buffer = ~1500ms
-export const DEALING_ANIMATION_DURATION = (CARD_DURATION * 1000) + (9 * CARD_STAGGER * 1000) + 300; // ~2200ms
-export const DEALING_HANDS_ONLY_DURATION = (CARD_DURATION * 1000) + (5 * CARD_STAGGER * 1000) + 200; // ~1500ms
+const CARD_DURATION = 0.45; // Duration for each card to fly (seconds) - reduced for snappier feel
+const CARD_STAGGER = 0.12;   // Delay between each card (seconds) - reduced for snappier feel
+// Total duration: calculated to when last card starts fading (at 85% of its duration)
+// With table (10 cards): last card starts at 9*120ms = 1080ms, fades at 1080 + 450*0.85 = 1462ms
+// Without table (6 cards): last card starts at 5*120ms = 600ms, fades at 600 + 450*0.85 = 982ms
+export const DEALING_ANIMATION_DURATION = Math.round((9 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.85)); // ~1460ms
+export const DEALING_HANDS_ONLY_DURATION = Math.round((5 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.85)); // ~980ms
 
-export function DealingAnimation({ isDealing, startPlayer, deckPosition, includeTableCards = false }: DealingAnimationProps) {
-  if (!isDealing) return null;
+export function DealingAnimation({ isDealing, startPlayer, deckPosition, includeTableCards = false, onComplete }: DealingAnimationProps) {
+  // Simple timeout-based completion - most reliable approach
+  useEffect(() => {
+    if (!isDealing || !onComplete) return;
+
+    const duration = includeTableCards ? DEALING_ANIMATION_DURATION : DEALING_HANDS_ONLY_DURATION;
+    const timeoutId = setTimeout(onComplete, duration);
+
+    return () => clearTimeout(timeoutId);
+  }, [isDealing, includeTableCards, onComplete]);
+
+  // Early return after hooks
+  if (!isDealing) {
+    return null;
+  }
 
   // Calculate start position based on deck position
   const startX = deckPosition === 'left' ? -280 : 280;

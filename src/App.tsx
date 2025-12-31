@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useGame } from './hooks/useGame';
 import { useSettings } from './hooks/useSettings';
 import { GameLayout } from './components/Layout/GameLayout';
@@ -14,7 +14,7 @@ import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
-import { DealingAnimation, DEALING_ANIMATION_DURATION, DEALING_HANDS_ONLY_DURATION } from './components/UI/DealingAnimation';
+import { DealingAnimation } from './components/UI/DealingAnimation';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -67,10 +67,16 @@ function App() {
   // Dealing animation state
   const [isDealing, setIsDealing] = useState(false);
   const [isRoundStartDeal, setIsRoundStartDeal] = useState(false);
-  const prevRoundNumber = useRef(0);
-  const prevHandCount = useRef(0);
   // Track if CPU animation is being scheduled to prevent double-firing
   const cpuAnimationScheduled = useRef(false);
+
+  // Track deck count to detect deals (more reliable than hand count)
+  // Deck decreases by 10 on round start (4 table + 6 hands), by 6 mid-round
+  const prevDeckCount = useRef<number | null>(null);
+  const prevRoundNumber = useRef(0);
+
+  // Unified animation blocking - blocks ALL user input during any animation
+  const isAnimationBlocking = isDealing || scopaCelebration.show || setteBelloCelebration.show || !!animatingCard;
 
   // Clear selection when turn changes or game state changes
   useEffect(() => {
@@ -83,36 +89,53 @@ function App() {
     prevSetteBelloOwner.current = null;
   }, [state.roundNumber]);
 
-  // Detect dealing and trigger animation - triggers on round start or mid-round deals
-  useEffect(() => {
-    const currentHandCount = state.players.human.hand.length;
-    const roundChanged = state.roundNumber !== prevRoundNumber.current;
-
-    // Trigger on new round start (round number changed and hands have cards)
-    // OR on mid-round deal (hands went from 0 to 3)
-    const isNewRoundDeal = roundChanged && currentHandCount === 3 && state.status === 'playing';
-    const isMidRoundDeal = !roundChanged && prevHandCount.current === 0 && currentHandCount === 3 && state.status === 'playing';
-    const shouldTriggerDeal = isNewRoundDeal || isMidRoundDeal;
-
-    // Wait for any ongoing animation to complete before showing deal animation
-    if (shouldTriggerDeal && !animatingCard && !isDealing) {
-      setIsDealing(true);
-      setIsRoundStartDeal(isNewRoundDeal);
-      // Use longer duration for round start (includes table cards), shorter for mid-round
-      const duration = isNewRoundDeal ? DEALING_ANIMATION_DURATION : DEALING_HANDS_ONLY_DURATION;
-      setTimeout(() => setIsDealing(false), duration);
-      // Update refs only after successfully triggering
-      prevRoundNumber.current = state.roundNumber;
-      prevHandCount.current = currentHandCount;
-    } else if (!shouldTriggerDeal) {
-      // Only update refs if we're not waiting to trigger a deal
-      // (e.g., game not playing, or hand count changed but not to 3)
-      prevRoundNumber.current = state.roundNumber;
-      prevHandCount.current = currentHandCount;
+  // Detect dealing by tracking deck count changes
+  // This is more robust than tracking hand count because deck only changes during deals
+  // IMPORTANT: Using useLayoutEffect to run BEFORE paint, preventing flash of cards before animation
+  useLayoutEffect(() => {
+    if (state.status !== 'playing') {
+      // Reset tracking when not playing - use -1 for round to ensure first round triggers
+      prevDeckCount.current = null;
+      prevRoundNumber.current = -1;
+      return;
     }
-    // If shouldTriggerDeal but animatingCard/isDealing is blocking, don't update refs yet
-    // so we can retry when animation completes
-  }, [state.players.human.hand.length, state.status, state.roundNumber, animatingCard, isDealing]);
+
+    const currentDeckCount = state.round.deck.length;
+
+    // On first render in playing state (prevDeckCount is null), trigger round start animation
+    if (prevDeckCount.current === null) {
+      prevDeckCount.current = currentDeckCount;
+      prevRoundNumber.current = state.roundNumber;
+
+      // If deck is 30 (fresh deal: 40 - 4 table - 6 hands), trigger round start animation
+      if (currentDeckCount === 30) {
+        setIsDealing(true);
+        setIsRoundStartDeal(true);
+      }
+      return;
+    }
+
+    // Check for new round (round number increased)
+    if (state.roundNumber !== prevRoundNumber.current) {
+      prevRoundNumber.current = state.roundNumber;
+      prevDeckCount.current = currentDeckCount;
+      if (currentDeckCount === 30 && !isDealing) {
+        setIsDealing(true);
+        setIsRoundStartDeal(true);
+      }
+      return;
+    }
+
+    // Detect mid-round deals: deck decreased by 6 (dealt 3 cards to each player)
+    const deckDecrease = prevDeckCount.current - currentDeckCount;
+    if (deckDecrease === 6 && !isDealing) {
+      setIsDealing(true);
+      setIsRoundStartDeal(false);
+    }
+
+    // Update tracking
+    prevDeckCount.current = currentDeckCount;
+  }, [state.round.deck.length, state.status, state.roundNumber, isDealing]);
 
   // Calculate valid moves for selected card
   const validMoves = useMemo(() => {
@@ -160,6 +183,7 @@ function App() {
 
   // Handle clicking a card in hand
   const handleHandCardClick = useCallback((card: Card) => {
+    if (isAnimationBlocking) return; // Block input during animations
     if (selectedCard?.id === card.id) {
       // Deselect
       setSelectedCard(null);
@@ -169,10 +193,11 @@ function App() {
       setSelectedCard(card);
       setSelectedTableCards([]);
     }
-  }, [selectedCard]);
+  }, [selectedCard, isAnimationBlocking]);
 
   // Handle double-clicking a card in hand (place card)
   const handleHandCardDoubleClick = useCallback((card: Card) => {
+    if (isAnimationBlocking) return; // Block input during animations
     if (state.round.currentPlayer !== 'human') return;
 
     const moves = getValidMoves(card, state.round.table, 'human');
@@ -183,14 +208,15 @@ function App() {
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
-  }, [state.round.currentPlayer, state.round.table, playCard]);
+  }, [state.round.currentPlayer, state.round.table, playCard, isAnimationBlocking]);
 
   // Handle card drag start
   const handleCardDragStart = useCallback((card: Card) => {
+    if (isAnimationBlocking) return; // Block input during animations
     setIsDragging(true);
     setSelectedCard(card);
     setSelectedTableCards([]);
-  }, []);
+  }, [isAnimationBlocking]);
 
   // Execute a move with capture animation
   const executeMoveWithAnimation = useCallback((move: Move) => {
@@ -226,6 +252,7 @@ function App() {
   const handleCardDragEnd = useCallback((card: Card, info: PanInfo) => {
     setIsDragging(false);
 
+    if (isAnimationBlocking) return; // Block input during animations
     if (state.round.currentPlayer !== 'human') return;
 
     // Check if dropped on table area
@@ -257,10 +284,11 @@ function App() {
         }
       }
     }
-  }, [state.round.currentPlayer, state.round.table, executeMoveWithAnimation]);
+  }, [state.round.currentPlayer, state.round.table, executeMoveWithAnimation, isAnimationBlocking]);
 
   // Handle clicking a table card
   const handleTableCardClick = useCallback((card: Card) => {
+    if (isAnimationBlocking) return; // Block input during animations
     if (!selectedCard) return;
 
     // Check if this card is a valid target
@@ -275,7 +303,7 @@ function App() {
         return [...prev, card];
       }
     });
-  }, [selectedCard, validCaptureTargetIds]);
+  }, [selectedCard, validCaptureTargetIds, isAnimationBlocking]);
 
   // Execute capture with animation
   const executeCapture = useCallback(() => {
@@ -430,7 +458,8 @@ function App() {
       prevSetteBelloOwner.current = lastCapturePlayer;
 
       setSetteBelloCelebration({ show: true, player: lastCapturePlayer, playerName });
-      setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1800);
+      // Auto-hide after display duration to trigger exit animation
+      setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
       // The effect will re-run after celebration ends and then call endRound()
       return;
     }
@@ -451,11 +480,12 @@ function App() {
     if (currentHumanScopas > prevScopaCounts.current.human) {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined;
       setScopaCelebration({ show: true, player: 'human', playerName });
-      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1800);
+      // Auto-hide after display duration to trigger exit animation
+      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
     } else if (currentCpuScopas > prevScopaCounts.current.cpu) {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name;
       setScopaCelebration({ show: true, player: 'cpu', playerName });
-      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1800);
+      setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
     }
 
     prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
@@ -482,7 +512,8 @@ function App() {
       // Small delay to let capture animation start first
       setTimeout(() => {
         setSetteBelloCelebration({ show: true, player: currentOwner, playerName });
-        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1800);
+        // Auto-hide after display duration to trigger exit animation
+        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
       }, 300);
     }
 
@@ -659,11 +690,13 @@ function App() {
         show={scopaCelebration.show}
         player={scopaCelebration.player}
         playerName={scopaCelebration.playerName}
+        onComplete={() => setScopaCelebration(prev => ({ ...prev, show: false }))}
       />
       <SetteBelloCelebration
         show={setteBelloCelebration.show}
         player={setteBelloCelebration.player}
         playerName={setteBelloCelebration.playerName}
+        onComplete={() => setSetteBelloCelebration(prev => ({ ...prev, show: false }))}
       />
       <CpuCardAnimation
         card={animatingCard?.card ?? null}
@@ -676,6 +709,7 @@ function App() {
         startPlayer={state.round.dealer === 'cpu' ? 'human' : 'cpu'}
         deckPosition={state.round.dealer === 'cpu' ? 'left' : 'right'}
         includeTableCards={isRoundStartDeal}
+        onComplete={() => setIsDealing(false)}
       />
       <SettingsModal
         isOpen={showSettings}
@@ -768,10 +802,12 @@ function App() {
         cpuHand={
           <PlayerHand
             cards={
-              // Filter out card being animated so it disappears from hand immediately
-              animatingCard?.player === 'cpu'
-                ? state.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
-                : state.players.cpu.hand
+              // Hide cards during dealing animation, otherwise filter out animating card
+              isDealing
+                ? []
+                : animatingCard?.player === 'cpu'
+                  ? state.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
+                  : state.players.cpu.hand
             }
             isHuman={false}
           />
@@ -787,7 +823,7 @@ function App() {
         tableCards={
           <TableCards
             ref={tableRef}
-            cards={state.round.table}
+            cards={isDealing && isRoundStartDeal ? [] : state.round.table}
             highlightedCardIds={validCaptureTargetIds}
             selectedCardIds={selectedTableCards.map(c => c.id)}
             capturingCardIds={(animatingCard?.phase === 'moving' || animatingCard?.phase === 'capturing') && animatingCard?.capturedCards.length
@@ -812,10 +848,12 @@ function App() {
         humanHand={
           <PlayerHand
             cards={
-              // Filter out card being animated so it disappears from hand immediately (in spectator mode)
-              animatingCard?.player === 'human'
-                ? state.players.human.hand.filter(c => c.id !== animatingCard.card.id)
-                : state.players.human.hand
+              // Hide cards during dealing animation, otherwise filter out animating card
+              isDealing
+                ? []
+                : animatingCard?.player === 'human'
+                  ? state.players.human.hand.filter(c => c.id !== animatingCard.card.id)
+                  : state.players.human.hand
             }
             isHuman={!isSpectatorMode}
             onCardClick={isSpectatorMode ? undefined : handleHandCardClick}

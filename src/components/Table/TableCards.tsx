@@ -111,10 +111,10 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
                   }}
                   transition={{
                     type: 'spring',
-                    stiffness: isCapturing ? 350 : 250,
-                    damping: isCapturing ? 18 : 22,
-                    mass: 0.8,
-                    delay: isCapturing ? 0 : index * 0.04,
+                    stiffness: isCapturing ? 350 : 400,
+                    damping: isCapturing ? 18 : 28,
+                    mass: isCapturing ? 0.8 : 0.5,
+                    delay: isCapturing ? 0 : index * 0.03,
                   }}
                 >
                   <Card

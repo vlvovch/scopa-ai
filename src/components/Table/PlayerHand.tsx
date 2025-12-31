@@ -62,10 +62,10 @@ export function PlayerHand({
             }}
             transition={{
               type: 'spring',
-              stiffness: 220,
-              damping: 24,
-              mass: 0.8,
-              delay: index * 0.08,
+              stiffness: 400,
+              damping: 30,
+              mass: 0.5,
+              delay: index * 0.05,
             }}
           >
             <Card

@@ -8,9 +8,11 @@ interface SetteBelloCelebrationProps {
   player: 'human' | 'cpu';
   /** Optional custom player name (for spectator mode) */
   playerName?: string;
+  /** Called when the celebration animation completes (including exit) */
+  onComplete?: () => void;
 }
 
-export function SetteBelloCelebration({ show, player, playerName }: SetteBelloCelebrationProps) {
+export function SetteBelloCelebration({ show, player, playerName, onComplete }: SetteBelloCelebrationProps) {
   const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
   return (
     <AnimatePresence>
@@ -21,6 +23,12 @@ export function SetteBelloCelebration({ show, player, playerName }: SetteBelloCe
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
+          onAnimationComplete={(definition) => {
+            // Call onComplete after exit animation
+            if (definition === 'exit' && onComplete) {
+              onComplete();
+            }
+          }}
         >
           <motion.div
             className={styles.celebration}
