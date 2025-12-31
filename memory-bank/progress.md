@@ -332,6 +332,30 @@
 
 ---
 
+## Phase 16: Authentic Neapolitan Card Graphics
+
+- [x] Step 16.1: Extract card SVGs from sprite sheet - Completed 2025-12-30
+- [x] Step 16.2: Fix scrolling on start screen - Completed 2025-12-30
+- [x] Step 16.3: Fix drag-to-capture with new card images - Completed 2025-12-30
+- [x] Step 16.4: Fix coins face cards extraction - Completed 2025-12-30
+
+**Notes:**
+- Integrated authentic Neapolitan playing card graphics from `napoletane.nonumbers.svg` sprite sheet
+- Extracted 40 standalone SVG files to `public/cards/individual/`:
+  - Format: `{suit}-{value}.svg` (e.g., `coins-7.svg`, `clubs-10.svg`)
+  - Each file ~300-600KB, 23.3MB total (vs referencing 34MB sprite)
+  - Standalone files render much faster than sprite references
+- Card ID mapping from sprite:
+  - French suits → Italian suits: diamond→coins, heart→cups, spade→swords, club→clubs
+  - Face cards: jack→8 (Fante), queen→9 (Cavallo), king→10 (Re)
+- Special handling for coins suit: Used `jack_diamond`, `queen_diamond`, `king_diamond` for values 8-10 (not numeric `8_diamond` etc.)
+- CardImage.tsx simplified to use `<img>` tags with external SVG files
+- Added `pointerEvents: 'none'` and `draggable={false}` to img element to preserve drag functionality
+- Fixed body overflow CSS to allow vertical scrolling on start screen
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:

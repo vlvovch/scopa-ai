@@ -35,7 +35,15 @@ scopa-ai-claude/
 ├── eslint.config.js        # ESLint configuration
 │
 ├── public/                 # Static assets (copied to dist/)
-│   ├── cards/              # Card images (future)
+│   ├── cards/              # Card graphics
+│   │   ├── individual/     # 40 standalone card SVGs (coins-1.svg ... clubs-10.svg)
+│   │   ├── napoletane.nonumbers.svg  # Source sprite sheet (34MB)
+│   │   └── napoletane.svgz # Compressed sprite with numbers
+│   ├── suits/              # Suit SVGs from Wikimedia Commons
+│   │   ├── coins.svg       # Neapolitan denari
+│   │   ├── cups.svg        # Neapolitan coppe
+│   │   ├── swords.svg      # Neapolitan spade
+│   │   └── clubs.svg       # Neapolitan bastoni
 │   ├── sounds/             # Audio files (future)
 │   └── vite.svg            # Favicon
 │
@@ -283,14 +291,15 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `Card/Card.module.css` | Card styling, hover/selected/highlighted states |
 
 **Neapolitan Card Design:**
-- Uses authentic Neapolitan suit graphics from Wikimedia Commons (public domain)
-- SVG files in `public/suits/`: coins.svg, cups.svg, swords.svg, clubs.svg
-- Original sources: `Seme_[denari|coppe|spade|bastoni]_carte_napoletane.svg`
-- 70×105 viewBox (2:3 aspect ratio)
-- Suit colors for text: Coins=#DAA520 (gold), Cups=#C41E3A (crimson), Swords=#4169E1 (blue), Clubs=#228B22 (green)
-- Face cards: Fante (8), Cavallo (9), Re (10) with Italian labels
-- Card back: Navy blue (#1a237e) with gold ornamental pattern
-- CardImage.tsx uses `<image>` elements to reference external SVG suit files
+- Uses authentic Neapolitan card graphics extracted from `napoletane.nonumbers.svg` sprite sheet
+- 40 standalone SVG files in `public/cards/individual/`: `{suit}-{value}.svg`
+- Each card ~300-600KB, 23.3MB total (standalone files render faster than sprite references)
+- Card ID mapping from sprite: diamond→coins, heart→cups, spade→swords, club→clubs
+- Face cards: jack→8 (Fante), queen→9 (Cavallo), king→10 (Re)
+- Special handling for coins: values 8-10 use `jack_diamond`, `queen_diamond`, `king_diamond` (not numeric versions)
+- CardImage.tsx uses `<img>` tags with `pointerEvents: 'none'` and `draggable={false}` to preserve drag functionality
+- Card back: Navy blue (#1a237e) with gold ornamental pattern (inline SVG in CardBack component)
+- Suit SVGs from Wikimedia Commons in `public/suits/` used for score category icons
 
 ### Table Components
 
@@ -510,7 +519,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ## MVP Complete!
 
-All 15 phases implemented:
+All 16 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -526,6 +535,7 @@ All 15 phases implemented:
 13. AI Refactoring (Random AI, Heuristic AI, AI Selection)
 14. Watch Mode (CPU vs CPU Spectator Mode)
 15. Animation Timing & UI Polish (Two-phase dealing, Celebration blocking, Custom SVG icons)
+16. Authentic Neapolitan Card Graphics (Sprite sheet extraction, standalone SVGs)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)
