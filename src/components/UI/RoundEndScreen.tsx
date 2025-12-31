@@ -4,6 +4,8 @@ import { useState, useMemo } from 'react';
 import type { Card, RoundScore } from '../../game/types';
 import { PRIME_VALUES, SUITS } from '../../game/constants';
 import { CardImage } from '../Card/CardImage';
+import { useDeck } from '../../contexts/DeckContext';
+import type { DeckType } from '../../hooks/useSettings';
 import styles from './RoundEndScreen.module.css';
 
 type HoverCategory = 'carte' | 'denari' | 'settebello' | 'primiera' | 'scopa' | null;
@@ -20,33 +22,35 @@ function CardsIcon() {
   );
 }
 
-function CoinIcon() {
-  // Uses authentic Neapolitan denari SVG from Wikimedia Commons
+function CoinIcon({ deckType }: { deckType: DeckType }) {
+  // Uses authentic denari SVG from Wikimedia Commons based on deck type
+  const coinPath = `./cards/${deckType}/suits/coins.svg`;
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
-      <image href="./cards/napoletane/suits/coins.svg" x="2" y="2" width="20" height="20" />
+      <image href={coinPath} x="2" y="2" width="20" height="20" />
     </svg>
   );
 }
 
-function SetteBelloIcon() {
-  // 7 of Coins card with authentic Neapolitan coins in 2-1-2-2 pattern
+function SetteBelloIcon({ deckType }: { deckType: DeckType }) {
+  // 7 of Coins card with authentic coins in 2-1-2-2 pattern based on deck type
   const coinSize = 4.5;
+  const coinPath = `./cards/${deckType}/suits/coins.svg`;
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       {/* Card background */}
       <rect x="3" y="1" width="18" height="22" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
       {/* Row 1 - 2 coins */}
-      <image href="./cards/napoletane/suits/coins.svg" x={9 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
-      <image href="./cards/napoletane/suits/coins.svg" x={15 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={9 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={15 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 2 - 1 coin */}
-      <image href="./cards/napoletane/suits/coins.svg" x={12 - coinSize/2} y={9 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={12 - coinSize/2} y={9 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 3 - 2 coins */}
-      <image href="./cards/napoletane/suits/coins.svg" x={9 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
-      <image href="./cards/napoletane/suits/coins.svg" x={15 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={9 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={15 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 4 - 2 coins */}
-      <image href="./cards/napoletane/suits/coins.svg" x={9 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
-      <image href="./cards/napoletane/suits/coins.svg" x={15 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={9 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={15 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
     </svg>
   );
 }
@@ -146,6 +150,7 @@ export function RoundEndScreen({
   player2Name = 'CPU',
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
+  const deckType = useDeck();
 
   // Helper to format primiera score
   const formatPrime = (prime: number | null) => prime !== null ? prime.toString() : '-';
@@ -198,7 +203,7 @@ export function RoundEndScreen({
     {
       id: 'denari',
       name: 'Denari',
-      icon: <CoinIcon />,
+      icon: <CoinIcon deckType={deckType} />,
       humanCount: humanScore.counts.coins,
       cpuCount: cpuScore.counts.coins,
       humanWon: humanScore.coins > 0,
@@ -207,7 +212,7 @@ export function RoundEndScreen({
     {
       id: 'settebello',
       name: 'Sette Bello',
-      icon: <SetteBelloIcon />,
+      icon: <SetteBelloIcon deckType={deckType} />,
       humanCount: humanScore.setteBello > 0 ? '✓' : '-',
       cpuCount: cpuScore.setteBello > 0 ? '✓' : '-',
       humanWon: humanScore.setteBello > 0,

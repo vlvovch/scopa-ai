@@ -308,6 +308,18 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - Card face scaling uses `--card-img-scale` and `--card-img-offset` CSS variables
 - Suit SVGs from Wikimedia Commons in `public/cards/napoletane/suits/` for score icons
 
+**Siciliane Deck (Phase 19):**
+- Suit SVGs from Wikimedia Commons (Tarocco Siciliano) in `public/cards/siciliane/suits/`
+- Files: `coins.svg` (148KB), `cups.svg` (162KB), `swords.svg` (29KB), `clubs.svg` (129KB)
+- Source: Category:Sicilian_tarot on Wikimedia Commons (public domain)
+- Card faces: placeholder (not yet implemented)
+
+**DeckContext (src/contexts/DeckContext.tsx):**
+- Provides current deck type (`napoletane` | `siciliane`) to all components
+- `DeckProvider` wraps game screens in App.tsx
+- `useDeck()` hook returns current deck type
+- Used by CardImage, RoundEndScreen icons, and other deck-aware components
+
 ### Table Components
 
 | File | Purpose |
@@ -496,14 +508,15 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - Sette Bello shows checkmark (✓) or dash (-)
 - Winner of each category highlighted in gold
 
-**Custom SVG Icons (Phase 15):**
+**Custom SVG Icons (Phase 15, 19):**
 - CardsIcon: 3 fanned cards (cream with gray borders)
-- CoinIcon: Authentic Neapolitan denari from Wikimedia Commons
-- SetteBelloIcon: Card showing 7 authentic denari coins in 2-1-2-2 pattern
+- CoinIcon: Authentic denari from Wikimedia Commons (deck-aware)
+- SetteBelloIcon: Card showing 7 authentic denari coins in 2-1-2-2 pattern (deck-aware)
 - PrimieraIcon: Gold 5-pointed star with gradient
 - ScopaIcon: Emoji broom (🧹)
 - Icons left-aligned with category names in flexbox layout
-- CoinIcon and SetteBelloIcon use `<image>` references to `./cards/napoletane/suits/coins.svg`
+- CoinIcon and SetteBelloIcon use `useDeck()` context to select correct suit graphics
+- Dynamic path: `./cards/${deckType}/suits/coins.svg`
 
 **Captured Cards Display:**
 - Card columns on left (human) and right (CPU) sides
@@ -526,7 +539,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ## MVP Complete!
 
-All 17 phases implemented:
+All 19 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -545,6 +558,7 @@ All 17 phases implemented:
 16. Authentic Neapolitan Card Graphics (Sprite sheet extraction, standalone SVGs)
 17. Card Styling Improvements (CSS variable consolidation, aspect ratio update)
 18. Card Asset Optimization (WebP conversion, authentic card back, deck organization)
+19. Multiple Deck Support (Siciliane suits, deck-aware UI icons, StartScreen polish)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)

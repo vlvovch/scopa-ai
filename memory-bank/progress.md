@@ -379,18 +379,38 @@
 
 ---
 
+## Phase 19: Multiple Deck Support & UI Polish
+
+- [x] Step 19.1: Fix StartScreen card deck button sizing - Completed 2025-12-31
+- [x] Step 19.2: Reduce StartScreen font/control sizes for compact layout - Completed 2025-12-31
+- [x] Step 19.3: Download authentic Siciliane suit SVGs from Wikimedia Commons - Completed 2025-12-31
+- [x] Step 19.4: Make RoundEndScreen icons deck-aware - Completed 2025-12-31
+
+**Notes:**
+- Fixed card deck selection buttons being cut off ("Napole" instead of "Napoletane")
+- Added missing `.deckOption` CSS class with `width: auto` and `min-width: 90px`
+- Reduced overall UI sizes: title 3.5rem→2.75rem, buttons 60px→52px, container 500px→420px
+- Downloaded Siciliane suit SVGs from Wikimedia Commons (Tarocco Siciliano, public domain):
+  - coins.svg (148KB), cups.svg (162KB), swords.svg (29KB), clubs.svg (129KB)
+- Updated `CoinIcon` and `SetteBelloIcon` in RoundEndScreen to use `useDeck()` context
+- Icons now dynamically load `./cards/${deckType}/suits/coins.svg` based on selected deck
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
-- Neapolitan card graphics
+- Neapolitan card graphics (Siciliane suits available, card faces pending)
 - Selectable AI opponents (Random or Greedy heuristic)
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
-- Custom SVG icons for score categories
+- Deck-aware custom SVG icons for score categories
 - Two-phase dealing animation (table cards first, then player hands)
 - Sette Bello celebration animation
 - Dealer deck display that switches sides
 - Round and game end screens with detailed scoring breakdown
-- Settings persistence (including AI selection)
+- Settings persistence (including AI selection and deck choice)
 - New game and settings controls
+- Compact, polished StartScreen UI
