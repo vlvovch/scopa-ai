@@ -14,7 +14,7 @@ import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
-import { DealingAnimation } from './components/UI/DealingAnimation';
+import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO } from './ai';
 import type { AIType } from './ai';
@@ -69,6 +69,8 @@ function App() {
 
   // Dealing animation state
   const [isDealing, setIsDealing] = useState(false);
+  const [dealMode, setDealMode] = useState<DealMode>('hands');
+  // Track if this is a round-start deal (needs table phase before hands phase)
   const [isRoundStartDeal, setIsRoundStartDeal] = useState(false);
   // Track if CPU animation is being scheduled to prevent double-firing
   const cpuAnimationScheduled = useRef(false);
@@ -112,8 +114,10 @@ function App() {
       prevRoundNumber.current = state.roundNumber;
 
       // If deck is 30 (fresh deal: 40 - 4 table - 6 hands), trigger round start animation
+      // Phase 1: deal table cards first
       if (currentDeckCount === 30) {
         setIsDealing(true);
+        setDealMode('table');
         setIsRoundStartDeal(true);
       }
       return;
@@ -124,7 +128,9 @@ function App() {
       prevRoundNumber.current = state.roundNumber;
       prevDeckCount.current = currentDeckCount;
       if (currentDeckCount === 30 && !isDealing) {
+        // Phase 1: deal table cards first
         setIsDealing(true);
+        setDealMode('table');
         setIsRoundStartDeal(true);
       }
       return;
@@ -134,6 +140,7 @@ function App() {
     const deckDecrease = prevDeckCount.current - currentDeckCount;
     if (deckDecrease === 6 && !isDealing) {
       setIsDealing(true);
+      setDealMode('hands');
       setIsRoundStartDeal(false);
     }
 
@@ -730,8 +737,20 @@ function App() {
         isDealing={isDealing}
         startPlayer={state.round.dealer === 'cpu' ? 'human' : 'cpu'}
         deckPosition={state.round.dealer === 'cpu' ? 'left' : 'right'}
-        includeTableCards={isRoundStartDeal}
-        onComplete={() => setIsDealing(false)}
+        dealMode={dealMode}
+        onComplete={() => {
+          if (dealMode === 'table' && isRoundStartDeal) {
+            // Phase 1 complete: enter pause phase (table cards appear, no animation)
+            setDealMode('pause');
+          } else if (dealMode === 'pause' && isRoundStartDeal) {
+            // Pause complete: start dealing hands
+            setDealMode('hands');
+          } else {
+            // Hands phase complete (or mid-round deal): finish dealing
+            setIsDealing(false);
+            setIsRoundStartDeal(false);
+          }
+        }}
       />
       <SettingsModal
         isOpen={showSettings}
@@ -845,7 +864,7 @@ function App() {
         tableCards={
           <TableCards
             ref={tableRef}
-            cards={isDealing && isRoundStartDeal ? [] : state.round.table}
+            cards={isDealing && dealMode === 'table' ? [] : state.round.table}
             highlightedCardIds={validCaptureTargetIds}
             selectedCardIds={selectedTableCards.map(c => c.id)}
             capturingCardIds={(animatingCard?.phase === 'moving' || animatingCard?.phase === 'capturing') && animatingCard?.capturedCards.length

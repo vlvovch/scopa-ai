@@ -6,6 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CardBack } from '../Card/CardImage';
 import styles from './DealingAnimation.module.css';
 
+/** What to deal in this animation */
+export type DealMode = 'table' | 'pause' | 'hands';
+
+/** Duration of pause between table and hands phases */
+export const DEALING_PAUSE_DURATION = 300;
+
 interface DealingAnimationProps {
   /** Whether dealing animation is active */
   isDealing: boolean;
@@ -13,8 +19,8 @@ interface DealingAnimationProps {
   startPlayer: 'human' | 'cpu';
   /** Position of the deck ('left' or 'right') */
   deckPosition: 'left' | 'right';
-  /** Whether to include table cards (true for round start, false for mid-round deals) */
-  includeTableCards?: boolean;
+  /** What to deal: 'table' for 4 table cards, 'pause' for stagger, 'hands' for 6 hand cards */
+  dealMode: DealMode;
   /** Called when all cards have finished animating */
   onComplete?: () => void;
 }
@@ -23,32 +29,40 @@ interface DealingAnimationProps {
 const CARD_DURATION = 0.35; // Duration for each card to fly (seconds)
 const CARD_STAGGER = 0.08;   // Delay between each card (seconds)
 // Trigger completion at 50% through last card - real cards appear with crossfade
-// With table (10 cards): last card starts at 9*80ms = 720ms, callback at 720 + 350*0.5 = 895ms
-// Without table (6 cards): last card starts at 5*80ms = 400ms, callback at 400 + 350*0.5 = 575ms
-export const DEALING_ANIMATION_DURATION = Math.round((9 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.5)); // ~895ms
-export const DEALING_HANDS_ONLY_DURATION = Math.round((5 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.5)); // ~575ms
+// Table only (4 cards): last card starts at 3*80ms = 240ms, callback at 240 + 350*0.5 = 415ms
+// Hands only (6 cards): last card starts at 5*80ms = 400ms, callback at 400 + 350*0.5 = 575ms
+export const DEALING_TABLE_DURATION = Math.round((3 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.5)); // ~415ms
+export const DEALING_HANDS_DURATION = Math.round((5 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.5)); // ~575ms
 
-export function DealingAnimation({ isDealing, startPlayer, deckPosition, includeTableCards = false, onComplete }: DealingAnimationProps) {
+export function DealingAnimation({ isDealing, startPlayer, deckPosition, dealMode, onComplete }: DealingAnimationProps) {
   // Simple timeout-based completion - most reliable approach
   useEffect(() => {
     if (!isDealing || !onComplete) return;
 
-    const duration = includeTableCards ? DEALING_ANIMATION_DURATION : DEALING_HANDS_ONLY_DURATION;
+    // Get duration based on mode
+    let duration: number;
+    if (dealMode === 'table') {
+      duration = DEALING_TABLE_DURATION;
+    } else if (dealMode === 'pause') {
+      duration = DEALING_PAUSE_DURATION;
+    } else {
+      duration = DEALING_HANDS_DURATION;
+    }
     const timeoutId = setTimeout(onComplete, duration);
 
     return () => clearTimeout(timeoutId);
-  }, [isDealing, includeTableCards, onComplete]);
+  }, [isDealing, dealMode, onComplete]);
 
-  // Early return after hooks
-  if (!isDealing) {
+  // Early return after hooks - no animation during pause phase
+  if (!isDealing || dealMode === 'pause') {
     return null;
   }
 
   // Calculate start position based on deck position
   const startX = deckPosition === 'left' ? -280 : 280;
 
-  // Create table cards (4 cards) - only for round start
-  const tableCards = includeTableCards
+  // Create table cards (4 cards) - only for table mode
+  const tableCards = dealMode === 'table'
     ? Array.from({ length: 4 }, (_, i) => ({
       id: `table-${i}`,
       target: 'table' as const,
@@ -57,22 +71,22 @@ export function DealingAnimation({ isDealing, startPlayer, deckPosition, include
     }))
     : [];
 
-  // Create hand cards (3 per player = 6 cards), alternating between players
-  const handCards = Array.from({ length: 6 }, (_, i) => {
-    const isFirstPlayer = i % 2 === 0;
-    const player = isFirstPlayer
-      ? startPlayer
-      : (startPlayer === 'human' ? 'cpu' : 'human');
-    const cardIndex = Math.floor(i / 2); // 0, 0, 1, 1, 2, 2
-    // Delay hand cards after table cards
-    const baseDelay = includeTableCards ? tableCards.length * CARD_STAGGER : 0;
-    return {
-      id: `hand-${i}`,
-      target: player as 'human' | 'cpu',
-      cardIndex,
-      delay: baseDelay + i * CARD_STAGGER,
-    };
-  });
+  // Create hand cards (3 per player = 6 cards), alternating between players - only for hands mode
+  const handCards = dealMode === 'hands'
+    ? Array.from({ length: 6 }, (_, i) => {
+      const isFirstPlayer = i % 2 === 0;
+      const player = isFirstPlayer
+        ? startPlayer
+        : (startPlayer === 'human' ? 'cpu' : 'human');
+      const cardIndex = Math.floor(i / 2); // 0, 0, 1, 1, 2, 2
+      return {
+        id: `hand-${i}`,
+        target: player as 'human' | 'cpu',
+        cardIndex,
+        delay: i * CARD_STAGGER,
+      };
+    })
+    : [];
 
   const allCards = [...tableCards, ...handCards];
 
