@@ -18,7 +18,7 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, isAsyncAI, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, isAsyncAI, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
@@ -609,6 +609,7 @@ function App() {
 
     // Longer delay before showing round summary to let final animations complete
     const timeoutId = setTimeout(() => {
+      endGeminiRound(); // Clear chat session at end of round
       endRound();
     }, 1500);
 
@@ -677,6 +678,7 @@ function App() {
     resetGeminiTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
+    startGeminiRound(); // Start fresh chat session for first round
     startGame(targetScore, gameMode);
   }, [startGame]);
 
@@ -717,6 +719,12 @@ function App() {
     }
     return spectatorAIs.player2;
   }, [spectatorAIs]);
+
+  // Handle next round (wraps nextRound to start fresh chat session)
+  const handleNextRound = useCallback(() => {
+    startGeminiRound(); // Start fresh chat session for next round
+    nextRound();
+  }, [nextRound]);
 
   // Handle opening settings - pause spectator mode if active
   const handleOpenSettings = useCallback(() => {
@@ -862,10 +870,12 @@ function App() {
           humanScopaCaptures={state.players.human.scopaCaptures}
           cpuScopaCaptures={state.players.cpu.scopaCaptures}
           isGameOver={state.isGameOver}
-          onNextRound={nextRound}
+          onNextRound={handleNextRound}
           onShowGameEnd={showGameEnd}
           player1Name={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
           player2Name={isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name}
+          tokenStats={isUsingGemini ? tokenStats : null}
+          tokenDelta={isUsingGemini ? tokenDelta : null}
         />
       </DeckProvider>
     );
@@ -1068,15 +1078,15 @@ function App() {
           />
         }
         humanPile={
-          <>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
+            {isUsingGemini && <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show={isUsingGemini} />}
             <CapturedPile
               cards={state.players.human.captured}
               scopaCount={state.players.human.scopaCount}
               player="human"
               playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
             />
-            {isUsingGemini && <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show={isUsingGemini} />}
-          </>
+          </div>
         }
         humanHand={
           <PlayerHand

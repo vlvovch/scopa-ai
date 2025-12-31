@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import type { Card, RoundScore } from '../../game/types';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../ai';
 import { PRIME_VALUES, SUITS } from '../../game/constants';
 import { CardImage } from '../Card/CardImage';
+import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { useDeck } from '../../contexts/DeckContext';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './RoundEndScreen.module.css';
@@ -95,6 +97,10 @@ interface RoundEndScreenProps {
   player1Name?: string;
   /** Player 2 name (defaults to "CPU") */
   player2Name?: string;
+  /** Token stats for Gemini AI (if used) */
+  tokenStats?: GeminiTokenStats | null;
+  /** Token delta from last turn */
+  tokenDelta?: GeminiTokenDelta | null;
 }
 
 // Get the best prime card for each suit
@@ -148,6 +154,8 @@ export function RoundEndScreen({
   onShowGameEnd,
   player1Name = 'You',
   player2Name = 'CPU',
+  tokenStats,
+  tokenDelta,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
   const deckType = useDeck();
@@ -323,7 +331,10 @@ export function RoundEndScreen({
 
       {/* CPU cards on the right */}
       <div className={styles.cardColumn}>
-        <div className={styles.cardColumnLabel}>{player2Name}'s Cards</div>
+        <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>{player2Name}'s Cards</span>
+          {tokenStats && <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show={!!tokenStats} />}
+        </div>
         <div className={styles.cardGrid}>
           {cpuCaptured.map(card => (
             <div

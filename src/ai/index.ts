@@ -2,7 +2,7 @@
 
 import { randomAI, createRandomAI } from './random';
 import { heuristicAI, createHeuristicAI } from './heuristic';
-import { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, type GeminiModelInfo, type GeminiTokenStats, type GeminiTokenDelta } from './gemini';
+import { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, type GeminiModelInfo, type GeminiTokenStats, type GeminiTokenDelta } from './gemini';
 
 // Re-export types
 export type { AIPlayer, AIContext, AIPlayerFactory, AsyncAIPlayer, LLMAIContext, AnyAIPlayer } from './types';
@@ -11,7 +11,7 @@ export { isAsyncAI } from './types';
 // Re-export AI implementations
 export { randomAI, createRandomAI };
 export { heuristicAI, createHeuristicAI };
-export { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats };
+export { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound };
 export type { GeminiModelInfo, GeminiTokenStats, GeminiTokenDelta };
 
 // Available sync AI players for selection

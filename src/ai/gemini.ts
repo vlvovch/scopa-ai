@@ -463,3 +463,23 @@ export function resetGeminiTokenStats(): void {
     instance.resetTokenStats();
   }
 }
+
+/**
+ * Start a new round on the cached Gemini AI instance (creates fresh chat session)
+ */
+export function startGeminiRound(): void {
+  const instance = cachedInstance as GeminiAI | null;
+  if (instance && 'startRound' in instance) {
+    instance.startRound();
+  }
+}
+
+/**
+ * End the current round on the cached Gemini AI instance (clears chat session)
+ */
+export function endGeminiRound(): void {
+  const instance = cachedInstance as GeminiAI | null;
+  if (instance && 'endRound' in instance) {
+    instance.endRound();
+  }
+}
