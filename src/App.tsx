@@ -34,6 +34,9 @@ function App() {
     show: false,
     player: 'human',
   });
+  // Track if any celebration animation is active (including exit animation)
+  // This prevents user input during the full celebration cycle
+  const [celebrationActive, setCelebrationActive] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
@@ -76,7 +79,8 @@ function App() {
   const prevRoundNumber = useRef(0);
 
   // Unified animation blocking - blocks ALL user input during any animation
-  const isAnimationBlocking = isDealing || scopaCelebration.show || setteBelloCelebration.show || !!animatingCard;
+  // Uses celebrationActive instead of .show to block during exit animations too
+  const isAnimationBlocking = isDealing || celebrationActive || !!animatingCard;
 
   // Clear selection when turn changes or game state changes
   useEffect(() => {
@@ -457,9 +461,12 @@ function App() {
       // Mark as captured to prevent re-triggering
       prevSetteBelloOwner.current = lastCapturePlayer;
 
+      setCelebrationActive(true); // Block input until exit animation completes
       setSetteBelloCelebration({ show: true, player: lastCapturePlayer, playerName });
       // Auto-hide after display duration to trigger exit animation
       setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+      // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
+      setTimeout(() => setCelebrationActive(false), 2000);
       // The effect will re-run after celebration ends and then call endRound()
       return;
     }
@@ -479,13 +486,19 @@ function App() {
 
     if (currentHumanScopas > prevScopaCounts.current.human) {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined;
+      setCelebrationActive(true); // Block input until exit animation completes
       setScopaCelebration({ show: true, player: 'human', playerName });
       // Auto-hide after display duration to trigger exit animation
       setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+      // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
+      setTimeout(() => setCelebrationActive(false), 2000);
     } else if (currentCpuScopas > prevScopaCounts.current.cpu) {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name;
+      setCelebrationActive(true); // Block input until exit animation completes
       setScopaCelebration({ show: true, player: 'cpu', playerName });
       setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+      // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
+      setTimeout(() => setCelebrationActive(false), 2000);
     }
 
     prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
@@ -511,9 +524,12 @@ function App() {
 
       // Small delay to let capture animation start first
       setTimeout(() => {
+        setCelebrationActive(true); // Block input until exit animation completes
         setSetteBelloCelebration({ show: true, player: currentOwner, playerName });
         // Auto-hide after display duration to trigger exit animation
         setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+        // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
+        setTimeout(() => setCelebrationActive(false), 2000);
       }, 300);
     }
 
@@ -690,13 +706,19 @@ function App() {
         show={scopaCelebration.show}
         player={scopaCelebration.player}
         playerName={scopaCelebration.playerName}
-        onComplete={() => setScopaCelebration(prev => ({ ...prev, show: false }))}
+        onComplete={() => {
+          setScopaCelebration(prev => ({ ...prev, show: false }));
+          setCelebrationActive(false); // Unblock input after exit animation completes
+        }}
       />
       <SetteBelloCelebration
         show={setteBelloCelebration.show}
         player={setteBelloCelebration.player}
         playerName={setteBelloCelebration.playerName}
-        onComplete={() => setSetteBelloCelebration(prev => ({ ...prev, show: false }))}
+        onComplete={() => {
+          setSetteBelloCelebration(prev => ({ ...prev, show: false }));
+          setCelebrationActive(false); // Unblock input after exit animation completes
+        }}
       />
       <CpuCardAnimation
         card={animatingCard?.card ?? null}
@@ -861,7 +883,7 @@ function App() {
             onCardDragStart={isSpectatorMode ? undefined : handleCardDragStart}
             onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
             selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
-            disabled={isSpectatorMode || !isHumanTurn}
+            disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
           />
         }
         controls={

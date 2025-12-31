@@ -15,7 +15,7 @@ interface SetteBelloCelebrationProps {
 export function SetteBelloCelebration({ show, player, playerName, onComplete }: SetteBelloCelebrationProps) {
   const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={onComplete}>
       {show && (
         <motion.div
           className={styles.overlay}
@@ -23,12 +23,6 @@ export function SetteBelloCelebration({ show, player, playerName, onComplete }: 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          onAnimationComplete={(definition) => {
-            // Call onComplete after exit animation
-            if (definition === 'exit' && onComplete) {
-              onComplete();
-            }
-          }}
         >
           <motion.div
             className={styles.celebration}

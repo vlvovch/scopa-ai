@@ -14,7 +14,7 @@ interface ScopaCelebrationProps {
 export function ScopaCelebration({ show, player, onComplete, playerName }: ScopaCelebrationProps) {
   const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={onComplete}>
       {show && (
         <motion.div
           className={styles.overlay}
@@ -22,12 +22,6 @@ export function ScopaCelebration({ show, player, onComplete, playerName }: Scopa
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          onAnimationComplete={(definition) => {
-            // Call onComplete after exit animation
-            if (definition === 'exit' && onComplete) {
-              onComplete();
-            }
-          }}
         >
           <motion.div
             className={styles.celebration}

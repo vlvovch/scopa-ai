@@ -102,7 +102,7 @@ export function Card({
     },
   };
 
-  const dragProps = draggable ? {
+  const dragProps = draggable && !disabled ? {
     drag: true,
     dragSnapToOrigin: true,
     dragElastic: 1, // Full elasticity - card follows cursor exactly
