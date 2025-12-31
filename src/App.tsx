@@ -18,8 +18,9 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO } from './ai';
-import type { AIType } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, isAsyncAI, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats } from './ai';
+import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta } from './ai';
+import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId } from './game/types';
 
@@ -50,7 +51,7 @@ function App() {
   }>({ isOpen: false, playedCard: null, captureOptions: [] });
 
   // Spectator mode state
-  const [spectatorAIs, setSpectatorAIs] = useState<{ player1: AIType; player2: AIType }>({
+  const [spectatorAIs, setSpectatorAIs] = useState<{ player1: ExtendedAIType; player2: ExtendedAIType }>({
     player1: 'heuristic',
     player2: 'random',
   });
@@ -58,8 +59,22 @@ function App() {
   // Track pause state before settings opened (to restore on close)
   const pausedBeforeSettings = useRef(false);
 
+  // Gemini token stats (refreshed after each AI move)
+  const [tokenStats, setTokenStats] = useState<GeminiTokenStats | null>(null);
+  const [tokenDelta, setTokenDelta] = useState<GeminiTokenDelta | null>(null);
+
   // Check if in spectator mode
   const isSpectatorMode = state.gameMode === 'cpuVsCPU';
+
+  // Check if Gemini is being used
+  const isUsingGemini = settings.cpuAI === 'gemini' ||
+    (isSpectatorMode && (spectatorAIs.player1 === 'gemini' || spectatorAIs.player2 === 'gemini'));
+
+  // Helper to update token stats and delta
+  const updateTokenStats = useCallback(() => {
+    setTokenStats(getGeminiTokenStats());
+    setTokenDelta(getGeminiTokenDelta());
+  }, []);
 
   // Animation speed multipliers based on settings
   const getAnimationDelay = useCallback((baseMs: number) => {
@@ -67,10 +82,58 @@ function App() {
     return baseMs * multipliers[settings.animationSpeed];
   }, [settings.animationSpeed]);
 
+  // Get AI player instance for a given AI type
+  const getAIPlayer = useCallback((aiType: ExtendedAIType): AnyAIPlayer => {
+    if (aiType === 'gemini') {
+      const gemini = getGeminiAI(settings.geminiModel);
+      if (gemini) return gemini;
+      // Fallback to heuristic if Gemini not available
+      return AI_PLAYERS.heuristic;
+    }
+    return AI_PLAYERS[aiType];
+  }, [settings.geminiModel]);
+
+  // Build extended context for LLM AI
+  const buildLLMContext = useCallback((
+    hand: Card[],
+    table: Card[],
+    player: PlayerId
+  ): LLMAIContext => {
+    const selfPlayer = player;
+    const oppPlayer = player === 'human' ? 'cpu' : 'human';
+
+    // Compute all valid moves for this player
+    const validMoves: Move[] = [];
+    for (const card of hand) {
+      const moves = getValidMoves(card, table, player);
+      validMoves.push(...moves);
+    }
+
+    return {
+      hand,
+      table,
+      player,
+      scores: {
+        self: state.scores[selfPlayer],
+        opponent: state.scores[oppPlayer],
+      },
+      targetScore: state.targetScore,
+      roundNumber: state.roundNumber,
+      opponentHandCount: state.players[oppPlayer].hand.length,
+      selfCapturedCount: state.players[selfPlayer].captured.length,
+      opponentCapturedCount: state.players[oppPlayer].captured.length,
+      deckCount: state.round.deck.length,
+      lastOpponentMove: lastMoves.current[oppPlayer],
+      validMoves,
+    };
+  }, [state.scores, state.targetScore, state.roundNumber, state.players, state.round.deck.length]);
+
   // Track previous scopa counts to detect new scopas
   const prevScopaCounts = useRef({ human: 0, cpu: 0 });
   // Track who has sette bello (null = neither, 'human' or 'cpu' = that player has it)
   const prevSetteBelloOwner = useRef<PlayerId | null>(null);
+  // Track last move made by each player (for LLM context)
+  const lastMoves = useRef<{ human: Move | null; cpu: Move | null }>({ human: null, cpu: null });
 
   // Ref for table area (for drag-and-drop detection)
   const tableRef = useRef<HTMLDivElement>(null);
@@ -116,9 +179,10 @@ function App() {
     }
   }, [state.status]);
 
-  // Reset sette bello tracking when a new round starts
+  // Reset sette bello and last moves tracking when a new round starts
   useEffect(() => {
     prevSetteBelloOwner.current = null;
+    lastMoves.current = { human: null, cpu: null };
   }, [state.roundNumber]);
 
   // Detect dealing by tracking deck count changes
@@ -242,6 +306,8 @@ function App() {
 
     if (placeMove) {
       playCard(placeMove);
+      // Record last move for LLM context
+      lastMoves.current.human = placeMove;
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
@@ -269,6 +335,8 @@ function App() {
       // Brief delay for levitate animation, then execute and show fly-to-pile
       setTimeout(() => {
         playCard(move);
+        // Record last move for LLM context
+        lastMoves.current.human = move;
         setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
         setSelectedCard(null);
         setSelectedTableCards([]);
@@ -280,6 +348,8 @@ function App() {
     } else {
       // No capture, just place
       playCard(move);
+      // Record last move for LLM context
+      lastMoves.current.human = move;
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
@@ -370,6 +440,8 @@ function App() {
 
     const placeMove = validMoves[0];
     playCard(placeMove);
+    // Record last move for LLM context
+    lastMoves.current.human = placeMove;
     setSelectedCard(null);
   }, [selectedCard, canOnlyPlace, validMoves, playCard]);
 
@@ -433,15 +505,26 @@ function App() {
     // Add delay for UX before starting animation (scaled by animation speed)
     const baseDelay = 500 + Math.random() * 500;
     const delay = getAnimationDelay(baseDelay);
-    const timeoutId = setTimeout(() => {
+    const timeoutId = setTimeout(async () => {
       // Use selected AI to select move (use spectator AI in spectator mode)
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
-      const ai = AI_PLAYERS[aiType];
-      const moveToExecute = ai.selectMove({
-        hand: cpuHand,
-        table: state.round.table,
-        player: 'cpu',
-      });
+      const ai = getAIPlayer(aiType);
+
+      let moveToExecute: Move;
+      if (isAsyncAI(ai)) {
+        // Async AI (e.g., Gemini) - build extended context and await
+        const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
+        moveToExecute = await ai.selectMove(context);
+        // Update token stats after async AI move
+        updateTokenStats();
+      } else {
+        // Sync AI - use simple context
+        moveToExecute = ai.selectMove({
+          hand: cpuHand,
+          table: state.round.table,
+          player: 'cpu',
+        });
+      }
 
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
@@ -458,6 +541,8 @@ function App() {
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
           playCard(moveToExecute);
+          // Record last move for LLM context
+          lastMoves.current.cpu = moveToExecute;
           if (moveToExecute.capturedCards.length > 0) {
             setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
             // Phase 4: done (wait for cards to fly to pile)
@@ -480,7 +565,7 @@ function App() {
         cpuAnimationScheduled.current = false;
       }
     };
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext]);
 
   // Calculate and store round scores when entering roundEnd status
   // Handles final animations and Sette Bello detection for cards awarded at round end
@@ -587,32 +672,46 @@ function App() {
     prevSetteBelloOwner.current = currentOwner;
   }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI]);
 
+  // Handle starting a new game (wraps startGame to reset token stats)
+  const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
+    resetGeminiTokenStats();
+    setTokenStats(null);
+    setTokenDelta(null);
+    startGame(targetScore, gameMode);
+  }, [startGame]);
+
   // Handle new game request
   const handleNewGame = useCallback(() => {
     if (state.status === 'playing') {
       setConfirmNewGame(true);
     } else {
+      resetGeminiTokenStats();
+      setTokenStats(null);
+      setTokenDelta(null);
       resetGame();
     }
   }, [state.status, resetGame]);
 
   const confirmAndStartNewGame = useCallback(() => {
     setConfirmNewGame(false);
+    resetGeminiTokenStats();
+    setTokenStats(null);
+    setTokenDelta(null);
     resetGame();
   }, [resetGame]);
 
   // Handle AI selection change
-  const handleSelectAI = useCallback((ai: AIType) => {
+  const handleSelectAI = useCallback((ai: ExtendedAIType) => {
     updateSetting('cpuAI', ai);
   }, [updateSetting]);
 
   // Handle spectator AI selection
-  const handleSelectSpectatorAI = useCallback((player: 'player1' | 'player2', ai: AIType) => {
+  const handleSelectSpectatorAI = useCallback((player: 'player1' | 'player2', ai: ExtendedAIType) => {
     setSpectatorAIs(prev => ({ ...prev, [player]: ai }));
   }, []);
 
   // Get AI for current player in spectator mode
-  const getAIForPlayer = useCallback((player: PlayerId): AIType => {
+  const getAIForPlayer = useCallback((player: PlayerId): ExtendedAIType => {
     if (player === 'human') {
       return spectatorAIs.player1;
     }
@@ -663,13 +762,24 @@ function App() {
     // Add delay for UX (scaled by animation speed)
     const baseDelay = 500 + Math.random() * 500;
     const delay = getAnimationDelay(baseDelay);
-    const timeoutId = setTimeout(() => {
-      const ai = AI_PLAYERS[spectatorAIs.player1];
-      const moveToExecute = ai.selectMove({
-        hand: humanHand,
-        table: state.round.table,
-        player: 'human',
-      });
+    const timeoutId = setTimeout(async () => {
+      const ai = getAIPlayer(spectatorAIs.player1);
+
+      let moveToExecute: Move;
+      if (isAsyncAI(ai)) {
+        // Async AI (e.g., Gemini) - build extended context and await
+        const context = buildLLMContext(humanHand, state.round.table, 'human');
+        moveToExecute = await ai.selectMove(context);
+        // Update token stats after async AI move
+        updateTokenStats();
+      } else {
+        // Sync AI - use simple context
+        moveToExecute = ai.selectMove({
+          hand: humanHand,
+          table: state.round.table,
+          player: 'human',
+        });
+      }
 
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
@@ -686,6 +796,8 @@ function App() {
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
           playCard(moveToExecute);
+          // Record last move for LLM context
+          lastMoves.current.human = moveToExecute;
           if (moveToExecute.capturedCards.length > 0) {
             setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
             // Phase 4: done (wait for cards to fly to pile)
@@ -707,20 +819,22 @@ function App() {
         cpuAnimationScheduled.current = false;
       }
     };
-  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay]);
+  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext]);
 
   // If game hasn't started, show start screen
   if (state.status === 'idle') {
     return (
       <DeckProvider deck={settings.deck}>
         <StartScreen
-          onStartGame={startGame}
+          onStartGame={handleStartGame}
           selectedAI={settings.cpuAI}
           onSelectAI={handleSelectAI}
           spectatorAIs={spectatorAIs}
           onSelectSpectatorAI={handleSelectSpectatorAI}
           selectedDeck={settings.deck}
           onSelectDeck={(deck) => updateSetting('deck', deck)}
+          geminiModel={settings.geminiModel}
+          onSelectGeminiModel={(model) => updateSetting('geminiModel', model)}
         />
         <SettingsModal
           isOpen={showSettings}
@@ -954,12 +1068,15 @@ function App() {
           />
         }
         humanPile={
-          <CapturedPile
-            cards={state.players.human.captured}
-            scopaCount={state.players.human.scopaCount}
-            player="human"
-            playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
-          />
+          <>
+            <CapturedPile
+              cards={state.players.human.captured}
+              scopaCount={state.players.human.scopaCount}
+              player="human"
+              playerLabel={isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined}
+            />
+            {isUsingGemini && <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show={isUsingGemini} />}
+          </>
         }
         humanHand={
           <PlayerHand

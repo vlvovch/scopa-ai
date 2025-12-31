@@ -182,3 +182,34 @@
 .rulesHint li {
   margin-bottom: 2px;
 }
+
+.modelSelect {
+  width: 100%;
+  max-width: 280px;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.modelSelect:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.modelSelect:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.modelSelect option {
+  background: #1e3a2f;
+  color: var(--color-text-primary);
+}

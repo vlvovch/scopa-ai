@@ -32,12 +32,14 @@ export function ScoreBoard({
   humanName,
   isSpectatorMode = false,
 }: ScoreBoardProps) {
-  // In spectator mode, show AI names with (CPU) suffix
+  // In spectator mode, show AI names with suffix
+  // Use "(AI)" for LLM-based AIs (Gemini), "(CPU)" for traditional AIs
+  const getSuffix = (name: string) => name.toLowerCase().includes('gemini') ? 'AI' : 'CPU';
   const player1DisplayName = isSpectatorMode && humanName
-    ? `${humanName} (CPU)`
+    ? `${humanName} (${getSuffix(humanName)})`
     : humanName || 'You';
   const player2DisplayName = isSpectatorMode
-    ? `${cpuName} (CPU)`
+    ? `${cpuName} (${getSuffix(cpuName)})`
     : cpuName;
 
   return (

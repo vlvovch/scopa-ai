@@ -1,7 +1,7 @@
 // Step 8.6: StartScreen Component
 
-import { useState } from 'react';
-import { AI_INFO, type AIType } from '../../ai';
+import { useState, useMemo, useEffect } from 'react';
+import { AI_INFO, getAvailableAITypes, fetchGeminiModels, type ExtendedAIType, type GeminiModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './StartScreen.module.css';
@@ -10,16 +10,17 @@ type GameModeOption = 'play' | 'watch';
 
 interface StartScreenProps {
   onStartGame: (targetScore: number, gameMode: GameMode) => void;
-  selectedAI: AIType;
-  onSelectAI: (ai: AIType) => void;
-  spectatorAIs: { player1: AIType; player2: AIType };
-  onSelectSpectatorAI: (player: 'player1' | 'player2', ai: AIType) => void;
+  selectedAI: ExtendedAIType;
+  onSelectAI: (ai: ExtendedAIType) => void;
+  spectatorAIs: { player1: ExtendedAIType; player2: ExtendedAIType };
+  onSelectSpectatorAI: (player: 'player1' | 'player2', ai: ExtendedAIType) => void;
   selectedDeck: DeckType;
   onSelectDeck: (deck: DeckType) => void;
+  geminiModel: string;
+  onSelectGeminiModel: (model: string) => void;
 }
 
 const SCORE_OPTIONS = [11, 16, 21] as const;
-const AI_OPTIONS: AIType[] = ['random', 'heuristic'];
 const DECK_OPTIONS: { value: DeckType; label: string }[] = [
   { value: 'napoletane', label: 'Napoletane' },
   { value: 'siciliane', label: 'Siciliane' },
@@ -33,9 +34,37 @@ export function StartScreen({
   onSelectSpectatorAI,
   selectedDeck,
   onSelectDeck,
+  geminiModel,
+  onSelectGeminiModel,
 }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(11);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
+  const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  // Get available AI types (includes Gemini only if API key is set)
+  const aiOptions = useMemo(() => getAvailableAITypes(), []);
+
+  // Check if any selected AI is Gemini
+  const needsGeminiModels = selectedAI === 'gemini' ||
+    spectatorAIs.player1 === 'gemini' ||
+    spectatorAIs.player2 === 'gemini';
+
+  // Fetch Gemini models when needed
+  useEffect(() => {
+    if (needsGeminiModels && geminiModels.length === 0 && !loadingModels) {
+      setLoadingModels(true);
+      fetchGeminiModels()
+        .then((models) => {
+          setGeminiModels(models);
+          // If current model not in list, select first available
+          if (models.length > 0 && !models.some(m => m.id === geminiModel)) {
+            onSelectGeminiModel(models[0].id);
+          }
+        })
+        .finally(() => setLoadingModels(false));
+    }
+  }, [needsGeminiModels, geminiModels.length, loadingModels, geminiModel, onSelectGeminiModel]);
 
   const handleStartGame = () => {
     const mode: GameMode = gameMode === 'play' ? 'pvsCPU' : 'cpuVsCPU';
@@ -100,56 +129,96 @@ export function StartScreen({
         </div>
 
         {gameMode === 'play' ? (
-          <div className={styles.scoreSelection}>
-            <label className={styles.label}>Opponent</label>
-            <div className={styles.scoreOptions}>
-              {AI_OPTIONS.map((ai) => (
-                <button
-                  key={ai}
-                  className={`${styles.scoreOption} ${styles.aiOption} ${selectedAI === ai ? styles.selected : ''}`}
-                  onClick={() => onSelectAI(ai)}
-                  title={AI_INFO[ai].description}
-                >
-                  {AI_INFO[ai].name}
-                </button>
-              ))}
+          <>
+            <div className={styles.scoreSelection}>
+              <label className={styles.label}>Opponent</label>
+              <div className={styles.scoreOptions}>
+                {aiOptions.map((ai) => (
+                  <button
+                    key={ai}
+                    className={`${styles.scoreOption} ${styles.aiOption} ${selectedAI === ai ? styles.selected : ''}`}
+                    onClick={() => onSelectAI(ai)}
+                    title={AI_INFO[ai].description}
+                  >
+                    {AI_INFO[ai].name}
+                  </button>
+                ))}
+              </div>
+              <p className={styles.aiDescription}>{AI_INFO[selectedAI].description}</p>
             </div>
-            <p className={styles.aiDescription}>{AI_INFO[selectedAI].description}</p>
-          </div>
+            {selectedAI === 'gemini' && (
+              <div className={styles.scoreSelection}>
+                <label className={styles.label}>Gemini Model</label>
+                {loadingModels ? (
+                  <p className={styles.aiDescription}>Loading models...</p>
+                ) : (
+                  <select
+                    className={styles.modelSelect}
+                    value={geminiModel}
+                    onChange={(e) => onSelectGeminiModel(e.target.value)}
+                  >
+                    {geminiModels.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </>
         ) : (
-          <div className={styles.spectatorSetup}>
-            <div className={styles.spectatorPlayer}>
-              <label className={styles.label}>Player 1</label>
-              <div className={styles.scoreOptions}>
-                {AI_OPTIONS.map((ai) => (
-                  <button
-                    key={ai}
-                    className={`${styles.scoreOption} ${styles.aiOption} ${spectatorAIs.player1 === ai ? styles.selected : ''}`}
-                    onClick={() => onSelectSpectatorAI('player1', ai)}
-                    title={AI_INFO[ai].description}
-                  >
-                    {AI_INFO[ai].name}
-                  </button>
-                ))}
+          <>
+            <div className={styles.spectatorSetup}>
+              <div className={styles.spectatorPlayer}>
+                <label className={styles.label}>Player 1</label>
+                <div className={styles.scoreOptions}>
+                  {aiOptions.map((ai) => (
+                    <button
+                      key={ai}
+                      className={`${styles.scoreOption} ${styles.aiOption} ${spectatorAIs.player1 === ai ? styles.selected : ''}`}
+                      onClick={() => onSelectSpectatorAI('player1', ai)}
+                      title={AI_INFO[ai].description}
+                    >
+                      {AI_INFO[ai].name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.vsLabel}>vs</div>
+              <div className={styles.spectatorPlayer}>
+                <label className={styles.label}>Player 2</label>
+                <div className={styles.scoreOptions}>
+                  {aiOptions.map((ai) => (
+                    <button
+                      key={ai}
+                      className={`${styles.scoreOption} ${styles.aiOption} ${spectatorAIs.player2 === ai ? styles.selected : ''}`}
+                      onClick={() => onSelectSpectatorAI('player2', ai)}
+                      title={AI_INFO[ai].description}
+                    >
+                      {AI_INFO[ai].name}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className={styles.vsLabel}>vs</div>
-            <div className={styles.spectatorPlayer}>
-              <label className={styles.label}>Player 2</label>
-              <div className={styles.scoreOptions}>
-                {AI_OPTIONS.map((ai) => (
-                  <button
-                    key={ai}
-                    className={`${styles.scoreOption} ${styles.aiOption} ${spectatorAIs.player2 === ai ? styles.selected : ''}`}
-                    onClick={() => onSelectSpectatorAI('player2', ai)}
-                    title={AI_INFO[ai].description}
+            {(spectatorAIs.player1 === 'gemini' || spectatorAIs.player2 === 'gemini') && (
+              <div className={styles.scoreSelection}>
+                <label className={styles.label}>Gemini Model</label>
+                {loadingModels ? (
+                  <p className={styles.aiDescription}>Loading models...</p>
+                ) : (
+                  <select
+                    className={styles.modelSelect}
+                    value={geminiModel}
+                    onChange={(e) => onSelectGeminiModel(e.target.value)}
                   >
-                    {AI_INFO[ai].name}
-                  </button>
-                ))}
+                    {geminiModels.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                  </select>
+                )}
               </div>
-            </div>
-          </div>
+            )}
+          </>
         )}
 
         <button

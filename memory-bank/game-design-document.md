@@ -579,39 +579,87 @@ interface LLMPlayer extends AIPlayer {
   apiKey: string;
 }
 
-class ClaudeAI implements LLMPlayer {
-  async selectMove(state: GameState): Promise<Move> {
-    const prompt = this.buildPrompt(state);
+interface LLMAIContext extends AIContext {
+  hand: Card[];
+  table: Card[];
+  player: PlayerId;
+  scores: { self: number; opponent: number };
+  targetScore: number;
+  roundNumber: number;
+  opponentHandCount: number;
+  selfCapturedCount: number;
+  opponentCapturedCount: number;
+  deckCount: number;
+  lastOpponentMove: Move | null;      // What opponent did last turn
+  validMoves: Move[];                  // All valid moves for this turn
+}
+
+interface LLMResponse {
+  moveIndex: number;                   // Index into validMoves array
+  reasoning: string;                   // Brief explanation of choice
+}
+```
+
+#### Prompt Structure
+
+The LLM receives:
+1. **Game State**: Current scores, round number, hand, table, pile sizes
+2. **Last Opponent Move**: What the opponent played and captured (if any)
+3. **Valid Moves**: Numbered list of all legal moves to choose from
+4. **Rules Reminder**: Scoring categories and their values
+
+```typescript
+class GeminiAI implements LLMPlayer {
+  async selectMove(context: LLMAIContext): Promise<Move> {
+    const prompt = this.buildPrompt(context);
     const response = await this.callAPI(prompt);
-    return this.parseResponse(response);
+    return this.parseResponse(response, context.validMoves);
   }
-  
-  buildPrompt(state: GameState): string {
+
+  buildPrompt(context: LLMAIContext): string {
     return `You are playing Scopa, an Italian card game.
 
 CURRENT GAME STATE:
-- Your hand: ${formatCards(state.players.ai.hand)}
-- Table cards: ${formatCards(state.round.table)}
-- Your captured pile: ${state.players.ai.captured.length} cards
-- Opponent's captured pile: ${state.players.human.captured.length} cards
-- Current scores: You ${state.players.ai.totalScore}, Opponent ${state.players.human.totalScore}
-- Cards remaining in deck: ${state.round.deck.length}
+Round: ${context.roundNumber}
+Score: You ${context.scores.self} - Opponent ${context.scores.opponent} (target: ${context.targetScore})
+
+Your hand: ${formatCards(context.hand)}
+Table cards: ${formatCards(context.table)}
+
+Cards remaining in deck: ${context.deckCount}
+Your captured pile: ${context.selfCapturedCount} cards
+Opponent's captured pile: ${context.opponentCapturedCount} cards
+Opponent's hand: ${context.opponentHandCount} cards
 
 LAST OPPONENT MOVE:
-${formatLastMove(state.history)}
+${formatLastMove(context.lastOpponentMove)}
 
-VALID MOVES:
-${formatValidMoves(getValidMoves(state))}
+VALID MOVES (choose one by number):
+${formatValidMoves(context.validMoves)}
 
 SCORING REMINDER:
 - Most cards (21+ guarantees): 1 point
-- Most coins (6+ guarantees): 1 point  
+- Most coins (6+ guarantees): 1 point
 - Seven of Coins (Sette Bello): 1 point
-- Best Prime (sum of best card per suit using 7=21, 6=18, A=16, etc.): 1 point
+- Best Prime (7=21, 6=18, A=16, 5=15, 4=14, 3=13, 2=12, face=10): 1 point
 - Each Scopa (clearing the table): 1 point
 
-Choose the best move. Respond with ONLY the move number and brief reasoning.
-Format: MOVE: [number] - [one sentence reasoning]`;
+Respond with JSON only:
+{"moveIndex": <number>, "reasoning": "<brief explanation>"}`;
+  }
+
+  parseResponse(response: string, validMoves: Move[]): Move {
+    const parsed = JSON.parse(response);
+    const index = parsed.moveIndex;
+
+    if (index >= 0 && index < validMoves.length) {
+      // Log reasoning for debugging/display
+      console.log(`AI reasoning: ${parsed.reasoning}`);
+      return validMoves[index];
+    }
+
+    // Fallback to first valid move
+    return validMoves[0];
   }
 }
 ```
@@ -622,7 +670,7 @@ Format: MOVE: [number] - [one sentence reasoning]`;
 |----------|-------|-----------------|
 | Anthropic | Claude 3.5 Sonnet | Strong reasoning, follows rules well |
 | OpenAI | GPT-4o | Good strategic thinking |
-| Google | Gemini 1.5 Pro | Fast responses |
+| Google | Gemini 2.5 Flash | Fast responses, 1M token context |
 
 #### API Configuration
 ```typescript

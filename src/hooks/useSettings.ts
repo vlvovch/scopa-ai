@@ -1,7 +1,7 @@
 // Step 10.1: Settings Hook with localStorage persistence
 
 import { useState, useEffect, useCallback } from 'react';
-import type { AIType } from '../ai';
+import type { ExtendedAIType } from '../ai';
 
 export type DeckType = 'napoletane' | 'siciliane';
 
@@ -13,9 +13,11 @@ export interface GameSettings {
   /** Whether to show card values in corners */
   showCardValues: boolean;
   /** CPU AI type */
-  cpuAI: AIType;
+  cpuAI: ExtendedAIType;
   /** Card deck style */
   deck: DeckType;
+  /** Gemini model to use (when cpuAI is 'gemini') */
+  geminiModel: string;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -26,6 +28,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   showCardValues: true,
   cpuAI: 'heuristic',
   deck: 'napoletane',
+  geminiModel: 'gemini-2.5-flash',
 };
 
 function loadSettings(): GameSettings {

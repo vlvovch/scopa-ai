@@ -15,6 +15,40 @@ export interface AIContext {
 }
 
 /**
+ * Extended context for LLM-based AI players
+ */
+export interface LLMAIContext extends AIContext {
+  /** Current cumulative scores */
+  scores: { self: number; opponent: number };
+  /** Target score to win */
+  targetScore: number;
+  /** Current round number */
+  roundNumber: number;
+  /** Number of cards in opponent's hand */
+  opponentHandCount: number;
+  /** Number of cards captured by self this round */
+  selfCapturedCount: number;
+  /** Number of cards captured by opponent this round */
+  opponentCapturedCount: number;
+  /** Cards remaining in deck */
+  deckCount: number;
+  /** Last move made by opponent (null if first move of round) */
+  lastOpponentMove: Move | null;
+  /** All valid moves available for this turn */
+  validMoves: Move[];
+}
+
+/**
+ * Response structure from LLM AI
+ */
+export interface LLMResponse {
+  /** Index into the validMoves array */
+  moveIndex: number;
+  /** Brief explanation of the move choice */
+  reasoning: string;
+}
+
+/**
  * Interface for AI player implementations
  */
 export interface AIPlayer {
@@ -30,6 +64,51 @@ export interface AIPlayer {
 }
 
 /**
+ * Interface for async (LLM-based) AI player implementations
+ */
+export interface AsyncAIPlayer {
+  /** Display name for this AI */
+  readonly name: string;
+
+  /** Whether this AI requires async operation */
+  readonly isAsync: true;
+
+  /**
+   * Select a move to play asynchronously.
+   * @param context - The extended game context with scores
+   * @returns Promise resolving to the move to execute
+   */
+  selectMove(context: LLMAIContext): Promise<Move>;
+
+  /**
+   * Start a new round/session
+   */
+  startRound?(): void;
+
+  /**
+   * End the current round/session
+   */
+  endRound?(): void;
+}
+
+/**
+ * Union type for any AI player (sync or async)
+ */
+export type AnyAIPlayer = AIPlayer | AsyncAIPlayer;
+
+/**
+ * Type guard to check if an AI player is async
+ */
+export function isAsyncAI(ai: AnyAIPlayer): ai is AsyncAIPlayer {
+  return 'isAsync' in ai && ai.isAsync === true;
+}
+
+/**
  * Factory function type for creating AI players
  */
 export type AIPlayerFactory = () => AIPlayer;
+
+/**
+ * Factory function type for creating async AI players
+ */
+export type AsyncAIPlayerFactory = () => AsyncAIPlayer;

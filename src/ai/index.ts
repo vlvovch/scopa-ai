@@ -2,24 +2,44 @@
 
 import { randomAI, createRandomAI } from './random';
 import { heuristicAI, createHeuristicAI } from './heuristic';
+import { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, type GeminiModelInfo, type GeminiTokenStats, type GeminiTokenDelta } from './gemini';
 
 // Re-export types
-export type { AIPlayer, AIContext, AIPlayerFactory } from './types';
+export type { AIPlayer, AIContext, AIPlayerFactory, AsyncAIPlayer, LLMAIContext, AnyAIPlayer } from './types';
+export { isAsyncAI } from './types';
 
 // Re-export AI implementations
 export { randomAI, createRandomAI };
 export { heuristicAI, createHeuristicAI };
+export { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats };
+export type { GeminiModelInfo, GeminiTokenStats, GeminiTokenDelta };
 
-// Available AI players for selection
+// Available sync AI players for selection
 export const AI_PLAYERS = {
   random: randomAI,
   heuristic: heuristicAI,
 } as const;
 
+// All AI types (sync only - async AIs handled separately)
 export type AIType = keyof typeof AI_PLAYERS;
 
-// Display info for each AI
-export const AI_INFO: Record<AIType, { name: string; description: string }> = {
+// Extended AI type including async AIs
+export type ExtendedAIType = AIType | 'gemini';
+
+// Display info for each AI (including async)
+export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean }> = {
   random: { name: 'Scimmia', description: 'Plays randomly like a monkey' },
   heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures' },
+  gemini: { name: 'Gemini', description: 'Google AI powered strategic player', isAsync: true },
 };
+
+/**
+ * Get list of available AI types based on API key availability
+ */
+export function getAvailableAITypes(): ExtendedAIType[] {
+  const types: ExtendedAIType[] = ['random', 'heuristic'];
+  if (isGeminiAvailable()) {
+    types.push('gemini');
+  }
+  return types;
+}
