@@ -44,8 +44,8 @@
 }
 
 .emptyDeck {
-  width: 70px;
-  height: 105px;
+  width: var(--card-width);
+  height: var(--card-height);
   border: 2px dashed rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   display: flex;
