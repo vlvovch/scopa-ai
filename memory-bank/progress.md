@@ -307,6 +307,26 @@
 
 ---
 
+## Phase 15: Animation Timing and UI Polish
+
+- [x] Step 15.1: Fix dealing animation timing with useLayoutEffect - Completed 2025-12-30
+- [x] Step 15.2: Implement two-phase round start dealing - Completed 2025-12-30
+- [x] Step 15.3: Fix celebration blocking during animations - Completed 2025-12-30
+- [x] Step 15.4: Custom SVG icons for score categories - Completed 2025-12-30
+- [x] Step 15.5: Capture indicator player-side positioning - Completed 2025-12-30
+
+**Notes:**
+- Changed deal detection from `useEffect` to `useLayoutEffect` to prevent flash of cards before animation
+- Two-phase dealing for round start: table phase (4 cards) → pause (300ms) → hands phase (6 cards)
+- Mid-round dealing skips directly to hands phase
+- Added `celebrationActive` state to track full celebration lifecycle (including exit animations)
+- Fixed Card component's `dragProps` to properly check `!disabled` for drag blocking
+- Custom SVG icons in RoundEndScreen: CardsIcon (3 fanned cards), CoinIcon (gold coin with gradients), SetteBelloIcon (card with 2-1-2-2 coin pattern), PrimieraIcon (gold star), ScopaIcon (emoji broom)
+- Capture indicator now appears on capturing player's side: top for CPU, bottom for human
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -315,6 +335,8 @@ The Scopa game is now fully playable with:
 - Selectable AI opponents (Random or Greedy heuristic)
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
+- Custom SVG icons for score categories
+- Two-phase dealing animation (table cards first, then player hands)
 - Sette Bello celebration animation
 - Dealer deck display that switches sides
 - Round and game end screens with detailed scoring breakdown

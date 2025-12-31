@@ -308,7 +308,8 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `UI/GameEndScreen.tsx` | Winner announcement with final scores and play again |
 | `UI/ScopaCelebration.tsx` | Animated "SCOPA!" overlay with sparkle effects |
 | `UI/SetteBelloCelebration.tsx` | Animated gold coin celebration for 7 of coins capture |
-| `UI/CpuCardAnimation.tsx` | CPU card play animation (3D flip reveal, move, capture indicator) |
+| `UI/CpuCardAnimation.tsx` | Card play animation (3D flip reveal, move, capture indicator on player's side) |
+| `UI/DealingAnimation.tsx` | Two-phase dealing animation (table cards, then player hands) |
 | `UI/SettingsModal.tsx` | Settings panel with target score, animation speed options |
 | `UI/GameControls.tsx` | New game and settings icon buttons |
 
@@ -406,6 +407,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - Card is removed from player's hand immediately when animation starts
 - Position is player-aware: CPU animates from top (-120), human from bottom (+120)
 - Capture animates card toward player's capture pile before fading
+- Capture indicator ("+X captured") appears on capturing player's side: top (25%) for CPU, bottom (25%) for human
 
 **Sette Bello Celebration (Phase 12):**
 - SetteBelloCelebration triggers when 7 of coins is captured
@@ -413,6 +415,22 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - "SETTE BELLO!" text with golden glow
 - 8 gold coin particles animate outward
 - Shows for 1.5 seconds then fades
+
+**Dealing Animation (Phase 15):**
+- DealingAnimation component with two-phase round start dealing
+- Phase 1 (table): 4 cards fly to table (~415ms)
+- Pause: 300ms gap for visual separation
+- Phase 2 (hands): 6 cards fly to players (~575ms)
+- Mid-round dealing skips directly to hands phase
+- Uses `useLayoutEffect` for deal detection to prevent flash before animation
+- `DealMode` type: `'table' | 'pause' | 'hands'`
+
+**Animation Blocking (Phase 15):**
+- `celebrationActive` state tracks full celebration lifecycle
+- `isAnimationBlocking` computed from `isDealing`, `celebrationActive`, and `animatingCard`
+- Cards are non-draggable during any blocking animation
+- Uses `onExitComplete` on AnimatePresence for reliable exit detection
+- Fallback timeout (2000ms) ensures state reset even if callback fails
 
 ---
 
@@ -451,13 +469,21 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ---
 
-## Round End Screen (Phase 12 - Enhanced)
+## Round End Screen (Phase 12, 15 - Enhanced)
 
 **Score Display:**
 - Italian category names: Carte Lungo, Denari, Primiera, Scopa
 - Shows actual counts (card count, coin count, prime value) not just 1/0
 - Sette Bello shows checkmark (✓) or dash (-)
 - Winner of each category highlighted in gold
+
+**Custom SVG Icons (Phase 15):**
+- CardsIcon: 3 fanned cards (cream with gray borders)
+- CoinIcon: Single gold coin with radial gradient and concentric circles
+- SetteBelloIcon: Card showing 7 gold coins in 2-1-2-2 pattern
+- PrimieraIcon: Gold 5-pointed star with gradient
+- ScopaIcon: Emoji broom (🧹)
+- Icons left-aligned with category names in flexbox layout
 
 **Captured Cards Display:**
 - Card columns on left (human) and right (CPU) sides
@@ -480,7 +506,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ## MVP Complete!
 
-All 12 phases implemented:
+All 15 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -493,6 +519,9 @@ All 12 phases implemented:
 10. Settings & Polish
 11. UI Enhancements (Drag & Drop, CPU Animation)
 12. UX Polish (Dealer Deck, Enhanced Round Summary, Sette Bello Celebration)
+13. AI Refactoring (Random AI, Heuristic AI, AI Selection)
+14. Watch Mode (CPU vs CPU Spectator Mode)
+15. Animation Timing & UI Polish (Two-phase dealing, Celebration blocking, Custom SVG icons)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)
