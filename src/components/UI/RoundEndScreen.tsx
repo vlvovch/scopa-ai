@@ -21,48 +21,32 @@ function CardsIcon() {
 }
 
 function CoinIcon() {
+  // Uses authentic Neapolitan denari SVG from Wikimedia Commons
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
-      <circle cx="12" cy="12" r="10" fill="url(#coinGradient)" stroke="#8B6914" strokeWidth="1.5"/>
-      <circle cx="12" cy="12" r="7" fill="none" stroke="#8B6914" strokeWidth="1" opacity="0.6"/>
-      <circle cx="12" cy="12" r="4" fill="none" stroke="#8B6914" strokeWidth="0.8" opacity="0.4"/>
-      <circle cx="12" cy="12" r="1.5" fill="#8B6914" opacity="0.5"/>
-      <defs>
-        <radialGradient id="coinGradient" cx="35%" cy="35%">
-          <stop offset="0%" stopColor="#FFD700"/>
-          <stop offset="50%" stopColor="#DAA520"/>
-          <stop offset="100%" stopColor="#B8860B"/>
-        </radialGradient>
-      </defs>
+      <image href="./suits/coins.svg" x="2" y="2" width="20" height="20" />
     </svg>
   );
 }
 
 function SetteBelloIcon() {
-  // 7 of Coins card with coins arranged in 2-1-2-2 pattern (top to bottom)
-  const coinRadius = 2;
+  // 7 of Coins card with authentic Neapolitan coins in 2-1-2-2 pattern
+  const coinSize = 4.5;
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       {/* Card background */}
       <rect x="3" y="1" width="18" height="22" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
-      <defs>
-        <radialGradient id="setteCoinGrad" cx="35%" cy="35%">
-          <stop offset="0%" stopColor="#FFD700"/>
-          <stop offset="50%" stopColor="#DAA520"/>
-          <stop offset="100%" stopColor="#B8860B"/>
-        </radialGradient>
-      </defs>
       {/* Row 1 - 2 coins */}
-      <circle cx="9" cy="4.5" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
-      <circle cx="15" cy="4.5" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <image href="./suits/coins.svg" x={9 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./suits/coins.svg" x={15 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 2 - 1 coin */}
-      <circle cx="12" cy="9" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <image href="./suits/coins.svg" x={12 - coinSize/2} y={9 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 3 - 2 coins */}
-      <circle cx="9" cy="14" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
-      <circle cx="15" cy="14" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <image href="./suits/coins.svg" x={9 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./suits/coins.svg" x={15 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 4 - 2 coins */}
-      <circle cx="9" cy="19" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
-      <circle cx="15" cy="19" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <image href="./suits/coins.svg" x={9 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./suits/coins.svg" x={15 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
     </svg>
   );
 }

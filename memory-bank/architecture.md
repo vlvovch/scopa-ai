@@ -283,11 +283,14 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `Card/Card.module.css` | Card styling, hover/selected/highlighted states |
 
 **Neapolitan Card Design:**
-- Pure SVG, no external images required
+- Uses authentic Neapolitan suit graphics from Wikimedia Commons (public domain)
+- SVG files in `public/suits/`: coins.svg, cups.svg, swords.svg, clubs.svg
+- Original sources: `Seme_[denari|coppe|spade|bastoni]_carte_napoletane.svg`
 - 70×105 viewBox (2:3 aspect ratio)
-- Suit colors: Coins=#DAA520 (gold), Cups=#C41E3A (crimson), Swords=#4169E1 (blue), Clubs=#228B22 (green)
+- Suit colors for text: Coins=#DAA520 (gold), Cups=#C41E3A (crimson), Swords=#4169E1 (blue), Clubs=#228B22 (green)
 - Face cards: Fante (8), Cavallo (9), Re (10) with Italian labels
 - Card back: Navy blue (#1a237e) with gold ornamental pattern
+- CardImage.tsx uses `<image>` elements to reference external SVG suit files
 
 ### Table Components
 
@@ -479,11 +482,12 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 **Custom SVG Icons (Phase 15):**
 - CardsIcon: 3 fanned cards (cream with gray borders)
-- CoinIcon: Single gold coin with radial gradient and concentric circles
-- SetteBelloIcon: Card showing 7 gold coins in 2-1-2-2 pattern
+- CoinIcon: Authentic Neapolitan denari from Wikimedia Commons
+- SetteBelloIcon: Card showing 7 authentic denari coins in 2-1-2-2 pattern
 - PrimieraIcon: Gold 5-pointed star with gradient
 - ScopaIcon: Emoji broom (🧹)
 - Icons left-aligned with category names in flexbox layout
+- CoinIcon and SetteBelloIcon use `<image>` references to `./suits/coins.svg`
 
 **Captured Cards Display:**
 - Card columns on left (human) and right (CPU) sides

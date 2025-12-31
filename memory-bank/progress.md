@@ -314,6 +314,7 @@
 - [x] Step 15.3: Fix celebration blocking during animations - Completed 2025-12-30
 - [x] Step 15.4: Custom SVG icons for score categories - Completed 2025-12-30
 - [x] Step 15.5: Capture indicator player-side positioning - Completed 2025-12-30
+- [x] Step 15.6: Integrate authentic Wikimedia Neapolitan suit graphics - Completed 2025-12-30
 
 **Notes:**
 - Changed deal detection from `useEffect` to `useLayoutEffect` to prevent flash of cards before animation
@@ -321,8 +322,12 @@
 - Mid-round dealing skips directly to hands phase
 - Added `celebrationActive` state to track full celebration lifecycle (including exit animations)
 - Fixed Card component's `dragProps` to properly check `!disabled` for drag blocking
-- Custom SVG icons in RoundEndScreen: CardsIcon (3 fanned cards), CoinIcon (gold coin with gradients), SetteBelloIcon (card with 2-1-2-2 coin pattern), PrimieraIcon (gold star), ScopaIcon (emoji broom)
+- Custom SVG icons in RoundEndScreen: CardsIcon (3 fanned cards), CoinIcon (authentic denari), SetteBelloIcon (card with 7 authentic coins), PrimieraIcon (gold star), ScopaIcon (emoji broom)
 - Capture indicator now appears on capturing player's side: top for CPU, bottom for human
+- Integrated authentic Neapolitan suit graphics from Wikimedia Commons (public domain):
+  - Downloaded SVG files to `public/suits/`: coins.svg, cups.svg, swords.svg, clubs.svg
+  - CardImage.tsx now uses `<image>` elements to reference external SVG files
+  - RoundEndScreen icons also use authentic coin graphics
 - 130 tests passing
 
 ---

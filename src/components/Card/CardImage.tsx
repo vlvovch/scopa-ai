@@ -1,5 +1,6 @@
 // Neapolitan Card SVG Generator
 // Creates stylized SVG representations of Italian playing cards
+// Uses authentic Neapolitan suit graphics from Wikimedia Commons
 
 import type { Card } from '../../game/types';
 
@@ -7,7 +8,7 @@ interface CardImageProps {
   card: Card;
 }
 
-// Neapolitan suit colors
+// Neapolitan suit colors (for text and borders)
 const SUIT_COLORS = {
   coins: '#DAA520',    // Gold
   cups: '#C41E3A',     // Crimson red
@@ -15,41 +16,21 @@ const SUIT_COLORS = {
   clubs: '#228B22',    // Forest green
 };
 
-// Suit symbols (simplified Neapolitan style)
-const SUIT_PATHS = {
-  // Coin - circle with inner detail
-  coins: (
-    <g>
-      <circle cx="0" cy="0" r="10" fill="#DAA520" stroke="#B8860B" strokeWidth="1"/>
-      <circle cx="0" cy="0" r="6" fill="none" stroke="#B8860B" strokeWidth="0.5"/>
-      <circle cx="0" cy="0" r="2" fill="#B8860B"/>
-    </g>
-  ),
-  // Cup - chalice shape
-  cups: (
-    <g>
-      <path d="M-6 8 L-4 -2 Q0 -6 4 -2 L6 8 Z" fill="#C41E3A" stroke="#8B0000" strokeWidth="0.5"/>
-      <ellipse cx="0" cy="8" rx="6" ry="2" fill="#C41E3A" stroke="#8B0000" strokeWidth="0.5"/>
-      <rect x="-1.5" y="8" width="3" height="4" fill="#C41E3A"/>
-      <ellipse cx="0" cy="12" rx="4" ry="1.5" fill="#C41E3A" stroke="#8B0000" strokeWidth="0.5"/>
-    </g>
-  ),
-  // Sword - curved blade
-  swords: (
-    <g>
-      <path d="M0 -12 L2 -8 L1 8 L0 10 L-1 8 L-2 -8 Z" fill="#4169E1" stroke="#1E3A8A" strokeWidth="0.5"/>
-      <rect x="-4" y="-2" width="8" height="3" rx="1" fill="#8B4513" stroke="#5D3A1A" strokeWidth="0.5"/>
-      <circle cx="0" cy="-0.5" r="1" fill="#DAA520"/>
-    </g>
-  ),
-  // Club/Baton - wooden stick
-  clubs: (
-    <g>
-      <rect x="-2" y="-12" width="4" height="24" rx="2" fill="#8B4513" stroke="#5D3A1A" strokeWidth="0.5"/>
-      <ellipse cx="0" cy="-10" rx="3" ry="2" fill="#228B22" stroke="#145214" strokeWidth="0.5"/>
-      <ellipse cx="0" cy="10" rx="3" ry="2" fill="#228B22" stroke="#145214" strokeWidth="0.5"/>
-    </g>
-  ),
+// Suit SVG paths from Wikimedia Commons (public domain)
+// Original files: Seme_[denari|coppe|spade|bastoni]_carte_napoletane.svg
+const SUIT_SVGS = {
+  coins: './suits/coins.svg',
+  cups: './suits/cups.svg',
+  swords: './suits/swords.svg',
+  clubs: './suits/clubs.svg',
+};
+
+// Suit aspect ratios and sizes for proper scaling
+const SUIT_DIMENSIONS = {
+  coins: { width: 300, height: 298, baseSize: 20 },    // Nearly square
+  cups: { width: 293, height: 446, baseSize: 24 },     // Tall chalice
+  swords: { width: 269, height: 727, baseSize: 28 },   // Very tall sword
+  clubs: { width: 216, height: 666, baseSize: 26 },    // Tall baton
 };
 
 // Face card decorations
@@ -59,11 +40,21 @@ const FACE_CARDS: Record<number, string> = {
   10: 'Re',     // King
 };
 
+// Render suit symbol using external SVG image
 function getSuitSymbol(suit: Card['suit'], scale: number = 1) {
+  const dim = SUIT_DIMENSIONS[suit];
+  const aspect = dim.width / dim.height;
+  const height = dim.baseSize * scale;
+  const width = height * aspect;
+
   return (
-    <g transform={`scale(${scale})`}>
-      {SUIT_PATHS[suit]}
-    </g>
+    <image
+      href={SUIT_SVGS[suit]}
+      x={-width / 2}
+      y={-height / 2}
+      width={width}
+      height={height}
+    />
   );
 }
 
