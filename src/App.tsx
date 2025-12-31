@@ -90,6 +90,15 @@ function App() {
     setSelectedTableCards([]);
   }, [state.round.currentPlayer, state.status]);
 
+  // Control body scroll: allow on start screen, hide during game to prevent flickering
+  useEffect(() => {
+    if (state.status === 'idle') {
+      document.body.style.overflowY = 'auto';
+    } else {
+      document.body.style.overflowY = 'hidden';
+    }
+  }, [state.status]);
+
   // Reset sette bello tracking when a new round starts
   useEffect(() => {
     prevSetteBelloOwner.current = null;
