@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2025-12-31
+**Last Updated:** 2025-12-31 (Phase 20: Gemini AI)
 
 ---
 
@@ -75,7 +75,11 @@ scopa-ai-claude/
 │   │   └── reducer.test.ts # Reducer tests (29 tests)
 │   │
 │   ├── ai/                 # AI opponent implementations
-│   │   └── (random.ts, basic.ts, advanced.ts, llm/)
+│   │   ├── index.ts        # AI exports and registry
+│   │   ├── types.ts        # AIPlayer, AsyncAIPlayer, AIContext, LLMAIContext
+│   │   ├── random.ts       # Random AI (Scimmia)
+│   │   ├── heuristic.ts    # Greedy heuristic AI (Furbo)
+│   │   └── gemini.ts       # Gemini LLM AI with chat sessions
 │   │
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
@@ -283,6 +287,73 @@ const { state, startGame, playCard, endRound, nextRound, resetGame } = useGame()
 ```
 
 All action dispatchers wrapped in `useCallback` for stable references.
+
+---
+
+## AI System (src/ai/)
+
+### Types (types.ts)
+
+| Type | Description |
+|------|-------------|
+| `AIContext` | Basic context: `hand`, `table`, `player` |
+| `LLMAIContext` | Extended context for LLM AIs with scores, validMoves, lastOpponentMove, etc. |
+| `AIPlayer` | Sync AI interface with `selectMove(context): Move` |
+| `AsyncAIPlayer` | Async AI interface with `selectMove(context): Promise<Move>`, `startRound()`, `endRound()` |
+| `AnyAIPlayer` | Union type `AIPlayer | AsyncAIPlayer` |
+
+### Available AI Players
+
+| AI | Name | Type | Strategy |
+|----|------|------|----------|
+| `randomAI` | Scimmia | Sync | Picks random valid move |
+| `heuristicAI` | Furbo | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
+| `GeminiAI` | Gemini | Async | LLM-based using Google's Gemini API with structured JSON output |
+
+### Gemini AI (gemini.ts)
+
+**Architecture:**
+- Uses `@google/genai` SDK with multi-turn chat sessions
+- System instruction contains full Scopa rules, scoring, and prime values
+- Structured JSON output schema: `{ moveIndex: number, reasoning: string }`
+- Chat session persists within a round for context continuity
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `createGeminiAI(model)` | Creates new Gemini AI instance |
+| `getGeminiAI(model)` | Gets cached instance (creates if needed) |
+| `isGeminiAvailable()` | Checks if API key is configured |
+| `fetchGeminiModels()` | Fetches available models from API |
+| `getGeminiTokenStats()` | Returns cumulative token usage |
+| `getGeminiTokenDelta()` | Returns last turn's token delta |
+| `resetGeminiTokenStats()` | Resets token counters (for new game) |
+| `startGeminiRound()` | Creates fresh chat session |
+| `endGeminiRound()` | Clears chat session |
+
+**Token Stats Tracked:**
+
+| Stat | Description |
+|------|-------------|
+| `promptTokens` | Input tokens sent to API |
+| `responseTokens` | Output tokens received |
+| `thoughtTokens` | Thinking tokens (for thinking models) |
+| `totalTokens` | Sum of all tokens |
+| `cachedTokens` | Tokens served from cache |
+| `requestCount` | Number of API calls made |
+
+**Configuration:**
+- API key: `VITE_GEMINI_API_KEY` environment variable
+- Default model: `gemini-2.5-flash`
+- Fallback: Random AI on API errors
+
+### TokenStatsDisplay Component
+
+| File | Purpose |
+|------|---------|
+| `UI/TokenStatsDisplay.tsx` | Compact token icon with hover popup showing detailed stats |
+| `UI/TokenStatsDisplay.module.css` | Styling with animated popup transition |
 
 ---
 

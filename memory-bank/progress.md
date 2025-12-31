@@ -405,12 +405,44 @@
 
 ---
 
+## Phase 20: LLM AI Integration (Gemini)
+
+- [x] Step 20.1: Create async AI player interface - Completed 2025-12-31
+- [x] Step 20.2: Implement Gemini AI player using @google/genai SDK - Completed 2025-12-31
+- [x] Step 20.3: Add LLMAIContext with extended game state - Completed 2025-12-31
+- [x] Step 20.4: Implement multi-turn chat sessions per round - Completed 2025-12-31
+- [x] Step 20.5: Add token usage tracking and statistics - Completed 2025-12-31
+- [x] Step 20.6: Create TokenStatsDisplay component with hover popup - Completed 2025-12-31
+- [x] Step 20.7: Add model selection and dynamic model fetching - Completed 2025-12-31
+- [x] Step 20.8: Integrate Gemini AI into game flow - Completed 2025-12-31
+
+**Notes:**
+- Created `AsyncAIPlayer` interface with `isAsync: true` discriminator for type-safe async handling
+- `LLMAIContext` extends `AIContext` with: scores, targetScore, roundNumber, opponentHandCount, selfCapturedCount, opponentCapturedCount, deckCount, lastOpponentMove, validMoves
+- Gemini AI uses `@google/genai` SDK with structured JSON output schema
+- System instruction contains full Scopa rules, scoring categories, and prime values
+- Chat sessions maintain conversation history within a round for context continuity
+- `startRound()` creates fresh chat session; `endRound()` clears it
+- Token stats tracked: promptTokens, responseTokens, thoughtTokens, totalTokens, cachedTokens, requestCount
+- `TokenStatsDisplay` shows compact icon with total tokens; hover reveals detailed breakdown table
+- Delta tracking shows per-turn token usage changes
+- Model list fetched dynamically via `ai.models.list()` with fallback to hardcoded defaults
+- Default model: `gemini-2.5-flash`
+- API key loaded from `VITE_GEMINI_API_KEY` environment variable
+- Graceful fallback to random AI on API errors
+- AI reasoning logged to console for debugging
+- Cached instance pattern prevents redundant AI object creation
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics (Siciliane suits available, card faces pending)
-- Selectable AI opponents (Random or Greedy heuristic)
+- Selectable AI opponents (Random, Greedy heuristic, or Gemini LLM)
+- Gemini AI with multi-turn chat sessions, token tracking, and model selection
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
 - Deck-aware custom SVG icons for score categories
@@ -421,3 +453,4 @@ The Scopa game is now fully playable with:
 - Settings persistence (including AI selection and deck choice)
 - New game and settings controls
 - Compact, polished StartScreen UI
+- Token usage display for LLM AI games
