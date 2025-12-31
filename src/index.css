@@ -35,8 +35,12 @@
 
   /* Card dimensions (2:3 ratio) */
   --card-width: 70px;
-  --card-height: 105px;
+  --card-height: 115px;
   --card-border-radius: 6px;
+
+  /* Card image scaling (clips SVG's built-in border) */
+  --card-img-scale: 100%;
+  --card-img-offset: 0%;
 
   /* Shadows */
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);

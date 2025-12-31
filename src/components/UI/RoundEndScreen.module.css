@@ -54,9 +54,9 @@
 /* Scale img to clip SVG's built-in border */
 .miniCard svg,
 .miniCard img {
-  width: 108%;
-  height: 108%;
-  margin: -4%;
+  width: var(--card-img-scale);
+  height: var(--card-img-scale);
+  margin: var(--card-img-offset);
   object-fit: cover;
 }
 

@@ -132,7 +132,10 @@ Defined in `src/index.css` under `:root`:
 | `--color-text-secondary` | `rgba(255,255,255,0.7)` | Subdued text |
 | `--space-{n}` | `4px * n` | Spacing scale |
 | `--duration-fast/normal/slow` | `150/300/500ms` | Animation timing |
-| `--card-width/height` | `70px/105px` | Card dimensions (2:3 ratio) |
+| `--card-width/height` | `70px/115px` | Card dimensions (matches SVG proportions) |
+| `--card-border-radius` | `6px` | Card corner radius |
+| `--card-img-scale` | `100%` | Image scale (clips SVG border if >100%) |
+| `--card-img-offset` | `0%` | Image margin offset (negative to center) |
 
 ---
 
@@ -299,6 +302,8 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - Special handling for coins: values 8-10 use `jack_diamond`, `queen_diamond`, `king_diamond` (not numeric versions)
 - CardImage.tsx uses `<img>` tags with `pointerEvents: 'none'` and `draggable={false}` to preserve drag functionality
 - Card back: Navy blue (#1a237e) with gold ornamental pattern (inline SVG in CardBack component)
+- CardBack uses `preserveAspectRatio="none"` and CSS variables for dimensions to adapt to any card size
+- Card image scaling uses `--card-img-scale` and `--card-img-offset` CSS variables for border clipping
 - Suit SVGs from Wikimedia Commons in `public/suits/` used for score category icons
 
 ### Table Components
@@ -519,7 +524,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ## MVP Complete!
 
-All 16 phases implemented:
+All 17 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -536,6 +541,7 @@ All 16 phases implemented:
 14. Watch Mode (CPU vs CPU Spectator Mode)
 15. Animation Timing & UI Polish (Two-phase dealing, Celebration blocking, Custom SVG icons)
 16. Authentic Neapolitan Card Graphics (Sprite sheet extraction, standalone SVGs)
+17. Card Styling Improvements (CSS variable consolidation, aspect ratio update)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)

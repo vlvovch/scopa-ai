@@ -20,8 +20,8 @@
 
 .flipContainer {
   position: relative;
-  width: 70px;
-  height: 105px;
+  width: var(--card-width);
+  height: var(--card-height);
   transform-style: preserve-3d;
 }
 
@@ -37,10 +37,10 @@
 }
 
 /* Scale img to clip SVG's built-in border */
-.cardFace > img {
-  width: 108%;
-  height: 108%;
-  margin: -4%;
+.cardFace>img {
+  width: var(--card-img-scale);
+  height: var(--card-img-scale);
+  margin: var(--card-img-offset);
   object-fit: cover;
 }
 

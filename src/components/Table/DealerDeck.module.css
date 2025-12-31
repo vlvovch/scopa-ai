@@ -22,8 +22,8 @@
 
 .deckStack {
   position: relative;
-  width: 70px;
-  height: 105px;
+  width: var(--card-width);
+  height: var(--card-height);
 }
 
 .stackLayer {

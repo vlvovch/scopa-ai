@@ -356,6 +356,29 @@
 
 ---
 
+## Phase 17: Card Styling Improvements
+
+- [x] Step 17.1: Consolidate card image scaling CSS variables - Completed 2025-12-30
+- [x] Step 17.2: Use CSS variables in CardImage and CardBack components - Completed 2025-12-30
+- [x] Step 17.3: Update card aspect ratio to match SVG cards - Completed 2025-12-30
+
+**Notes:**
+- Added CSS variables for card image scaling (border clipping):
+  - `--card-img-scale`: Scale factor to clip SVG's built-in border
+  - `--card-img-offset`: Negative margin to center the scaled image
+- Card border clipping now uses variables in three places:
+  - `Card.module.css` (`.card > img`)
+  - `CpuCardAnimation.module.css` (`.cardFace > img`)
+  - `RoundEndScreen.module.css` (`.miniCard img`)
+- CardImage component no longer sets inline width/height (uses parent container sizing)
+- CardBack SVG now uses `preserveAspectRatio="none"` to adapt to CSS variable dimensions
+- CardBack dimensions now use CSS variables: `--card-width`, `--card-height`
+- Updated card aspect ratio from 70x105 to 70x115 to better match authentic SVG card proportions
+- CpuCardAnimation `.flipContainer` now uses CSS variables for dimensions
+- 130 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:

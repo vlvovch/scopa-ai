@@ -20,9 +20,7 @@ export function CardImage({ card }: CardImageProps) {
     <img
       src={imagePath}
       alt={`${value} of ${suit}`}
-      width="70"
-      height="105"
-      style={{ display: 'block', borderRadius: '6px', pointerEvents: 'none' }}
+      style={{ display: 'block', pointerEvents: 'none' }}
       draggable={false}
     />
   );
@@ -33,9 +31,12 @@ export function CardBack() {
   return (
     <svg
       viewBox="0 0 70 105"
-      width="70"
-      height="105"
-      style={{ display: 'block' }}
+      preserveAspectRatio="none"
+      style={{
+        display: 'block',
+        width: 'var(--card-width)',
+        height: 'var(--card-height)',
+      }}
     >
       {/* Card background */}
       <rect
