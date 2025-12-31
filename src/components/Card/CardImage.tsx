@@ -1,6 +1,5 @@
-// Neapolitan Card SVG Generator
-// Creates stylized SVG representations of Italian playing cards
-// Uses authentic Neapolitan suit graphics from Wikimedia Commons
+// Neapolitan Card Image Component
+// Uses authentic Neapolitan card graphics from sprite sheet
 
 import type { Card } from '../../game/types';
 
@@ -8,216 +7,24 @@ interface CardImageProps {
   card: Card;
 }
 
-// Neapolitan suit colors (for text and borders)
-const SUIT_COLORS = {
-  coins: '#DAA520',    // Gold
-  cups: '#C41E3A',     // Crimson red
-  swords: '#4169E1',   // Royal blue
-  clubs: '#228B22',    // Forest green
-};
-
-// Suit SVG paths from Wikimedia Commons (public domain)
-// Original files: Seme_[denari|coppe|spade|bastoni]_carte_napoletane.svg
-const SUIT_SVGS = {
-  coins: './suits/coins.svg',
-  cups: './suits/cups.svg',
-  swords: './suits/swords.svg',
-  clubs: './suits/clubs.svg',
-};
-
-// Suit aspect ratios and sizes for proper scaling
-const SUIT_DIMENSIONS = {
-  coins: { width: 300, height: 298, baseSize: 20 },    // Nearly square
-  cups: { width: 293, height: 446, baseSize: 24 },     // Tall chalice
-  swords: { width: 269, height: 727, baseSize: 28 },   // Very tall sword
-  clubs: { width: 216, height: 666, baseSize: 26 },    // Tall baton
-};
-
-// Face card decorations
-const FACE_CARDS: Record<number, string> = {
-  8: 'Fante',   // Jack
-  9: 'Cavallo', // Knight
-  10: 'Re',     // King
-};
-
-// Render suit symbol using external SVG image
-function getSuitSymbol(suit: Card['suit'], scale: number = 1) {
-  const dim = SUIT_DIMENSIONS[suit];
-  const aspect = dim.width / dim.height;
-  const height = dim.baseSize * scale;
-  const width = height * aspect;
-
-  return (
-    <image
-      href={SUIT_SVGS[suit]}
-      x={-width / 2}
-      y={-height / 2}
-      width={width}
-      height={height}
-    />
-  );
-}
-
-// Generate pip positions for number cards
-function getPipPositions(value: number): Array<{ x: number; y: number; scale: number }> {
-  const positions: Array<{ x: number; y: number; scale: number }> = [];
-  const s = 0.7; // scale
-
-  switch (value) {
-    case 1:
-      positions.push({ x: 35, y: 52.5, scale: 1.5 });
-      break;
-    case 2:
-      positions.push({ x: 35, y: 30, scale: s });
-      positions.push({ x: 35, y: 75, scale: s });
-      break;
-    case 3:
-      positions.push({ x: 35, y: 25, scale: s });
-      positions.push({ x: 35, y: 52.5, scale: s });
-      positions.push({ x: 35, y: 80, scale: s });
-      break;
-    case 4:
-      positions.push({ x: 20, y: 30, scale: s });
-      positions.push({ x: 50, y: 30, scale: s });
-      positions.push({ x: 20, y: 75, scale: s });
-      positions.push({ x: 50, y: 75, scale: s });
-      break;
-    case 5:
-      positions.push({ x: 20, y: 30, scale: s });
-      positions.push({ x: 50, y: 30, scale: s });
-      positions.push({ x: 35, y: 52.5, scale: s });
-      positions.push({ x: 20, y: 75, scale: s });
-      positions.push({ x: 50, y: 75, scale: s });
-      break;
-    case 6:
-      positions.push({ x: 20, y: 28, scale: s });
-      positions.push({ x: 50, y: 28, scale: s });
-      positions.push({ x: 20, y: 52.5, scale: s });
-      positions.push({ x: 50, y: 52.5, scale: s });
-      positions.push({ x: 20, y: 77, scale: s });
-      positions.push({ x: 50, y: 77, scale: s });
-      break;
-    case 7:
-      positions.push({ x: 20, y: 25, scale: 0.6 });
-      positions.push({ x: 50, y: 25, scale: 0.6 });
-      positions.push({ x: 35, y: 38, scale: 0.6 });
-      positions.push({ x: 20, y: 52.5, scale: 0.6 });
-      positions.push({ x: 50, y: 52.5, scale: 0.6 });
-      positions.push({ x: 20, y: 80, scale: 0.6 });
-      positions.push({ x: 50, y: 80, scale: 0.6 });
-      break;
-    default:
-      positions.push({ x: 35, y: 52.5, scale: 1.2 });
-  }
-
-  return positions;
+// Get the path to the individual card SVG file
+function getCardImagePath(suit: Card['suit'], value: number): string {
+  return `./cards/individual/${suit}-${value}.svg`;
 }
 
 export function CardImage({ card }: CardImageProps) {
   const { suit, value } = card;
-  const color = SUIT_COLORS[suit];
-  const isFaceCard = value >= 8;
+  const imagePath = getCardImagePath(suit, value);
 
   return (
-    <svg
-      viewBox="0 0 70 105"
+    <img
+      src={imagePath}
+      alt={`${value} of ${suit}`}
       width="70"
       height="105"
-      style={{ display: 'block' }}
-    >
-      {/* Card background */}
-      <rect
-        x="0"
-        y="0"
-        width="70"
-        height="105"
-        rx="6"
-        fill="#FFFEF0"
-        stroke="#CCC"
-        strokeWidth="1"
-      />
-
-      {/* Inner border */}
-      <rect
-        x="3"
-        y="3"
-        width="64"
-        height="99"
-        rx="4"
-        fill="none"
-        stroke={color}
-        strokeWidth="0.5"
-        opacity="0.3"
-      />
-
-      {/* Top-left value */}
-      <text
-        x="6"
-        y="16"
-        fontSize="12"
-        fontWeight="bold"
-        fontFamily="serif"
-        fill={color}
-      >
-        {value === 1 ? 'A' : value}
-      </text>
-
-      {/* Bottom-right value (rotated) */}
-      <text
-        x="64"
-        y="99"
-        fontSize="12"
-        fontWeight="bold"
-        fontFamily="serif"
-        fill={color}
-        transform="rotate(180, 64, 93)"
-      >
-        {value === 1 ? 'A' : value}
-      </text>
-
-      {isFaceCard ? (
-        // Face card design
-        <g>
-          {/* Center figure placeholder */}
-          <rect
-            x="12"
-            y="25"
-            width="46"
-            height="55"
-            rx="3"
-            fill={color}
-            opacity="0.1"
-          />
-
-          {/* Face card title */}
-          <text
-            x="35"
-            y="48"
-            fontSize="9"
-            fontWeight="bold"
-            fontFamily="serif"
-            fill={color}
-            textAnchor="middle"
-          >
-            {FACE_CARDS[value]}
-          </text>
-
-          {/* Large suit symbol */}
-          <g transform="translate(35, 65)">
-            {getSuitSymbol(suit, 1.2)}
-          </g>
-        </g>
-      ) : (
-        // Number card - show pips
-        <g>
-          {getPipPositions(value).map((pos, i) => (
-            <g key={i} transform={`translate(${pos.x}, ${pos.y})`}>
-              {getSuitSymbol(suit, pos.scale)}
-            </g>
-          ))}
-        </g>
-      )}
-    </svg>
+      style={{ display: 'block', borderRadius: '6px', pointerEvents: 'none' }}
+      draggable={false}
+    />
   );
 }
 
