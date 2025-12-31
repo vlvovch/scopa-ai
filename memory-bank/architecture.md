@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2025-12-30
+**Last Updated:** 2025-12-31
 
 ---
 
@@ -35,17 +35,18 @@ scopa-ai-claude/
 ├── eslint.config.js        # ESLint configuration
 │
 ├── public/                 # Static assets (copied to dist/)
-│   ├── cards/              # Card graphics
-│   │   ├── individual/     # 40 standalone card SVGs (coins-1.svg ... clubs-10.svg)
-│   │   ├── napoletane.nonumbers.svg  # Source sprite sheet (34MB)
-│   │   └── napoletane.svgz # Compressed sprite with numbers
-│   ├── suits/              # Suit SVGs from Wikimedia Commons
-│   │   ├── coins.svg       # Neapolitan denari
-│   │   ├── cups.svg        # Neapolitan coppe
-│   │   ├── swords.svg      # Neapolitan spade
-│   │   └── clubs.svg       # Neapolitan bastoni
+│   ├── cards/
+│   │   └── napoletane/     # Neapolitan deck (WebP format)
+│   │       ├── *.webp      # 40 card faces + back (~780KB total)
+│   │       └── suits/      # Suit SVGs from Wikimedia Commons
+│   │           ├── coins.svg, cups.svg, swords.svg, clubs.svg
 │   ├── sounds/             # Audio files (future)
 │   └── vite.svg            # Favicon
+│
+├── local/                  # Development files (gitignored)
+│   ├── napoletane*.svg     # Source sprite sheets (~105MB)
+│   ├── individual*/        # Extracted standalone SVGs
+│   └── napolitane-back.png # Source card back image
 │
 ├── src/
 │   ├── main.tsx            # React entry point, renders App
@@ -134,8 +135,10 @@ Defined in `src/index.css` under `:root`:
 | `--duration-fast/normal/slow` | `150/300/500ms` | Animation timing |
 | `--card-width/height` | `70px/115px` | Card dimensions (matches SVG proportions) |
 | `--card-border-radius` | `6px` | Card corner radius |
-| `--card-img-scale` | `100%` | Image scale (clips SVG border if >100%) |
-| `--card-img-offset` | `0%` | Image margin offset (negative to center) |
+| `--card-img-scale` | `100%` | Card face image scale (clips border if >100%) |
+| `--card-img-offset` | `0%` | Card face image margin offset (negative to center) |
+| `--card-back-scale` | `100%` | Card back image scale |
+| `--card-back-offset` | `0%` | Card back image margin offset |
 
 ---
 
@@ -290,21 +293,20 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | File | Purpose |
 |------|---------|
 | `Card/Card.tsx` | Card wrapper with selection states, renders CardImage or CardBack |
-| `Card/CardImage.tsx` | SVG-based Neapolitan card graphics (faces + backs) |
+| `Card/CardImage.tsx` | WebP-based Neapolitan card graphics (faces + backs) |
 | `Card/Card.module.css` | Card styling, hover/selected/highlighted states |
 
 **Neapolitan Card Design:**
-- Uses authentic Neapolitan card graphics extracted from `napoletane.nonumbers.svg` sprite sheet
-- 40 standalone SVG files in `public/cards/individual/`: `{suit}-{value}.svg`
-- Each card ~300-600KB, 23.3MB total (standalone files render faster than sprite references)
-- Card ID mapping from sprite: diamond→coins, heart→cups, spade→swords, club→clubs
-- Face cards: jack→8 (Fante), queen→9 (Cavallo), king→10 (Re)
-- Special handling for coins: values 8-10 use `jack_diamond`, `queen_diamond`, `king_diamond` (not numeric versions)
-- CardImage.tsx uses `<img>` tags with `pointerEvents: 'none'` and `draggable={false}` to preserve drag functionality
-- Card back: Navy blue (#1a237e) with gold ornamental pattern (inline SVG in CardBack component)
-- CardBack uses `preserveAspectRatio="none"` and CSS variables for dimensions to adapt to any card size
-- Card image scaling uses `--card-img-scale` and `--card-img-offset` CSS variables for border clipping
-- Suit SVGs from Wikimedia Commons in `public/suits/` used for score category icons
+- Uses authentic Neapolitan card graphics in WebP format for fast loading
+- 40 card WebP files in `public/cards/napoletane/`: `{suit}-{value}.webp`
+- Cards converted from SVG sprite at 3x resolution (210×345px) using Lanczos filter
+- Total size: ~780KB for all 41 images (40 faces + 1 back)
+- Source sprite sheets stored in `local/` (gitignored)
+- CardImage.tsx uses `<img>` tags with `pointerEvents: 'none'` and `draggable={false}`
+- Card back: Authentic Neapolitan design from `napolitane-back.webp` (44KB)
+- Card back uses `--card-back-scale` and `--card-back-offset` CSS variables for sizing
+- Card face scaling uses `--card-img-scale` and `--card-img-offset` CSS variables
+- Suit SVGs from Wikimedia Commons in `public/cards/napoletane/suits/` for score icons
 
 ### Table Components
 
@@ -501,7 +503,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - PrimieraIcon: Gold 5-pointed star with gradient
 - ScopaIcon: Emoji broom (🧹)
 - Icons left-aligned with category names in flexbox layout
-- CoinIcon and SetteBelloIcon use `<image>` references to `./suits/coins.svg`
+- CoinIcon and SetteBelloIcon use `<image>` references to `./cards/napoletane/suits/coins.svg`
 
 **Captured Cards Display:**
 - Card columns on left (human) and right (CPU) sides
@@ -542,6 +544,7 @@ All 17 phases implemented:
 15. Animation Timing & UI Polish (Two-phase dealing, Celebration blocking, Custom SVG icons)
 16. Authentic Neapolitan Card Graphics (Sprite sheet extraction, standalone SVGs)
 17. Card Styling Improvements (CSS variable consolidation, aspect ratio update)
+18. Card Asset Optimization (WebP conversion, authentic card back, deck organization)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)
