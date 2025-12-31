@@ -1,5 +1,5 @@
 // Neapolitan Card Image Component
-// Uses authentic Neapolitan card graphics from sprite sheet
+// Uses authentic Neapolitan card graphics converted to WebP for fast loading
 
 import type { Card } from '../../game/types';
 
@@ -7,9 +7,9 @@ interface CardImageProps {
   card: Card;
 }
 
-// Get the path to the individual card SVG file
+// Get the path to the individual card WebP file
 function getCardImagePath(suit: Card['suit'], value: number): string {
-  return `./cards/individual/${suit}-${value}.svg`;
+  return `./cards/webp/${suit}-${value}.webp`;
 }
 
 export function CardImage({ card }: CardImageProps) {
