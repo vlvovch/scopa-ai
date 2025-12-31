@@ -12,13 +12,10 @@ type HoverCategory = 'carte' | 'denari' | 'settebello' | 'primiera' | 'scopa' | 
 function CardsIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
-      {/* Back card */}
-      <rect x="2" y="4" width="14" height="18" rx="2" fill="#1a472a" stroke="#c9a227" strokeWidth="1.5"/>
-      <rect x="4" y="6" width="10" height="14" rx="1" fill="none" stroke="#c9a227" strokeWidth="0.5" opacity="0.5"/>
-      {/* Front card */}
-      <rect x="8" y="2" width="14" height="18" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
-      <text x="15" y="13" fontSize="8" fontWeight="bold" fill="#c41e3a" textAnchor="middle">A</text>
-      <text x="11" y="8" fontSize="5" fill="#c41e3a">♠</text>
+      {/* Stack of cards - 3 cards fanned */}
+      <rect x="1" y="5" width="12" height="16" rx="1.5" fill="#f5f5dc" stroke="#666" strokeWidth="0.8" transform="rotate(-10 7 13)"/>
+      <rect x="6" y="4" width="12" height="16" rx="1.5" fill="#f5f5dc" stroke="#666" strokeWidth="0.8"/>
+      <rect x="11" y="5" width="12" height="16" rx="1.5" fill="#f5f5dc" stroke="#666" strokeWidth="0.8" transform="rotate(10 17 13)"/>
     </svg>
   );
 }
@@ -42,21 +39,30 @@ function CoinIcon() {
 }
 
 function SetteBelloIcon() {
+  // 7 of Coins card with coins arranged in 2-1-2-2 pattern (top to bottom)
+  const coinRadius = 2;
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       {/* Card background */}
       <rect x="3" y="1" width="18" height="22" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
-      {/* Large 7 */}
-      <text x="12" y="15" fontSize="12" fontWeight="bold" fill="#1a472a" textAnchor="middle">7</text>
-      {/* Small coin */}
-      <circle cx="17" cy="6" r="3.5" fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.8"/>
-      <circle cx="17" cy="6" r="2" fill="none" stroke="#8B6914" strokeWidth="0.5" opacity="0.5"/>
       <defs>
         <radialGradient id="setteCoinGrad" cx="35%" cy="35%">
           <stop offset="0%" stopColor="#FFD700"/>
-          <stop offset="100%" stopColor="#DAA520"/>
+          <stop offset="50%" stopColor="#DAA520"/>
+          <stop offset="100%" stopColor="#B8860B"/>
         </radialGradient>
       </defs>
+      {/* Row 1 - 2 coins */}
+      <circle cx="9" cy="4.5" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <circle cx="15" cy="4.5" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      {/* Row 2 - 1 coin */}
+      <circle cx="12" cy="9" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      {/* Row 3 - 2 coins */}
+      <circle cx="9" cy="14" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <circle cx="15" cy="14" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      {/* Row 4 - 2 coins */}
+      <circle cx="9" cy="19" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
+      <circle cx="15" cy="19" r={coinRadius} fill="url(#setteCoinGrad)" stroke="#8B6914" strokeWidth="0.5"/>
     </svg>
   );
 }
