@@ -34,3 +34,6 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Local development files (SVG sources, etc)
+local/

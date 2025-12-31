@@ -9,7 +9,7 @@ interface CardImageProps {
 
 // Get the path to the individual card WebP file
 function getCardImagePath(suit: Card['suit'], value: number): string {
-  return `./cards/webp/${suit}-${value}.webp`;
+  return `./cards/napoletane/${suit}-${value}.webp`;
 }
 
 export function CardImage({ card }: CardImageProps) {
@@ -30,7 +30,7 @@ export function CardImage({ card }: CardImageProps) {
 export function CardBack() {
   return (
     <img
-      src="./cards/webp/back.webp"
+      src="./cards/napoletane/back.webp"
       alt="Card back"
       style={{
         display: 'block',

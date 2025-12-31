@@ -24,7 +24,7 @@ function CoinIcon() {
   // Uses authentic Neapolitan denari SVG from Wikimedia Commons
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
-      <image href="./suits/coins.svg" x="2" y="2" width="20" height="20" />
+      <image href="./cards/napoletane/suits/coins.svg" x="2" y="2" width="20" height="20" />
     </svg>
   );
 }
@@ -37,16 +37,16 @@ function SetteBelloIcon() {
       {/* Card background */}
       <rect x="3" y="1" width="18" height="22" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
       {/* Row 1 - 2 coins */}
-      <image href="./suits/coins.svg" x={9 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
-      <image href="./suits/coins.svg" x={15 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={9 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={15 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 2 - 1 coin */}
-      <image href="./suits/coins.svg" x={12 - coinSize/2} y={9 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={12 - coinSize/2} y={9 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 3 - 2 coins */}
-      <image href="./suits/coins.svg" x={9 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
-      <image href="./suits/coins.svg" x={15 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={9 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={15 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
       {/* Row 4 - 2 coins */}
-      <image href="./suits/coins.svg" x={9 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
-      <image href="./suits/coins.svg" x={15 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={9 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href="./cards/napoletane/suits/coins.svg" x={15 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
     </svg>
   );
 }
