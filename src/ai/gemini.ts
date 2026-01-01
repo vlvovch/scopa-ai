@@ -19,6 +19,15 @@ export interface GeminiTokenStats {
   totalTokens: number;
   cachedTokens: number;
   requestCount: number;
+  // Round-specific stats (reset each round)
+  roundPromptTokens: number;
+  roundResponseTokens: number;
+  roundThoughtTokens: number;
+  roundTotalTokens: number;
+  roundRequestCount: number;
+  // Model info
+  modelId: string;
+  modelDisplayName: string;
 }
 
 // Delta from last API call
@@ -61,6 +70,16 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
       const ai = new GoogleGenAI({ apiKey });
       const models: GeminiModelInfo[] = [];
 
+      // Only include mainstream models (flash, flash-lite, pro) including preview/thinking variants
+      const isMainstreamModel = (id: string): boolean => {
+        // Must start with gemini-
+        if (!id.startsWith('gemini-')) return false;
+        // Exclude experimental variants (but allow preview and thinking)
+        if (id.includes('exp')) return false;
+        // Include only flash, flash-lite, and pro models
+        return id.includes('-flash') || id.includes('-pro');
+      };
+
       for await (const model of await ai.models.list()) {
         // Only include models that support generateContent
         if (model.supportedActions?.includes('generateContent')) {
@@ -68,14 +87,32 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
           const id = model.name?.replace('models/', '') || '';
           const displayName = model.displayName || id;
 
-          if (id) {
+          if (id && isMainstreamModel(id)) {
             models.push({ id, displayName });
           }
         }
       }
 
-      // Sort by display name
-      models.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      // Sort by version (descending) then by type (flash before pro)
+      models.sort((a, b) => {
+        // Extract version numbers for comparison
+        const versionA = a.id.match(/gemini-(\d+\.\d+)/)?.[1] || '0';
+        const versionB = b.id.match(/gemini-(\d+\.\d+)/)?.[1] || '0';
+
+        // Sort by version descending
+        if (versionA !== versionB) {
+          return versionB.localeCompare(versionA, undefined, { numeric: true });
+        }
+
+        // Within same version: flash < flash-lite < pro
+        const typeOrder = (id: string) => {
+          if (id.includes('-flash-lite')) return 1;
+          if (id.includes('-flash')) return 0;
+          if (id.includes('-pro')) return 2;
+          return 3;
+        };
+        return typeOrder(a.id) - typeOrder(b.id);
+      });
 
       cachedModels = models;
       return models;
@@ -204,16 +241,10 @@ class GeminiAI implements AsyncAIPlayer {
 
   private ai: GoogleGenAI;
   private model: string;
+  private modelDisplayName: string;
   private chat: Chat | null = null;
   public lastReasoning: string = '';
-  public tokenStats: GeminiTokenStats = {
-    promptTokens: 0,
-    responseTokens: 0,
-    thoughtTokens: 0,
-    totalTokens: 0,
-    cachedTokens: 0,
-    requestCount: 0,
-  };
+  public tokenStats: GeminiTokenStats;
   public lastDelta: GeminiTokenDelta = {
     promptTokens: 0,
     responseTokens: 0,
@@ -224,11 +255,29 @@ class GeminiAI implements AsyncAIPlayer {
   constructor(apiKey: string, model: string = DEFAULT_MODEL) {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
-    // Create display name from model ID (e.g., "gemini-2.5-flash" -> "2.5 Flash")
+    // Create display name from model ID (e.g., "gemini-2.5-flash" -> "Gemini 2.5 Flash")
     const shortName = model.replace('gemini-', '').split('-').map(
       (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
     ).join(' ');
-    this.name = `Gemini ${shortName}`;
+    this.modelDisplayName = `Gemini ${shortName}`;
+    this.name = this.modelDisplayName;
+
+    // Initialize token stats with model info
+    this.tokenStats = {
+      promptTokens: 0,
+      responseTokens: 0,
+      thoughtTokens: 0,
+      totalTokens: 0,
+      cachedTokens: 0,
+      requestCount: 0,
+      roundPromptTokens: 0,
+      roundResponseTokens: 0,
+      roundThoughtTokens: 0,
+      roundTotalTokens: 0,
+      roundRequestCount: 0,
+      modelId: model,
+      modelDisplayName: this.modelDisplayName,
+    };
   }
 
   /**
@@ -256,6 +305,13 @@ class GeminiAI implements AsyncAIPlayer {
     this.tokenStats.cachedTokens += usageMetadata.cachedContentTokenCount || 0;
     this.tokenStats.requestCount += 1;
 
+    // Update round-specific stats
+    this.tokenStats.roundPromptTokens += promptDelta;
+    this.tokenStats.roundResponseTokens += responseDelta;
+    this.tokenStats.roundThoughtTokens += thoughtDelta;
+    this.tokenStats.roundTotalTokens += totalDelta;
+    this.tokenStats.roundRequestCount += 1;
+
     // Track last delta
     this.lastDelta = {
       promptTokens: promptDelta,
@@ -276,6 +332,13 @@ class GeminiAI implements AsyncAIPlayer {
       totalTokens: 0,
       cachedTokens: 0,
       requestCount: 0,
+      roundPromptTokens: 0,
+      roundResponseTokens: 0,
+      roundThoughtTokens: 0,
+      roundTotalTokens: 0,
+      roundRequestCount: 0,
+      modelId: this.model,
+      modelDisplayName: this.modelDisplayName,
     };
     this.lastDelta = {
       promptTokens: 0,
@@ -286,9 +349,23 @@ class GeminiAI implements AsyncAIPlayer {
   }
 
   /**
+   * Reset round-specific stats (called at start of each round)
+   */
+  resetRoundStats(): void {
+    this.tokenStats.roundPromptTokens = 0;
+    this.tokenStats.roundResponseTokens = 0;
+    this.tokenStats.roundThoughtTokens = 0;
+    this.tokenStats.roundTotalTokens = 0;
+    this.tokenStats.roundRequestCount = 0;
+  }
+
+  /**
    * Start a new round - create fresh chat session
    */
   startRound(): void {
+    // Reset round-specific stats
+    this.resetRoundStats();
+
     this.chat = this.ai.chats.create({
       model: this.model,
       config: {

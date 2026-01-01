@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { Card, RoundScore } from '../../game/types';
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../ai';
+import type { GeminiTokenStats } from '../../ai';
 import { PRIME_VALUES, SUITS } from '../../game/constants';
 import { CardImage } from '../Card/CardImage';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
@@ -97,10 +97,10 @@ interface RoundEndScreenProps {
   player1Name?: string;
   /** Player 2 name (defaults to "CPU") */
   player2Name?: string;
-  /** Token stats for Gemini AI (if used) */
-  tokenStats?: GeminiTokenStats | null;
-  /** Token delta from last turn */
-  tokenDelta?: GeminiTokenDelta | null;
+  /** Token stats for player 1 (if using Gemini) */
+  player1TokenStats?: GeminiTokenStats | null;
+  /** Token stats for player 2 (if using Gemini) */
+  player2TokenStats?: GeminiTokenStats | null;
 }
 
 // Get the best prime card for each suit
@@ -154,8 +154,8 @@ export function RoundEndScreen({
   onShowGameEnd,
   player1Name = 'You',
   player2Name = 'CPU',
-  tokenStats,
-  tokenDelta,
+  player1TokenStats,
+  player2TokenStats,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
   const deckType = useDeck();
@@ -250,7 +250,10 @@ export function RoundEndScreen({
     <div className={styles.overlay}>
       {/* Human cards on the left */}
       <div className={styles.cardColumn}>
-        <div className={styles.cardColumnLabel}>{player1Name}'s Cards</div>
+        <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>{player1Name}'s Cards</span>
+          {player1TokenStats && <TokenStatsDisplay stats={player1TokenStats} show={!!player1TokenStats} mode="round" position="bottom" />}
+        </div>
         <div className={styles.cardGrid}>
           {humanCaptured.map(card => (
             <div
@@ -333,7 +336,7 @@ export function RoundEndScreen({
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>{player2Name}'s Cards</span>
-          {tokenStats && <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show={!!tokenStats} />}
+          {player2TokenStats && <TokenStatsDisplay stats={player2TokenStats} show={!!player2TokenStats} mode="round" position="bottom" />}
         </div>
         <div className={styles.cardGrid}>
           {cpuCaptured.map(card => (

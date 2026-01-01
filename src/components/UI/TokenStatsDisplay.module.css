@@ -37,21 +37,32 @@
 
 .popup {
   position: absolute;
-  bottom: 100%;
   left: 0;
-  margin-bottom: 8px;
   background: rgba(0, 0, 0, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   padding: var(--space-2);
   font-size: 0.7rem;
-  min-width: 140px;
+  min-width: 160px;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(4px);
   transition: opacity 0.2s, visibility 0.2s, transform 0.2s;
   z-index: 100;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Popup opens upward (default, for bottom players) */
+.popupTop {
+  bottom: 100%;
+  margin-bottom: 8px;
+  transform: translateY(4px);
+}
+
+/* Popup opens downward (for top players) */
+.popupBottom {
+  top: 100%;
+  margin-top: 8px;
+  transform: translateY(-4px);
 }
 
 .wrapper:hover .popup {
@@ -68,6 +79,12 @@
   margin-bottom: var(--space-1);
   text-align: center;
   opacity: 0.9;
+}
+
+.modeLabel {
+  color: var(--color-text-secondary);
+  font-size: 0.6rem;
+  text-transform: none;
 }
 
 .table {
