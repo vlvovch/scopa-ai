@@ -18,7 +18,7 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
@@ -55,6 +55,11 @@ function App() {
     player1: 'heuristic',
     player2: 'random',
   });
+  // Separate model selection for spectator mode (each player can have different model)
+  const [spectatorModels, setSpectatorModels] = useState<{ player1: string; player2: string }>({
+    player1: 'gemini-2.5-flash',
+    player2: 'gemini-2.5-flash',
+  });
   const [isSpectatorPaused, setIsSpectatorPaused] = useState(false);
   // Track pause state before settings opened (to restore on close)
   const pausedBeforeSettings = useRef(false);
@@ -66,10 +71,8 @@ function App() {
   // Check if in spectator mode
   const isSpectatorMode = state.gameMode === 'cpuVsCPU';
 
-  // Helper to check if an AI type is a Gemini variant
-  const isGeminiAI = (aiType: ExtendedAIType): boolean => {
-    return aiType === 'gemini' || aiType === 'gemini-singleturn';
-  };
+  // Helper to check if an AI type is a Gemini variant (use exported function)
+  const isGeminiAI = isGeminiAIType;
 
   // Helper to get display name with correct suffix: (AI) for LLM, (CPU) for traditional
   const getAIDisplayName = (aiType: ExtendedAIType) => {
@@ -78,11 +81,29 @@ function App() {
     return `${name} (${suffix})`;
   };
 
-  // Helper to update token stats and delta
+  // Helper to get the currently active Gemini AI type
+  const getActiveGeminiType = useCallback((): ExtendedAIType | null => {
+    if (isSpectatorMode) {
+      // In spectator mode, prefer the one that's a Gemini variant
+      if (isGeminiAI(spectatorAIs.player2)) return spectatorAIs.player2;
+      if (isGeminiAI(spectatorAIs.player1)) return spectatorAIs.player1;
+      return null;
+    } else {
+      return isGeminiAI(settings.cpuAI) ? settings.cpuAI : null;
+    }
+  }, [isSpectatorMode, spectatorAIs, settings.cpuAI]);
+
+  // Helper to update token stats and delta (gets from appropriate AI)
   const updateTokenStats = useCallback(() => {
-    setTokenStats(getGeminiTokenStats());
-    setTokenDelta(getGeminiTokenDelta());
-  }, []);
+    const activeType = getActiveGeminiType();
+    if (activeType === 'gemini-singleturn') {
+      setTokenStats(getGeminiSingleTurnTokenStats());
+      setTokenDelta(getGeminiSingleTurnTokenDelta());
+    } else {
+      setTokenStats(getGeminiTokenStats());
+      setTokenDelta(getGeminiTokenDelta());
+    }
+  }, [getActiveGeminiType]);
 
   // Animation speed multipliers based on settings
   const getAnimationDelay = useCallback((baseMs: number) => {
@@ -90,10 +111,17 @@ function App() {
     return baseMs * multipliers[settings.animationSpeed];
   }, [settings.animationSpeed]);
 
-  // Get AI player instance for a given AI type
-  const getAIPlayer = useCallback((aiType: ExtendedAIType): AnyAIPlayer => {
+  // Get AI player instance for a given AI type and model
+  const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string): AnyAIPlayer => {
+    const geminiModel = model || settings.geminiModel;
     if (aiType === 'gemini') {
-      const gemini = getGeminiAI(settings.geminiModel);
+      const gemini = getGeminiAI(geminiModel);
+      if (gemini) return gemini;
+      // Fallback to heuristic if Gemini not available
+      return AI_PLAYERS.heuristic;
+    }
+    if (aiType === 'gemini-singleturn') {
+      const gemini = getGeminiSingleTurnAI(geminiModel);
       if (gemini) return gemini;
       // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
@@ -516,7 +544,8 @@ function App() {
     const timeoutId = setTimeout(async () => {
       // Use selected AI to select move (use spectator AI in spectator mode)
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
-      const ai = getAIPlayer(aiType);
+      const model = isSpectatorMode ? spectatorModels.player2 : settings.geminiModel;
+      const ai = getAIPlayer(aiType, model);
 
       let moveToExecute: Move;
       if (isAsyncAI(ai)) {
@@ -617,7 +646,9 @@ function App() {
 
     // Longer delay before showing round summary to let final animations complete
     const timeoutId = setTimeout(() => {
-      endGeminiRound(); // Clear chat session at end of round
+      // Clear sessions for both Gemini types (no-op if not active)
+      endGeminiRound();
+      endGeminiSingleTurnRound();
       endRound();
     }, 1500);
 
@@ -683,10 +714,14 @@ function App() {
 
   // Handle starting a new game (wraps startGame to reset token stats)
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
+    // Reset token stats for both Gemini types
     resetGeminiTokenStats();
+    resetGeminiSingleTurnTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
-    startGeminiRound(); // Start fresh chat session for first round
+    // Start fresh sessions for both types (no-op if not active)
+    startGeminiRound();
+    startGeminiSingleTurnRound();
     startGame(targetScore, gameMode);
   }, [startGame]);
 
@@ -696,6 +731,7 @@ function App() {
       setConfirmNewGame(true);
     } else {
       resetGeminiTokenStats();
+      resetGeminiSingleTurnTokenStats();
       setTokenStats(null);
       setTokenDelta(null);
       resetGame();
@@ -705,6 +741,7 @@ function App() {
   const confirmAndStartNewGame = useCallback(() => {
     setConfirmNewGame(false);
     resetGeminiTokenStats();
+    resetGeminiSingleTurnTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
     resetGame();
@@ -730,7 +767,9 @@ function App() {
 
   // Handle next round (wraps nextRound to start fresh chat session)
   const handleNextRound = useCallback(() => {
-    startGeminiRound(); // Start fresh chat session for next round
+    // Start fresh sessions for both types (no-op if not active)
+    startGeminiRound();
+    startGeminiSingleTurnRound();
     nextRound();
   }, [nextRound]);
 
@@ -779,7 +818,7 @@ function App() {
     const baseDelay = 500 + Math.random() * 500;
     const delay = getAnimationDelay(baseDelay);
     const timeoutId = setTimeout(async () => {
-      const ai = getAIPlayer(spectatorAIs.player1);
+      const ai = getAIPlayer(spectatorAIs.player1, spectatorModels.player1);
 
       let moveToExecute: Move;
       if (isAsyncAI(ai)) {
@@ -851,6 +890,8 @@ function App() {
           onSelectDeck={(deck) => updateSetting('deck', deck)}
           geminiModel={settings.geminiModel}
           onSelectGeminiModel={(model) => updateSetting('geminiModel', model)}
+          spectatorModels={spectatorModels}
+          onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
         />
         <SettingsModal
           isOpen={showSettings}
@@ -882,11 +923,11 @@ function App() {
           onShowGameEnd={showGameEnd}
           player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
           player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
-          player1TokenStats={isSpectatorMode && spectatorAIs.player1 === 'gemini' ? tokenStats : null}
+          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? tokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? spectatorAIs.player2 === 'gemini' ? tokenStats : null
-              : settings.cpuAI === 'gemini' ? tokenStats : null
+              ? isGeminiAI(spectatorAIs.player2) ? tokenStats : null
+              : isGeminiAI(settings.cpuAI) ? tokenStats : null
           }
         />
       </DeckProvider>
@@ -904,11 +945,11 @@ function App() {
           onPlayAgain={resetGame}
           player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
           player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
-          player1TokenStats={isSpectatorMode && spectatorAIs.player1 === 'gemini' ? tokenStats : null}
+          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? tokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? spectatorAIs.player2 === 'gemini' ? tokenStats : null
-              : settings.cpuAI === 'gemini' ? tokenStats : null
+              ? isGeminiAI(spectatorAIs.player2) ? tokenStats : null
+              : isGeminiAI(settings.cpuAI) ? tokenStats : null
           }
         />
       </DeckProvider>
@@ -1078,7 +1119,7 @@ function App() {
               player="cpu"
               playerLabel={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
             />
-            {((isSpectatorMode && spectatorAIs.player2 === 'gemini') || (!isSpectatorMode && settings.cpuAI === 'gemini')) && (
+            {((isSpectatorMode && isGeminiAI(spectatorAIs.player2)) || (!isSpectatorMode && isGeminiAI(settings.cpuAI))) && (
               <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show mode="game" position="bottom" />
             )}
           </div>
@@ -1102,7 +1143,7 @@ function App() {
         }
         humanPile={
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-            {isSpectatorMode && spectatorAIs.player1 === 'gemini' && (
+            {isSpectatorMode && isGeminiAI(spectatorAIs.player1) && (
               <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show mode="game" position="top" />
             )}
             <CapturedPile

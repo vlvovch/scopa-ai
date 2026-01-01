@@ -168,12 +168,11 @@ const SYSTEM_INSTRUCTION = `You are an expert Italian Scopa player.
 RULES:
 - 40-card deck, 4 suits: Denari (coins), Coppe (cups), Spade (swords), Bastoni (clubs)
 - Values: 1 (Asso) to 10 (Re). Face cards: Fante=8, Cavallo=9, Re=10
-- On your turn, you play one card from hand. When playing a card:
-  - If it matches a table card's value, you must capture that card
-  - You may capture multiple cards if their values sum to your card's value
-  - Single-card match takes priority over sum capture
-  - If no capture possible, place your card on the table
-- On the last hand, the player who did last capture takes all remaining cards on the table
+- On your turn, you play one card from your hand. When playing a card:
+  - If it matches a table card's value, you must capture that card (pick one if there are multiple matches)
+  - Otherwise, you may capture multiple cards if their values sum to your card's value
+  - Only if no capture possible, place your card on the table
+- On the last hand of the round (the dealer deck is empty), the player who did last capture takes all remaining cards on the table
 
 SCORING (calculated at end of each round):
 - Carte: 1 point for most cards captured (21+ guarantees)
@@ -181,7 +180,7 @@ SCORING (calculated at end of each round):
 - Sette Bello: 1 point for capturing the 7 of Denari
 - Primiera: 1 point for best prime (highest-value card from each suit)
   Prime values: 7=21, 6=18, Asso=16, 5=15, 4=14, 3=13, 2=12, face cards=10
-- Scopa: 1 point EACH TIME you clear all cards from the table EXCEPT for the last hand
+- Scopa: 1 point EACH TIME you clear all cards from the table EXCEPT for the last hand of the round
 
 First to reach target score wins.
 

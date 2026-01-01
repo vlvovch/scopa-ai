@@ -47,3 +47,10 @@ export function getAvailableAITypes(): ExtendedAIType[] {
   }
   return types;
 }
+
+/**
+ * Check if an AI type is a Gemini variant (multi-turn or single-turn)
+ */
+export function isGeminiAIType(aiType: ExtendedAIType): boolean {
+  return aiType === 'gemini' || aiType === 'gemini-singleturn';
+}

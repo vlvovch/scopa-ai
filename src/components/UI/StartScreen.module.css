@@ -84,6 +84,12 @@
   min-width: 70px;
   padding: 0 var(--space-3);
   font-size: 0.9rem;
+  white-space: nowrap;
+  height: auto;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scoreOption.modeOption {

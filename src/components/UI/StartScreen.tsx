@@ -1,7 +1,7 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useMemo, useEffect } from 'react';
-import { AI_INFO, getAvailableAITypes, fetchGeminiModels, type ExtendedAIType, type GeminiModelInfo } from '../../ai';
+import { AI_INFO, getAvailableAITypes, fetchGeminiModels, isGeminiAIType, type ExtendedAIType, type GeminiModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './StartScreen.module.css';
@@ -18,6 +18,8 @@ interface StartScreenProps {
   onSelectDeck: (deck: DeckType) => void;
   geminiModel: string;
   onSelectGeminiModel: (model: string) => void;
+  spectatorModels: { player1: string; player2: string };
+  onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
 }
 
 const SCORE_OPTIONS = [11, 16, 21] as const;
@@ -36,6 +38,8 @@ export function StartScreen({
   onSelectDeck,
   geminiModel,
   onSelectGeminiModel,
+  spectatorModels,
+  onSelectSpectatorModel,
 }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(11);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
@@ -45,10 +49,10 @@ export function StartScreen({
   // Get available AI types (includes Gemini only if API key is set)
   const aiOptions = useMemo(() => getAvailableAITypes(), []);
 
-  // Check if any selected AI is Gemini
-  const needsGeminiModels = selectedAI === 'gemini' ||
-    spectatorAIs.player1 === 'gemini' ||
-    spectatorAIs.player2 === 'gemini';
+  // Check if any selected AI is Gemini (any variant)
+  const needsGeminiModels = isGeminiAIType(selectedAI) ||
+    isGeminiAIType(spectatorAIs.player1) ||
+    isGeminiAIType(spectatorAIs.player2);
 
   // Fetch Gemini models when needed
   useEffect(() => {
@@ -146,7 +150,7 @@ export function StartScreen({
               </div>
               <p className={styles.aiDescription}>{AI_INFO[selectedAI].description}</p>
             </div>
-            {selectedAI === 'gemini' && (
+            {isGeminiAIType(selectedAI) && (
               <div className={styles.scoreSelection}>
                 <label className={styles.label}>Gemini Model</label>
                 {loadingModels ? (
@@ -200,16 +204,34 @@ export function StartScreen({
                 </div>
               </div>
             </div>
-            {(spectatorAIs.player1 === 'gemini' || spectatorAIs.player2 === 'gemini') && (
+            {isGeminiAIType(spectatorAIs.player1) && (
               <div className={styles.scoreSelection}>
-                <label className={styles.label}>Gemini Model</label>
+                <label className={styles.label}>Player 1 Model</label>
                 {loadingModels ? (
                   <p className={styles.aiDescription}>Loading models...</p>
                 ) : (
                   <select
                     className={styles.modelSelect}
-                    value={geminiModel}
-                    onChange={(e) => onSelectGeminiModel(e.target.value)}
+                    value={spectatorModels.player1}
+                    onChange={(e) => onSelectSpectatorModel('player1', e.target.value)}
+                  >
+                    {geminiModels.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+            {isGeminiAIType(spectatorAIs.player2) && (
+              <div className={styles.scoreSelection}>
+                <label className={styles.label}>Player 2 Model</label>
+                {loadingModels ? (
+                  <p className={styles.aiDescription}>Loading models...</p>
+                ) : (
+                  <select
+                    className={styles.modelSelect}
+                    value={spectatorModels.player2}
+                    onChange={(e) => onSelectSpectatorModel('player2', e.target.value)}
                   >
                     {geminiModels.map((model) => (
                       <option key={model.id} value={model.id}>{model.displayName}</option>
