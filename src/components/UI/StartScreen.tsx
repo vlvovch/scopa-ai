@@ -1,11 +1,15 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useMemo, useEffect } from 'react';
-import { AI_INFO, getAvailableAITypes, fetchGeminiModels, isGeminiAIType, type ExtendedAIType, type GeminiModelInfo } from '../../ai';
+import { AI_INFO, isGeminiAvailable, isOpenAIAvailable, fetchGeminiModels, fetchOpenAIModels, isGeminiAIType, isOpenAIAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
 import styles from './StartScreen.module.css';
 
 type GameModeOption = 'play' | 'watch';
+type OpponentCategory = 'cpu' | 'ai';
+type CPUType = 'random' | 'heuristic';
+// AI provider now includes gemini-singleturn as a separate option
+type AIProvider = 'gemini' | 'gemini-singleturn' | 'openai';
 
 interface StartScreenProps {
   onStartGame: (targetScore: number, gameMode: GameMode) => void;
@@ -15,12 +19,31 @@ interface StartScreenProps {
   onSelectSpectatorAI: (player: 'player1' | 'player2', ai: ExtendedAIType) => void;
   geminiModel: string;
   onSelectGeminiModel: (model: string) => void;
+  openaiModel: string;
+  onSelectOpenAIModel: (model: string) => void;
   spectatorModels: { player1: string; player2: string };
   onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
   defaultTargetScore: number;
 }
 
 const PRESET_SCORES = [11, 16, 21] as const;
+
+// Helper to determine opponent category from AI type
+function getOpponentCategory(aiType: ExtendedAIType): OpponentCategory {
+  return (aiType === 'random' || aiType === 'heuristic') ? 'cpu' : 'ai';
+}
+
+// Helper to get CPU type from AI type
+function getCPUType(aiType: ExtendedAIType): CPUType {
+  return aiType === 'random' ? 'random' : 'heuristic';
+}
+
+// Helper to get AI provider from AI type
+function getAIProvider(aiType: ExtendedAIType): AIProvider {
+  if (isOpenAIAIType(aiType)) return 'openai';
+  if (aiType === 'gemini-singleturn') return 'gemini-singleturn';
+  return 'gemini';
+}
 
 export function StartScreen({
   onStartGame,
@@ -30,6 +53,8 @@ export function StartScreen({
   onSelectSpectatorAI,
   geminiModel,
   onSelectGeminiModel,
+  openaiModel,
+  onSelectOpenAIModel,
   spectatorModels,
   onSelectSpectatorModel,
   defaultTargetScore,
@@ -37,35 +62,190 @@ export function StartScreen({
   const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
+  const [openaiModels, setOpenAIModels] = useState<OpenAIModelInfo[]>([]);
+  const [loadingGeminiModels, setLoadingGeminiModels] = useState(false);
+  const [loadingOpenAIModels, setLoadingOpenAIModels] = useState(false);
 
-  // Get available AI types (includes Gemini only if API key is set)
-  const aiOptions = useMemo(() => getAvailableAITypes(), []);
+  // Check API availability
+  const geminiAvailable = useMemo(() => isGeminiAvailable(), []);
+  const openaiAvailable = useMemo(() => isOpenAIAvailable(), []);
+  const aiAvailable = geminiAvailable || openaiAvailable;
 
-  // Check if any selected AI is Gemini (any variant)
+  // Default AI provider based on availability
+  const defaultAIProvider: AIProvider = geminiAvailable ? 'gemini' : 'openai';
+
+  // Check if any selected AI needs model fetching
   const needsGeminiModels = isGeminiAIType(selectedAI) ||
     isGeminiAIType(spectatorAIs.player1) ||
     isGeminiAIType(spectatorAIs.player2);
 
+  const needsOpenAIModels = isOpenAIAIType(selectedAI) ||
+    isOpenAIAIType(spectatorAIs.player1) ||
+    isOpenAIAIType(spectatorAIs.player2);
+
   // Fetch Gemini models when needed
   useEffect(() => {
-    if (needsGeminiModels && geminiModels.length === 0 && !loadingModels) {
-      setLoadingModels(true);
+    if (needsGeminiModels && geminiModels.length === 0 && !loadingGeminiModels) {
+      setLoadingGeminiModels(true);
       fetchGeminiModels()
         .then((models) => {
           setGeminiModels(models);
-          // If current model not in list, select first available
           if (models.length > 0 && !models.some(m => m.id === geminiModel)) {
             onSelectGeminiModel(models[0].id);
           }
         })
-        .finally(() => setLoadingModels(false));
+        .finally(() => setLoadingGeminiModels(false));
     }
-  }, [needsGeminiModels, geminiModels.length, loadingModels, geminiModel, onSelectGeminiModel]);
+  }, [needsGeminiModels, geminiModels.length, loadingGeminiModels, geminiModel, onSelectGeminiModel]);
+
+  // Fetch OpenAI models when needed
+  useEffect(() => {
+    if (needsOpenAIModels && openaiModels.length === 0 && !loadingOpenAIModels) {
+      setLoadingOpenAIModels(true);
+      fetchOpenAIModels()
+        .then((models) => {
+          setOpenAIModels(models);
+          if (models.length > 0 && !models.some(m => m.id === openaiModel)) {
+            onSelectOpenAIModel(models[0].id);
+          }
+        })
+        .finally(() => setLoadingOpenAIModels(false));
+    }
+  }, [needsOpenAIModels, openaiModels.length, loadingOpenAIModels, openaiModel, onSelectOpenAIModel]);
+
+  // Handlers for cascading dropdowns
+  const handleCategoryChange = (category: OpponentCategory) => {
+    if (category === 'cpu') {
+      onSelectAI('heuristic'); // Default to Furbo
+    } else {
+      // Default to first available AI provider
+      onSelectAI(defaultAIProvider);
+    }
+  };
+
+  const handleCPUTypeChange = (type: CPUType) => {
+    onSelectAI(type);
+  };
+
+  const handleAIProviderChange = (provider: AIProvider) => {
+    // Provider maps directly to ExtendedAIType for AI providers
+    onSelectAI(provider as ExtendedAIType);
+  };
+
+  // Spectator mode handlers
+  const handleSpectatorCategoryChange = (player: 'player1' | 'player2', category: OpponentCategory) => {
+    if (category === 'cpu') {
+      onSelectSpectatorAI(player, 'heuristic');
+    } else {
+      onSelectSpectatorAI(player, defaultAIProvider);
+    }
+  };
+
+  const handleSpectatorCPUTypeChange = (player: 'player1' | 'player2', type: CPUType) => {
+    onSelectSpectatorAI(player, type);
+  };
+
+  const handleSpectatorAIProviderChange = (player: 'player1' | 'player2', provider: AIProvider) => {
+    onSelectSpectatorAI(player, provider as ExtendedAIType);
+  };
 
   const handleStartGame = () => {
     const mode: GameMode = gameMode === 'play' ? 'pvsCPU' : 'cpuVsCPU';
     onStartGame(selectedScore, mode);
+  };
+
+  // Render opponent selector (reusable for play and spectator modes)
+  const renderOpponentSelector = (
+    currentAI: ExtendedAIType,
+    onCategoryChange: (cat: OpponentCategory) => void,
+    onCPUTypeChange: (type: CPUType) => void,
+    onAIProviderChange: (provider: AIProvider) => void,
+    onModelChange: (model: string) => void,
+    currentModel: string,
+    label: string
+  ) => {
+    const cat = getOpponentCategory(currentAI);
+    const cpu = getCPUType(currentAI);
+    const provider = getAIProvider(currentAI);
+    const isGemini = isGeminiAIType(currentAI);
+    const isOpenAI = isOpenAIAIType(currentAI);
+
+    return (
+      <div className={styles.opponentSelector}>
+        <label className={styles.label}>{label}</label>
+        <div className={styles.dropdownRow}>
+          {/* Category dropdown */}
+          <select
+            className={styles.dropdown}
+            value={cat}
+            onChange={(e) => onCategoryChange(e.target.value as OpponentCategory)}
+          >
+            <option value="cpu">CPU</option>
+            {aiAvailable && <option value="ai">AI</option>}
+          </select>
+
+          {/* CPU type or AI provider dropdown */}
+          {cat === 'cpu' ? (
+            <select
+              className={styles.dropdown}
+              value={cpu}
+              onChange={(e) => onCPUTypeChange(e.target.value as CPUType)}
+            >
+              <option value="random">{AI_INFO.random.icon} {AI_INFO.random.name}</option>
+              <option value="heuristic">{AI_INFO.heuristic.icon} {AI_INFO.heuristic.name}</option>
+            </select>
+          ) : (
+            <select
+              className={styles.dropdown}
+              value={provider}
+              onChange={(e) => onAIProviderChange(e.target.value as AIProvider)}
+            >
+              {geminiAvailable && <option value="gemini">{AI_INFO.gemini.icon} Gemini 💬</option>}
+              {geminiAvailable && <option value="gemini-singleturn">{AI_INFO['gemini-singleturn'].icon} Gemini 1️⃣</option>}
+              {openaiAvailable && <option value="openai">{AI_INFO.openai.icon} OpenAI 💬</option>}
+            </select>
+          )}
+
+          {/* Model dropdown (only for AI) */}
+          {cat === 'ai' && (
+            isGemini ? (
+              loadingGeminiModels ? (
+                <select className={styles.dropdown} disabled>
+                  <option>Loading...</option>
+                </select>
+              ) : (
+                <select
+                  className={styles.dropdown}
+                  value={currentModel}
+                  onChange={(e) => onModelChange(e.target.value)}
+                >
+                  {geminiModels.map((model) => (
+                    <option key={model.id} value={model.id}>{model.displayName}</option>
+                  ))}
+                </select>
+              )
+            ) : isOpenAI ? (
+              loadingOpenAIModels ? (
+                <select className={styles.dropdown} disabled>
+                  <option>Loading...</option>
+                </select>
+              ) : (
+                <select
+                  className={styles.dropdown}
+                  value={currentModel}
+                  onChange={(e) => onModelChange(e.target.value)}
+                >
+                  {openaiModels.map((model) => (
+                    <option key={model.id} value={model.id}>{model.displayName}</option>
+                  ))}
+                </select>
+              )
+            ) : null
+          )}
+        </div>
+        <p className={styles.aiDescription}>{AI_INFO[currentAI].description}</p>
+      </div>
+    );
   };
 
   return (
@@ -125,114 +305,41 @@ export function StartScreen({
         </div>
 
         {gameMode === 'play' ? (
-          <>
-            <div className={styles.scoreSelection}>
-              <label className={styles.label}>Opponent</label>
-              <div className={styles.scoreOptions}>
-                {aiOptions.map((ai) => (
-                  <button
-                    key={ai}
-                    className={`${styles.scoreOption} ${styles.aiOption} ${selectedAI === ai ? styles.selected : ''}`}
-                    onClick={() => onSelectAI(ai)}
-                    title={AI_INFO[ai].description}
-                  >
-                    {AI_INFO[ai].name}
-                  </button>
-                ))}
-              </div>
-              <p className={styles.aiDescription}>{AI_INFO[selectedAI].description}</p>
-            </div>
-            {isGeminiAIType(selectedAI) && (
-              <div className={styles.scoreSelection}>
-                <label className={styles.label}>Gemini Model</label>
-                {loadingModels ? (
-                  <p className={styles.aiDescription}>Loading models...</p>
-                ) : (
-                  <select
-                    className={styles.modelSelect}
-                    value={geminiModel}
-                    onChange={(e) => onSelectGeminiModel(e.target.value)}
-                  >
-                    {geminiModels.map((model) => (
-                      <option key={model.id} value={model.id}>{model.displayName}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-          </>
+          renderOpponentSelector(
+            selectedAI,
+            handleCategoryChange,
+            handleCPUTypeChange,
+            handleAIProviderChange,
+            isGeminiAIType(selectedAI) ? onSelectGeminiModel : onSelectOpenAIModel,
+            isGeminiAIType(selectedAI) ? geminiModel : openaiModel,
+            'Opponent'
+          )
         ) : (
-          <>
-            <div className={styles.spectatorSetup}>
-              <div className={styles.spectatorPlayer}>
-                <label className={styles.label}>Player 1</label>
-                <div className={styles.scoreOptions}>
-                  {aiOptions.map((ai) => (
-                    <button
-                      key={ai}
-                      className={`${styles.scoreOption} ${styles.aiOption} ${spectatorAIs.player1 === ai ? styles.selected : ''}`}
-                      onClick={() => onSelectSpectatorAI('player1', ai)}
-                      title={AI_INFO[ai].description}
-                    >
-                      {AI_INFO[ai].name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className={styles.vsLabel}>vs</div>
-              <div className={styles.spectatorPlayer}>
-                <label className={styles.label}>Player 2</label>
-                <div className={styles.scoreOptions}>
-                  {aiOptions.map((ai) => (
-                    <button
-                      key={ai}
-                      className={`${styles.scoreOption} ${styles.aiOption} ${spectatorAIs.player2 === ai ? styles.selected : ''}`}
-                      onClick={() => onSelectSpectatorAI('player2', ai)}
-                      title={AI_INFO[ai].description}
-                    >
-                      {AI_INFO[ai].name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+          <div className={styles.spectatorSetup}>
+            <div className={styles.spectatorPlayer}>
+              {renderOpponentSelector(
+                spectatorAIs.player1,
+                (cat) => handleSpectatorCategoryChange('player1', cat),
+                (type) => handleSpectatorCPUTypeChange('player1', type),
+                (provider) => handleSpectatorAIProviderChange('player1', provider),
+                (model) => onSelectSpectatorModel('player1', model),
+                spectatorModels.player1,
+                'Player 1'
+              )}
             </div>
-            {isGeminiAIType(spectatorAIs.player1) && (
-              <div className={styles.scoreSelection}>
-                <label className={styles.label}>Player 1 Model</label>
-                {loadingModels ? (
-                  <p className={styles.aiDescription}>Loading models...</p>
-                ) : (
-                  <select
-                    className={styles.modelSelect}
-                    value={spectatorModels.player1}
-                    onChange={(e) => onSelectSpectatorModel('player1', e.target.value)}
-                  >
-                    {geminiModels.map((model) => (
-                      <option key={model.id} value={model.id}>{model.displayName}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-            {isGeminiAIType(spectatorAIs.player2) && (
-              <div className={styles.scoreSelection}>
-                <label className={styles.label}>Player 2 Model</label>
-                {loadingModels ? (
-                  <p className={styles.aiDescription}>Loading models...</p>
-                ) : (
-                  <select
-                    className={styles.modelSelect}
-                    value={spectatorModels.player2}
-                    onChange={(e) => onSelectSpectatorModel('player2', e.target.value)}
-                  >
-                    {geminiModels.map((model) => (
-                      <option key={model.id} value={model.id}>{model.displayName}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-          </>
+            <div className={styles.vsLabel}>vs</div>
+            <div className={styles.spectatorPlayer}>
+              {renderOpponentSelector(
+                spectatorAIs.player2,
+                (cat) => handleSpectatorCategoryChange('player2', cat),
+                (type) => handleSpectatorCPUTypeChange('player2', type),
+                (provider) => handleSpectatorAIProviderChange('player2', provider),
+                (model) => onSelectSpectatorModel('player2', model),
+                spectatorModels.player2,
+                'Player 2'
+              )}
+            </div>
+          </div>
         )}
 
         <button

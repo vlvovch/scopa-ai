@@ -1,6 +1,9 @@
 // Step 7.7: ScoreBoard Component
 
+import type { ReactNode } from 'react';
 import type { PlayerId } from '../../game/types';
+import type { ExtendedAIType } from '../../ai';
+import { AIPlayerLabel } from './AIPlayerLabel';
 import styles from './ScoreBoard.module.css';
 
 interface ScoreBoardProps {
@@ -14,12 +17,20 @@ interface ScoreBoardProps {
   targetScore: number;
   /** Whose turn it is (optional) */
   currentPlayer?: PlayerId;
-  /** CPU AI name to display */
+  /** CPU AI name to display (fallback if cpuAIType not provided) */
   cpuName?: string;
-  /** Human/Player 1 name (for spectator mode) */
+  /** Human/Player 1 name (fallback, for non-spectator mode) */
   humanName?: string;
   /** Whether in spectator mode (CPU vs CPU) */
   isSpectatorMode?: boolean;
+  /** Player 1 AI type (for spectator mode) */
+  player1AIType?: ExtendedAIType;
+  /** Player 1 model (for LLM AIs in spectator mode) */
+  player1Model?: string;
+  /** Player 2 (CPU) AI type */
+  player2AIType?: ExtendedAIType;
+  /** Player 2 (CPU) model (for LLM AIs) */
+  player2Model?: string;
 }
 
 export function ScoreBoard({
@@ -30,10 +41,25 @@ export function ScoreBoard({
   currentPlayer,
   cpuName = 'CPU',
   humanName,
+  player1AIType,
+  player1Model,
+  player2AIType,
+  player2Model,
 }: ScoreBoardProps) {
-  // Display names as provided (App.tsx handles suffix formatting)
-  const player1DisplayName = humanName || 'You';
-  const player2DisplayName = cpuName;
+  // Render player names with proper AI icons
+  const renderPlayer1Name = (): ReactNode => {
+    if (player1AIType) {
+      return <AIPlayerLabel aiType={player1AIType} model={player1Model} />;
+    }
+    return humanName || 'You';
+  };
+
+  const renderPlayer2Name = (): ReactNode => {
+    if (player2AIType) {
+      return <AIPlayerLabel aiType={player2AIType} model={player2Model} />;
+    }
+    return cpuName;
+  };
 
   return (
     <div className={styles.scoreBoard}>
@@ -48,7 +74,7 @@ export function ScoreBoard({
           <span
             className={`${styles.playerName} ${currentPlayer === 'cpu' ? styles.current : ''}`}
           >
-            {player2DisplayName}
+            {renderPlayer2Name()}
           </span>
           <span className={styles.scoreValue}>{cpuScore}</span>
         </div>
@@ -58,7 +84,7 @@ export function ScoreBoard({
           <span
             className={`${styles.playerName} ${currentPlayer === 'human' ? styles.current : ''}`}
           >
-            {player1DisplayName}
+            {renderPlayer1Name()}
           </span>
           <span className={styles.scoreValue}>{humanScore}</span>
         </div>

@@ -1,28 +1,28 @@
-// Gemini AI Player - Uses Google's Gemini API for intelligent play
+// OpenAI GPT AI Player - Uses OpenAI's Chat Completions API for intelligent play
 
-import { GoogleGenAI, Type, Chat } from '@google/genai';
+import OpenAI from 'openai';
 import type { Card, Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
 
 // Model info returned from API
-export interface GeminiModelInfo {
+export interface OpenAIModelInfo {
   id: string;
   displayName: string;
 }
 
 // Token usage statistics
-export interface GeminiTokenStats {
+export interface OpenAITokenStats {
   promptTokens: number;
   responseTokens: number;
-  thoughtTokens: number;
+  reasoningTokens: number;  // For o-series reasoning models
   totalTokens: number;
   cachedTokens: number;
   requestCount: number;
   // Round-specific stats (reset each round)
   roundPromptTokens: number;
   roundResponseTokens: number;
-  roundThoughtTokens: number;
+  roundReasoningTokens: number;
   roundTotalTokens: number;
   roundRequestCount: number;
   // Model info
@@ -38,26 +38,49 @@ export interface GeminiTokenStats {
 }
 
 // Delta from last API call
-export interface GeminiTokenDelta {
+export interface OpenAITokenDelta {
   promptTokens: number;
   responseTokens: number;
-  thoughtTokens: number;
+  reasoningTokens: number;
   totalTokens: number;
   turnTimeMs: number;
 }
 
 // Default model to use
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gpt-4o-mini';
 
 // Cached models list
-let cachedModels: GeminiModelInfo[] | null = null;
-let modelsFetchPromise: Promise<GeminiModelInfo[]> | null = null;
+let cachedModels: OpenAIModelInfo[] | null = null;
+let modelsFetchPromise: Promise<OpenAIModelInfo[]> | null = null;
 
 /**
- * Fetch available Gemini models from the API
+ * Format model ID into display name
+ * e.g., "gpt-4o-mini" -> "GPT-4o Mini"
+ */
+function formatModelName(modelId: string): string {
+  return modelId
+    .replace(/^gpt-/i, 'GPT-')
+    .replace(/^o(\d)/, 'O$1')  // o3 -> O3
+    .split('-')
+    .map((part, i) => {
+      if (i === 0) return part; // Keep GPT- or O3 as is
+      if (part === 'mini') return 'Mini';
+      if (part === 'nano') return 'Nano';
+      if (part === 'pro') return 'Pro';
+      if (part === 'turbo') return 'Turbo';
+      if (/^\d{4}$/.test(part)) return ''; // Skip date parts like 2024
+      if (/^\d{2}$/.test(part)) return ''; // Skip month parts like 08
+      return part.charAt(0).toUpperCase() + part.slice(1);
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * Fetch available OpenAI models from the API
  * Results are cached after first successful fetch
  */
-export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
+export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
   // Return cached models if available
   if (cachedModels !== null) {
     return cachedModels;
@@ -68,86 +91,79 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
     return modelsFetchPromise;
   }
 
-  const apiKey = getGeminiApiKey();
+  const apiKey = getOpenAIApiKey();
   if (!apiKey) {
     return [];
   }
 
   modelsFetchPromise = (async () => {
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      let models: GeminiModelInfo[] = [];
+      const client = new OpenAI({
+        apiKey,
+        dangerouslyAllowBrowser: true
+      });
 
-      // Strict allowlist pattern for clean model names only
-      // Format: gemini-X[.X]-{flash|flash-lite|pro}[-thinking][-preview]
-      const ALLOWED_PATTERN = /^gemini-\d+(\.\d+)?-(flash-lite|flash|pro)(-thinking)?(-preview)?$/;
+      const models: OpenAIModelInfo[] = [];
 
-      // Also allow "latest" aliases
-      const ALLOWED_LATEST = ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-pro-latest'];
+      // Allowlist pattern for chat models
+      // Only matches base models without date suffixes to avoid duplicates
+      // e.g., gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3, o4-mini, etc.
+      const ALLOWED_PATTERNS = [
+        /^gpt-4o(-mini)?$/,                              // gpt-4o, gpt-4o-mini (no date suffixes)
+        /^gpt-4\.1(-mini|-nano)?$/,                      // gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
+        /^gpt-4-turbo$/,                                 // gpt-4-turbo (no date suffixes)
+        /^gpt-5(\.\d+)?(-mini|-nano)?$/,                 // gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.1
+        /^o[134](-mini|-pro)?$/,                         // o1, o3, o4, o3-mini, o4-mini, o1-pro
+      ];
 
       const isAllowedModel = (id: string): boolean => {
-        return ALLOWED_PATTERN.test(id) || ALLOWED_LATEST.includes(id);
+        return ALLOWED_PATTERNS.some(pattern => pattern.test(id));
       };
 
-      // Get base model name (without -preview suffix)
-      const getBaseModel = (id: string): string => {
-        return id.replace(/-preview$/, '');
-      };
+      const response = await client.models.list();
 
-      for await (const model of await ai.models.list()) {
-        // Only include models that support generateContent
-        if (model.supportedActions?.includes('generateContent')) {
-          // Extract model ID from full name (e.g., "models/gemini-2.5-flash" -> "gemini-2.5-flash")
-          const id = model.name?.replace('models/', '') || '';
-
-          if (id && isAllowedModel(id)) {
-            // Use raw model ID as display name for clarity
-            models.push({ id, displayName: id });
-          }
+      for await (const model of response) {
+        if (isAllowedModel(model.id)) {
+          // Use raw model ID as display name for clarity
+          models.push({
+            id: model.id,
+            displayName: model.id
+          });
         }
       }
 
-      // Filter out preview models if non-preview version exists
-      const nonPreviewIds = new Set(
-        models.filter(m => !m.id.endsWith('-preview')).map(m => m.id)
-      );
-      models = models.filter(m => {
-        if (!m.id.endsWith('-preview')) return true;
-        // Keep preview only if non-preview doesn't exist
-        const baseId = getBaseModel(m.id);
-        return !nonPreviewIds.has(baseId);
-      });
-
-      // Sort by version (descending) then by type (flash before pro)
+      // Sort: gpt-4.1 > gpt-4o > gpt-5 > o-series, then by variant (base > mini > nano)
       models.sort((a, b) => {
-        // Extract version numbers for comparison (handles both X.X and X formats)
-        const versionA = a.id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] || '0';
-        const versionB = b.id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] || '0';
-
-        // Sort by version descending
-        if (versionA !== versionB) {
-          return versionB.localeCompare(versionA, undefined, { numeric: true });
-        }
-
-        // Within same version: flash < flash-lite < pro
-        const typeOrder = (id: string) => {
-          if (id.includes('-flash-lite')) return 1;
-          if (id.includes('-flash')) return 0;
-          if (id.includes('-pro')) return 2;
-          return 3;
+        const order = (id: string): number => {
+          if (id.startsWith('gpt-4.1')) return 0;
+          if (id.startsWith('gpt-4o')) return 1;
+          if (id.startsWith('gpt-4-turbo')) return 2;
+          if (id.startsWith('gpt-5')) return 3;
+          if (id.startsWith('o')) return 4;
+          return 5;
         };
-        return typeOrder(a.id) - typeOrder(b.id);
+        const variantOrder = (id: string): number => {
+          if (id.includes('-nano')) return 2;
+          if (id.includes('-mini')) return 1;
+          if (id.includes('-pro')) return 3;
+          return 0;
+        };
+
+        const orderDiff = order(a.id) - order(b.id);
+        if (orderDiff !== 0) return orderDiff;
+        return variantOrder(a.id) - variantOrder(b.id);
       });
 
       cachedModels = models;
       return models;
     } catch (error) {
-      console.error('Failed to fetch Gemini models:', error);
+      console.error('Failed to fetch OpenAI models:', error);
       // Return fallback models on error (use raw IDs as display names)
       return [
-        { id: 'gemini-2.5-flash', displayName: 'gemini-2.5-flash' },
-        { id: 'gemini-2.5-pro', displayName: 'gemini-2.5-pro' },
-        { id: 'gemini-2.0-flash', displayName: 'gemini-2.0-flash' },
+        { id: 'gpt-4o-mini', displayName: 'gpt-4o-mini' },
+        { id: 'gpt-4o', displayName: 'gpt-4o' },
+        { id: 'gpt-4.1-mini', displayName: 'gpt-4.1-mini' },
+        { id: 'gpt-4.1', displayName: 'gpt-4.1' },
       ];
     } finally {
       modelsFetchPromise = null;
@@ -160,7 +176,7 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
 /**
  * Get cached models synchronously (returns empty if not yet fetched)
  */
-export function getCachedGeminiModels(): GeminiModelInfo[] {
+export function getCachedOpenAIModels(): OpenAIModelInfo[] {
   return cachedModels || [];
 }
 
@@ -256,48 +272,53 @@ ${movesStr}
 Choose best move (0-${validMoves.length - 1}):`;
 }
 
+// Message type for conversation history
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
 /**
- * Gemini AI Player using @google/genai SDK
+ * OpenAI GPT AI Player using official OpenAI SDK
  */
-class GeminiAI implements AsyncAIPlayer {
+class OpenAIAI implements AsyncAIPlayer {
   readonly name: string;
   readonly isAsync = true as const;
 
-  private ai: GoogleGenAI;
+  private client: OpenAI;
   private model: string;
   private modelDisplayName: string;
-  private chat: Chat | null = null;
+  private messages: ChatMessage[] = [];
   public lastReasoning: string = '';
-  public tokenStats: GeminiTokenStats;
-  public lastDelta: GeminiTokenDelta = {
+  public tokenStats: OpenAITokenStats;
+  public lastDelta: OpenAITokenDelta = {
     promptTokens: 0,
     responseTokens: 0,
-    thoughtTokens: 0,
+    reasoningTokens: 0,
     totalTokens: 0,
     turnTimeMs: 0,
   };
 
   constructor(apiKey: string, model: string = DEFAULT_MODEL) {
-    this.ai = new GoogleGenAI({ apiKey });
+    this.client = new OpenAI({
+      apiKey,
+      dangerouslyAllowBrowser: true
+    });
     this.model = model;
-    // Create display name from model ID (e.g., "gemini-2.5-flash" -> "Gemini 2.5 Flash")
-    const shortName = model.replace('gemini-', '').split('-').map(
-      (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
-    ).join(' ');
-    this.modelDisplayName = `Gemini ${shortName}`;
+    this.modelDisplayName = formatModelName(model);
     this.name = this.modelDisplayName;
 
     // Initialize token stats with model info
     this.tokenStats = {
       promptTokens: 0,
       responseTokens: 0,
-      thoughtTokens: 0,
+      reasoningTokens: 0,
       totalTokens: 0,
       cachedTokens: 0,
       requestCount: 0,
       roundPromptTokens: 0,
       roundResponseTokens: 0,
-      roundThoughtTokens: 0,
+      roundReasoningTokens: 0,
       roundTotalTokens: 0,
       roundRequestCount: 0,
       modelId: model,
@@ -311,34 +332,33 @@ class GeminiAI implements AsyncAIPlayer {
   }
 
   /**
-   * Update token stats from response metadata
+   * Update token stats from response usage metadata
    */
-  private updateTokenStats(usageMetadata: {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
-    totalTokenCount?: number;
-    cachedContentTokenCount?: number;
-    thoughtsTokenCount?: number;
-  } | undefined): void {
-    if (!usageMetadata) return;
+  private updateTokenStats(usage: OpenAI.CompletionUsage | undefined): void {
+    if (!usage) return;
 
-    const promptDelta = usageMetadata.promptTokenCount || 0;
-    const responseDelta = usageMetadata.candidatesTokenCount || 0;
-    const thoughtDelta = usageMetadata.thoughtsTokenCount || 0;
-    const totalDelta = usageMetadata.totalTokenCount || 0;
+    const promptDelta = usage.prompt_tokens || 0;
+    const responseDelta = usage.completion_tokens || 0;
+    // Extract reasoning tokens from completion_tokens_details if available
+    const reasoningDelta = (usage as { completion_tokens_details?: { reasoning_tokens?: number } })
+      .completion_tokens_details?.reasoning_tokens || 0;
+    const totalDelta = usage.total_tokens || 0;
+    // Extract cached tokens from prompt_tokens_details if available
+    const cachedDelta = (usage as { prompt_tokens_details?: { cached_tokens?: number } })
+      .prompt_tokens_details?.cached_tokens || 0;
 
     // Update cumulative stats
     this.tokenStats.promptTokens += promptDelta;
     this.tokenStats.responseTokens += responseDelta;
-    this.tokenStats.thoughtTokens += thoughtDelta;
+    this.tokenStats.reasoningTokens += reasoningDelta;
     this.tokenStats.totalTokens += totalDelta;
-    this.tokenStats.cachedTokens += usageMetadata.cachedContentTokenCount || 0;
+    this.tokenStats.cachedTokens += cachedDelta;
     this.tokenStats.requestCount += 1;
 
     // Update round-specific stats
     this.tokenStats.roundPromptTokens += promptDelta;
     this.tokenStats.roundResponseTokens += responseDelta;
-    this.tokenStats.roundThoughtTokens += thoughtDelta;
+    this.tokenStats.roundReasoningTokens += reasoningDelta;
     this.tokenStats.roundTotalTokens += totalDelta;
     this.tokenStats.roundRequestCount += 1;
 
@@ -346,7 +366,7 @@ class GeminiAI implements AsyncAIPlayer {
     this.lastDelta = {
       promptTokens: promptDelta,
       responseTokens: responseDelta,
-      thoughtTokens: thoughtDelta,
+      reasoningTokens: reasoningDelta,
       totalTokens: totalDelta,
       turnTimeMs: 0,
     };
@@ -379,13 +399,13 @@ class GeminiAI implements AsyncAIPlayer {
     this.tokenStats = {
       promptTokens: 0,
       responseTokens: 0,
-      thoughtTokens: 0,
+      reasoningTokens: 0,
       totalTokens: 0,
       cachedTokens: 0,
       requestCount: 0,
       roundPromptTokens: 0,
       roundResponseTokens: 0,
-      roundThoughtTokens: 0,
+      roundReasoningTokens: 0,
       roundTotalTokens: 0,
       roundRequestCount: 0,
       modelId: this.model,
@@ -399,7 +419,7 @@ class GeminiAI implements AsyncAIPlayer {
     this.lastDelta = {
       promptTokens: 0,
       responseTokens: 0,
-      thoughtTokens: 0,
+      reasoningTokens: 0,
       totalTokens: 0,
       turnTimeMs: 0,
     };
@@ -411,34 +431,24 @@ class GeminiAI implements AsyncAIPlayer {
   resetRoundStats(): void {
     this.tokenStats.roundPromptTokens = 0;
     this.tokenStats.roundResponseTokens = 0;
-    this.tokenStats.roundThoughtTokens = 0;
+    this.tokenStats.roundReasoningTokens = 0;
     this.tokenStats.roundTotalTokens = 0;
     this.tokenStats.roundRequestCount = 0;
     this.tokenStats.roundTotalTimeMs = 0;
   }
 
   /**
-   * Start a new round - create fresh chat session
+   * Start a new round - create fresh conversation
    */
   startRound(): void {
     // Reset round-specific stats
     this.resetRoundStats();
 
-    this.chat = this.ai.chats.create({
-      model: this.model,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            moveIndex: { type: Type.INTEGER },
-            reasoning: { type: Type.STRING },
-          },
-          required: ['moveIndex', 'reasoning'],
-        },
-      },
-    });
+    // Initialize messages with system instruction
+    this.messages = [{
+      role: 'system',
+      content: SYSTEM_INSTRUCTION
+    }];
     this.lastReasoning = '';
   }
 
@@ -446,11 +456,11 @@ class GeminiAI implements AsyncAIPlayer {
    * End the current round
    */
   endRound(): void {
-    this.chat = null;
+    this.messages = [];
   }
 
   /**
-   * Select a move using Gemini AI
+   * Select a move using OpenAI GPT
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
     const { hand, table, player, validMoves } = context;
@@ -463,8 +473,8 @@ class GeminiAI implements AsyncAIPlayer {
       throw new Error('No valid moves available');
     }
 
-    // Create chat session if not exists
-    if (!this.chat) {
+    // Create conversation if not exists
+    if (this.messages.length === 0) {
       this.startRound();
     }
 
@@ -473,13 +483,39 @@ class GeminiAI implements AsyncAIPlayer {
       const prompt = buildPrompt(context);
       const startTime = performance.now();
       try {
-        // Wait for response to keep chat session in sync
-        const response = await this.chat!.sendMessage({ message: prompt });
+        // Add user message
+        this.messages.push({ role: 'user', content: prompt });
+
+        const response = await this.client.chat.completions.create({
+          model: this.model,
+          messages: this.messages,
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'move_selection',
+              schema: {
+                type: 'object',
+                properties: {
+                  moveIndex: { type: 'integer' },
+                  reasoning: { type: 'string' }
+                },
+                required: ['moveIndex', 'reasoning'],
+                additionalProperties: false
+              },
+              strict: true
+            }
+          }
+        });
         const turnTime = performance.now() - startTime;
-        this.updateTokenStats(response.usageMetadata);
+        this.updateTokenStats(response.usage);
         this.updateTimingStats(turnTime);
+
+        // Add assistant response to maintain context
+        const content = response.choices[0]?.message?.content || '';
+        this.messages.push({ role: 'assistant', content });
       } catch (e) {
         // Ignore errors for single-move updates
+        console.warn('[OpenAI] Error on single-move turn:', e);
       }
       this.lastReasoning = 'Only one move available.';
       return validMoves[0];
@@ -487,30 +523,54 @@ class GeminiAI implements AsyncAIPlayer {
 
     try {
       const prompt = buildPrompt(context);
-      const startTime = performance.now();
-      const response = await this.chat!.sendMessage({ message: prompt });
-      const turnTime = performance.now() - startTime;
-      this.updateTokenStats(response.usageMetadata);
-      this.updateTimingStats(turnTime);
-      const jsonText = response.text;
+      this.messages.push({ role: 'user', content: prompt });
 
-      if (!jsonText) {
+      const startTime = performance.now();
+      const response = await this.client.chat.completions.create({
+        model: this.model,
+        messages: this.messages,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'move_selection',
+            schema: {
+              type: 'object',
+              properties: {
+                moveIndex: { type: 'integer' },
+                reasoning: { type: 'string' }
+              },
+              required: ['moveIndex', 'reasoning'],
+              additionalProperties: false
+            },
+            strict: true
+          }
+        }
+      });
+      const turnTime = performance.now() - startTime;
+      this.updateTokenStats(response.usage);
+      this.updateTimingStats(turnTime);
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
         throw new Error('Empty response from AI');
       }
 
-      const result = JSON.parse(jsonText);
+      // Add assistant response to messages for context
+      this.messages.push({ role: 'assistant', content });
+
+      const result = JSON.parse(content);
       const index = result.moveIndex;
       this.lastReasoning = result.reasoning || '';
 
       if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
-        console.log(`[Gemini] ${this.lastReasoning}`);
+        console.log(`[OpenAI] ${this.lastReasoning}`);
         return validMoves[index];
       }
 
-      console.warn(`[Gemini] Invalid moveIndex ${index}, using first valid move`);
+      console.warn(`[OpenAI] Invalid moveIndex ${index}, using first valid move`);
       return validMoves[0];
     } catch (error) {
-      console.error('Gemini AI error, falling back to random:', error);
+      console.error('OpenAI AI error, falling back to random:', error);
       this.lastReasoning = 'Error occurred, random fallback.';
       return randomAI.selectMove({ hand, table, player });
     }
@@ -518,29 +578,29 @@ class GeminiAI implements AsyncAIPlayer {
 }
 
 /**
- * Check if Gemini API key is available
+ * Check if OpenAI API key is available
  */
-export function isGeminiAvailable(): boolean {
-  return !!import.meta.env.VITE_GEMINI_API_KEY;
+export function isOpenAIAvailable(): boolean {
+  return !!import.meta.env.VITE_OPENAI_API_KEY;
 }
 
 /**
- * Get the Gemini API key from environment
+ * Get the OpenAI API key from environment
  */
-export function getGeminiApiKey(): string | null {
-  return import.meta.env.VITE_GEMINI_API_KEY || null;
+export function getOpenAIApiKey(): string | null {
+  return import.meta.env.VITE_OPENAI_API_KEY || null;
 }
 
 /**
- * Create a Gemini AI player instance
+ * Create an OpenAI AI player instance
  */
-export function createGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
-  const apiKey = getGeminiApiKey();
+export function createOpenAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+  const apiKey = getOpenAIApiKey();
   if (!apiKey) {
-    console.warn('Gemini API key not found. Set VITE_GEMINI_API_KEY in .env.local');
+    console.warn('OpenAI API key not found. Set VITE_OPENAI_API_KEY in .env.local');
     return null;
   }
-  return new GeminiAI(apiKey, model);
+  return new OpenAIAI(apiKey, model);
 }
 
 // Cached instance with model tracking
@@ -548,10 +608,10 @@ let cachedInstance: AsyncAIPlayer | null = null;
 let cachedModelId: string | null = null;
 
 /**
- * Get a Gemini AI instance (cached if same model)
+ * Get an OpenAI AI instance (cached if same model)
  */
-export function getGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
-  if (!isGeminiAvailable()) {
+export function getOpenAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+  if (!isOpenAIAvailable()) {
     return null;
   }
 
@@ -561,23 +621,23 @@ export function getGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null
   }
 
   // Create new instance for different model
-  cachedInstance = createGeminiAI(model);
+  cachedInstance = createOpenAI(model);
   cachedModelId = model;
   return cachedInstance;
 }
 
 /**
- * Get the default Gemini model ID
+ * Get the default OpenAI model ID
  */
-export function getDefaultGeminiModel(): string {
+export function getDefaultOpenAIModel(): string {
   return DEFAULT_MODEL;
 }
 
 /**
- * Get token stats from the cached Gemini AI instance
+ * Get token stats from the cached OpenAI AI instance
  */
-export function getGeminiTokenStats(): GeminiTokenStats | null {
-  const instance = cachedInstance as GeminiAI | null;
+export function getOpenAITokenStats(): OpenAITokenStats | null {
+  const instance = cachedInstance as OpenAIAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -585,10 +645,10 @@ export function getGeminiTokenStats(): GeminiTokenStats | null {
 }
 
 /**
- * Get last turn delta from the cached Gemini AI instance
+ * Get last turn delta from the cached OpenAI AI instance
  */
-export function getGeminiTokenDelta(): GeminiTokenDelta | null {
-  const instance = cachedInstance as GeminiAI | null;
+export function getOpenAITokenDelta(): OpenAITokenDelta | null {
+  const instance = cachedInstance as OpenAIAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }
@@ -596,30 +656,30 @@ export function getGeminiTokenDelta(): GeminiTokenDelta | null {
 }
 
 /**
- * Reset token stats on the cached Gemini AI instance
+ * Reset token stats on the cached OpenAI AI instance
  */
-export function resetGeminiTokenStats(): void {
-  const instance = cachedInstance as GeminiAI | null;
+export function resetOpenAITokenStats(): void {
+  const instance = cachedInstance as OpenAIAI | null;
   if (instance && 'resetTokenStats' in instance) {
     instance.resetTokenStats();
   }
 }
 
 /**
- * Start a new round on the cached Gemini AI instance (creates fresh chat session)
+ * Start a new round on the cached OpenAI AI instance (creates fresh conversation)
  */
-export function startGeminiRound(): void {
-  const instance = cachedInstance as GeminiAI | null;
+export function startOpenAIRound(): void {
+  const instance = cachedInstance as OpenAIAI | null;
   if (instance && 'startRound' in instance) {
     instance.startRound();
   }
 }
 
 /**
- * End the current round on the cached Gemini AI instance (clears chat session)
+ * End the current round on the cached OpenAI AI instance (clears conversation)
  */
-export function endGeminiRound(): void {
-  const instance = cachedInstance as GeminiAI | null;
+export function endOpenAIRound(): void {
+  const instance = cachedInstance as OpenAIAI | null;
   if (instance && 'endRound' in instance) {
     instance.endRound();
   }

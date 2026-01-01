@@ -1,11 +1,13 @@
 // Step 8.4: RoundEndScreen Component with card display and hover highlighting
 
 import { useState, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import type { Card, RoundScore } from '../../game/types';
-import type { GeminiTokenStats } from '../../ai';
+import type { GeminiTokenStats, ExtendedAIType } from '../../ai';
 import { PRIME_VALUES, SUITS } from '../../game/constants';
 import { CardImage } from '../Card/CardImage';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
+import { AIPlayerLabel } from './AIPlayerLabel';
 import { useDeck } from '../../contexts/DeckContext';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './RoundEndScreen.module.css';
@@ -93,14 +95,22 @@ interface RoundEndScreenProps {
   isGameOver?: boolean;
   onNextRound: () => void;
   onShowGameEnd?: () => void;
-  /** Player 1 name (defaults to "You") */
+  /** Player 1 name (defaults to "You", fallback if AI type not provided) */
   player1Name?: string;
-  /** Player 2 name (defaults to "CPU") */
+  /** Player 2 name (defaults to "CPU", fallback if AI type not provided) */
   player2Name?: string;
-  /** Token stats for player 1 (if using Gemini) */
+  /** Token stats for player 1 (if using LLM) */
   player1TokenStats?: GeminiTokenStats | null;
-  /** Token stats for player 2 (if using Gemini) */
+  /** Token stats for player 2 (if using LLM) */
   player2TokenStats?: GeminiTokenStats | null;
+  /** Player 1 AI type (for rendering proper icon) */
+  player1AIType?: ExtendedAIType;
+  /** Player 1 model (for LLM AIs) */
+  player1Model?: string;
+  /** Player 2 AI type (for rendering proper icon) */
+  player2AIType?: ExtendedAIType;
+  /** Player 2 model (for LLM AIs) */
+  player2Model?: string;
 }
 
 // Get the best prime card for each suit
@@ -156,9 +166,28 @@ export function RoundEndScreen({
   player2Name = 'CPU',
   player1TokenStats,
   player2TokenStats,
+  player1AIType,
+  player1Model,
+  player2AIType,
+  player2Model,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
   const deckType = useDeck();
+
+  // Render player names with proper AI icons
+  const renderPlayer1Name = (): ReactNode => {
+    if (player1AIType) {
+      return <AIPlayerLabel aiType={player1AIType} model={player1Model} />;
+    }
+    return player1Name;
+  };
+
+  const renderPlayer2Name = (): ReactNode => {
+    if (player2AIType) {
+      return <AIPlayerLabel aiType={player2AIType} model={player2Model} />;
+    }
+    return player2Name;
+  };
 
   // Helper to format primiera score
   const formatPrime = (prime: number | null) => prime !== null ? prime.toString() : '-';
@@ -251,8 +280,8 @@ export function RoundEndScreen({
       {/* Human cards on the left */}
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>{player1Name}'s Cards</span>
-          {player1TokenStats && <TokenStatsDisplay stats={player1TokenStats} show={!!player1TokenStats} mode="round" position="bottom" />}
+          <span>{renderPlayer1Name()}'s Cards</span>
+          {player1TokenStats && <TokenStatsDisplay stats={player1TokenStats} show={!!player1TokenStats} mode="round" position="bottom" modelName={player1Model} />}
         </div>
         <div className={styles.cardGrid}>
           {humanCaptured.map(card => (
@@ -274,8 +303,8 @@ export function RoundEndScreen({
           <thead>
             <tr>
               <th>Category</th>
-              <th>{player1Name}</th>
-              <th>{player2Name}</th>
+              <th>{renderPlayer1Name()}</th>
+              <th>{renderPlayer2Name()}</th>
             </tr>
           </thead>
           <tbody>
@@ -314,12 +343,12 @@ export function RoundEndScreen({
 
         <div className={styles.cumulativeScores}>
           <div className={styles.scoreBox}>
-            <span className={styles.scoreLabel}>{player1Name}</span>
+            <span className={styles.scoreLabel}>{renderPlayer1Name()}</span>
             <span className={styles.scoreValue}>{cumulativeHuman}</span>
           </div>
           <span className={styles.scoreDivider}>-</span>
           <div className={styles.scoreBox}>
-            <span className={styles.scoreLabel}>{player2Name}</span>
+            <span className={styles.scoreLabel}>{renderPlayer2Name()}</span>
             <span className={styles.scoreValue}>{cumulativeCpu}</span>
           </div>
         </div>
@@ -335,8 +364,8 @@ export function RoundEndScreen({
       {/* CPU cards on the right */}
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>{player2Name}'s Cards</span>
-          {player2TokenStats && <TokenStatsDisplay stats={player2TokenStats} show={!!player2TokenStats} mode="round" position="bottom" />}
+          <span>{renderPlayer2Name()}'s Cards</span>
+          {player2TokenStats && <TokenStatsDisplay stats={player2TokenStats} show={!!player2TokenStats} mode="round" position="bottom" modelName={player2Model} />}
         </div>
         <div className={styles.cardGrid}>
           {cpuCaptured.map(card => (

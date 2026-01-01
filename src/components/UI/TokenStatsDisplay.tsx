@@ -1,4 +1,4 @@
-// Token Stats Display Component for Gemini AI
+// Token Stats Display Component for LLM AIs (Gemini, OpenAI)
 
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../ai';
 import styles from './TokenStatsDisplay.module.css';
@@ -11,6 +11,8 @@ interface TokenStatsDisplayProps {
   position?: 'top' | 'bottom';
   /** Display mode: 'round' shows round-only stats, 'game' shows cumulative */
   mode?: 'round' | 'game';
+  /** Model name to display when stats not yet available */
+  modelName?: string;
 }
 
 export function TokenStatsDisplay({
@@ -19,6 +21,7 @@ export function TokenStatsDisplay({
   show = false,
   position = 'top',
   mode = 'game',
+  modelName,
 }: TokenStatsDisplayProps) {
   // Show if explicitly requested or if there are stats
   if (!show && (!stats || stats.requestCount === 0)) {
@@ -58,7 +61,7 @@ export function TokenStatsDisplay({
     roundTotalTokens: 0,
     roundRequestCount: 0,
     modelId: '',
-    modelDisplayName: 'Gemini',
+    modelDisplayName: modelName || 'AI',
     totalTimeMs: 0,
     lastTurnTimeMs: 0,
     minTurnTimeMs: 0,
@@ -66,6 +69,9 @@ export function TokenStatsDisplay({
     roundTotalTimeMs: 0,
   };
   const s = stats || defaultStats;
+
+  // Use modelName prop if provided, otherwise fall back to stats modelDisplayName
+  const displayModelName = modelName || s.modelDisplayName || 'AI';
 
   // Format time in seconds
   const formatTime = (ms: number) => {
@@ -115,7 +121,7 @@ export function TokenStatsDisplay({
       {/* Popup table on hover */}
       <div className={`${styles.popup} ${positionClass}`}>
         <div className={styles.header}>
-          {s.modelDisplayName || 'Gemini'}
+          {displayModelName}
           <span className={styles.modeLabel}>
             {mode === 'round' ? ' (Round)' : ' (Game)'}
           </span>

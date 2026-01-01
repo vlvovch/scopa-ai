@@ -490,13 +490,74 @@
 
 ---
 
+## Phase 23: OpenAI GPT AI Integration
+
+- [x] Step 23.1: Install OpenAI SDK package - Completed 2026-01-01
+- [x] Step 23.2: Create OpenAI AI implementation with structured outputs - Completed 2026-01-01
+- [x] Step 23.3: Add OpenAI token stats (including reasoning tokens for o-series) - Completed 2026-01-01
+- [x] Step 23.4: Implement model fetching with allowlist pattern - Completed 2026-01-01
+- [x] Step 23.5: Update AI index exports - Completed 2026-01-01
+- [x] Step 23.6: Add openaiModel to settings - Completed 2026-01-01
+- [x] Step 23.7: Integrate OpenAI AI into App.tsx - Completed 2026-01-01
+- [x] Step 23.8: Add OpenAI model selection to StartScreen - Completed 2026-01-01
+
+**Notes:**
+- Created `src/ai/openai.ts` following the same patterns as Gemini implementation
+- OpenAI SDK uses `dangerouslyAllowBrowser: true` for client-side usage
+- Structured JSON output via `response_format: { type: 'json_schema', json_schema: { ... }, strict: true }`
+- Token stats track: promptTokens, responseTokens, reasoningTokens (for o-series), totalTokens, cachedTokens
+- Model allowlist patterns support: gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o-series (o1, o3, o4-mini)
+- Multi-turn conversation via messages array (maintained across turns within a round)
+- Same system instruction as Gemini (full Scopa rules, scoring, prime values)
+- Added `isLLMAI()` helper for unified Gemini/OpenAI checks
+- Token stats display works for both Gemini and OpenAI (uses unified thoughtTokens/reasoningTokens handling)
+- API key loaded from `VITE_OPENAI_API_KEY` environment variable
+- Graceful fallback to heuristic AI if API key not available
+- 135 tests passing
+
+---
+
+## Phase 24: OpenAI Icon Integration & UI Polish
+
+- [x] Step 24.1: Create OpenAI blossom logo SVG icon - Completed 2026-01-01
+- [x] Step 24.2: Create AIPlayerLabel component with proper icons - Completed 2026-01-01
+- [x] Step 24.3: Integrate AIPlayerLabel into ScoreBoard, CapturedPile, RoundEndScreen, GameEndScreen - Completed 2026-01-01
+- [x] Step 24.4: Fix Gemini single-turn option in StartScreen - Completed 2026-01-01
+- [x] Step 24.5: Fix duplicate OpenAI models (remove date-suffixed variants) - Completed 2026-01-01
+- [x] Step 24.6: Fix dropdown layout wrapping (3 dropdowns on same row) - Completed 2026-01-01
+- [x] Step 24.7: Use raw model IDs as display names - Completed 2026-01-01
+- [x] Step 24.8: Add gpt-5-nano to OpenAI model patterns - Completed 2026-01-01
+- [x] Step 24.9: Fix TokenStatsDisplay showing "Gemini" for OpenAI - Completed 2026-01-01
+
+**Notes:**
+- Created `OpenAIIcon` component with official OpenAI blossom logo SVG
+- Created `AIPlayerLabel` component that renders proper icons for each AI type:
+  - OpenAI: Blossom SVG icon
+  - Gemini: Sparkle SVG icon (✦)
+  - Scimmietta: 🐒 emoji
+  - Furbo: 🦊 emoji
+- Updated UI components to pass AI type/model props and render `AIPlayerLabel`
+- HTML `<option>` elements still use text fallback icons (⬡, ✦) since SVG not supported
+- Fixed Gemini single-turn missing from dropdown by expanding `AIProvider` type
+- AI provider dropdown now shows: "Gemini 💬", "Gemini 1️⃣", "OpenAI 💬"
+- Removed date-suffix patterns from OpenAI model regex to prevent duplicates
+- Updated model allowlist to include gpt-5-nano: `/^gpt-5(\.\d+)?(-mini|-nano)?$/`
+- Model dropdowns now show raw IDs (e.g., "gemini-2.5-flash", "gpt-4o-mini") instead of formatted names
+- Fixed dropdown layout: `flex-wrap: nowrap`, container width 420px → 480px
+- TokenStatsDisplay now accepts `modelName` prop, displays correct model name from start
+- OpenAI brand guidelines allow logo usage with restrictions (non-exclusive, non-transferable, follow guidelines)
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics (Siciliane suits available, card faces pending)
-- Selectable AI opponents (Random, Greedy heuristic, or Gemini LLM)
+- Selectable AI opponents (Random, Greedy heuristic, Gemini LLM, or OpenAI GPT)
 - Gemini AI with multi-turn chat sessions, token tracking, and model selection
+- OpenAI GPT AI with structured outputs, reasoning tokens support, and model selection
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
 - Deck-aware custom SVG icons for score categories
@@ -507,4 +568,4 @@ The Scopa game is now fully playable with:
 - Settings persistence (including AI selection and deck choice)
 - New game and settings controls
 - Compact, polished StartScreen UI
-- Token usage display for LLM AI games
+- Token usage display for LLM AI games (both Gemini and OpenAI)

@@ -16,8 +16,10 @@ export interface GameSettings {
   cpuAI: ExtendedAIType;
   /** Card deck style */
   deck: DeckType;
-  /** Gemini model to use (when cpuAI is 'gemini') */
+  /** Gemini model to use (when cpuAI is 'gemini' or 'gemini-singleturn') */
   geminiModel: string;
+  /** OpenAI model to use (when cpuAI is 'openai') */
+  openaiModel: string;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -29,6 +31,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   cpuAI: 'heuristic',
   deck: 'napoletane',
   geminiModel: 'gemini-2.5-flash',
+  openaiModel: 'gpt-4o-mini',
 };
 
 function loadSettings(): GameSettings {

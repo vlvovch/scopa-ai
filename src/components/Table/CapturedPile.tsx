@@ -1,8 +1,11 @@
 // Step 7.6: CapturedPile Component with enhanced stats
 
 import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import type { Card as CardType, PlayerId } from '../../game/types';
+import type { ExtendedAIType } from '../../ai';
 import { Card } from '../Card/Card';
+import { AIPlayerLabel } from '../UI/AIPlayerLabel';
 import styles from './CapturedPile.module.css';
 
 interface CapturedPileProps {
@@ -12,11 +15,15 @@ interface CapturedPileProps {
   scopaCount: number;
   /** Which player's pile this is */
   player: PlayerId;
-  /** Optional custom label (for spectator mode) */
+  /** Optional custom label (for spectator mode, fallback if aiType not provided) */
   playerLabel?: string;
+  /** AI type for this player (for rendering proper icon) */
+  aiType?: ExtendedAIType;
+  /** Model ID for LLM AIs */
+  aiModel?: string;
 }
 
-export function CapturedPile({ cards, scopaCount, player, playerLabel }: CapturedPileProps) {
+export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel }: CapturedPileProps) {
   // Show top 3 cards of the pile for visual stacking effect
   const visibleCards = cards.slice(-3);
 
@@ -27,12 +34,17 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel }: Capture
     return { denariCount, hasSetteBello };
   }, [cards]);
 
-  // Default labels, use custom label if provided
-  const displayLabel = playerLabel ?? (player === 'human' ? 'You' : 'CPU');
+  // Render player label with proper AI icon if available
+  const renderLabel = (): ReactNode => {
+    if (aiType) {
+      return <AIPlayerLabel aiType={aiType} model={aiModel} />;
+    }
+    return playerLabel ?? (player === 'human' ? 'You' : 'CPU');
+  };
 
   return (
     <div className={styles.pile}>
-      <span className={styles.playerLabel}>{displayLabel}</span>
+      <span className={styles.playerLabel}>{renderLabel()}</span>
 
       <div className={styles.pileStack}>
         {cards.length === 0 ? (

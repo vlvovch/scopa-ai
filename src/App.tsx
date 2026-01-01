@@ -18,8 +18,8 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound } from './ai';
-import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound } from './ai';
+import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId } from './game/types';
@@ -80,82 +80,83 @@ function App() {
 
   // Helper to check if an AI type is a Gemini variant (use exported function)
   const isGeminiAI = isGeminiAIType;
-
-  // Helper to get display name with icon from AI_INFO
-  // For Gemini, shows full model name with mode indicator (💬 multi-turn, 1️⃣ single-turn)
-  const getAIDisplayName = useCallback((aiType: ExtendedAIType, model?: string) => {
-    const icon = AI_INFO[aiType].icon;
-    if (isGeminiAI(aiType)) {
-      // Format model name: "gemini-2.5-flash" -> "Gemini 2.5 Flash"
-      const modelId = model || settings.geminiModel;
-      const displayName = modelId
-        .replace('gemini-', 'Gemini ')
-        .split('-')
-        .map((part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ');
-      const modeIcon = aiType === 'gemini-singleturn' ? '1️⃣' : '💬';
-      return `${icon} ${displayName} ${modeIcon}`;
-    }
-    // Traditional AI
-    return `${icon} ${AI_INFO[aiType].name}`;
-  }, [settings.geminiModel]);
+  // Helper to check if an AI type is an OpenAI variant (use exported function)
+  const isOpenAIAI = isOpenAIAIType;
+  // Helper to check if an AI type is any LLM (Gemini or OpenAI)
+  const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType), []);
 
   // Helper to get delta for a specific AI type
-  const getDeltaForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenDelta | null => {
+  // Returns a unified delta type (Gemini and OpenAI deltas are structurally compatible)
+  const getDeltaForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenDelta | OpenAITokenDelta | null => {
     if (aiType === 'gemini-singleturn') {
       return getGeminiSingleTurnTokenDelta();
     } else if (aiType === 'gemini') {
       return getGeminiTokenDelta();
+    } else if (aiType === 'openai') {
+      return getOpenAITokenDelta();
     }
     return null;
   }, []);
 
   // Helper to get full stats for a specific AI type
-  const getStatsForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenStats | null => {
+  // Returns a unified stats type (Gemini and OpenAI stats are structurally compatible)
+  const getStatsForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenStats | OpenAITokenStats | null => {
     if (aiType === 'gemini-singleturn') {
       return getGeminiSingleTurnTokenStats();
     } else if (aiType === 'gemini') {
       return getGeminiTokenStats();
+    } else if (aiType === 'openai') {
+      return getOpenAITokenStats();
     }
     return null;
   }, []);
 
   // Helper to update token stats for single player mode
   const updateTokenStats = useCallback(() => {
-    if (!isSpectatorMode && isGeminiAI(settings.cpuAI)) {
+    if (!isSpectatorMode && isLLMAI(settings.cpuAI)) {
       const stats = getStatsForAIType(settings.cpuAI);
       const delta = getDeltaForAIType(settings.cpuAI);
-      setTokenStats(stats);
-      setTokenDelta(delta);
+      setTokenStats(stats as GeminiTokenStats);
+      setTokenDelta(delta as GeminiTokenDelta);
     }
-  }, [isSpectatorMode, settings.cpuAI, getStatsForAIType, getDeltaForAIType]);
+  }, [isSpectatorMode, settings.cpuAI, getStatsForAIType, getDeltaForAIType, isLLMAI]);
 
   // Helper to accumulate delta into existing stats
   const accumulateStats = useCallback((
     prevStats: GeminiTokenStats | null,
-    delta: GeminiTokenDelta | null,
-    model: string
+    delta: GeminiTokenDelta | OpenAITokenDelta | null,
+    model: string,
+    aiType: ExtendedAIType
   ): GeminiTokenStats | null => {
     if (!delta) return prevStats;
 
     // Create display name from model
-    const shortName = model.replace('gemini-', '').split('-').map(
-      (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
-    ).join(' ');
-    const modelDisplayName = `Gemini ${shortName}`;
+    let modelDisplayName: string;
+    if (isOpenAIAI(aiType)) {
+      const shortName = model.replace(/^gpt-/i, '').replace(/^o(\d)/, 'O$1');
+      modelDisplayName = `GPT ${shortName}`;
+    } else {
+      const shortName = model.replace('gemini-', '').split('-').map(
+        (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
+      ).join(' ');
+      modelDisplayName = `Gemini ${shortName}`;
+    }
+
+    // Get thought/reasoning tokens (Gemini uses thoughtTokens, OpenAI uses reasoningTokens)
+    const thoughtDelta = 'thoughtTokens' in delta ? delta.thoughtTokens : ('reasoningTokens' in delta ? delta.reasoningTokens : 0);
 
     if (!prevStats) {
       // Initialize new stats from first delta
       return {
         promptTokens: delta.promptTokens,
         responseTokens: delta.responseTokens,
-        thoughtTokens: delta.thoughtTokens,
+        thoughtTokens: thoughtDelta,
         totalTokens: delta.totalTokens,
         cachedTokens: 0,
         requestCount: delta.totalTokens > 0 ? 1 : 0, // Only count if actual API call
         roundPromptTokens: delta.promptTokens,
         roundResponseTokens: delta.responseTokens,
-        roundThoughtTokens: delta.thoughtTokens,
+        roundThoughtTokens: thoughtDelta,
         roundTotalTokens: delta.totalTokens,
         roundRequestCount: delta.totalTokens > 0 ? 1 : 0,
         modelId: model,
@@ -185,12 +186,12 @@ function App() {
       ...prevStats,
       promptTokens: prevStats.promptTokens + delta.promptTokens,
       responseTokens: prevStats.responseTokens + delta.responseTokens,
-      thoughtTokens: prevStats.thoughtTokens + delta.thoughtTokens,
+      thoughtTokens: prevStats.thoughtTokens + thoughtDelta,
       totalTokens: prevStats.totalTokens + delta.totalTokens,
       requestCount: prevStats.requestCount + (delta.totalTokens > 0 ? 1 : 0),
       roundPromptTokens: prevStats.roundPromptTokens + delta.promptTokens,
       roundResponseTokens: prevStats.roundResponseTokens + delta.responseTokens,
-      roundThoughtTokens: prevStats.roundThoughtTokens + delta.thoughtTokens,
+      roundThoughtTokens: prevStats.roundThoughtTokens + thoughtDelta,
       roundTotalTokens: prevStats.roundTotalTokens + delta.totalTokens,
       roundRequestCount: prevStats.roundRequestCount + (delta.totalTokens > 0 ? 1 : 0),
       totalTimeMs: prevStats.totalTimeMs + delta.turnTimeMs,
@@ -199,24 +200,24 @@ function App() {
       maxTurnTimeMs: newMaxTime,
       roundTotalTimeMs: prevStats.roundTotalTimeMs + delta.turnTimeMs,
     };
-  }, []);
+  }, [isOpenAIAI]);
 
   // Helper to update token stats for a specific player in spectator mode
   const updatePlayerTokenStats = useCallback((player: 'player1' | 'player2') => {
     const aiType = player === 'player1' ? spectatorAIs.player1 : spectatorAIs.player2;
     const model = player === 'player1' ? spectatorModels.player1 : spectatorModels.player2;
-    if (!isGeminiAI(aiType)) return;
+    if (!isLLMAI(aiType)) return;
 
     const delta = getDeltaForAIType(aiType);
 
     if (player === 'player1') {
-      setPlayer1TokenDelta(delta);
-      setPlayer1TokenStats(prev => accumulateStats(prev, delta, model));
+      setPlayer1TokenDelta(delta as GeminiTokenDelta);
+      setPlayer1TokenStats(prev => accumulateStats(prev, delta, model, aiType));
     } else {
-      setPlayer2TokenDelta(delta);
-      setPlayer2TokenStats(prev => accumulateStats(prev, delta, model));
+      setPlayer2TokenDelta(delta as GeminiTokenDelta);
+      setPlayer2TokenStats(prev => accumulateStats(prev, delta, model, aiType));
     }
-  }, [spectatorAIs, spectatorModels, getDeltaForAIType, accumulateStats]);
+  }, [spectatorAIs, spectatorModels, getDeltaForAIType, accumulateStats, isLLMAI]);
 
   // Animation speed multipliers based on settings
   const getAnimationDelay = useCallback((baseMs: number) => {
@@ -226,21 +227,29 @@ function App() {
 
   // Get AI player instance for a given AI type and model
   const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string): AnyAIPlayer => {
-    const geminiModel = model || settings.geminiModel;
     if (aiType === 'gemini') {
+      const geminiModel = model || settings.geminiModel;
       const gemini = getGeminiAI(geminiModel);
       if (gemini) return gemini;
       // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'gemini-singleturn') {
+      const geminiModel = model || settings.geminiModel;
       const gemini = getGeminiSingleTurnAI(geminiModel);
       if (gemini) return gemini;
       // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
     }
+    if (aiType === 'openai') {
+      const openaiModel = model || settings.openaiModel;
+      const openai = getOpenAI(openaiModel);
+      if (openai) return openai;
+      // Fallback to heuristic if OpenAI not available
+      return AI_PLAYERS.heuristic;
+    }
     return AI_PLAYERS[aiType];
-  }, [settings.geminiModel]);
+  }, [settings.geminiModel, settings.openaiModel]);
 
   // Build extended context for LLM AI
   const buildLLMContext = useCallback((
@@ -659,7 +668,7 @@ function App() {
     const timeoutId = setTimeout(async () => {
       // Use selected AI to select move (use spectator AI in spectator mode)
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
-      const model = isSpectatorMode ? spectatorModels.player2 : settings.geminiModel;
+      const model = isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel);
       const ai = getAIPlayer(aiType, model);
 
       let moveToExecute: Move;
@@ -771,9 +780,10 @@ function App() {
 
     // Longer delay before showing round summary to let final animations complete
     const timeoutId = setTimeout(() => {
-      // Clear sessions for both Gemini types (no-op if not active)
+      // Clear sessions for all LLM types (no-op if not active)
       endGeminiRound();
       endGeminiSingleTurnRound();
+      endOpenAIRound();
       endRound();
     }, 1500);
 
@@ -841,6 +851,7 @@ function App() {
   const resetAllTokenStats = useCallback(() => {
     resetGeminiTokenStats();
     resetGeminiSingleTurnTokenStats();
+    resetOpenAITokenStats();
     setTokenStats(null);
     setTokenDelta(null);
     setPlayer1TokenStats(null);
@@ -851,11 +862,12 @@ function App() {
 
   // Handle starting a new game (wraps startGame to reset token stats)
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
-    // Reset token stats for both Gemini types
+    // Reset token stats for all LLM types
     resetAllTokenStats();
-    // Start fresh sessions for both types (no-op if not active)
+    // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
+    startOpenAIRound();
     startGame(targetScore, gameMode);
   }, [startGame, resetAllTokenStats]);
 
@@ -895,9 +907,10 @@ function App() {
 
   // Handle next round (wraps nextRound to start fresh chat session)
   const handleNextRound = useCallback(() => {
-    // Start fresh sessions for both types (no-op if not active)
+    // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
+    startOpenAIRound();
     nextRound();
   }, [nextRound]);
 
@@ -1023,6 +1036,8 @@ function App() {
           onSelectSpectatorAI={handleSelectSpectatorAI}
           geminiModel={settings.geminiModel}
           onSelectGeminiModel={(model) => updateSetting('geminiModel', model)}
+          openaiModel={settings.openaiModel}
+          onSelectOpenAIModel={(model) => updateSetting('openaiModel', model)}
           spectatorModels={spectatorModels}
           onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
           defaultTargetScore={settings.defaultTargetScore}
@@ -1055,13 +1070,15 @@ function App() {
           isGameOver={state.isGameOver}
           onNextRound={handleNextRound}
           onShowGameEnd={showGameEnd}
-          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
-          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
-          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? player1TokenStats : null}
+          player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
+          player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
+          player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
+          player2Model={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+          player1TokenStats={isSpectatorMode && isLLMAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? isGeminiAI(spectatorAIs.player2) ? player2TokenStats : null
-              : isGeminiAI(settings.cpuAI) ? tokenStats : null
+              ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
+              : isLLMAI(settings.cpuAI) ? tokenStats : null
           }
         />
       </DeckProvider>
@@ -1077,13 +1094,15 @@ function App() {
           cpuScore={state.scores.cpu}
           roundsPlayed={state.roundNumber}
           onPlayAgain={resetGame}
-          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
-          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
-          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? player1TokenStats : null}
+          player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
+          player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
+          player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
+          player2Model={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+          player1TokenStats={isSpectatorMode && isLLMAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? isGeminiAI(spectatorAIs.player2) ? player2TokenStats : null
-              : isGeminiAI(settings.cpuAI) ? tokenStats : null
+              ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
+              : isLLMAI(settings.cpuAI) ? tokenStats : null
           }
         />
       </DeckProvider>
@@ -1222,9 +1241,11 @@ function App() {
               roundNumber={state.roundNumber}
               targetScore={state.targetScore}
               currentPlayer={state.round.currentPlayer}
-              cpuName={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
-              humanName={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
               isSpectatorMode={isSpectatorMode}
+              player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
+              player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
+              player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
+              player2Model={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
             />
             <GameControls
               onNewGame={handleNewGame}
@@ -1251,15 +1272,17 @@ function App() {
               cards={state.players.cpu.captured}
               scopaCount={state.players.cpu.scopaCount}
               player="cpu"
-              playerLabel={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
+              aiType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
+              aiModel={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
             />
-            {((isSpectatorMode && isGeminiAI(spectatorAIs.player2)) || (!isSpectatorMode && isGeminiAI(settings.cpuAI))) && (
+            {((isSpectatorMode && isLLMAI(spectatorAIs.player2)) || (!isSpectatorMode && isLLMAI(settings.cpuAI))) && (
               <TokenStatsDisplay
                 stats={isSpectatorMode ? player2TokenStats : tokenStats}
                 delta={isSpectatorMode ? player2TokenDelta : tokenDelta}
                 show
                 mode="game"
                 position="bottom"
+                modelName={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
               />
             )}
           </div>
@@ -1283,14 +1306,15 @@ function App() {
         }
         humanPile={
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-            {isSpectatorMode && isGeminiAI(spectatorAIs.player1) && (
-              <TokenStatsDisplay stats={player1TokenStats} delta={player1TokenDelta} show mode="game" position="top" />
+            {isSpectatorMode && isLLMAI(spectatorAIs.player1) && (
+              <TokenStatsDisplay stats={player1TokenStats} delta={player1TokenDelta} show mode="game" position="top" modelName={spectatorModels.player1} />
             )}
             <CapturedPile
               cards={state.players.human.captured}
               scopaCount={state.players.human.scopaCount}
               player="human"
-              playerLabel={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
+              aiType={isSpectatorMode ? spectatorAIs.player1 : undefined}
+              aiModel={isSpectatorMode ? spectatorModels.player1 : undefined}
             />
           </div>
         }

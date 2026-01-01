@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-01 (Phase 22: UI Polish & Settings)
+**Last Updated:** 2026-01-01 (Phase 24: OpenAI Icon Integration & UI Polish)
 
 ---
 
@@ -77,9 +77,10 @@ scopa-ai-claude/
 │   ├── ai/                 # AI opponent implementations
 │   │   ├── index.ts        # AI exports and registry
 │   │   ├── types.ts        # AIPlayer, AsyncAIPlayer, AIContext, LLMAIContext
-│   │   ├── random.ts       # Random AI (Scimmia)
+│   │   ├── random.ts       # Random AI (Scimmietta)
 │   │   ├── heuristic.ts    # Greedy heuristic AI (Furbo)
-│   │   └── gemini.ts       # Gemini LLM AI with chat sessions
+│   │   ├── gemini.ts       # Gemini LLM AI with chat sessions
+│   │   └── openai.ts       # OpenAI GPT AI with structured outputs
 │   │
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
@@ -308,11 +309,32 @@ All action dispatchers wrapped in `useCallback` for stable references.
 |----|------|------|------|----------|
 | `randomAI` | Scimmietta | 🐒 | Sync | Picks random valid move |
 | `heuristicAI` | Furbo | 🦊 | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
-| `GeminiAI` | Gemini | ✦ | Async | LLM-based using Google's Gemini API with structured JSON output |
+| `GeminiAI` | Gemini | ✦ (SVG) | Async | LLM-based using Google's Gemini API with structured JSON output |
+| `OpenAIAI` | GPT | Blossom (SVG) | Async | LLM-based using OpenAI's Chat Completions API with structured JSON output |
 
 **Mode Icons:**
 - 💬 = Multi-turn chat (conversation with memory)
 - 1️⃣ = Single-turn (full history sent each request)
+
+### AIPlayerLabel Component (UI/AIPlayerLabel.tsx)
+
+Renders AI player names with proper SVG icons:
+
+| AI Type | Icon | Rendered As |
+|---------|------|-------------|
+| `openai` | OpenAI blossom SVG | `<OpenAIIcon />` |
+| `gemini`, `gemini-singleturn` | Sparkle SVG | `<GeminiIcon />` |
+| `random` | 🐒 emoji | `<span>` |
+| `heuristic` | 🦊 emoji | `<span>` |
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| `aiType` | `ExtendedAIType` | The AI type |
+| `model` | `string` | Model ID for LLM AIs (optional) |
+| `showModeIndicator` | `boolean` | Show 💬/1️⃣ suffix (default: true) |
+
+**Note:** HTML `<option>` elements only support text, so dropdowns use text fallback icons (`⬡`, `✦`).
 
 ### Gemini AI (gemini.ts)
 
@@ -371,6 +393,50 @@ All action dispatchers wrapped in `useCallback` for stable references.
 - Model allowlist: `gemini-X[.X]-{flash|flash-lite|pro}[-thinking][-preview]`
 - Preview models shown only if non-preview unavailable
 
+### OpenAI AI (openai.ts)
+
+**Architecture:**
+- Uses `openai` SDK with `dangerouslyAllowBrowser: true` for client-side usage
+- Multi-turn chat via messages array maintained across turns within a round
+- Same system instruction as Gemini (full Scopa rules, scoring, prime values)
+- Structured JSON output via `response_format: { type: 'json_schema', json_schema: {...}, strict: true }`
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `createOpenAI(model)` | Creates new OpenAI AI instance |
+| `getOpenAI(model)` | Gets cached instance (creates if needed) |
+| `isOpenAIAvailable()` | Checks if API key is configured |
+| `fetchOpenAIModels()` | Fetches available models from API |
+| `getOpenAITokenStats()` | Returns cumulative token usage |
+| `getOpenAITokenDelta()` | Returns last turn's token delta |
+| `resetOpenAITokenStats()` | Resets token counters (for new game) |
+| `startOpenAIRound()` | Creates fresh messages array with system instruction |
+| `endOpenAIRound()` | Clears messages array |
+
+**Token Stats Tracked:**
+
+| Stat | Description |
+|------|-------------|
+| `promptTokens` | Input tokens sent to API |
+| `responseTokens` | Output tokens received |
+| `reasoningTokens` | Reasoning tokens (for o-series models like o3, o4-mini) |
+| `totalTokens` | Sum of all tokens |
+| `cachedTokens` | Tokens served from cache |
+| `requestCount` | Number of API calls made |
+| `roundPromptTokens` | Round-specific input tokens |
+| `roundResponseTokens` | Round-specific output tokens |
+| `roundReasoningTokens` | Round-specific reasoning tokens |
+| `roundTotalTokens` | Round-specific total tokens |
+| `roundRequestCount` | Round-specific API calls |
+
+**Configuration:**
+- API key: `VITE_OPENAI_API_KEY` environment variable
+- Default model: `gpt-4o-mini`
+- Fallback: Heuristic AI if API key not available
+- Model allowlist patterns: `gpt-4o`, `gpt-4o-mini`, `gpt-4.1[-mini|-nano]`, `gpt-4-turbo`, `gpt-5[.x][-mini]`, `o1`, `o3[-mini]`, `o4-mini`
+
 ### TokenStatsDisplay Component
 
 | File | Purpose |
@@ -387,6 +453,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `show` | `boolean` | Force display even if no stats |
 | `position` | `'top' \| 'bottom'` | Popup direction (`top` = upward) |
 | `mode` | `'round' \| 'game'` | Show round-only or cumulative stats |
+| `modelName` | `string` | Model name to display when stats not yet available |
 
 **Popup displays:**
 - Model name and mode label in header
@@ -656,7 +723,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ## MVP Complete!
 
-All 19 phases implemented:
+All 24 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -679,6 +746,8 @@ All 19 phases implemented:
 20. LLM AI Integration (Gemini with chat sessions, token tracking, model selection)
 21. Token Stats Enhancements (timing stats, per-player tracking, round vs game modes)
 22. UI Polish & Settings (AI icons, flexible widths, custom target score, settings cleanup)
+23. OpenAI GPT AI Integration (structured outputs, reasoning tokens, model selection)
+24. OpenAI Icon Integration & UI Polish (blossom SVG, AIPlayerLabel, raw model IDs)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)
