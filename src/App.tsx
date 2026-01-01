@@ -18,7 +18,7 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, isAsyncAI, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
@@ -66,10 +66,15 @@ function App() {
   // Check if in spectator mode
   const isSpectatorMode = state.gameMode === 'cpuVsCPU';
 
+  // Helper to check if an AI type is a Gemini variant
+  const isGeminiAI = (aiType: ExtendedAIType): boolean => {
+    return aiType === 'gemini' || aiType === 'gemini-singleturn';
+  };
+
   // Helper to get display name with correct suffix: (AI) for LLM, (CPU) for traditional
   const getAIDisplayName = (aiType: ExtendedAIType) => {
     const name = AI_INFO[aiType].name;
-    const suffix = aiType === 'gemini' ? 'AI' : 'CPU';
+    const suffix = isGeminiAI(aiType) ? 'AI' : 'CPU';
     return `${name} (${suffix})`;
   };
 
