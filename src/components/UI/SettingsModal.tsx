@@ -1,14 +1,15 @@
 // Step 10.2: Settings Modal Component
 
 import { motion, AnimatePresence } from 'framer-motion';
-import type { GameSettings } from '../../hooks/useSettings';
-import type { AIType } from '../../ai';
+import type { GameSettings, DeckType } from '../../hooks/useSettings';
 import styles from './SettingsModal.module.css';
 
-const AI_OPTIONS: { value: AIType; label: string; description: string }[] = [
-  { value: 'random', label: 'Random', description: 'Plays randomly' },
-  { value: 'heuristic', label: 'Greedy', description: 'Prioritizes valuable captures' },
+const DECK_OPTIONS: { value: DeckType; label: string }[] = [
+  { value: 'napoletane', label: 'Napoletane' },
+  { value: 'siciliane', label: 'Siciliane' },
 ];
+
+const PRESET_SCORES = [11, 16, 21] as const;
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export function SettingsModal({
             <div className={styles.setting}>
               <label className={styles.label}>Default Target Score</label>
               <div className={styles.options}>
-                {([11, 16, 21] as const).map((score) => (
+                {PRESET_SCORES.map((score) => (
                   <button
                     key={score}
                     className={`${styles.option} ${settings.defaultTargetScore === score ? styles.selected : ''}`}
@@ -56,6 +57,20 @@ export function SettingsModal({
                     {score}
                   </button>
                 ))}
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  className={`${styles.customInput} ${!PRESET_SCORES.includes(settings.defaultTargetScore as 11 | 16 | 21) ? styles.selected : ''}`}
+                  value={settings.defaultTargetScore}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1) {
+                      onUpdateSetting('defaultTargetScore', val);
+                    }
+                  }}
+                  title="Custom target score"
+                />
               </div>
             </div>
 
@@ -75,26 +90,15 @@ export function SettingsModal({
             </div>
 
             <div className={styles.setting}>
-              <label className={styles.label}>Show Card Values</label>
-              <button
-                className={`${styles.toggle} ${settings.showCardValues ? styles.on : ''}`}
-                onClick={() => onUpdateSetting('showCardValues', !settings.showCardValues)}
-              >
-                <span className={styles.toggleKnob} />
-              </button>
-            </div>
-
-            <div className={styles.setting}>
-              <label className={styles.label}>CPU Opponent</label>
+              <label className={styles.label}>Card Deck</label>
               <div className={styles.options}>
-                {AI_OPTIONS.map((ai) => (
+                {DECK_OPTIONS.map((deck) => (
                   <button
-                    key={ai.value}
-                    className={`${styles.option} ${settings.cpuAI === ai.value ? styles.selected : ''}`}
-                    onClick={() => onUpdateSetting('cpuAI', ai.value)}
-                    title={ai.description}
+                    key={deck.value}
+                    className={`${styles.option} ${settings.deck === deck.value ? styles.selected : ''}`}
+                    onClick={() => onUpdateSetting('deck', deck.value)}
                   >
-                    {ai.label}
+                    {deck.label}
                   </button>
                 ))}
               </div>

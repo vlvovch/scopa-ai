@@ -465,6 +465,31 @@
 
 ---
 
+## Phase 22: UI Polish & Settings Improvements
+
+- [x] Step 22.1: Fix text alignment issues (player names wrapping) - Completed 2026-01-01
+- [x] Step 22.2: Add descriptive AI icons - Completed 2026-01-01
+- [x] Step 22.3: Clean up Settings modal - Completed 2026-01-01
+- [x] Step 22.4: Add custom target score support - Completed 2026-01-01
+- [x] Step 22.5: Prevent AI request re-triggering on pause/unpause - Completed 2026-01-01
+- [x] Step 22.6: Use flexible widths for responsive layouts - Completed 2026-01-01
+
+**Notes:**
+- Fixed player name text wrapping with `white-space: nowrap` across all components
+- New AI icons: ✦ (Gemini sparkle), 🐒 (Scimmietta/monkey), 🦊 (Furbo/fox)
+- Single-turn mode icon changed from ⚡ to 1️⃣ (clearer meaning)
+- Settings modal cleaned up:
+  - Removed "CPU Opponent" (redundant - selected at game start)
+  - Removed "Show Card Values" (never implemented)
+  - Added "Card Deck" selection (moved from StartScreen)
+- Custom target score: number input alongside preset buttons (11, 16, 21)
+- Added `aiRequestInFlight` ref to prevent duplicate API calls when opening/closing settings
+- Replaced hard-coded max-widths with `width: fit-content` and `max-width: 90vw` for flexible layouts
+- Modals and labels now grow to accommodate long names automatically
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:

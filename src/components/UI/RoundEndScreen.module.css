@@ -23,11 +23,13 @@
 }
 
 .cardColumnLabel {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   margin-bottom: var(--space-1);
+  white-space: nowrap;
+  text-align: center;
 }
 
 .cardGrid {
@@ -78,8 +80,9 @@
   border: 2px solid var(--color-accent);
   border-radius: 12px;
   padding: var(--space-6);
+  width: fit-content;
   min-width: 320px;
-  max-width: 400px;
+  max-width: 90vw;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
@@ -106,7 +109,8 @@
 .scoreTable th {
   color: var(--color-text-secondary);
   font-weight: normal;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .scoreTable th:first-child,
@@ -191,10 +195,12 @@
 }
 
 .scoreLabel {
-  font-size: 0.75rem;
+  font-size: 0.65rem;
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .scoreValue {

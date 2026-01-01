@@ -81,12 +81,24 @@ function App() {
   // Helper to check if an AI type is a Gemini variant (use exported function)
   const isGeminiAI = isGeminiAIType;
 
-  // Helper to get display name with correct suffix: (AI) for LLM, (CPU) for traditional
-  const getAIDisplayName = (aiType: ExtendedAIType) => {
-    const name = AI_INFO[aiType].name;
-    const suffix = isGeminiAI(aiType) ? 'AI' : 'CPU';
-    return `${name} (${suffix})`;
-  };
+  // Helper to get display name with icon from AI_INFO
+  // For Gemini, shows full model name with mode indicator (💬 multi-turn, 1️⃣ single-turn)
+  const getAIDisplayName = useCallback((aiType: ExtendedAIType, model?: string) => {
+    const icon = AI_INFO[aiType].icon;
+    if (isGeminiAI(aiType)) {
+      // Format model name: "gemini-2.5-flash" -> "Gemini 2.5 Flash"
+      const modelId = model || settings.geminiModel;
+      const displayName = modelId
+        .replace('gemini-', 'Gemini ')
+        .split('-')
+        .map((part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+      const modeIcon = aiType === 'gemini-singleturn' ? '1️⃣' : '💬';
+      return `${icon} ${displayName} ${modeIcon}`;
+    }
+    // Traditional AI
+    return `${icon} ${AI_INFO[aiType].name}`;
+  }, [settings.geminiModel]);
 
   // Helper to get delta for a specific AI type
   const getDeltaForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenDelta | null => {
@@ -291,6 +303,8 @@ function App() {
   const [isRoundStartDeal, setIsRoundStartDeal] = useState(false);
   // Track if CPU animation is being scheduled to prevent double-firing
   const cpuAnimationScheduled = useRef(false);
+  // Track if an async AI API request is in flight (prevents re-triggering on pause/unpause)
+  const aiRequestInFlight = useRef(false);
 
   // Track deck count to detect deals (more reliable than hand count)
   // Deck decreases by 10 on round start (4 table + 6 hands), by 6 mid-round
@@ -626,8 +640,8 @@ function App() {
       return;
     }
 
-    // Don't start new animation if one is in progress or already scheduled
-    if (animatingCard || cpuAnimationScheduled.current) {
+    // Don't start new animation if one is in progress, already scheduled, or API request in flight
+    if (animatingCard || cpuAnimationScheduled.current || aiRequestInFlight.current) {
       return;
     }
 
@@ -650,14 +664,20 @@ function App() {
 
       let moveToExecute: Move;
       if (isAsyncAI(ai)) {
-        // Async AI (e.g., Gemini) - build extended context and await
-        const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
-        moveToExecute = await ai.selectMove(context);
-        // Update token stats after async AI move
-        if (isSpectatorMode) {
-          updatePlayerTokenStats('player2');
-        } else {
-          updateTokenStats();
+        // Mark API request in flight to prevent re-triggering on pause/unpause
+        aiRequestInFlight.current = true;
+        try {
+          // Async AI (e.g., Gemini) - build extended context and await
+          const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
+          moveToExecute = await ai.selectMove(context);
+          // Update token stats after async AI move
+          if (isSpectatorMode) {
+            updatePlayerTokenStats('player2');
+          } else {
+            updateTokenStats();
+          }
+        } finally {
+          aiRequestInFlight.current = false;
         }
       } else {
         // Sync AI - use simple context
@@ -702,8 +722,8 @@ function App() {
 
     return () => {
       clearTimeout(timeoutId);
-      // Only reset scheduled flag if we're cleaning up before animation started
-      if (!animatingCard) {
+      // Only reset scheduled flag if we're cleaning up before animation started and no API request in flight
+      if (!animatingCard && !aiRequestInFlight.current) {
         cpuAnimationScheduled.current = false;
       }
     };
@@ -913,8 +933,8 @@ function App() {
     // Wait for dealing animation to complete
     if (isDealing) return;
 
-    // Don't start new animation if one is in progress or already scheduled
-    if (animatingCard || cpuAnimationScheduled.current) return;
+    // Don't start new animation if one is in progress, already scheduled, or API request in flight
+    if (animatingCard || cpuAnimationScheduled.current || aiRequestInFlight.current) return;
 
     const humanHand = state.players.human.hand;
     if (humanHand.length === 0) return;
@@ -930,11 +950,17 @@ function App() {
 
       let moveToExecute: Move;
       if (isAsyncAI(ai)) {
-        // Async AI (e.g., Gemini) - build extended context and await
-        const context = buildLLMContext(humanHand, state.round.table, 'human');
-        moveToExecute = await ai.selectMove(context);
-        // Update token stats after async AI move (player1 in spectator mode)
-        updatePlayerTokenStats('player1');
+        // Mark API request in flight to prevent re-triggering on pause/unpause
+        aiRequestInFlight.current = true;
+        try {
+          // Async AI (e.g., Gemini) - build extended context and await
+          const context = buildLLMContext(humanHand, state.round.table, 'human');
+          moveToExecute = await ai.selectMove(context);
+          // Update token stats after async AI move (player1 in spectator mode)
+          updatePlayerTokenStats('player1');
+        } finally {
+          aiRequestInFlight.current = false;
+        }
       } else {
         // Sync AI - use simple context
         moveToExecute = ai.selectMove({
@@ -978,7 +1004,8 @@ function App() {
 
     return () => {
       clearTimeout(timeoutId);
-      if (!animatingCard) {
+      // Only reset scheduled flag if we're cleaning up before animation started and no API request in flight
+      if (!animatingCard && !aiRequestInFlight.current) {
         cpuAnimationScheduled.current = false;
       }
     };
@@ -994,12 +1021,11 @@ function App() {
           onSelectAI={handleSelectAI}
           spectatorAIs={spectatorAIs}
           onSelectSpectatorAI={handleSelectSpectatorAI}
-          selectedDeck={settings.deck}
-          onSelectDeck={(deck) => updateSetting('deck', deck)}
           geminiModel={settings.geminiModel}
           onSelectGeminiModel={(model) => updateSetting('geminiModel', model)}
           spectatorModels={spectatorModels}
           onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
+          defaultTargetScore={settings.defaultTargetScore}
         />
         <SettingsModal
           isOpen={showSettings}
@@ -1029,8 +1055,8 @@ function App() {
           isGameOver={state.isGameOver}
           onNextRound={handleNextRound}
           onShowGameEnd={showGameEnd}
-          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
-          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
+          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
+          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
           player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
@@ -1051,8 +1077,8 @@ function App() {
           cpuScore={state.scores.cpu}
           roundsPlayed={state.roundNumber}
           onPlayAgain={resetGame}
-          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
-          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
+          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
+          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
           player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
@@ -1196,8 +1222,8 @@ function App() {
               roundNumber={state.roundNumber}
               targetScore={state.targetScore}
               currentPlayer={state.round.currentPlayer}
-              cpuName={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
-              humanName={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
+              cpuName={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
+              humanName={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
               isSpectatorMode={isSpectatorMode}
             />
             <GameControls
@@ -1225,7 +1251,7 @@ function App() {
               cards={state.players.cpu.captured}
               scopaCount={state.players.cpu.scopaCount}
               player="cpu"
-              playerLabel={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
+              playerLabel={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI, isSpectatorMode ? spectatorModels.player2 : settings.geminiModel)}
             />
             {((isSpectatorMode && isGeminiAI(spectatorAIs.player2)) || (!isSpectatorMode && isGeminiAI(settings.cpuAI))) && (
               <TokenStatsDisplay
@@ -1264,7 +1290,7 @@ function App() {
               cards={state.players.human.captured}
               scopaCount={state.players.human.scopaCount}
               player="human"
-              playerLabel={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
+              playerLabel={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1, spectatorModels.player1) : undefined}
             />
           </div>
         }

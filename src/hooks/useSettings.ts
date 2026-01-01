@@ -6,8 +6,8 @@ import type { ExtendedAIType } from '../ai';
 export type DeckType = 'napoletane' | 'siciliane';
 
 export interface GameSettings {
-  /** Default target score for new games */
-  defaultTargetScore: 11 | 16 | 21;
+  /** Default target score for new games (minimum 1) */
+  defaultTargetScore: number;
   /** Animation speed: 'fast' | 'normal' | 'slow' */
   animationSpeed: 'fast' | 'normal' | 'slow';
   /** Whether to show card values in corners */

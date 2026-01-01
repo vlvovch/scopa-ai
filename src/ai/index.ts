@@ -29,11 +29,11 @@ export type AIType = keyof typeof AI_PLAYERS;
 export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn';
 
 // Display info for each AI (including async)
-export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean }> = {
-  random: { name: 'Scimmietta', description: 'Plays randomly like a little monkey' },
-  heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures' },
-  gemini: { name: 'Gemini', description: 'Google AI with multi-turn chat (remembers context)', isAsync: true },
-  'gemini-singleturn': { name: 'Gemini (1-turn)', description: 'Google AI with single requests (full history each turn)', isAsync: true },
+export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean; icon: string }> = {
+  random: { name: 'Scimmietta', description: 'Plays randomly like a little monkey', icon: '🐒' },
+  heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures', icon: '🦊' },
+  gemini: { name: 'Gemini 💬', description: 'Google AI with multi-turn chat (remembers context)', isAsync: true, icon: '✦' },
+  'gemini-singleturn': { name: 'Gemini 1️⃣', description: 'Google AI with single requests (full history each turn)', isAsync: true, icon: '✦' },
 };
 
 /**

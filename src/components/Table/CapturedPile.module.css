@@ -98,10 +98,12 @@
 }
 
 .playerLabel {
-  font-size: 12px;
+  font-size: 10px;
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  text-align: center;
 }
 
 .emptyPile {

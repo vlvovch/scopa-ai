@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2025-12-31 (Phase 20: Gemini AI)
+**Last Updated:** 2026-01-01 (Phase 22: UI Polish & Settings)
 
 ---
 
@@ -304,11 +304,15 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ### Available AI Players
 
-| AI | Name | Type | Strategy |
-|----|------|------|----------|
-| `randomAI` | Scimmia | Sync | Picks random valid move |
-| `heuristicAI` | Furbo | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
-| `GeminiAI` | Gemini | Async | LLM-based using Google's Gemini API with structured JSON output |
+| AI | Name | Icon | Type | Strategy |
+|----|------|------|------|----------|
+| `randomAI` | Scimmietta | 🐒 | Sync | Picks random valid move |
+| `heuristicAI` | Furbo | 🦊 | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
+| `GeminiAI` | Gemini | ✦ | Async | LLM-based using Google's Gemini API with structured JSON output |
+
+**Mode Icons:**
+- 💬 = Multi-turn chat (conversation with memory)
+- 1️⃣ = Single-turn (full history sent each request)
 
 ### Gemini AI (gemini.ts)
 
@@ -460,6 +464,12 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ## CSS Architecture
 
+**Flexible Width Approach:**
+- Modals use `width: fit-content` with `min-width` and `max-width: 90vw`
+- Labels use `white-space: nowrap` to prevent wrapping
+- No hard-coded max-widths on text - containers grow to fit content
+- Ensures long player names (e.g., "Gemini 3 Flash Preview 💬") display fully
+
 **Card Selection States:**
 - Default: normal shadow
 - Hover (non-selected, non-disabled): translateY(-4px), enhanced shadow
@@ -591,13 +601,13 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 **useSettings Hook:**
 - Persists to localStorage under key `scopa-settings`
-- Settings: `defaultTargetScore`, `animationSpeed`, `showCardValues`
+- Settings: `defaultTargetScore` (number), `animationSpeed`, `cpuAI`, `deck`, `geminiModel`
 - Auto-saves on any change
 
 **SettingsModal:**
-- Target score selection (11, 16, 21)
+- Target score selection: preset buttons (11, 16, 21) + custom number input
 - Animation speed (fast=0.5x, normal=1x, slow=2x) - affects CPU thinking, flip, move, capture delays
-- Show card values toggle
+- Card deck selection (Napoletane, Siciliane)
 - Opening settings pauses spectator mode; closing restores previous pause state
 
 **GameControls:**
@@ -666,6 +676,9 @@ All 19 phases implemented:
 17. Card Styling Improvements (CSS variable consolidation, aspect ratio update)
 18. Card Asset Optimization (WebP conversion, authentic card back, deck organization)
 19. Multiple Deck Support (Siciliane suits, deck-aware UI icons, StartScreen polish)
+20. LLM AI Integration (Gemini with chat sessions, token tracking, model selection)
+21. Token Stats Enhancements (timing stats, per-player tracking, round vs game modes)
+22. UI Polish & Settings (AI icons, flexible widths, custom target score, settings cleanup)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)

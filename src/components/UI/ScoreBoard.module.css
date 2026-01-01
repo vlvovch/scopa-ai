@@ -5,7 +5,8 @@
   border-radius: 8px;
   padding: var(--space-4);
   color: var(--color-text-primary);
-  min-width: 200px;
+  width: fit-content;
+  min-width: 180px;
 }
 
 .header {
@@ -41,7 +42,8 @@
 }
 
 .playerName {
-  font-size: 13px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .playerName.current {

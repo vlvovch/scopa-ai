@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { AI_INFO, getAvailableAITypes, fetchGeminiModels, isGeminiAIType, type ExtendedAIType, type GeminiModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
-import type { DeckType } from '../../hooks/useSettings';
 import styles from './StartScreen.module.css';
 
 type GameModeOption = 'play' | 'watch';
@@ -14,19 +13,14 @@ interface StartScreenProps {
   onSelectAI: (ai: ExtendedAIType) => void;
   spectatorAIs: { player1: ExtendedAIType; player2: ExtendedAIType };
   onSelectSpectatorAI: (player: 'player1' | 'player2', ai: ExtendedAIType) => void;
-  selectedDeck: DeckType;
-  onSelectDeck: (deck: DeckType) => void;
   geminiModel: string;
   onSelectGeminiModel: (model: string) => void;
   spectatorModels: { player1: string; player2: string };
   onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
+  defaultTargetScore: number;
 }
 
-const SCORE_OPTIONS = [11, 16, 21] as const;
-const DECK_OPTIONS: { value: DeckType; label: string }[] = [
-  { value: 'napoletane', label: 'Napoletane' },
-  { value: 'siciliane', label: 'Siciliane' },
-];
+const PRESET_SCORES = [11, 16, 21] as const;
 
 export function StartScreen({
   onStartGame,
@@ -34,14 +28,13 @@ export function StartScreen({
   onSelectAI,
   spectatorAIs,
   onSelectSpectatorAI,
-  selectedDeck,
-  onSelectDeck,
   geminiModel,
   onSelectGeminiModel,
   spectatorModels,
   onSelectSpectatorModel,
+  defaultTargetScore,
 }: StartScreenProps) {
-  const [selectedScore, setSelectedScore] = useState<number>(11);
+  const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -105,7 +98,7 @@ export function StartScreen({
         <div className={styles.scoreSelection}>
           <label className={styles.label}>Target Score</label>
           <div className={styles.scoreOptions}>
-            {SCORE_OPTIONS.map((score) => (
+            {PRESET_SCORES.map((score) => (
               <button
                 key={score}
                 className={`${styles.scoreOption} ${selectedScore === score ? styles.selected : ''}`}
@@ -114,21 +107,20 @@ export function StartScreen({
                 {score}
               </button>
             ))}
-          </div>
-        </div>
-
-        <div className={styles.scoreSelection}>
-          <label className={styles.label}>Card Deck</label>
-          <div className={styles.scoreOptions}>
-            {DECK_OPTIONS.map((deck) => (
-              <button
-                key={deck.value}
-                className={`${styles.scoreOption} ${styles.deckOption} ${selectedDeck === deck.value ? styles.selected : ''}`}
-                onClick={() => onSelectDeck(deck.value)}
-              >
-                {deck.label}
-              </button>
-            ))}
+            <input
+              type="number"
+              min="1"
+              max="999"
+              className={`${styles.customScoreInput} ${!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? styles.selected : ''}`}
+              value={selectedScore}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 1) {
+                  setSelectedScore(val);
+                }
+              }}
+              title="Custom target score"
+            />
           </div>
         </div>
 
