@@ -53,20 +53,28 @@ export function GameEndScreen({
         <h1 className={`${styles.result} ${resultClass}`}>{resultText}</h1>
 
         <div className={styles.finalScores}>
-          <div className={`${styles.scoreBox} ${humanWins ? styles.winnerBox : ''}`}>
-            <div className={styles.scoreLabelRow}>
+          <div className={styles.scoreColumn}>
+            <div className={`${styles.scoreBox} ${humanWins ? styles.winnerBox : ''}`}>
               <span className={styles.scoreLabel}>{player1Name}</span>
-              {player1TokenStats && <TokenStatsDisplay stats={player1TokenStats} show mode="game" position="bottom" />}
+              <span className={styles.scoreValue}>{humanScore}</span>
             </div>
-            <span className={styles.scoreValue}>{humanScore}</span>
+            {player1TokenStats && (
+              <div className={styles.tokenRow}>
+                <TokenStatsDisplay stats={player1TokenStats} show mode="game" position="bottom" />
+              </div>
+            )}
           </div>
           <span className={styles.scoreDivider}>-</span>
-          <div className={`${styles.scoreBox} ${!humanWins && !isTie ? styles.winnerBox : ''}`}>
-            <div className={styles.scoreLabelRow}>
+          <div className={styles.scoreColumn}>
+            <div className={`${styles.scoreBox} ${!humanWins && !isTie ? styles.winnerBox : ''}`}>
               <span className={styles.scoreLabel}>{player2Name}</span>
-              {player2TokenStats && <TokenStatsDisplay stats={player2TokenStats} show mode="game" position="bottom" />}
+              <span className={styles.scoreValue}>{cpuScore}</span>
             </div>
-            <span className={styles.scoreValue}>{cpuScore}</span>
+            {player2TokenStats && (
+              <div className={styles.tokenRow}>
+                <TokenStatsDisplay stats={player2TokenStats} show mode="game" position="bottom" />
+              </div>
+            )}
           </div>
         </div>
 

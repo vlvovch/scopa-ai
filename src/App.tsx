@@ -66,6 +66,13 @@ function App() {
   // Check if in spectator mode
   const isSpectatorMode = state.gameMode === 'cpuVsCPU';
 
+  // Helper to get display name with correct suffix: (AI) for LLM, (CPU) for traditional
+  const getAIDisplayName = (aiType: ExtendedAIType) => {
+    const name = AI_INFO[aiType].name;
+    const suffix = aiType === 'gemini' ? 'AI' : 'CPU';
+    return `${name} (${suffix})`;
+  };
+
   // Helper to update token stats and delta
   const updateTokenStats = useCallback(() => {
     setTokenStats(getGeminiTokenStats());
@@ -868,8 +875,8 @@ function App() {
           isGameOver={state.isGameOver}
           onNextRound={handleNextRound}
           onShowGameEnd={showGameEnd}
-          player1Name={isSpectatorMode ? `${AI_INFO[spectatorAIs.player1].name} (AI)` : undefined}
-          player2Name={isSpectatorMode ? `${AI_INFO[spectatorAIs.player2].name} (AI)` : `${AI_INFO[settings.cpuAI].name} (CPU)`}
+          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
+          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
           player1TokenStats={isSpectatorMode && spectatorAIs.player1 === 'gemini' ? tokenStats : null}
           player2TokenStats={
             isSpectatorMode
@@ -890,8 +897,8 @@ function App() {
           cpuScore={state.scores.cpu}
           roundsPlayed={state.roundNumber}
           onPlayAgain={resetGame}
-          player1Name={isSpectatorMode ? `${AI_INFO[spectatorAIs.player1].name} (AI)` : undefined}
-          player2Name={isSpectatorMode ? `${AI_INFO[spectatorAIs.player2].name} (AI)` : `${AI_INFO[settings.cpuAI].name} (CPU)`}
+          player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
+          player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
           player1TokenStats={isSpectatorMode && spectatorAIs.player1 === 'gemini' ? tokenStats : null}
           player2TokenStats={
             isSpectatorMode
@@ -1035,8 +1042,8 @@ function App() {
               roundNumber={state.roundNumber}
               targetScore={state.targetScore}
               currentPlayer={state.round.currentPlayer}
-              cpuName={isSpectatorMode ? `${AI_INFO[spectatorAIs.player2].name} (AI)` : `${AI_INFO[settings.cpuAI].name} (CPU)`}
-              humanName={isSpectatorMode ? `${AI_INFO[spectatorAIs.player1].name} (AI)` : undefined}
+              cpuName={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
+              humanName={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
               isSpectatorMode={isSpectatorMode}
             />
             <GameControls
@@ -1064,7 +1071,7 @@ function App() {
               cards={state.players.cpu.captured}
               scopaCount={state.players.cpu.scopaCount}
               player="cpu"
-              playerLabel={isSpectatorMode ? `${AI_INFO[spectatorAIs.player2].name} (AI)` : `${AI_INFO[settings.cpuAI].name} (CPU)`}
+              playerLabel={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
             />
             {((isSpectatorMode && spectatorAIs.player2 === 'gemini') || (!isSpectatorMode && settings.cpuAI === 'gemini')) && (
               <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show mode="game" position="bottom" />
@@ -1097,7 +1104,7 @@ function App() {
               cards={state.players.human.captured}
               scopaCount={state.players.human.scopaCount}
               player="human"
-              playerLabel={isSpectatorMode ? `${AI_INFO[spectatorAIs.player1].name} (AI)` : undefined}
+              playerLabel={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
             />
           </div>
         }

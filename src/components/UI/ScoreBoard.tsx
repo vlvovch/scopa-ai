@@ -30,17 +30,10 @@ export function ScoreBoard({
   currentPlayer,
   cpuName = 'CPU',
   humanName,
-  isSpectatorMode = false,
 }: ScoreBoardProps) {
-  // In spectator mode, show AI names with suffix
-  // Use "(AI)" for LLM-based AIs (Gemini), "(CPU)" for traditional AIs
-  const getSuffix = (name: string) => name.toLowerCase().includes('gemini') ? 'AI' : 'CPU';
-  const player1DisplayName = isSpectatorMode && humanName
-    ? `${humanName} (${getSuffix(humanName)})`
-    : humanName || 'You';
-  const player2DisplayName = isSpectatorMode
-    ? `${cpuName} (${getSuffix(cpuName)})`
-    : cpuName;
+  // Display names as provided (App.tsx handles suffix formatting)
+  const player1DisplayName = humanName || 'You';
+  const player2DisplayName = cpuName;
 
   return (
     <div className={styles.scoreBoard}>

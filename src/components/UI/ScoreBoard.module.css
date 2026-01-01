@@ -5,7 +5,7 @@
   border-radius: 8px;
   padding: var(--space-4);
   color: var(--color-text-primary);
-  min-width: 160px;
+  min-width: 200px;
 }
 
 .header {
@@ -37,10 +37,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-3);
 }
 
 .playerName {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .playerName.current {

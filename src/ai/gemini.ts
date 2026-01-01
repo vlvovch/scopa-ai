@@ -68,16 +68,22 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
   modelsFetchPromise = (async () => {
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const models: GeminiModelInfo[] = [];
+      let models: GeminiModelInfo[] = [];
 
-      // Only include mainstream models (flash, flash-lite, pro) including preview/thinking variants
-      const isMainstreamModel = (id: string): boolean => {
-        // Must start with gemini-
-        if (!id.startsWith('gemini-')) return false;
-        // Exclude experimental variants (but allow preview and thinking)
-        if (id.includes('exp')) return false;
-        // Include only flash, flash-lite, and pro models
-        return id.includes('-flash') || id.includes('-pro');
+      // Strict allowlist pattern for clean model names only
+      // Format: gemini-X[.X]-{flash|flash-lite|pro}[-thinking][-preview]
+      const ALLOWED_PATTERN = /^gemini-\d+(\.\d+)?-(flash-lite|flash|pro)(-thinking)?(-preview)?$/;
+
+      // Also allow "latest" aliases
+      const ALLOWED_LATEST = ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-pro-latest'];
+
+      const isAllowedModel = (id: string): boolean => {
+        return ALLOWED_PATTERN.test(id) || ALLOWED_LATEST.includes(id);
+      };
+
+      // Get base model name (without -preview suffix)
+      const getBaseModel = (id: string): string => {
+        return id.replace(/-preview$/, '');
       };
 
       for await (const model of await ai.models.list()) {
@@ -87,17 +93,28 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
           const id = model.name?.replace('models/', '') || '';
           const displayName = model.displayName || id;
 
-          if (id && isMainstreamModel(id)) {
+          if (id && isAllowedModel(id)) {
             models.push({ id, displayName });
           }
         }
       }
 
+      // Filter out preview models if non-preview version exists
+      const nonPreviewIds = new Set(
+        models.filter(m => !m.id.endsWith('-preview')).map(m => m.id)
+      );
+      models = models.filter(m => {
+        if (!m.id.endsWith('-preview')) return true;
+        // Keep preview only if non-preview doesn't exist
+        const baseId = getBaseModel(m.id);
+        return !nonPreviewIds.has(baseId);
+      });
+
       // Sort by version (descending) then by type (flash before pro)
       models.sort((a, b) => {
-        // Extract version numbers for comparison
-        const versionA = a.id.match(/gemini-(\d+\.\d+)/)?.[1] || '0';
-        const versionB = b.id.match(/gemini-(\d+\.\d+)/)?.[1] || '0';
+        // Extract version numbers for comparison (handles both X.X and X formats)
+        const versionA = a.id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] || '0';
+        const versionB = b.id.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] || '0';
 
         // Sort by version descending
         if (versionA !== versionB) {

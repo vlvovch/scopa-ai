@@ -28,7 +28,7 @@ export type ExtendedAIType = AIType | 'gemini';
 
 // Display info for each AI (including async)
 export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean }> = {
-  random: { name: 'Scimmia', description: 'Plays randomly like a monkey' },
+  random: { name: 'Scimmietta', description: 'Plays randomly like a little monkey' },
   heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures' },
   gemini: { name: 'Gemini', description: 'Google AI powered strategic player', isAsync: true },
 };
