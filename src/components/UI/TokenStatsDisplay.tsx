@@ -59,8 +59,25 @@ export function TokenStatsDisplay({
     roundRequestCount: 0,
     modelId: '',
     modelDisplayName: 'Gemini',
+    totalTimeMs: 0,
+    lastTurnTimeMs: 0,
+    minTurnTimeMs: 0,
+    maxTurnTimeMs: 0,
+    roundTotalTimeMs: 0,
   };
   const s = stats || defaultStats;
+
+  // Format time in seconds
+  const formatTime = (ms: number) => {
+    if (ms === 0) return '-';
+    const seconds = ms / 1000;
+    if (seconds < 10) return `${seconds.toFixed(2)}s`;
+    return `${seconds.toFixed(1)}s`;
+  };
+
+  // Calculate average time per turn
+  const avgTimeMs = s.requestCount > 0 ? s.totalTimeMs / s.requestCount : 0;
+  const roundAvgTimeMs = s.roundRequestCount > 0 ? s.roundTotalTimeMs / s.roundRequestCount : 0;
 
   // Select which stats to display based on mode
   const displayStats = mode === 'round' ? {
@@ -147,6 +164,24 @@ export function TokenStatsDisplay({
               <tr>
                 <td className={styles.label}>Cached</td>
                 <td className={styles.value}>{formatNumber(displayStats.cachedTokens)}</td>
+              </tr>
+            )}
+            {/* Timing stats */}
+            <tr className={styles.timingHeader}>
+              <td colSpan={2} className={styles.label}>Timing</td>
+            </tr>
+            <tr>
+              <td className={styles.label}>Last</td>
+              <td className={styles.value}>{formatTime(s.lastTurnTimeMs)}</td>
+            </tr>
+            <tr>
+              <td className={styles.label}>Avg</td>
+              <td className={styles.value}>{formatTime(mode === 'round' ? roundAvgTimeMs : avgTimeMs)}</td>
+            </tr>
+            {mode === 'game' && s.minTurnTimeMs > 0 && (
+              <tr>
+                <td className={styles.label}>Min/Max</td>
+                <td className={styles.value}>{formatTime(s.minTurnTimeMs)} / {formatTime(s.maxTurnTimeMs)}</td>
               </tr>
             )}
           </tbody>

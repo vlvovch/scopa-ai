@@ -28,6 +28,13 @@ export interface GeminiTokenStats {
   // Model info
   modelId: string;
   modelDisplayName: string;
+  // Timing stats (in milliseconds)
+  totalTimeMs: number;
+  lastTurnTimeMs: number;
+  minTurnTimeMs: number;
+  maxTurnTimeMs: number;
+  // Round-specific timing
+  roundTotalTimeMs: number;
 }
 
 // Delta from last API call
@@ -294,6 +301,11 @@ class GeminiAI implements AsyncAIPlayer {
       roundRequestCount: 0,
       modelId: model,
       modelDisplayName: this.modelDisplayName,
+      totalTimeMs: 0,
+      lastTurnTimeMs: 0,
+      minTurnTimeMs: 0,
+      maxTurnTimeMs: 0,
+      roundTotalTimeMs: 0,
     };
   }
 
@@ -339,6 +351,23 @@ class GeminiAI implements AsyncAIPlayer {
   }
 
   /**
+   * Update timing stats after a turn
+   */
+  private updateTimingStats(turnTimeMs: number): void {
+    this.tokenStats.lastTurnTimeMs = turnTimeMs;
+    this.tokenStats.totalTimeMs += turnTimeMs;
+    this.tokenStats.roundTotalTimeMs += turnTimeMs;
+
+    // Update min/max (initialize min on first turn)
+    if (this.tokenStats.minTurnTimeMs === 0 || turnTimeMs < this.tokenStats.minTurnTimeMs) {
+      this.tokenStats.minTurnTimeMs = turnTimeMs;
+    }
+    if (turnTimeMs > this.tokenStats.maxTurnTimeMs) {
+      this.tokenStats.maxTurnTimeMs = turnTimeMs;
+    }
+  }
+
+  /**
    * Reset token stats (e.g., for new game)
    */
   resetTokenStats(): void {
@@ -356,6 +385,11 @@ class GeminiAI implements AsyncAIPlayer {
       roundRequestCount: 0,
       modelId: this.model,
       modelDisplayName: this.modelDisplayName,
+      totalTimeMs: 0,
+      lastTurnTimeMs: 0,
+      minTurnTimeMs: 0,
+      maxTurnTimeMs: 0,
+      roundTotalTimeMs: 0,
     };
     this.lastDelta = {
       promptTokens: 0,
@@ -374,6 +408,7 @@ class GeminiAI implements AsyncAIPlayer {
     this.tokenStats.roundThoughtTokens = 0;
     this.tokenStats.roundTotalTokens = 0;
     this.tokenStats.roundRequestCount = 0;
+    this.tokenStats.roundTotalTimeMs = 0;
   }
 
   /**
@@ -430,10 +465,13 @@ class GeminiAI implements AsyncAIPlayer {
     // If only one move, still inform AI of game state for context
     if (validMoves.length === 1) {
       const prompt = buildPrompt(context);
+      const startTime = performance.now();
       try {
         // Wait for response to keep chat session in sync
         const response = await this.chat!.sendMessage({ message: prompt });
+        const turnTime = performance.now() - startTime;
         this.updateTokenStats(response.usageMetadata);
+        this.updateTimingStats(turnTime);
       } catch (e) {
         // Ignore errors for single-move updates
       }
@@ -443,8 +481,11 @@ class GeminiAI implements AsyncAIPlayer {
 
     try {
       const prompt = buildPrompt(context);
+      const startTime = performance.now();
       const response = await this.chat!.sendMessage({ message: prompt });
+      const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usageMetadata);
+      this.updateTimingStats(turnTime);
       const jsonText = response.text;
 
       if (!jsonText) {

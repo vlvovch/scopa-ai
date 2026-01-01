@@ -436,6 +436,35 @@
 
 ---
 
+## Phase 21: Token Stats Enhancements & UI Polish
+
+- [x] Step 21.1: Add round-specific vs cumulative token tracking - Completed 2026-01-01
+- [x] Step 21.2: Add timing statistics (last, avg, min/max turn times) - Completed 2026-01-01
+- [x] Step 21.3: Position token popup based on player position (top/bottom) - Completed 2026-01-01
+- [x] Step 21.4: Support dual token displays for AI vs AI matches - Completed 2026-01-01
+- [x] Step 21.5: Show model name in token popup header - Completed 2026-01-01
+- [x] Step 21.6: Add (AI)/(CPU) suffix to player names - Completed 2026-01-01
+- [x] Step 21.7: Strict model filtering (exclude nano, dated, TTS variants) - Completed 2026-01-01
+- [x] Step 21.8: Improve ScoreBoard layout for longer names - Completed 2026-01-01
+
+**Notes:**
+- Token stats now track both cumulative (game) and round-specific stats
+- Round stats reset at `startRound()`, shown in RoundEndScreen
+- Timing stats added: `lastTurnTimeMs`, `totalTimeMs`, `minTurnTimeMs`, `maxTurnTimeMs`, `roundTotalTimeMs`
+- Average time calculated from totalTimeMs/requestCount
+- Times displayed in seconds (e.g., "1.23s" for <10s, "12.3s" for ≥10s)
+- Token popup position: `top` (opens upward) for bottom players, `bottom` (opens downward) for top players
+- TokenStatsDisplay accepts `mode` prop: `'round'` or `'game'`
+- RoundEndScreen/GameEndScreen accept `player1TokenStats` and `player2TokenStats` separately
+- `getAIDisplayName()` helper returns name with correct suffix: "(AI)" for Gemini, "(CPU)" for others
+- Model allowlist pattern: `gemini-X[.X]-{flash|flash-lite|pro}[-thinking][-preview]`
+- Preview models only shown if non-preview version unavailable
+- Renamed "Scimmia" to "Scimmietta" (little monkey)
+- ScoreBoard min-width increased to 200px, added gap between name and score
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:

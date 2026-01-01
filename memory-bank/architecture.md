@@ -342,11 +342,30 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `totalTokens` | Sum of all tokens |
 | `cachedTokens` | Tokens served from cache |
 | `requestCount` | Number of API calls made |
+| `roundPromptTokens` | Round-specific input tokens |
+| `roundResponseTokens` | Round-specific output tokens |
+| `roundThoughtTokens` | Round-specific thinking tokens |
+| `roundTotalTokens` | Round-specific total tokens |
+| `roundRequestCount` | Round-specific API calls |
+| `modelId` | Model ID (e.g., `gemini-2.5-flash`) |
+| `modelDisplayName` | Display name (e.g., `Gemini 2.5 Flash`) |
+
+**Timing Stats Tracked:**
+
+| Stat | Description |
+|------|-------------|
+| `totalTimeMs` | Cumulative time across all turns |
+| `lastTurnTimeMs` | Time for most recent turn |
+| `minTurnTimeMs` | Fastest turn time |
+| `maxTurnTimeMs` | Slowest turn time |
+| `roundTotalTimeMs` | Time for current round only |
 
 **Configuration:**
 - API key: `VITE_GEMINI_API_KEY` environment variable
 - Default model: `gemini-2.5-flash`
 - Fallback: Random AI on API errors
+- Model allowlist: `gemini-X[.X]-{flash|flash-lite|pro}[-thinking][-preview]`
+- Preview models shown only if non-preview unavailable
 
 ### TokenStatsDisplay Component
 
@@ -354,6 +373,22 @@ All action dispatchers wrapped in `useCallback` for stable references.
 |------|---------|
 | `UI/TokenStatsDisplay.tsx` | Compact token icon with hover popup showing detailed stats |
 | `UI/TokenStatsDisplay.module.css` | Styling with animated popup transition |
+
+**Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `stats` | `GeminiTokenStats \| null` | Token and timing statistics |
+| `delta` | `GeminiTokenDelta \| null` | Per-turn delta (optional) |
+| `show` | `boolean` | Force display even if no stats |
+| `position` | `'top' \| 'bottom'` | Popup direction (`top` = upward) |
+| `mode` | `'round' \| 'game'` | Show round-only or cumulative stats |
+
+**Popup displays:**
+- Model name and mode label in header
+- Turns, Input, Output, Thought (if >0), Total tokens
+- Cached tokens (game mode, if >0)
+- Timing: Last turn, Average, Min/Max (game mode)
 
 ---
 
