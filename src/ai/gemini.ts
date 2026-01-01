@@ -43,6 +43,7 @@ export interface GeminiTokenDelta {
   responseTokens: number;
   thoughtTokens: number;
   totalTokens: number;
+  turnTimeMs: number;
 }
 
 // Default model to use
@@ -273,6 +274,7 @@ class GeminiAI implements AsyncAIPlayer {
     responseTokens: 0,
     thoughtTokens: 0,
     totalTokens: 0,
+    turnTimeMs: 0,
   };
 
   constructor(apiKey: string, model: string = DEFAULT_MODEL) {
@@ -340,12 +342,13 @@ class GeminiAI implements AsyncAIPlayer {
     this.tokenStats.roundTotalTokens += totalDelta;
     this.tokenStats.roundRequestCount += 1;
 
-    // Track last delta
+    // Track last delta (timing added by updateTimingStats)
     this.lastDelta = {
       promptTokens: promptDelta,
       responseTokens: responseDelta,
       thoughtTokens: thoughtDelta,
       totalTokens: totalDelta,
+      turnTimeMs: 0,
     };
   }
 
@@ -364,6 +367,9 @@ class GeminiAI implements AsyncAIPlayer {
     if (turnTimeMs > this.tokenStats.maxTurnTimeMs) {
       this.tokenStats.maxTurnTimeMs = turnTimeMs;
     }
+
+    // Include timing in delta
+    this.lastDelta.turnTimeMs = turnTimeMs;
   }
 
   /**
@@ -395,6 +401,7 @@ class GeminiAI implements AsyncAIPlayer {
       responseTokens: 0,
       thoughtTokens: 0,
       totalTokens: 0,
+      turnTimeMs: 0,
     };
   }
 

@@ -154,6 +154,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
     responseTokens: 0,
     thoughtTokens: 0,
     totalTokens: 0,
+    turnTimeMs: 0,
   };
 
   constructor(apiKey: string, model: string = DEFAULT_MODEL) {
@@ -221,12 +222,13 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
     this.tokenStats.roundTotalTokens += totalDelta;
     this.tokenStats.roundRequestCount += 1;
 
-    // Track last delta
+    // Track last delta (timing added by updateTimingStats)
     this.lastDelta = {
       promptTokens: promptDelta,
       responseTokens: responseDelta,
       thoughtTokens: thoughtDelta,
       totalTokens: totalDelta,
+      turnTimeMs: 0,
     };
   }
 
@@ -245,6 +247,9 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
     if (turnTimeMs > this.tokenStats.maxTurnTimeMs) {
       this.tokenStats.maxTurnTimeMs = turnTimeMs;
     }
+
+    // Include timing in delta
+    this.lastDelta.turnTimeMs = turnTimeMs;
   }
 
   /**
@@ -276,6 +281,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
       responseTokens: 0,
       thoughtTokens: 0,
       totalTokens: 0,
+      turnTimeMs: 0,
     };
   }
 
@@ -367,6 +373,14 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
       const onlyMove = validMoves[0];
       this.roundMoveHistory.push(onlyMove);
       this.lastReasoning = 'Only one move available.';
+      // Reset delta since no API call was made
+      this.lastDelta = {
+        promptTokens: 0,
+        responseTokens: 0,
+        thoughtTokens: 0,
+        totalTokens: 0,
+        turnTimeMs: 0,
+      };
       return onlyMove;
     }
 

@@ -65,8 +65,15 @@ function App() {
   const pausedBeforeSettings = useRef(false);
 
   // Gemini token stats (refreshed after each AI move)
+  // For single player mode: use tokenStats (direct from AI instance)
+  // For spectator mode: accumulate per-player stats from deltas
   const [tokenStats, setTokenStats] = useState<GeminiTokenStats | null>(null);
   const [tokenDelta, setTokenDelta] = useState<GeminiTokenDelta | null>(null);
+  // Accumulated stats for spectator mode (built from deltas)
+  const [player1TokenStats, setPlayer1TokenStats] = useState<GeminiTokenStats | null>(null);
+  const [player2TokenStats, setPlayer2TokenStats] = useState<GeminiTokenStats | null>(null);
+  const [player1TokenDelta, setPlayer1TokenDelta] = useState<GeminiTokenDelta | null>(null);
+  const [player2TokenDelta, setPlayer2TokenDelta] = useState<GeminiTokenDelta | null>(null);
 
   // Check if in spectator mode
   const isSpectatorMode = state.gameMode === 'cpuVsCPU';
@@ -81,29 +88,123 @@ function App() {
     return `${name} (${suffix})`;
   };
 
-  // Helper to get the currently active Gemini AI type
-  const getActiveGeminiType = useCallback((): ExtendedAIType | null => {
-    if (isSpectatorMode) {
-      // In spectator mode, prefer the one that's a Gemini variant
-      if (isGeminiAI(spectatorAIs.player2)) return spectatorAIs.player2;
-      if (isGeminiAI(spectatorAIs.player1)) return spectatorAIs.player1;
-      return null;
-    } else {
-      return isGeminiAI(settings.cpuAI) ? settings.cpuAI : null;
+  // Helper to get delta for a specific AI type
+  const getDeltaForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenDelta | null => {
+    if (aiType === 'gemini-singleturn') {
+      return getGeminiSingleTurnTokenDelta();
+    } else if (aiType === 'gemini') {
+      return getGeminiTokenDelta();
     }
-  }, [isSpectatorMode, spectatorAIs, settings.cpuAI]);
+    return null;
+  }, []);
 
-  // Helper to update token stats and delta (gets from appropriate AI)
-  const updateTokenStats = useCallback(() => {
-    const activeType = getActiveGeminiType();
-    if (activeType === 'gemini-singleturn') {
-      setTokenStats(getGeminiSingleTurnTokenStats());
-      setTokenDelta(getGeminiSingleTurnTokenDelta());
-    } else {
-      setTokenStats(getGeminiTokenStats());
-      setTokenDelta(getGeminiTokenDelta());
+  // Helper to get full stats for a specific AI type
+  const getStatsForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenStats | null => {
+    if (aiType === 'gemini-singleturn') {
+      return getGeminiSingleTurnTokenStats();
+    } else if (aiType === 'gemini') {
+      return getGeminiTokenStats();
     }
-  }, [getActiveGeminiType]);
+    return null;
+  }, []);
+
+  // Helper to update token stats for single player mode
+  const updateTokenStats = useCallback(() => {
+    if (!isSpectatorMode && isGeminiAI(settings.cpuAI)) {
+      const stats = getStatsForAIType(settings.cpuAI);
+      const delta = getDeltaForAIType(settings.cpuAI);
+      setTokenStats(stats);
+      setTokenDelta(delta);
+    }
+  }, [isSpectatorMode, settings.cpuAI, getStatsForAIType, getDeltaForAIType]);
+
+  // Helper to accumulate delta into existing stats
+  const accumulateStats = useCallback((
+    prevStats: GeminiTokenStats | null,
+    delta: GeminiTokenDelta | null,
+    model: string
+  ): GeminiTokenStats | null => {
+    if (!delta) return prevStats;
+
+    // Create display name from model
+    const shortName = model.replace('gemini-', '').split('-').map(
+      (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
+    ).join(' ');
+    const modelDisplayName = `Gemini ${shortName}`;
+
+    if (!prevStats) {
+      // Initialize new stats from first delta
+      return {
+        promptTokens: delta.promptTokens,
+        responseTokens: delta.responseTokens,
+        thoughtTokens: delta.thoughtTokens,
+        totalTokens: delta.totalTokens,
+        cachedTokens: 0,
+        requestCount: delta.totalTokens > 0 ? 1 : 0, // Only count if actual API call
+        roundPromptTokens: delta.promptTokens,
+        roundResponseTokens: delta.responseTokens,
+        roundThoughtTokens: delta.thoughtTokens,
+        roundTotalTokens: delta.totalTokens,
+        roundRequestCount: delta.totalTokens > 0 ? 1 : 0,
+        modelId: model,
+        modelDisplayName,
+        totalTimeMs: delta.turnTimeMs,
+        lastTurnTimeMs: delta.turnTimeMs,
+        minTurnTimeMs: delta.turnTimeMs > 0 ? delta.turnTimeMs : 0,
+        maxTurnTimeMs: delta.turnTimeMs,
+        roundTotalTimeMs: delta.turnTimeMs,
+      };
+    }
+
+    // Calculate new min/max timing
+    let newMinTime = prevStats.minTurnTimeMs;
+    let newMaxTime = prevStats.maxTurnTimeMs;
+    if (delta.turnTimeMs > 0) {
+      if (newMinTime === 0 || delta.turnTimeMs < newMinTime) {
+        newMinTime = delta.turnTimeMs;
+      }
+      if (delta.turnTimeMs > newMaxTime) {
+        newMaxTime = delta.turnTimeMs;
+      }
+    }
+
+    // Accumulate into existing stats
+    return {
+      ...prevStats,
+      promptTokens: prevStats.promptTokens + delta.promptTokens,
+      responseTokens: prevStats.responseTokens + delta.responseTokens,
+      thoughtTokens: prevStats.thoughtTokens + delta.thoughtTokens,
+      totalTokens: prevStats.totalTokens + delta.totalTokens,
+      requestCount: prevStats.requestCount + (delta.totalTokens > 0 ? 1 : 0),
+      roundPromptTokens: prevStats.roundPromptTokens + delta.promptTokens,
+      roundResponseTokens: prevStats.roundResponseTokens + delta.responseTokens,
+      roundThoughtTokens: prevStats.roundThoughtTokens + delta.thoughtTokens,
+      roundTotalTokens: prevStats.roundTotalTokens + delta.totalTokens,
+      roundRequestCount: prevStats.roundRequestCount + (delta.totalTokens > 0 ? 1 : 0),
+      totalTimeMs: prevStats.totalTimeMs + delta.turnTimeMs,
+      lastTurnTimeMs: delta.turnTimeMs,
+      minTurnTimeMs: newMinTime,
+      maxTurnTimeMs: newMaxTime,
+      roundTotalTimeMs: prevStats.roundTotalTimeMs + delta.turnTimeMs,
+    };
+  }, []);
+
+  // Helper to update token stats for a specific player in spectator mode
+  const updatePlayerTokenStats = useCallback((player: 'player1' | 'player2') => {
+    const aiType = player === 'player1' ? spectatorAIs.player1 : spectatorAIs.player2;
+    const model = player === 'player1' ? spectatorModels.player1 : spectatorModels.player2;
+    if (!isGeminiAI(aiType)) return;
+
+    const delta = getDeltaForAIType(aiType);
+
+    if (player === 'player1') {
+      setPlayer1TokenDelta(delta);
+      setPlayer1TokenStats(prev => accumulateStats(prev, delta, model));
+    } else {
+      setPlayer2TokenDelta(delta);
+      setPlayer2TokenStats(prev => accumulateStats(prev, delta, model));
+    }
+  }, [spectatorAIs, spectatorModels, getDeltaForAIType, accumulateStats]);
 
   // Animation speed multipliers based on settings
   const getAnimationDelay = useCallback((baseMs: number) => {
@@ -553,7 +654,11 @@ function App() {
         const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
         moveToExecute = await ai.selectMove(context);
         // Update token stats after async AI move
-        updateTokenStats();
+        if (isSpectatorMode) {
+          updatePlayerTokenStats('player2');
+        } else {
+          updateTokenStats();
+        }
       } else {
         // Sync AI - use simple context
         moveToExecute = ai.selectMove({
@@ -712,40 +817,43 @@ function App() {
     prevSetteBelloOwner.current = currentOwner;
   }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI]);
 
-  // Handle starting a new game (wraps startGame to reset token stats)
-  const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
-    // Reset token stats for both Gemini types
+  // Helper to reset all token stats
+  const resetAllTokenStats = useCallback(() => {
     resetGeminiTokenStats();
     resetGeminiSingleTurnTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
+    setPlayer1TokenStats(null);
+    setPlayer2TokenStats(null);
+    setPlayer1TokenDelta(null);
+    setPlayer2TokenDelta(null);
+  }, []);
+
+  // Handle starting a new game (wraps startGame to reset token stats)
+  const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
+    // Reset token stats for both Gemini types
+    resetAllTokenStats();
     // Start fresh sessions for both types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
     startGame(targetScore, gameMode);
-  }, [startGame]);
+  }, [startGame, resetAllTokenStats]);
 
   // Handle new game request
   const handleNewGame = useCallback(() => {
     if (state.status === 'playing') {
       setConfirmNewGame(true);
     } else {
-      resetGeminiTokenStats();
-      resetGeminiSingleTurnTokenStats();
-      setTokenStats(null);
-      setTokenDelta(null);
+      resetAllTokenStats();
       resetGame();
     }
-  }, [state.status, resetGame]);
+  }, [state.status, resetGame, resetAllTokenStats]);
 
   const confirmAndStartNewGame = useCallback(() => {
     setConfirmNewGame(false);
-    resetGeminiTokenStats();
-    resetGeminiSingleTurnTokenStats();
-    setTokenStats(null);
-    setTokenDelta(null);
+    resetAllTokenStats();
     resetGame();
-  }, [resetGame]);
+  }, [resetGame, resetAllTokenStats]);
 
   // Handle AI selection change
   const handleSelectAI = useCallback((ai: ExtendedAIType) => {
@@ -825,8 +933,8 @@ function App() {
         // Async AI (e.g., Gemini) - build extended context and await
         const context = buildLLMContext(humanHand, state.round.table, 'human');
         moveToExecute = await ai.selectMove(context);
-        // Update token stats after async AI move
-        updateTokenStats();
+        // Update token stats after async AI move (player1 in spectator mode)
+        updatePlayerTokenStats('player1');
       } else {
         // Sync AI - use simple context
         moveToExecute = ai.selectMove({
@@ -923,10 +1031,10 @@ function App() {
           onShowGameEnd={showGameEnd}
           player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
           player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
-          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? tokenStats : null}
+          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? isGeminiAI(spectatorAIs.player2) ? tokenStats : null
+              ? isGeminiAI(spectatorAIs.player2) ? player2TokenStats : null
               : isGeminiAI(settings.cpuAI) ? tokenStats : null
           }
         />
@@ -945,10 +1053,10 @@ function App() {
           onPlayAgain={resetGame}
           player1Name={isSpectatorMode ? getAIDisplayName(spectatorAIs.player1) : undefined}
           player2Name={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
-          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? tokenStats : null}
+          player1TokenStats={isSpectatorMode && isGeminiAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? isGeminiAI(spectatorAIs.player2) ? tokenStats : null
+              ? isGeminiAI(spectatorAIs.player2) ? player2TokenStats : null
               : isGeminiAI(settings.cpuAI) ? tokenStats : null
           }
         />
@@ -1120,7 +1228,13 @@ function App() {
               playerLabel={getAIDisplayName(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI)}
             />
             {((isSpectatorMode && isGeminiAI(spectatorAIs.player2)) || (!isSpectatorMode && isGeminiAI(settings.cpuAI))) && (
-              <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show mode="game" position="bottom" />
+              <TokenStatsDisplay
+                stats={isSpectatorMode ? player2TokenStats : tokenStats}
+                delta={isSpectatorMode ? player2TokenDelta : tokenDelta}
+                show
+                mode="game"
+                position="bottom"
+              />
             )}
           </div>
         }
@@ -1144,7 +1258,7 @@ function App() {
         humanPile={
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
             {isSpectatorMode && isGeminiAI(spectatorAIs.player1) && (
-              <TokenStatsDisplay stats={tokenStats} delta={tokenDelta} show mode="game" position="top" />
+              <TokenStatsDisplay stats={player1TokenStats} delta={player1TokenDelta} show mode="game" position="top" />
             )}
             <CapturedPile
               cards={state.players.human.captured}
