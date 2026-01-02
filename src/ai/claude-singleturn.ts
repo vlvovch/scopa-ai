@@ -294,12 +294,17 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       const startTime = performance.now();
 
       // Single request with full context using structured outputs (beta)
+      // Extended thinking enabled for better reasoning
       const response = await this.client.beta.messages.create({
         model: this.model,
-        max_tokens: 1024,
+        max_tokens: 16000, // Higher limit for thinking
         system: SYSTEM_INSTRUCTION_SINGLETURN,
         output_format: MOVE_OUTPUT_SCHEMA,
         messages: [{ role: 'user', content: prompt }],
+        thinking: {
+          type: 'enabled',
+          budget_tokens: 10000,
+        },
         betas: ['structured-outputs-2025-11-13']
       });
 

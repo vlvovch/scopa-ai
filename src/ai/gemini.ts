@@ -328,6 +328,8 @@ class GeminiAI implements AsyncAIPlayer {
 
   /**
    * Start a new round - create fresh chat session
+   * Note: Thinking config is passed per-message in selectMove() to allow
+   * dynamic control (disabled for single-move turns)
    */
   startRound(): void {
     // Reset round-specific stats
@@ -359,7 +361,8 @@ class GeminiAI implements AsyncAIPlayer {
   }
 
   /**
-   * Select a move using Gemini AI
+   * Select a move using Gemini AI with extended thinking
+   * Uses dynamic thinking budget (-1) for multi-move turns, disabled (0) for single-move
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
     const { hand, table, player, validMoves } = context;
@@ -380,7 +383,20 @@ class GeminiAI implements AsyncAIPlayer {
     try {
       const prompt = buildTurnPrompt(context);
       const startTime = performance.now();
-      const response = await this.chat!.sendMessage({ message: prompt });
+
+      // Use dynamic thinking (-1) when there are multiple moves, disabled (0) for single move
+      // This saves time and tokens when there's no decision to make
+      const thinkingBudget = validMoves.length > 1 ? -1 : 0;
+
+      const response = await this.chat!.sendMessage({
+        message: prompt,
+        config: {
+          thinkingConfig: {
+            thinkingBudget,
+          },
+        },
+      });
+
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usageMetadata);
       this.updateTimingStats(turnTime);

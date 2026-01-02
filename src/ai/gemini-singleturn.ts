@@ -278,6 +278,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
       const startTime = performance.now();
 
       // Single request with full context (no chat session)
+      // Use dynamic thinking (-1) for better reasoning
       const response = await this.ai.models.generateContent({
         model: this.model,
         contents: prompt,
@@ -291,6 +292,9 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
               reasoning: { type: Type.STRING },
             },
             required: ['moveIndex', 'reasoning'],
+          },
+          thinkingConfig: {
+            thinkingBudget: -1, // Dynamic thinking
           },
         },
       });
