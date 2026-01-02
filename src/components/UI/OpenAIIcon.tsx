@@ -1,16 +1,22 @@
 // OpenAI Blossom Icon component - renders the official OpenAI "blossom" logo symbol
+// Brand color: OpenAI green (#10A37F)
 
 interface OpenAIIconProps {
   size?: number | string;
   className?: string;
+  /** Use brand color (default) or inherit from currentColor */
+  useBrandColor?: boolean;
 }
 
-export function OpenAIIcon({ size = '1em', className }: OpenAIIconProps) {
+// OpenAI brand color (green)
+const OPENAI_BRAND_COLOR = '#10A37F';
+
+export function OpenAIIcon({ size = '1em', className, useBrandColor = true }: OpenAIIconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
       xmlns="http://www.w3.org/2000/svg"
-      fill="currentColor"
+      fill={useBrandColor ? OPENAI_BRAND_COLOR : 'currentColor'}
       width={size}
       height={size}
       className={className}

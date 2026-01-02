@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-01 (Phase 26: OpenAI Single-Turn Mode & UI Improvements)
+**Last Updated:** 2026-01-01 (Phase 28: Brand Icons & Custom Dropdown)
 
 ---
 
@@ -83,7 +83,9 @@ scopa-ai-claude/
 │   │   ├── gemini.ts       # Gemini LLM AI (multi-turn chat)
 │   │   ├── gemini-singleturn.ts  # Gemini single-turn mode
 │   │   ├── openai.ts       # OpenAI GPT AI (Responses API, conversation state)
-│   │   └── openai-singleturn.ts  # OpenAI single-turn mode
+│   │   ├── openai-singleturn.ts  # OpenAI single-turn mode
+│   │   ├── claude.ts       # Claude AI (Messages API, local conversation state)
+│   │   └── claude-singleturn.ts  # Claude single-turn mode
 │   │
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
@@ -313,7 +315,8 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `randomAI` | Scimmietta | 🐒 | Sync | Picks random valid move |
 | `heuristicAI` | Furbo | 🦊 | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
 | `GeminiAI` | Gemini | ✦ (SVG) | Async | LLM-based using Google's Gemini API with structured JSON output |
-| `OpenAIAI` | GPT | Blossom (SVG) | Async | LLM-based using OpenAI's Chat Completions API with structured JSON output |
+| `OpenAIAI` | GPT | Blossom (SVG) | Async | LLM-based using OpenAI's Responses API with structured JSON output |
+| `ClaudeAI` | Claude | 🔮 | Async | LLM-based using Anthropic's Messages API with tool use for structured output |
 
 **Mode Icons:**
 - 💬 = Multi-turn chat (conversation with memory)
@@ -321,14 +324,20 @@ All action dispatchers wrapped in `useCallback` for stable references.
 
 ### AIPlayerLabel Component (UI/AIPlayerLabel.tsx)
 
-Renders AI player names with proper SVG icons:
+Renders AI player names with proper SVG icons in brand colors:
 
-| AI Type | Icon | Rendered As |
-|---------|------|-------------|
-| `openai` | OpenAI blossom SVG | `<OpenAIIcon />` |
-| `gemini`, `gemini-singleturn` | Sparkle SVG | `<GeminiIcon />` |
-| `random` | 🐒 emoji | `<span>` |
-| `heuristic` | 🦊 emoji | `<span>` |
+| AI Type | Icon | Brand Color | Component |
+|---------|------|-------------|-----------|
+| `openai`, `openai-singleturn` | OpenAI blossom SVG | Green (#10A37F) | `<OpenAIIcon />` |
+| `gemini`, `gemini-singleturn` | Sparkle SVG | Blue (#4285F4) | `<GeminiIcon />` |
+| `claude`, `claude-singleturn` | Claude logo SVG | Coral (#D97757) | `<ClaudeIcon />` |
+| `random` | 🐒 emoji | - | `<span>` |
+| `heuristic` | 🦊 emoji | - | `<span>` |
+
+**Icon Components (UI/):**
+- `OpenAIIcon.tsx` - Official OpenAI blossom logo with brand color
+- `GeminiIcon.tsx` - Four-pointed sparkle with Google blue
+- `ClaudeIcon.tsx` - Official Claude logo from Bootstrap Icons with Anthropic coral
 
 **Props:**
 | Prop | Type | Description |
@@ -337,7 +346,26 @@ Renders AI player names with proper SVG icons:
 | `model` | `string` | Model ID for LLM AIs (optional) |
 | `showModeIndicator` | `boolean` | Show 💬/1️⃣ suffix (default: true) |
 
-**Note:** HTML `<option>` elements only support text, so dropdowns use text fallback icons (`⬡`, `✦`).
+### CustomDropdown Component (UI/CustomDropdown.tsx)
+
+Custom dropdown that renders SVG icons (native `<select>` only supports text).
+
+**Features:**
+- Renders actual SVG icons with brand colors in dropdown options
+- Keyboard navigation (arrow keys, enter, escape)
+- Click outside to close
+- Checkmark on selected option
+- Matches native dropdown styling
+
+**Props:**
+| Prop | Type | Description |
+|------|------|-------------|
+| `options` | `DropdownOption<T>[]` | Array of `{ value, label, icon? }` |
+| `value` | `T` | Currently selected value |
+| `onChange` | `(value: T) => void` | Selection callback |
+| `disabled` | `boolean` | Disable interaction |
+
+Used in StartScreen for AI provider selection (Gemini/OpenAI/Claude).
 
 ### Gemini AI (gemini.ts)
 
@@ -491,6 +519,121 @@ Renders AI player names with proper SVG icons:
 | `getOpenAISingleTurnTokenDelta()` | Returns last turn's delta |
 | `startOpenAISingleTurnRound()` | Resets move history for new round |
 | `endOpenAISingleTurnRound()` | Clears move history |
+
+### Claude AI (claude.ts)
+
+**Architecture:**
+- Uses `@anthropic-ai/sdk` with Messages API
+- **Local conversation state management** - messages array maintained client-side
+- System instruction contains full Scopa rules, scoring, and prime values
+- **Tool use for structured output** - `select_move` tool with JSON schema
+- Messages array persists within a round for context continuity
+
+**Tool Use for Structured Output:**
+```typescript
+const SELECT_MOVE_TOOL = {
+  name: 'select_move',
+  description: 'Select the best move from the valid moves list',
+  input_schema: {
+    type: 'object',
+    properties: {
+      moveIndex: { type: 'integer', description: '0-based index of the selected move' },
+      reasoning: { type: 'string', description: 'Brief explanation' }
+    },
+    required: ['moveIndex', 'reasoning']
+  }
+};
+
+// Force tool use with tool_choice: { type: 'tool', name: 'select_move' }
+```
+
+**Messages Array Flow:**
+```
+1. On each turn: push user message to messages[]
+2. Send messages[] to API with tool
+3. Parse tool_use response block for moveIndex
+4. Push assistant response to messages[]
+5. startRound(): clear messages[] → fresh conversation
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `createClaudeAI(model)` | Creates new Claude AI instance |
+| `getClaudeAI(model)` | Gets cached instance (creates if needed) |
+| `isClaudeAvailable()` | Checks if API key is configured |
+| `fetchClaudeModels()` | Fetches available models from beta API |
+| `getClaudeTokenStats()` | Returns cumulative token usage |
+| `getClaudeTokenDelta()` | Returns last turn's token delta |
+| `resetClaudeTokenStats()` | Resets token counters (for new game) |
+| `startClaudeRound()` | Clears messages array for fresh state |
+| `endClaudeRound()` | Clears messages array |
+
+**API Comparison (OpenAI Responses → Claude Messages):**
+
+| OpenAI Responses API | Claude Messages API |
+|---------------------|---------------------|
+| `client.responses.create()` | `client.messages.create()` |
+| `conversation: { id }` (server-side) | `messages: Message[]` (client-side) |
+| Server manages history | Client manages messages array |
+| `text.format.json_schema` | `tools` + `tool_choice` |
+| `response.output_text` | `response.content[].input` (tool_use block) |
+| `usage.input_tokens` | `usage.input_tokens` |
+| `usage.output_tokens` | `usage.output_tokens` |
+| N/A | `usage.cache_creation_input_tokens` |
+| N/A | `usage.cache_read_input_tokens` |
+
+**Token Stats Tracked:**
+
+| Stat | Description |
+|------|-------------|
+| `promptTokens` | Input tokens sent to API |
+| `responseTokens` | Output tokens received |
+| `cacheCreationTokens` | Tokens used to create cache |
+| `cacheReadTokens` | Tokens read from cache (free) |
+| `totalTokens` | Sum of all tokens |
+| `cachedTokens` | Total cached tokens (creation + read) |
+| `requestCount` | Number of API calls made |
+| `roundPromptTokens` | Round-specific input tokens |
+| `roundResponseTokens` | Round-specific output tokens |
+| `roundTotalTokens` | Round-specific total tokens |
+| `roundRequestCount` | Round-specific API calls |
+
+**Configuration:**
+- API key: `VITE_CLAUDE_API_KEY` environment variable
+- Default model: `claude-sonnet-4-5-20250929`
+- Fallback: Heuristic AI if API key not available
+- Model filtering: Only `claude-*` models from beta models list
+
+### Claude Single-Turn AI (claude-singleturn.ts)
+
+**Architecture:**
+- Uses `@anthropic-ai/sdk` with Messages API (same as multi-turn)
+- **Single-turn mode**: Each request is independent, no messages array
+- Full move history included in each prompt via `buildSingleTurnPrompt()`
+- Maintains local `roundMoveHistory` and `initialTable` for context reconstruction
+- Same tool use for structured output as multi-turn
+
+**Key Differences from Multi-Turn:**
+
+| Multi-Turn (claude.ts) | Single-Turn (claude-singleturn.ts) |
+|------------------------|-----------------------------------|
+| Manages `messages[]` between turns | No messages - each request independent |
+| Stores conversation context | Stores `roundMoveHistory[]` and `initialTable[]` |
+| Prompt includes only last opponent move | Prompt includes complete round history |
+| Lower token usage (incremental context) | Higher token usage (full history each turn) |
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `createClaudeSingleTurnAI(model)` | Creates new single-turn instance |
+| `getClaudeSingleTurnAI(model)` | Gets cached instance |
+| `getClaudeSingleTurnTokenStats()` | Returns cumulative token usage |
+| `getClaudeSingleTurnTokenDelta()` | Returns last turn's delta |
+| `startClaudeSingleTurnRound()` | Resets move history for new round |
+| `endClaudeSingleTurnRound()` | Clears move history |
 
 ### TokenStatsDisplay Component
 
@@ -778,7 +921,7 @@ Renders AI player names with proper SVG icons:
 
 ## MVP Complete!
 
-All 26 phases implemented:
+All 28 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -805,9 +948,10 @@ All 26 phases implemented:
 24. OpenAI Icon Integration & UI Polish (blossom SVG, AIPlayerLabel, raw model IDs)
 25. OpenAI Responses API Migration (server-side conversation state, cleaner code)
 26. OpenAI Single-Turn Mode & UI Improvements (single-turn AI, mode toggle button)
+27. Claude Anthropic API Integration (Messages API, tool use, multi-turn & single-turn modes)
+28. Brand Icons & Custom Dropdown (official logos with brand colors, custom dropdown for SVG icons)
 
 **Future Enhancements:**
-- Smarter AI (rule-based or LLM)
 - Multiplayer support
 - Sound effects
 - More card themes

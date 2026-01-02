@@ -1,15 +1,19 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useMemo, useEffect } from 'react';
-import { AI_INFO, isGeminiAvailable, isOpenAIAvailable, fetchGeminiModels, fetchOpenAIModels, isGeminiAIType, isOpenAIAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo } from '../../ai';
+import { AI_INFO, isGeminiAvailable, isOpenAIAvailable, isClaudeAvailable, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isOpenAIAIType, isClaudeAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
+import { CustomDropdown } from './CustomDropdown';
+import { GeminiIcon } from './GeminiIcon';
+import { OpenAIIcon } from './OpenAIIcon';
+import { ClaudeIcon } from './ClaudeIcon';
 import styles from './StartScreen.module.css';
 
 type GameModeOption = 'play' | 'watch';
 type OpponentCategory = 'cpu' | 'ai';
 type CPUType = 'random' | 'heuristic';
 // AI provider (base type without mode suffix)
-type AIProvider = 'gemini' | 'openai';
+type AIProvider = 'gemini' | 'openai' | 'claude';
 // Conversation mode for LLM AIs
 type ConversationMode = 'conversation' | 'singleturn';
 
@@ -23,6 +27,8 @@ interface StartScreenProps {
   onSelectGeminiModel: (model: string) => void;
   openaiModel: string;
   onSelectOpenAIModel: (model: string) => void;
+  claudeModel: string;
+  onSelectClaudeModel: (model: string) => void;
   spectatorModels: { player1: string; player2: string };
   onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
   defaultTargetScore: number;
@@ -43,12 +49,13 @@ function getCPUType(aiType: ExtendedAIType): CPUType {
 // Helper to get base AI provider from AI type
 function getAIProvider(aiType: ExtendedAIType): AIProvider {
   if (isOpenAIAIType(aiType)) return 'openai';
+  if (isClaudeAIType(aiType)) return 'claude';
   return 'gemini';
 }
 
 // Helper to get conversation mode from AI type
 function getConversationMode(aiType: ExtendedAIType): ConversationMode {
-  if (aiType === 'gemini-singleturn' || aiType === 'openai-singleturn') return 'singleturn';
+  if (aiType === 'gemini-singleturn' || aiType === 'openai-singleturn' || aiType === 'claude-singleturn') return 'singleturn';
   return 'conversation';
 }
 
@@ -56,6 +63,9 @@ function getConversationMode(aiType: ExtendedAIType): ConversationMode {
 function getExtendedAIType(provider: AIProvider, mode: ConversationMode): ExtendedAIType {
   if (provider === 'openai') {
     return mode === 'singleturn' ? 'openai-singleturn' : 'openai';
+  }
+  if (provider === 'claude') {
+    return mode === 'singleturn' ? 'claude-singleturn' : 'claude';
   }
   return mode === 'singleturn' ? 'gemini-singleturn' : 'gemini';
 }
@@ -70,6 +80,8 @@ export function StartScreen({
   onSelectGeminiModel,
   openaiModel,
   onSelectOpenAIModel,
+  claudeModel,
+  onSelectClaudeModel,
   spectatorModels,
   onSelectSpectatorModel,
   defaultTargetScore,
@@ -78,16 +90,19 @@ export function StartScreen({
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>([]);
   const [openaiModels, setOpenAIModels] = useState<OpenAIModelInfo[]>([]);
+  const [claudeModels, setClaudeModels] = useState<ClaudeModelInfo[]>([]);
   const [loadingGeminiModels, setLoadingGeminiModels] = useState(false);
   const [loadingOpenAIModels, setLoadingOpenAIModels] = useState(false);
+  const [loadingClaudeModels, setLoadingClaudeModels] = useState(false);
 
   // Check API availability
   const geminiAvailable = useMemo(() => isGeminiAvailable(), []);
   const openaiAvailable = useMemo(() => isOpenAIAvailable(), []);
-  const aiAvailable = geminiAvailable || openaiAvailable;
+  const claudeAvailable = useMemo(() => isClaudeAvailable(), []);
+  const aiAvailable = geminiAvailable || openaiAvailable || claudeAvailable;
 
   // Default AI provider based on availability
-  const defaultAIProvider: AIProvider = geminiAvailable ? 'gemini' : 'openai';
+  const defaultAIProvider: AIProvider = geminiAvailable ? 'gemini' : (openaiAvailable ? 'openai' : 'claude');
 
   // Check if any selected AI needs model fetching
   const needsGeminiModels = isGeminiAIType(selectedAI) ||
@@ -97,6 +112,10 @@ export function StartScreen({
   const needsOpenAIModels = isOpenAIAIType(selectedAI) ||
     isOpenAIAIType(spectatorAIs.player1) ||
     isOpenAIAIType(spectatorAIs.player2);
+
+  const needsClaudeModels = isClaudeAIType(selectedAI) ||
+    isClaudeAIType(spectatorAIs.player1) ||
+    isClaudeAIType(spectatorAIs.player2);
 
   // Fetch Gemini models when needed
   useEffect(() => {
@@ -127,6 +146,21 @@ export function StartScreen({
         .finally(() => setLoadingOpenAIModels(false));
     }
   }, [needsOpenAIModels, openaiModels.length, loadingOpenAIModels, openaiModel, onSelectOpenAIModel]);
+
+  // Fetch Claude models when needed
+  useEffect(() => {
+    if (needsClaudeModels && claudeModels.length === 0 && !loadingClaudeModels) {
+      setLoadingClaudeModels(true);
+      fetchClaudeModels()
+        .then((models) => {
+          setClaudeModels(models);
+          if (models.length > 0 && !models.some(m => m.id === claudeModel)) {
+            onSelectClaudeModel(models[0].id);
+          }
+        })
+        .finally(() => setLoadingClaudeModels(false));
+    }
+  }, [needsClaudeModels, claudeModels.length, loadingClaudeModels, claudeModel, onSelectClaudeModel]);
 
   // Handlers for cascading dropdowns
   const handleCategoryChange = (category: OpponentCategory) => {
@@ -165,6 +199,8 @@ export function StartScreen({
       // Also update the model to a default for the new provider
       if (defaultAIProvider === 'openai') {
         onSelectSpectatorModel(player, openaiModel);
+      } else if (defaultAIProvider === 'claude') {
+        onSelectSpectatorModel(player, claudeModel);
       } else {
         onSelectSpectatorModel(player, geminiModel);
       }
@@ -183,6 +219,8 @@ export function StartScreen({
     // Also update the model to a default for the new provider
     if (provider === 'openai') {
       onSelectSpectatorModel(player, openaiModel);
+    } else if (provider === 'claude') {
+      onSelectSpectatorModel(player, claudeModel);
     } else {
       onSelectSpectatorModel(player, geminiModel);
     }
@@ -217,6 +255,7 @@ export function StartScreen({
     const convMode = getConversationMode(currentAI);
     const isGemini = isGeminiAIType(currentAI);
     const isOpenAI = isOpenAIAIType(currentAI);
+    const isClaude = isClaudeAIType(currentAI);
 
     return (
       <div className={styles.opponentSelector}>
@@ -246,14 +285,16 @@ export function StartScreen({
             <>
               {/* AI Provider + Mode toggle row */}
               <div className={styles.providerRow}>
-                <select
-                  className={styles.dropdown}
+                <CustomDropdown<AIProvider>
+                  options={[
+                    ...(geminiAvailable ? [{ value: 'gemini' as const, label: 'Gemini', icon: <GeminiIcon size="1.1em" /> }] : []),
+                    ...(openaiAvailable ? [{ value: 'openai' as const, label: 'OpenAI', icon: <OpenAIIcon size="1.1em" /> }] : []),
+                    ...(claudeAvailable ? [{ value: 'claude' as const, label: 'Claude', icon: <ClaudeIcon size="1.1em" /> }] : []),
+                  ]}
                   value={provider}
-                  onChange={(e) => onAIProviderChange(e.target.value as AIProvider)}
-                >
-                  {geminiAvailable && <option value="gemini">{AI_INFO.gemini.icon} Gemini</option>}
-                  {openaiAvailable && <option value="openai">{AI_INFO.openai.icon} OpenAI</option>}
-                </select>
+                  onChange={onAIProviderChange}
+                  className={styles.providerDropdown}
+                />
 
                 {/* Mode toggle button */}
                 <button
@@ -299,6 +340,22 @@ export function StartScreen({
                   onChange={(e) => onModelChange(e.target.value)}
                 >
                   {openaiModels.map((model) => (
+                    <option key={model.id} value={model.id}>{model.displayName}</option>
+                  ))}
+                </select>
+              )
+            ) : isClaude ? (
+              loadingClaudeModels ? (
+                <select className={styles.dropdown} disabled>
+                  <option>Loading...</option>
+                </select>
+              ) : (
+                <select
+                  className={styles.dropdown}
+                  value={currentModel}
+                  onChange={(e) => onModelChange(e.target.value)}
+                >
+                  {claudeModels.map((model) => (
                     <option key={model.id} value={model.id}>{model.displayName}</option>
                   ))}
                 </select>
@@ -374,8 +431,8 @@ export function StartScreen({
             handleCPUTypeChange,
             handleAIProviderChange,
             handleConversationModeChange,
-            isGeminiAIType(selectedAI) ? onSelectGeminiModel : onSelectOpenAIModel,
-            isGeminiAIType(selectedAI) ? geminiModel : openaiModel,
+            isGeminiAIType(selectedAI) ? onSelectGeminiModel : (isOpenAIAIType(selectedAI) ? onSelectOpenAIModel : onSelectClaudeModel),
+            isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
             'Opponent'
           )
         ) : (

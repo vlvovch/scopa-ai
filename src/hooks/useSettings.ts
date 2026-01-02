@@ -18,8 +18,10 @@ export interface GameSettings {
   deck: DeckType;
   /** Gemini model to use (when cpuAI is 'gemini' or 'gemini-singleturn') */
   geminiModel: string;
-  /** OpenAI model to use (when cpuAI is 'openai') */
+  /** OpenAI model to use (when cpuAI is 'openai' or 'openai-singleturn') */
   openaiModel: string;
+  /** Claude model to use (when cpuAI is 'claude' or 'claude-singleturn') */
+  claudeModel: string;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -32,6 +34,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   deck: 'napoletane',
   geminiModel: 'gemini-2.5-flash',
   openaiModel: 'gpt-4o-mini',
+  claudeModel: 'claude-sonnet-4-5-20250929',
 };
 
 function loadSettings(): GameSettings {

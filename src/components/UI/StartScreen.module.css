@@ -328,6 +328,11 @@
   min-width: 0;
 }
 
+.providerDropdown {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Mode toggle button (💬/1️⃣) */
 .modeToggle {
   padding: var(--space-2);

@@ -3,6 +3,8 @@
 import type { ReactNode } from 'react';
 import type { ExtendedAIType } from '../../ai';
 import { OpenAIIcon } from './OpenAIIcon';
+import { ClaudeIcon } from './ClaudeIcon';
+import { GeminiIcon } from './GeminiIcon';
 
 interface AIPlayerLabelProps {
   /** The AI type */
@@ -15,24 +17,6 @@ interface AIPlayerLabelProps {
   showModeIndicator?: boolean;
 }
 
-/** Gemini sparkle icon */
-function GeminiIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="currentColor"
-      width="1em"
-      height="1em"
-      className={className}
-      style={{ display: 'inline-block', verticalAlign: 'middle' }}
-    >
-      {/* Four-pointed star/sparkle for Gemini */}
-      <path d="M12 2L14.5 9.5L22 12L14.5 14.5L12 22L9.5 14.5L2 12L9.5 9.5L12 2Z" />
-    </svg>
-  );
-}
-
 /**
  * Get the icon for an AI type
  */
@@ -43,7 +27,10 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
       return <OpenAIIcon size="1em" className={className} />;
     case 'gemini':
     case 'gemini-singleturn':
-      return <GeminiIcon className={className} />;
+      return <GeminiIcon size="1em" className={className} />;
+    case 'claude':
+    case 'claude-singleturn':
+      return <ClaudeIcon size="1em" className={className} />;
     case 'random':
       return <span style={{ fontSize: '1em' }}>🐒</span>;
     case 'heuristic':
@@ -84,6 +71,23 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
       .replace(/-(?=[A-Z])/g, ' ');
   }
 
+  if (aiType === 'claude' || aiType === 'claude-singleturn') {
+    const modelId = model || 'claude-sonnet-4-5-20250929';
+    // Remove date suffix and format
+    const withoutDate = modelId.replace(/-\d{8}$/, '');
+    return withoutDate
+      .split('-')
+      .map((part, i) => {
+        if (i === 0) return 'Claude';
+        if (part === 'claude') return '';
+        if (/^\d+$/.test(part)) return part;
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      })
+      .filter(Boolean)
+      .join(' ')
+      .replace(/(\d) (\d)/g, '$1.$2'); // "4 5" -> "4.5"
+  }
+
   if (aiType === 'random') return 'Scimmietta';
   if (aiType === 'heuristic') return 'Furbo';
 
@@ -98,6 +102,8 @@ function getModeIndicator(aiType: ExtendedAIType): string | null {
   if (aiType === 'gemini-singleturn') return '1️⃣';
   if (aiType === 'openai') return '💬';
   if (aiType === 'openai-singleturn') return '1️⃣';
+  if (aiType === 'claude') return '💬';
+  if (aiType === 'claude-singleturn') return '1️⃣';
   return null;
 }
 
@@ -130,6 +136,8 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
     'gemini-singleturn': '✦',
     openai: '⬡',
     'openai-singleturn': '⬡',
+    claude: '◐',
+    'claude-singleturn': '◐',
   };
 
   const icon = textIcons[aiType] || '';

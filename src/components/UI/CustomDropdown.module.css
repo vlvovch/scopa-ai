@@ -1,0 +1,123 @@
+/* Custom Dropdown styles */
+
+.container {
+  position: relative;
+  display: inline-block;
+  min-width: 120px;
+  font-size: 0.95rem;
+  user-select: none;
+}
+
+.container:focus {
+  outline: none;
+}
+
+.container:focus .selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.3);
+}
+
+.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.selected:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.selected.open {
+  border-color: var(--color-accent);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.selectedContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.1em;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arrow {
+  font-size: 0.7em;
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.optionsList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: rgba(30, 30, 30, 0.98);
+  border: 1px solid var(--color-accent);
+  border-top: none;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.option:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.option:last-child {
+  border-bottom-left-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+
+.optionSelected {
+  background: rgba(212, 175, 55, 0.15);
+}
+
+.optionSelected:hover {
+  background: rgba(212, 175, 55, 0.25);
+}
+
+.checkmark {
+  margin-left: auto;
+  color: var(--color-accent);
+  font-size: 0.9em;
+}

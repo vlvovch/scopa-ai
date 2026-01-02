@@ -608,14 +608,79 @@
 
 ---
 
+## Phase 27: Claude Anthropic API Integration
+
+- [x] Step 27.1: Install @anthropic-ai/sdk package - Completed 2026-01-01
+- [x] Step 27.2: Create Claude AI multi-turn implementation - Completed 2026-01-01
+- [x] Step 27.3: Create Claude AI single-turn implementation - Completed 2026-01-01
+- [x] Step 27.4: Update AI index exports with Claude types and helpers - Completed 2026-01-01
+- [x] Step 27.5: Add Claude icon to AIPlayerLabel component - Completed 2026-01-01
+- [x] Step 27.6: Add Claude provider option to StartScreen - Completed 2026-01-01
+- [x] Step 27.7: Add claudeModel to settings hook - Completed 2026-01-01
+- [x] Step 27.8: Integrate Claude AI into App.tsx game flow - Completed 2026-01-01
+
+**Notes:**
+- Created `src/ai/claude.ts` using Anthropic Messages API with local conversation state
+- Created `src/ai/claude-singleturn.ts` for single-turn mode with full history
+- Uses **tool use (function calling)** for structured JSON output:
+  - `select_move` tool with JSON schema for `moveIndex` and `reasoning`
+  - `tool_choice: { type: 'tool', name: 'select_move' }` forces structured output
+- Key difference from OpenAI: conversation state managed locally via `messages[]` array (not server-side)
+- Messages array flow:
+  1. Push user message with game state
+  2. Call API with full messages array
+  3. Parse `tool_use` response block for move selection
+  4. Push assistant response to maintain context
+  5. `startRound()` clears messages for fresh conversation
+- Token stats tracked: input, output, cache creation, cache read tokens
+- Models fetched dynamically via `client.beta.models.list()` API
+- Default model: `claude-sonnet-4-5-20250929`
+- API key loaded from `VITE_CLAUDE_API_KEY` environment variable
+- Same system instruction as Gemini/OpenAI (full Scopa rules, scoring, prime values)
+- Graceful fallback to heuristic AI if API key not available
+- 135 tests passing
+
+---
+
+## Phase 28: Brand Icons & Custom Dropdown
+
+- [x] Step 28.1: Fix Claude API tool_result requirement - Completed 2026-01-01
+- [x] Step 28.2: Create official Claude logo SVG icon - Completed 2026-01-01
+- [x] Step 28.3: Add brand colors to all AI icons - Completed 2026-01-01
+- [x] Step 28.4: Create GeminiIcon component with brand color - Completed 2026-01-01
+- [x] Step 28.5: Create CustomDropdown component for SVG icons - Completed 2026-01-01
+- [x] Step 28.6: Integrate CustomDropdown into StartScreen - Completed 2026-01-01
+
+**Notes:**
+- Fixed Claude API 400 error: After assistant uses `tool_use`, must send `tool_result` in next message
+  - Added `tool_result` block after each assistant response to acknowledge the tool call
+  - Message flow: user → assistant (tool_use) → user (tool_result) → user (next prompt) → ...
+- Created `ClaudeIcon.tsx` using official Claude logo SVG from Bootstrap Icons
+- Added brand colors to all AI icon components:
+  - Gemini: Google Blue (#4285F4)
+  - OpenAI: OpenAI Green (#10A37F)
+  - Claude: Anthropic Coral (#D97757)
+- Created `GeminiIcon.tsx` as separate component (was inline in AIPlayerLabel)
+- Created `CustomDropdown.tsx` - custom dropdown that can render SVG icons:
+  - Native `<select>/<option>` only supports text, not HTML/SVG
+  - Features: keyboard navigation, click outside to close, checkmark on selected
+  - Matches native dropdown styling (same background, border, border-radius)
+- Updated StartScreen to use CustomDropdown for AI provider selection
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics (Siciliane suits available, card faces pending)
-- Selectable AI opponents (Random, Greedy heuristic, Gemini LLM, or OpenAI GPT)
+- Selectable AI opponents (Random, Greedy heuristic, Gemini LLM, OpenAI GPT, or Anthropic Claude)
 - Gemini AI with multi-turn chat sessions, token tracking, and model selection
 - OpenAI GPT AI with Responses API (server-side conversation state), structured outputs, and reasoning tokens
+- Claude AI with Messages API (local conversation state), tool use for structured outputs, and cache tracking
+- Official AI brand icons with brand colors (Gemini blue, OpenAI green, Claude coral)
+- Custom dropdown component for AI provider selection with SVG icons
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
 - Deck-aware custom SVG icons for score categories
@@ -626,4 +691,4 @@ The Scopa game is now fully playable with:
 - Settings persistence (including AI selection and deck choice)
 - New game and settings controls
 - Compact, polished StartScreen UI
-- Token usage display for LLM AI games (both Gemini and OpenAI)
+- Token usage display for LLM AI games (Gemini, OpenAI, and Claude)

@@ -18,8 +18,8 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound } from './ai';
-import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './ai';
+import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId } from './game/types';
@@ -82,12 +82,21 @@ function App() {
   const isGeminiAI = isGeminiAIType;
   // Helper to check if an AI type is an OpenAI variant (use exported function)
   const isOpenAIAI = isOpenAIAIType;
-  // Helper to check if an AI type is any LLM (Gemini or OpenAI)
-  const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType), []);
+  // Helper to check if an AI type is a Claude variant (use exported function)
+  const isClaudeAI = isClaudeAIType;
+  // Helper to check if an AI type is any LLM (Gemini, OpenAI, or Claude)
+  const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType), []);
+
+  // Helper to get the model for a given AI type from settings
+  const getModelForAI = useCallback((aiType: ExtendedAIType): string => {
+    if (isOpenAIAI(aiType)) return settings.openaiModel;
+    if (isClaudeAI(aiType)) return settings.claudeModel;
+    return settings.geminiModel;
+  }, [settings.openaiModel, settings.claudeModel, settings.geminiModel]);
 
   // Helper to get delta for a specific AI type and model
-  // Returns a unified delta type (Gemini and OpenAI deltas are structurally compatible)
-  const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenDelta | OpenAITokenDelta | null => {
+  // Returns a unified delta type (Gemini, OpenAI, and Claude deltas are structurally compatible)
+  const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenDelta | OpenAITokenDelta | ClaudeTokenDelta | null => {
     if (aiType === 'gemini-singleturn') {
       return getGeminiSingleTurnTokenDelta(model);
     } else if (aiType === 'gemini') {
@@ -96,13 +105,17 @@ function App() {
       return getOpenAITokenDelta(model);
     } else if (aiType === 'openai-singleturn') {
       return getOpenAISingleTurnTokenDelta(model);
+    } else if (aiType === 'claude') {
+      return getClaudeTokenDelta(model);
+    } else if (aiType === 'claude-singleturn') {
+      return getClaudeSingleTurnTokenDelta(model);
     }
     return null;
   }, []);
 
   // Helper to get full stats for a specific AI type and model
-  // Returns a unified stats type (Gemini and OpenAI stats are structurally compatible)
-  const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenStats | OpenAITokenStats | null => {
+  // Returns a unified stats type (Gemini, OpenAI, and Claude stats are structurally compatible)
+  const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenStats | OpenAITokenStats | ClaudeTokenStats | null => {
     if (aiType === 'gemini-singleturn') {
       return getGeminiSingleTurnTokenStats(model);
     } else if (aiType === 'gemini') {
@@ -111,6 +124,10 @@ function App() {
       return getOpenAITokenStats(model);
     } else if (aiType === 'openai-singleturn') {
       return getOpenAISingleTurnTokenStats(model);
+    } else if (aiType === 'claude') {
+      return getClaudeTokenStats(model);
+    } else if (aiType === 'claude-singleturn') {
+      return getClaudeSingleTurnTokenStats(model);
     }
     return null;
   }, []);
@@ -118,18 +135,22 @@ function App() {
   // Helper to update token stats for single player mode
   const updateTokenStats = useCallback(() => {
     if (!isSpectatorMode && isLLMAI(settings.cpuAI)) {
-      const model = isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel;
+      const model = isOpenAIAI(settings.cpuAI)
+        ? settings.openaiModel
+        : isClaudeAI(settings.cpuAI)
+          ? settings.claudeModel
+          : settings.geminiModel;
       const stats = getStatsForAIType(settings.cpuAI, model);
       const delta = getDeltaForAIType(settings.cpuAI, model);
       setTokenStats(stats as GeminiTokenStats);
       setTokenDelta(delta as GeminiTokenDelta);
     }
-  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, isLLMAI, isOpenAIAI]);
+  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, isLLMAI, isOpenAIAI, isClaudeAI]);
 
   // Helper to accumulate delta into existing stats
   const accumulateStats = useCallback((
     prevStats: GeminiTokenStats | null,
-    delta: GeminiTokenDelta | OpenAITokenDelta | null,
+    delta: GeminiTokenDelta | OpenAITokenDelta | ClaudeTokenDelta | null,
     model: string,
     aiType: ExtendedAIType
   ): GeminiTokenStats | null => {
@@ -140,6 +161,12 @@ function App() {
     if (isOpenAIAI(aiType)) {
       const shortName = model.replace(/^gpt-/i, '').replace(/^o(\d)/, 'O$1');
       modelDisplayName = `GPT ${shortName}`;
+    } else if (isClaudeAI(aiType)) {
+      const withoutDate = model.replace(/-\d{8}$/, '');
+      const shortName = withoutDate.replace('claude-', '').split('-').map(
+        part => part.charAt(0).toUpperCase() + part.slice(1)
+      ).join(' ').replace(/(\d) (\d)/g, '$1.$2');
+      modelDisplayName = `Claude ${shortName}`;
     } else {
       const shortName = model.replace('gemini-', '').split('-').map(
         (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
@@ -205,7 +232,7 @@ function App() {
       maxTurnTimeMs: newMaxTime,
       roundTotalTimeMs: prevStats.roundTotalTimeMs + delta.turnTimeMs,
     };
-  }, [isOpenAIAI]);
+  }, [isOpenAIAI, isClaudeAI]);
 
   // Helper to update token stats for a specific player in spectator mode
   const updatePlayerTokenStats = useCallback((player: 'player1' | 'player2') => {
@@ -260,8 +287,22 @@ function App() {
       // Fallback to heuristic if OpenAI not available
       return AI_PLAYERS.heuristic;
     }
+    if (aiType === 'claude') {
+      const claudeModel = model || settings.claudeModel;
+      const claude = getClaudeAI(claudeModel);
+      if (claude) return claude;
+      // Fallback to heuristic if Claude not available
+      return AI_PLAYERS.heuristic;
+    }
+    if (aiType === 'claude-singleturn') {
+      const claudeModel = model || settings.claudeModel;
+      const claude = getClaudeSingleTurnAI(claudeModel);
+      if (claude) return claude;
+      // Fallback to heuristic if Claude not available
+      return AI_PLAYERS.heuristic;
+    }
     return AI_PLAYERS[aiType];
-  }, [settings.geminiModel, settings.openaiModel]);
+  }, [settings.geminiModel, settings.openaiModel, settings.claudeModel]);
 
   // Build extended context for LLM AI
   const buildLLMContext = useCallback((
@@ -680,7 +721,9 @@ function App() {
     const timeoutId = setTimeout(async () => {
       // Use selected AI to select move (use spectator AI in spectator mode)
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
-      const model = isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel);
+      const model = isSpectatorMode
+        ? spectatorModels.player2
+        : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : (isClaudeAI(settings.cpuAI) ? settings.claudeModel : settings.geminiModel));
       const ai = getAIPlayer(aiType, model);
 
       let moveToExecute: Move;
@@ -797,6 +840,8 @@ function App() {
       endGeminiSingleTurnRound();
       endOpenAIRound();
       endOpenAISingleTurnRound();
+      endClaudeRound();
+      endClaudeSingleTurnRound();
       endRound();
     }, 1500);
 
@@ -866,6 +911,8 @@ function App() {
     resetGeminiSingleTurnTokenStats();
     resetOpenAITokenStats();
     resetOpenAISingleTurnTokenStats();
+    resetClaudeTokenStats();
+    resetClaudeSingleTurnTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
     setPlayer1TokenStats(null);
@@ -883,6 +930,8 @@ function App() {
     startGeminiSingleTurnRound();
     startOpenAIRound();
     startOpenAISingleTurnRound();
+    startClaudeRound();
+    startClaudeSingleTurnRound();
     startGame(targetScore, gameMode);
   }, [startGame, resetAllTokenStats]);
 
@@ -927,6 +976,8 @@ function App() {
     startGeminiSingleTurnRound();
     startOpenAIRound();
     startOpenAISingleTurnRound();
+    startClaudeRound();
+    startClaudeSingleTurnRound();
     nextRound();
   }, [nextRound]);
 
@@ -1054,6 +1105,8 @@ function App() {
           onSelectGeminiModel={(model) => updateSetting('geminiModel', model)}
           openaiModel={settings.openaiModel}
           onSelectOpenAIModel={(model) => updateSetting('openaiModel', model)}
+          claudeModel={settings.claudeModel}
+          onSelectClaudeModel={(model) => updateSetting('claudeModel', model)}
           spectatorModels={spectatorModels}
           onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
           defaultTargetScore={settings.defaultTargetScore}
@@ -1089,7 +1142,7 @@ function App() {
           player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
           player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
           player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
-          player2Model={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+          player2Model={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
           player1TokenStats={isSpectatorMode && isLLMAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
@@ -1113,7 +1166,7 @@ function App() {
           player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
           player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
           player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
-          player2Model={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+          player2Model={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
           player1TokenStats={isSpectatorMode && isLLMAI(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
@@ -1261,7 +1314,7 @@ function App() {
               player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
               player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
               player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
-              player2Model={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+              player2Model={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
             />
             <GameControls
               onNewGame={handleNewGame}
@@ -1289,7 +1342,7 @@ function App() {
               scopaCount={state.players.cpu.scopaCount}
               player="cpu"
               aiType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
-              aiModel={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+              aiModel={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
             />
             {((isSpectatorMode && isLLMAI(spectatorAIs.player2)) || (!isSpectatorMode && isLLMAI(settings.cpuAI))) && (
               <TokenStatsDisplay
@@ -1298,7 +1351,7 @@ function App() {
                 show
                 mode="game"
                 position="bottom"
-                modelName={isSpectatorMode ? spectatorModels.player2 : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel)}
+                modelName={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
               />
             )}
           </div>
