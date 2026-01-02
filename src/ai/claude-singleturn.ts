@@ -17,17 +17,17 @@ import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts'
 // Default model to use
 const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 
-// Tool definition for structured output
-const SELECT_MOVE_TOOL: Anthropic.Tool = {
-  name: 'select_move',
-  description: 'Select the best move from the valid moves list',
-  input_schema: {
+// JSON schema for structured output using output_format
+const MOVE_OUTPUT_SCHEMA = {
+  type: 'json_schema' as const,
+  schema: {
     type: 'object' as const,
     properties: {
-      moveIndex: { type: 'integer', description: '0-based index of the selected move from the valid moves list' },
-      reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' }
+      moveIndex: { type: 'integer' as const, description: '0-based index of the selected move from the valid moves list' },
+      reasoning: { type: 'string' as const, description: 'Brief explanation of why this move was chosen' }
     },
-    required: ['moveIndex', 'reasoning']
+    required: ['moveIndex', 'reasoning'] as const,
+    additionalProperties: false
   }
 };
 
@@ -293,32 +293,33 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       console.log(`[${this.model}] Prompt:\n`, prompt);
       const startTime = performance.now();
 
-      // Single request with full context (no conversation state)
-      const response = await this.client.messages.create({
+      // Single request with full context using structured outputs (beta)
+      const response = await this.client.beta.messages.create({
         model: this.model,
         max_tokens: 1024,
         system: SYSTEM_INSTRUCTION_SINGLETURN,
-        tools: [SELECT_MOVE_TOOL],
-        tool_choice: { type: 'tool', name: 'select_move' },
-        messages: [{ role: 'user', content: prompt }]
+        output_format: MOVE_OUTPUT_SCHEMA,
+        messages: [{ role: 'user', content: prompt }],
+        betas: ['structured-outputs-2025-11-13']
       });
 
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usage);
       this.updateTimingStats(turnTime);
 
-      // Extract tool use result
-      const toolUse = response.content.find(
-        (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+      // Extract text block with JSON response
+      const textBlock = response.content.find(
+        (block): block is Anthropic.TextBlock => block.type === 'text'
       );
 
-      if (!toolUse) {
-        throw new Error('No tool use in response');
+      if (!textBlock) {
+        throw new Error('No text in response');
       }
 
-      const input = toolUse.input as { moveIndex: number; reasoning: string };
-      const index = input.moveIndex;
-      this.lastReasoning = input.reasoning || '';
+      // Parse JSON from text response (guaranteed by output_format schema)
+      const parsed = JSON.parse(textBlock.text) as { moveIndex: number; reasoning: string };
+      const index = parsed.moveIndex;
+      this.lastReasoning = parsed.reasoning || '';
 
       console.log(`[${this.model}] Response: moveIndex=${index}, reasoning=${this.lastReasoning}`);
 

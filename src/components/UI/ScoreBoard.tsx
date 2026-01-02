@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { PlayerId } from '../../game/types';
 import type { ExtendedAIType } from '../../ai';
 import { AIPlayerLabel } from './AIPlayerLabel';
+import { PersonIcon } from './PersonIcon';
 import styles from './ScoreBoard.module.css';
 
 interface ScoreBoardProps {
@@ -46,12 +47,18 @@ export function ScoreBoard({
   player2AIType,
   player2Model,
 }: ScoreBoardProps) {
-  // Render player names with proper AI icons
+  // Render player names with proper icons
   const renderPlayer1Name = (): ReactNode => {
     if (player1AIType) {
       return <AIPlayerLabel aiType={player1AIType} model={player1Model} />;
     }
-    return humanName || 'You';
+    // Human player with person icon
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+        <PersonIcon size="1em" />
+        <span>{humanName || 'You'}</span>
+      </span>
+    );
   };
 
   const renderPlayer2Name = (): ReactNode => {

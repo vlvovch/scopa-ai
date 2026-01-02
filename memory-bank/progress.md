@@ -670,6 +670,39 @@
 
 ---
 
+## Phase 29: Claude Extended Thinking & Structured Outputs
+
+- [x] Step 29.1: Replace tool use with structured outputs (output_format) - Completed 2026-01-02
+- [x] Step 29.2: Add extended thinking support with 10000 token budget - Completed 2026-01-02
+- [x] Step 29.3: Skip extended thinking when only one valid move - Completed 2026-01-02
+- [x] Step 29.4: Add PersonIcon for human player in ScoreBoard - Completed 2026-01-02
+- [x] Step 29.5: Research thinking token tracking (not available in API) - Completed 2026-01-02
+
+**Notes:**
+- Replaced Claude's tool use with `output_format` structured outputs:
+  - Tool use was incompatible with extended thinking (forced tool_choice not allowed)
+  - `output_format` with JSON schema works seamlessly with extended thinking
+  - Uses beta API: `client.beta.messages.create()` with `betas: ['structured-outputs-2025-11-13']`
+  - Grammar applies only to direct output, not thinking blocks
+- Extended thinking enabled by default for Claude multi-turn:
+  - `thinking: { type: 'enabled', budget_tokens: 10000 }`
+  - Stores thinking summary in `lastThinking` property
+  - Logged to console for debugging
+- Optimization: Skip extended thinking when only one valid move:
+  - `const shouldThink = this.useExtendedThinking && validMoves.length > 1`
+  - Saves time and tokens when there's no decision to make
+  - API still called for multi-turn context continuity
+- Added PersonIcon component for human player display:
+  - Simple SVG person silhouette (circle head + body path)
+  - Used in ScoreBoard to match AI player icon styling
+- Researched Anthropic API for thinking token tracking:
+  - API does NOT provide separate `thinking_tokens` field in usage
+  - Thinking tokens are included in `output_tokens` (billed together)
+  - Removed thoughtTokens tracking from ClaudeTokenStats (always 0)
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:

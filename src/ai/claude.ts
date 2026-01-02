@@ -1,4 +1,5 @@
 // Claude Anthropic AI Player - Uses Messages API with local conversation state
+// Supports extended thinking for enhanced reasoning capabilities
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
@@ -6,6 +7,9 @@ import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+
+// Extended thinking configuration
+const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking
 
 // Model info returned from API
 export interface ClaudeModelInfo {
@@ -53,17 +57,18 @@ const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
 let cachedModels: ClaudeModelInfo[] | null = null;
 let modelsFetchPromise: Promise<ClaudeModelInfo[]> | null = null;
 
-// Tool definition for structured output
-const SELECT_MOVE_TOOL: Anthropic.Tool = {
-  name: 'select_move',
-  description: 'Select the best move from the valid moves list',
-  input_schema: {
+// JSON schema for structured output using output_format
+// Compatible with extended thinking (grammar applies only to direct output, not thinking)
+const MOVE_OUTPUT_SCHEMA = {
+  type: 'json_schema' as const,
+  schema: {
     type: 'object' as const,
     properties: {
-      moveIndex: { type: 'integer', description: '0-based index of the selected move from the valid moves list' },
-      reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' }
+      moveIndex: { type: 'integer' as const, description: '0-based index of the selected move from the valid moves list' },
+      reasoning: { type: 'string' as const, description: 'Brief explanation of why this move was chosen' }
     },
-    required: ['moveIndex', 'reasoning']
+    required: ['moveIndex', 'reasoning'] as const,
+    additionalProperties: false
   }
 };
 
@@ -176,6 +181,7 @@ export function getCachedClaudeModels(): ClaudeModelInfo[] {
 
 /**
  * Claude AI Player using Messages API with local conversation state
+ * Supports extended thinking for enhanced reasoning
  */
 class ClaudeAI implements AsyncAIPlayer {
   readonly name: string;
@@ -186,7 +192,10 @@ class ClaudeAI implements AsyncAIPlayer {
   private modelDisplayName: string;
   // Messages array for conversation history (managed locally)
   private messages: MessageParam[] = [];
+  // Extended thinking support
+  private useExtendedThinking: boolean;
   public lastReasoning: string = '';
+  public lastThinking: string = ''; // Exposed thinking summary
   public tokenStats: ClaudeTokenStats;
   public lastDelta: ClaudeTokenDelta = {
     promptTokens: 0,
@@ -195,7 +204,7 @@ class ClaudeAI implements AsyncAIPlayer {
     turnTimeMs: 0,
   };
 
-  constructor(apiKey: string, model: string = DEFAULT_MODEL) {
+  constructor(apiKey: string, model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true) {
     this.client = new Anthropic({
       apiKey,
       dangerouslyAllowBrowser: true
@@ -203,6 +212,7 @@ class ClaudeAI implements AsyncAIPlayer {
     this.model = model;
     this.modelDisplayName = formatModelName(model);
     this.name = this.modelDisplayName;
+    this.useExtendedThinking = useExtendedThinking;
 
     // Initialize token stats with model info
     this.tokenStats = {
@@ -332,6 +342,7 @@ class ClaudeAI implements AsyncAIPlayer {
     // Clear messages array for fresh conversation
     this.messages = [];
     this.lastReasoning = '';
+    this.lastThinking = '';
   }
 
   /**
@@ -342,7 +353,8 @@ class ClaudeAI implements AsyncAIPlayer {
   }
 
   /**
-   * Select a move using Claude Messages API with tool use
+   * Select a move using Claude Messages API with structured output
+   * Uses output_format for guaranteed JSON response, compatible with extended thinking
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
     const { hand, table, player, validMoves } = context;
@@ -362,45 +374,68 @@ class ClaudeAI implements AsyncAIPlayer {
       // Add user message to conversation
       this.messages.push({ role: 'user', content: prompt });
 
-      // Call Claude API with tool use for structured output
-      const response = await this.client.messages.create({
+      // Skip extended thinking if only one move (no decision to make)
+      const shouldThink = this.useExtendedThinking && validMoves.length > 1;
+
+      // Build API request parameters using structured outputs (beta)
+      // output_format is compatible with extended thinking - grammar applies only to direct output
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requestParams: any = {
         model: this.model,
-        max_tokens: 1024,
+        max_tokens: shouldThink ? 16000 : 1024, // Higher limit for thinking
         system: SYSTEM_INSTRUCTION_MULTITURN,
-        tools: [SELECT_MOVE_TOOL],
-        tool_choice: { type: 'tool', name: 'select_move' },
-        messages: this.messages
-      });
+        output_format: MOVE_OUTPUT_SCHEMA,
+        messages: this.messages,
+        betas: ['structured-outputs-2025-11-13']
+      };
+
+      // Add extended thinking if enabled and there's a decision to make
+      if (shouldThink) {
+        requestParams.thinking = {
+          type: 'enabled',
+          budget_tokens: EXTENDED_THINKING_BUDGET
+        };
+      }
+
+      // Call Claude API with beta endpoint for structured outputs
+      const response = await this.client.beta.messages.create(requestParams);
 
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usage);
       this.updateTimingStats(turnTime);
 
-      // Extract tool use result
-      const toolUse = response.content.find(
-        (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+      // Extract thinking blocks (for extended thinking mode)
+      const thinkingBlocks = response.content.filter(
+        (block): block is Anthropic.ThinkingBlock => block.type === 'thinking'
       );
 
-      if (!toolUse) {
-        throw new Error('No tool use in response');
+      // Store thinking summary for display
+      if (thinkingBlocks.length > 0) {
+        this.lastThinking = thinkingBlocks.map(b => b.thinking).join('\n');
+        console.log(`[${this.model}] Thinking: ${this.lastThinking}`);
+      } else {
+        this.lastThinking = '';
       }
 
+      // Extract text block with JSON response
+      const textBlock = response.content.find(
+        (block): block is Anthropic.TextBlock => block.type === 'text'
+      );
+
+      if (!textBlock) {
+        console.warn(`[${this.model}] No text in response, using first valid move`);
+        // Store empty response for context continuity
+        this.messages.push({ role: 'assistant', content: '{}' });
+        return validMoves[0];
+      }
+
+      // Parse JSON from text response (guaranteed by output_format schema)
+      const parsed = JSON.parse(textBlock.text) as { moveIndex: number; reasoning: string };
+      this.lastReasoning = parsed.reasoning || '';
+
       // Add assistant response to conversation for context continuity
-      this.messages.push({ role: 'assistant', content: response.content });
-
-      // Add tool_result to acknowledge the tool use (required by Claude API)
-      // The next user message with game state will follow this
-      this.messages.push({
-        role: 'user',
-        content: [{
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: 'Move acknowledged.'
-        }]
-      });
-
-      const input = toolUse.input as { moveIndex: number; reasoning: string };
-      this.lastReasoning = input.reasoning || '';
+      // Store just the text (JSON) since beta content blocks have different types
+      this.messages.push({ role: 'assistant', content: textBlock.text });
 
       // Only one move - still called API for context continuity
       if (validMoves.length === 1) {
@@ -408,7 +443,7 @@ class ClaudeAI implements AsyncAIPlayer {
         return validMoves[0];
       }
 
-      const index = input.moveIndex;
+      const index = parsed.moveIndex;
 
       if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
         console.log(`[${this.model}] ${this.lastReasoning}`);
@@ -420,6 +455,7 @@ class ClaudeAI implements AsyncAIPlayer {
     } catch (error) {
       console.error(`[${this.model}] Error, falling back to random:`, error);
       this.lastReasoning = 'Error occurred, random fallback.';
+      this.lastThinking = '';
       return randomAI.selectMove({ hand, table, player });
     }
   }
@@ -441,14 +477,16 @@ export function getClaudeApiKey(): string | null {
 
 /**
  * Create a Claude AI player instance
+ * @param model - Model ID to use
+ * @param useExtendedThinking - Enable extended thinking for enhanced reasoning (default: true)
  */
-export function createClaudeAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function createClaudeAI(model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true): AsyncAIPlayer | null {
   const apiKey = getClaudeApiKey();
   if (!apiKey) {
     console.warn('Claude API key not found. Set VITE_CLAUDE_API_KEY in .env.local');
     return null;
   }
-  return new ClaudeAI(apiKey, model);
+  return new ClaudeAI(apiKey, model, useExtendedThinking);
 }
 
 // Cache instances by model ID (supports multiple models in spectator mode)
@@ -456,6 +494,7 @@ const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
  * Get a Claude AI instance (cached by model ID)
+ * Note: Extended thinking is always enabled for cached instances
  */
 export function getClaudeAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
   if (!isClaudeAvailable()) {
@@ -468,8 +507,8 @@ export function getClaudeAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null
     return cached;
   }
 
-  // Create and cache new instance
-  const instance = createClaudeAI(model);
+  // Create and cache new instance (extended thinking enabled by default)
+  const instance = createClaudeAI(model, true);
   if (instance) {
     instanceCache.set(model, instance);
   }
