@@ -1,6 +1,6 @@
 # Scopa WebApp - Development Progress
 
-**Last Updated:** 2026-01-01
+**Last Updated:** 2026-01-02
 
 ---
 
@@ -711,9 +711,10 @@ The Scopa game is now fully playable with:
 - Selectable AI opponents (Random, Greedy heuristic, Gemini LLM, OpenAI GPT, or Anthropic Claude)
 - Gemini AI with multi-turn chat sessions, token tracking, and model selection
 - OpenAI GPT AI with Responses API (server-side conversation state), structured outputs, and reasoning tokens
-- Claude AI with Messages API (local conversation state), tool use for structured outputs, and cache tracking
+- Claude AI with Messages API, extended thinking (10k tokens), and structured outputs
 - Official AI brand icons with brand colors (Gemini blue, OpenAI green, Claude coral)
 - Custom dropdown component for AI provider selection with SVG icons
+- PersonIcon for human player display (matches AI icon styling)
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
 - Deck-aware custom SVG icons for score categories

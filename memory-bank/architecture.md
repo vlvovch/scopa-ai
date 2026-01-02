@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-01 (Phase 28: Brand Icons & Custom Dropdown)
+**Last Updated:** 2026-01-02 (Phase 29: Claude Extended Thinking & Structured Outputs)
 
 ---
 
@@ -523,36 +523,50 @@ Used in StartScreen for AI provider selection (Gemini/OpenAI/Claude).
 ### Claude AI (claude.ts)
 
 **Architecture:**
-- Uses `@anthropic-ai/sdk` with Messages API
+- Uses `@anthropic-ai/sdk` with Messages API (beta endpoint for structured outputs)
 - **Local conversation state management** - messages array maintained client-side
 - System instruction contains full Scopa rules, scoring, and prime values
-- **Tool use for structured output** - `select_move` tool with JSON schema
+- **Structured outputs via `output_format`** - JSON schema for move selection
+- **Extended thinking enabled by default** - 10,000 token budget for deeper reasoning
 - Messages array persists within a round for context continuity
 
-**Tool Use for Structured Output:**
+**Structured Outputs (replaces tool use):**
 ```typescript
-const SELECT_MOVE_TOOL = {
-  name: 'select_move',
-  description: 'Select the best move from the valid moves list',
-  input_schema: {
+const MOVE_OUTPUT_SCHEMA = {
+  type: 'json_schema',
+  schema: {
     type: 'object',
     properties: {
       moveIndex: { type: 'integer', description: '0-based index of the selected move' },
       reasoning: { type: 'string', description: 'Brief explanation' }
     },
-    required: ['moveIndex', 'reasoning']
+    required: ['moveIndex', 'reasoning'],
+    additionalProperties: false
   }
 };
 
-// Force tool use with tool_choice: { type: 'tool', name: 'select_move' }
+// Uses beta API with structured outputs
+const response = await client.beta.messages.create({
+  model, max_tokens, system, messages,
+  output_format: MOVE_OUTPUT_SCHEMA,
+  thinking: { type: 'enabled', budget_tokens: 10000 },
+  betas: ['structured-outputs-2025-11-13']
+});
 ```
+
+**Extended Thinking:**
+- Enabled by default via `useExtendedThinking` property
+- Budget: 10,000 tokens for thinking
+- Skipped when only one valid move (optimization)
+- Grammar applies only to direct output, not thinking blocks
+- Thinking summary stored in `lastThinking` property
 
 **Messages Array Flow:**
 ```
 1. On each turn: push user message to messages[]
-2. Send messages[] to API with tool
-3. Parse tool_use response block for moveIndex
-4. Push assistant response to messages[]
+2. Send messages[] to beta API with output_format + thinking
+3. Parse JSON from text block (guaranteed by schema)
+4. Push assistant text response to messages[]
 5. startRound(): clear messages[] → fresh conversation
 ```
 
@@ -574,31 +588,33 @@ const SELECT_MOVE_TOOL = {
 
 | OpenAI Responses API | Claude Messages API |
 |---------------------|---------------------|
-| `client.responses.create()` | `client.messages.create()` |
+| `client.responses.create()` | `client.beta.messages.create()` |
 | `conversation: { id }` (server-side) | `messages: Message[]` (client-side) |
 | Server manages history | Client manages messages array |
-| `text.format.json_schema` | `tools` + `tool_choice` |
-| `response.output_text` | `response.content[].input` (tool_use block) |
+| `text.format.json_schema` | `output_format.schema` + `betas` |
+| `response.output_text` | `response.content[0].text` (JSON) |
 | `usage.input_tokens` | `usage.input_tokens` |
 | `usage.output_tokens` | `usage.output_tokens` |
 | N/A | `usage.cache_creation_input_tokens` |
 | N/A | `usage.cache_read_input_tokens` |
+| N/A | Extended thinking (in output_tokens) |
 
 **Token Stats Tracked:**
 
 | Stat | Description |
 |------|-------------|
 | `promptTokens` | Input tokens sent to API |
-| `responseTokens` | Output tokens received |
+| `responseTokens` | Output tokens received (includes thinking tokens) |
 | `cacheCreationTokens` | Tokens used to create cache |
-| `cacheReadTokens` | Tokens read from cache (free) |
+| `cachedTokens` | Tokens read from cache (free) |
 | `totalTokens` | Sum of all tokens |
-| `cachedTokens` | Total cached tokens (creation + read) |
 | `requestCount` | Number of API calls made |
 | `roundPromptTokens` | Round-specific input tokens |
 | `roundResponseTokens` | Round-specific output tokens |
 | `roundTotalTokens` | Round-specific total tokens |
 | `roundRequestCount` | Round-specific API calls |
+
+**Note:** Anthropic API does not provide separate `thinking_tokens` field. Extended thinking tokens are included in `output_tokens` and billed together.
 
 **Configuration:**
 - API key: `VITE_CLAUDE_API_KEY` environment variable
@@ -609,11 +625,12 @@ const SELECT_MOVE_TOOL = {
 ### Claude Single-Turn AI (claude-singleturn.ts)
 
 **Architecture:**
-- Uses `@anthropic-ai/sdk` with Messages API (same as multi-turn)
+- Uses `@anthropic-ai/sdk` with Messages API (beta endpoint)
 - **Single-turn mode**: Each request is independent, no messages array
 - Full move history included in each prompt via `buildSingleTurnPrompt()`
 - Maintains local `roundMoveHistory` and `initialTable` for context reconstruction
-- Same tool use for structured output as multi-turn
+- Same structured outputs (`output_format`) as multi-turn
+- **No extended thinking** - single-turn uses standard API for faster responses
 
 **Key Differences from Multi-Turn:**
 
@@ -622,6 +639,7 @@ const SELECT_MOVE_TOOL = {
 | Manages `messages[]` between turns | No messages - each request independent |
 | Stores conversation context | Stores `roundMoveHistory[]` and `initialTable[]` |
 | Prompt includes only last opponent move | Prompt includes complete round history |
+| Extended thinking enabled (10k budget) | No extended thinking |
 | Lower token usage (incremental context) | Higher token usage (full history each turn) |
 
 **Key Functions:**
@@ -708,6 +726,7 @@ const SELECT_MOVE_TOOL = {
 
 | File | Purpose |
 |------|---------|
+| `UI/PersonIcon.tsx` | SVG person icon for human player (matches AI icon styling) |
 | `UI/ScoreBoard.tsx` | Shows scores, round number, target score, turn indicator (CPU first to match board layout) |
 | `UI/StartScreen.tsx` | Initial screen with target score selection (11, 16, 21) |
 | `UI/RoundEndScreen.tsx` | Score breakdown with Italian names, counts, captured card display with hover highlighting |
@@ -921,7 +940,7 @@ const SELECT_MOVE_TOOL = {
 
 ## MVP Complete!
 
-All 28 phases implemented:
+All 29 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -950,6 +969,7 @@ All 28 phases implemented:
 26. OpenAI Single-Turn Mode & UI Improvements (single-turn AI, mode toggle button)
 27. Claude Anthropic API Integration (Messages API, tool use, multi-turn & single-turn modes)
 28. Brand Icons & Custom Dropdown (official logos with brand colors, custom dropdown for SVG icons)
+29. Claude Extended Thinking & Structured Outputs (output_format, 10k thinking budget, PersonIcon)
 
 **Future Enhancements:**
 - Multiplayer support
