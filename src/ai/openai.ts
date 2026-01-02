@@ -512,27 +512,29 @@ export function createOpenAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | nul
   return new OpenAIAI(apiKey, model);
 }
 
-// Cached instance with model tracking
-let cachedInstance: AsyncAIPlayer | null = null;
-let cachedModelId: string | null = null;
+// Cache instances by model ID (supports multiple models in spectator mode)
+const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get an OpenAI AI instance (cached if same model)
+ * Get an OpenAI AI instance (cached by model ID)
  */
 export function getOpenAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
   if (!isOpenAIAvailable()) {
     return null;
   }
 
-  // Return cached instance if model matches
-  if (cachedInstance !== null && cachedModelId === model) {
-    return cachedInstance;
+  // Return cached instance if exists for this model
+  const cached = instanceCache.get(model);
+  if (cached) {
+    return cached;
   }
 
-  // Create new instance for different model
-  cachedInstance = createOpenAI(model);
-  cachedModelId = model;
-  return cachedInstance;
+  // Create and cache new instance
+  const instance = createOpenAI(model);
+  if (instance) {
+    instanceCache.set(model, instance);
+  }
+  return instance;
 }
 
 /**
@@ -543,10 +545,10 @@ export function getDefaultOpenAIModel(): string {
 }
 
 /**
- * Get token stats from the cached OpenAI AI instance
+ * Get token stats from an OpenAI AI instance by model
  */
-export function getOpenAITokenStats(): OpenAITokenStats | null {
-  const instance = cachedInstance as OpenAIAI | null;
+export function getOpenAITokenStats(model?: string): OpenAITokenStats | null {
+  const instance = model ? instanceCache.get(model) as OpenAIAI | null : null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -554,10 +556,10 @@ export function getOpenAITokenStats(): OpenAITokenStats | null {
 }
 
 /**
- * Get last turn delta from the cached OpenAI AI instance
+ * Get last turn delta from an OpenAI AI instance by model
  */
-export function getOpenAITokenDelta(): OpenAITokenDelta | null {
-  const instance = cachedInstance as OpenAIAI | null;
+export function getOpenAITokenDelta(model?: string): OpenAITokenDelta | null {
+  const instance = model ? instanceCache.get(model) as OpenAIAI | null : null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }
@@ -565,31 +567,37 @@ export function getOpenAITokenDelta(): OpenAITokenDelta | null {
 }
 
 /**
- * Reset token stats on the cached OpenAI AI instance
+ * Reset token stats on all cached OpenAI AI instances
  */
 export function resetOpenAITokenStats(): void {
-  const instance = cachedInstance as OpenAIAI | null;
-  if (instance && 'resetTokenStats' in instance) {
-    instance.resetTokenStats();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as OpenAIAI;
+    if ('resetTokenStats' in ai) {
+      ai.resetTokenStats();
+    }
   }
 }
 
 /**
- * Start a new round on the cached OpenAI AI instance (creates fresh conversation)
+ * Start a new round on all cached OpenAI AI instances (creates fresh conversations)
  */
 export function startOpenAIRound(): void {
-  const instance = cachedInstance as OpenAIAI | null;
-  if (instance && 'startRound' in instance) {
-    instance.startRound();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as OpenAIAI;
+    if ('startRound' in ai) {
+      ai.startRound();
+    }
   }
 }
 
 /**
- * End the current round on the cached OpenAI AI instance (clears conversation)
+ * End the current round on all cached OpenAI AI instances (clears conversations)
  */
 export function endOpenAIRound(): void {
-  const instance = cachedInstance as OpenAIAI | null;
-  if (instance && 'endRound' in instance) {
-    instance.endRound();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as OpenAIAI;
+    if ('endRound' in ai) {
+      ai.endRound();
+    }
   }
 }

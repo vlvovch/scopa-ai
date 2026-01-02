@@ -85,28 +85,28 @@ function App() {
   // Helper to check if an AI type is any LLM (Gemini or OpenAI)
   const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType), []);
 
-  // Helper to get delta for a specific AI type
+  // Helper to get delta for a specific AI type and model
   // Returns a unified delta type (Gemini and OpenAI deltas are structurally compatible)
-  const getDeltaForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenDelta | OpenAITokenDelta | null => {
+  const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenDelta | OpenAITokenDelta | null => {
     if (aiType === 'gemini-singleturn') {
-      return getGeminiSingleTurnTokenDelta();
+      return getGeminiSingleTurnTokenDelta(model);
     } else if (aiType === 'gemini') {
-      return getGeminiTokenDelta();
+      return getGeminiTokenDelta(model);
     } else if (aiType === 'openai') {
-      return getOpenAITokenDelta();
+      return getOpenAITokenDelta(model);
     }
     return null;
   }, []);
 
-  // Helper to get full stats for a specific AI type
+  // Helper to get full stats for a specific AI type and model
   // Returns a unified stats type (Gemini and OpenAI stats are structurally compatible)
-  const getStatsForAIType = useCallback((aiType: ExtendedAIType): GeminiTokenStats | OpenAITokenStats | null => {
+  const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenStats | OpenAITokenStats | null => {
     if (aiType === 'gemini-singleturn') {
-      return getGeminiSingleTurnTokenStats();
+      return getGeminiSingleTurnTokenStats(model);
     } else if (aiType === 'gemini') {
-      return getGeminiTokenStats();
+      return getGeminiTokenStats(model);
     } else if (aiType === 'openai') {
-      return getOpenAITokenStats();
+      return getOpenAITokenStats(model);
     }
     return null;
   }, []);
@@ -114,12 +114,13 @@ function App() {
   // Helper to update token stats for single player mode
   const updateTokenStats = useCallback(() => {
     if (!isSpectatorMode && isLLMAI(settings.cpuAI)) {
-      const stats = getStatsForAIType(settings.cpuAI);
-      const delta = getDeltaForAIType(settings.cpuAI);
+      const model = isOpenAIAI(settings.cpuAI) ? settings.openaiModel : settings.geminiModel;
+      const stats = getStatsForAIType(settings.cpuAI, model);
+      const delta = getDeltaForAIType(settings.cpuAI, model);
       setTokenStats(stats as GeminiTokenStats);
       setTokenDelta(delta as GeminiTokenDelta);
     }
-  }, [isSpectatorMode, settings.cpuAI, getStatsForAIType, getDeltaForAIType, isLLMAI]);
+  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, isLLMAI, isOpenAIAI]);
 
   // Helper to accumulate delta into existing stats
   const accumulateStats = useCallback((
@@ -208,7 +209,7 @@ function App() {
     const model = player === 'player1' ? spectatorModels.player1 : spectatorModels.player2;
     if (!isLLMAI(aiType)) return;
 
-    const delta = getDeltaForAIType(aiType);
+    const delta = getDeltaForAIType(aiType, model);
 
     if (player === 'player1') {
       setPlayer1TokenDelta(delta as GeminiTokenDelta);

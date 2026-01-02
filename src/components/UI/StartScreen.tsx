@@ -138,6 +138,12 @@ export function StartScreen({
       onSelectSpectatorAI(player, 'heuristic');
     } else {
       onSelectSpectatorAI(player, defaultAIProvider);
+      // Also update the model to a default for the new provider
+      if (defaultAIProvider === 'openai') {
+        onSelectSpectatorModel(player, openaiModel);
+      } else {
+        onSelectSpectatorModel(player, geminiModel);
+      }
     }
   };
 
@@ -147,6 +153,13 @@ export function StartScreen({
 
   const handleSpectatorAIProviderChange = (player: 'player1' | 'player2', provider: AIProvider) => {
     onSelectSpectatorAI(player, provider as ExtendedAIType);
+    // Also update the model to a default for the new provider
+    if (provider === 'openai') {
+      onSelectSpectatorModel(player, openaiModel);
+    } else {
+      // Gemini or gemini-singleturn
+      onSelectSpectatorModel(player, geminiModel);
+    }
   };
 
   const handleStartGame = () => {

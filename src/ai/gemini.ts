@@ -452,27 +452,29 @@ export function createGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | n
   return new GeminiAI(apiKey, model);
 }
 
-// Cached instance with model tracking
-let cachedInstance: AsyncAIPlayer | null = null;
-let cachedModelId: string | null = null;
+// Cache instances by model ID (supports multiple models in spectator mode)
+const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get a Gemini AI instance (cached if same model)
+ * Get a Gemini AI instance (cached by model ID)
  */
 export function getGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
   if (!isGeminiAvailable()) {
     return null;
   }
 
-  // Return cached instance if model matches
-  if (cachedInstance !== null && cachedModelId === model) {
-    return cachedInstance;
+  // Return cached instance if exists for this model
+  const cached = instanceCache.get(model);
+  if (cached) {
+    return cached;
   }
 
-  // Create new instance for different model
-  cachedInstance = createGeminiAI(model);
-  cachedModelId = model;
-  return cachedInstance;
+  // Create and cache new instance
+  const instance = createGeminiAI(model);
+  if (instance) {
+    instanceCache.set(model, instance);
+  }
+  return instance;
 }
 
 /**
@@ -483,10 +485,10 @@ export function getDefaultGeminiModel(): string {
 }
 
 /**
- * Get token stats from the cached Gemini AI instance
+ * Get token stats from a Gemini AI instance by model
  */
-export function getGeminiTokenStats(): GeminiTokenStats | null {
-  const instance = cachedInstance as GeminiAI | null;
+export function getGeminiTokenStats(model?: string): GeminiTokenStats | null {
+  const instance = model ? instanceCache.get(model) as GeminiAI | null : null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -494,10 +496,10 @@ export function getGeminiTokenStats(): GeminiTokenStats | null {
 }
 
 /**
- * Get last turn delta from the cached Gemini AI instance
+ * Get last turn delta from a Gemini AI instance by model
  */
-export function getGeminiTokenDelta(): GeminiTokenDelta | null {
-  const instance = cachedInstance as GeminiAI | null;
+export function getGeminiTokenDelta(model?: string): GeminiTokenDelta | null {
+  const instance = model ? instanceCache.get(model) as GeminiAI | null : null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }
@@ -505,31 +507,37 @@ export function getGeminiTokenDelta(): GeminiTokenDelta | null {
 }
 
 /**
- * Reset token stats on the cached Gemini AI instance
+ * Reset token stats on all cached Gemini AI instances
  */
 export function resetGeminiTokenStats(): void {
-  const instance = cachedInstance as GeminiAI | null;
-  if (instance && 'resetTokenStats' in instance) {
-    instance.resetTokenStats();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as GeminiAI;
+    if ('resetTokenStats' in ai) {
+      ai.resetTokenStats();
+    }
   }
 }
 
 /**
- * Start a new round on the cached Gemini AI instance (creates fresh chat session)
+ * Start a new round on all cached Gemini AI instances (creates fresh chat sessions)
  */
 export function startGeminiRound(): void {
-  const instance = cachedInstance as GeminiAI | null;
-  if (instance && 'startRound' in instance) {
-    instance.startRound();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as GeminiAI;
+    if ('startRound' in ai) {
+      ai.startRound();
+    }
   }
 }
 
 /**
- * End the current round on the cached Gemini AI instance (clears chat session)
+ * End the current round on all cached Gemini AI instances (clears chat sessions)
  */
 export function endGeminiRound(): void {
-  const instance = cachedInstance as GeminiAI | null;
-  if (instance && 'endRound' in instance) {
-    instance.endRound();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as GeminiAI;
+    if ('endRound' in ai) {
+      ai.endRound();
+    }
   }
 }

@@ -344,34 +344,36 @@ export function createGeminiSingleTurnAI(model: string = DEFAULT_MODEL): AsyncAI
   return new GeminiSingleTurnAI(apiKey, model);
 }
 
-// Cached instance with model tracking
-let cachedInstance: AsyncAIPlayer | null = null;
-let cachedModelId: string | null = null;
+// Cache instances by model ID (supports multiple models in spectator mode)
+const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get a Gemini Single-Turn AI instance (cached if same model)
+ * Get a Gemini Single-Turn AI instance (cached by model ID)
  */
 export function getGeminiSingleTurnAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
   if (!isGeminiAvailable()) {
     return null;
   }
 
-  // Return cached instance if model matches
-  if (cachedInstance !== null && cachedModelId === model) {
-    return cachedInstance;
+  // Return cached instance if exists for this model
+  const cached = instanceCache.get(model);
+  if (cached) {
+    return cached;
   }
 
-  // Create new instance for different model
-  cachedInstance = createGeminiSingleTurnAI(model);
-  cachedModelId = model;
-  return cachedInstance;
+  // Create and cache new instance
+  const instance = createGeminiSingleTurnAI(model);
+  if (instance) {
+    instanceCache.set(model, instance);
+  }
+  return instance;
 }
 
 /**
- * Get token stats from the cached Gemini Single-Turn AI instance
+ * Get token stats from a Gemini Single-Turn AI instance by model
  */
-export function getGeminiSingleTurnTokenStats(): GeminiTokenStats | null {
-  const instance = cachedInstance as GeminiSingleTurnAI | null;
+export function getGeminiSingleTurnTokenStats(model?: string): GeminiTokenStats | null {
+  const instance = model ? instanceCache.get(model) as GeminiSingleTurnAI | null : null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -379,10 +381,10 @@ export function getGeminiSingleTurnTokenStats(): GeminiTokenStats | null {
 }
 
 /**
- * Get last turn delta from the cached Gemini Single-Turn AI instance
+ * Get last turn delta from a Gemini Single-Turn AI instance by model
  */
-export function getGeminiSingleTurnTokenDelta(): GeminiTokenDelta | null {
-  const instance = cachedInstance as GeminiSingleTurnAI | null;
+export function getGeminiSingleTurnTokenDelta(model?: string): GeminiTokenDelta | null {
+  const instance = model ? instanceCache.get(model) as GeminiSingleTurnAI | null : null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }
@@ -390,31 +392,37 @@ export function getGeminiSingleTurnTokenDelta(): GeminiTokenDelta | null {
 }
 
 /**
- * Reset token stats on the cached Gemini Single-Turn AI instance
+ * Reset token stats on all cached Gemini Single-Turn AI instances
  */
 export function resetGeminiSingleTurnTokenStats(): void {
-  const instance = cachedInstance as GeminiSingleTurnAI | null;
-  if (instance && 'resetTokenStats' in instance) {
-    instance.resetTokenStats();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as GeminiSingleTurnAI;
+    if ('resetTokenStats' in ai) {
+      ai.resetTokenStats();
+    }
   }
 }
 
 /**
- * Start a new round on the cached Gemini Single-Turn AI instance
+ * Start a new round on all cached Gemini Single-Turn AI instances
  */
 export function startGeminiSingleTurnRound(): void {
-  const instance = cachedInstance as GeminiSingleTurnAI | null;
-  if (instance && 'startRound' in instance) {
-    instance.startRound();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as GeminiSingleTurnAI;
+    if ('startRound' in ai) {
+      ai.startRound();
+    }
   }
 }
 
 /**
- * End the current round on the cached Gemini Single-Turn AI instance
+ * End the current round on all cached Gemini Single-Turn AI instances
  */
 export function endGeminiSingleTurnRound(): void {
-  const instance = cachedInstance as GeminiSingleTurnAI | null;
-  if (instance && 'endRound' in instance) {
-    instance.endRound();
+  for (const instance of instanceCache.values()) {
+    const ai = instance as GeminiSingleTurnAI;
+    if ('endRound' in ai) {
+      ai.endRound();
+    }
   }
 }
