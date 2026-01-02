@@ -18,7 +18,7 @@ import { DealingAnimation, type DealMode } from './components/UI/DealingAnimatio
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
@@ -94,6 +94,8 @@ function App() {
       return getGeminiTokenDelta(model);
     } else if (aiType === 'openai') {
       return getOpenAITokenDelta(model);
+    } else if (aiType === 'openai-singleturn') {
+      return getOpenAISingleTurnTokenDelta(model);
     }
     return null;
   }, []);
@@ -107,6 +109,8 @@ function App() {
       return getGeminiTokenStats(model);
     } else if (aiType === 'openai') {
       return getOpenAITokenStats(model);
+    } else if (aiType === 'openai-singleturn') {
+      return getOpenAISingleTurnTokenStats(model);
     }
     return null;
   }, []);
@@ -245,6 +249,13 @@ function App() {
     if (aiType === 'openai') {
       const openaiModel = model || settings.openaiModel;
       const openai = getOpenAI(openaiModel);
+      if (openai) return openai;
+      // Fallback to heuristic if OpenAI not available
+      return AI_PLAYERS.heuristic;
+    }
+    if (aiType === 'openai-singleturn') {
+      const openaiModel = model || settings.openaiModel;
+      const openai = getOpenAISingleTurnAI(openaiModel);
       if (openai) return openai;
       // Fallback to heuristic if OpenAI not available
       return AI_PLAYERS.heuristic;
@@ -785,6 +796,7 @@ function App() {
       endGeminiRound();
       endGeminiSingleTurnRound();
       endOpenAIRound();
+      endOpenAISingleTurnRound();
       endRound();
     }, 1500);
 
@@ -853,6 +865,7 @@ function App() {
     resetGeminiTokenStats();
     resetGeminiSingleTurnTokenStats();
     resetOpenAITokenStats();
+    resetOpenAISingleTurnTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
     setPlayer1TokenStats(null);
@@ -869,6 +882,7 @@ function App() {
     startGeminiRound();
     startGeminiSingleTurnRound();
     startOpenAIRound();
+    startOpenAISingleTurnRound();
     startGame(targetScore, gameMode);
   }, [startGame, resetAllTokenStats]);
 
@@ -912,6 +926,7 @@ function App() {
     startGeminiRound();
     startGeminiSingleTurnRound();
     startOpenAIRound();
+    startOpenAISingleTurnRound();
     nextRound();
   }, [nextRound]);
 

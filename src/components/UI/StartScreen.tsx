@@ -8,8 +8,10 @@ import styles from './StartScreen.module.css';
 type GameModeOption = 'play' | 'watch';
 type OpponentCategory = 'cpu' | 'ai';
 type CPUType = 'random' | 'heuristic';
-// AI provider now includes gemini-singleturn as a separate option
-type AIProvider = 'gemini' | 'gemini-singleturn' | 'openai';
+// AI provider (base type without mode suffix)
+type AIProvider = 'gemini' | 'openai';
+// Conversation mode for LLM AIs
+type ConversationMode = 'conversation' | 'singleturn';
 
 interface StartScreenProps {
   onStartGame: (targetScore: number, gameMode: GameMode) => void;
@@ -38,11 +40,24 @@ function getCPUType(aiType: ExtendedAIType): CPUType {
   return aiType === 'random' ? 'random' : 'heuristic';
 }
 
-// Helper to get AI provider from AI type
+// Helper to get base AI provider from AI type
 function getAIProvider(aiType: ExtendedAIType): AIProvider {
   if (isOpenAIAIType(aiType)) return 'openai';
-  if (aiType === 'gemini-singleturn') return 'gemini-singleturn';
   return 'gemini';
+}
+
+// Helper to get conversation mode from AI type
+function getConversationMode(aiType: ExtendedAIType): ConversationMode {
+  if (aiType === 'gemini-singleturn' || aiType === 'openai-singleturn') return 'singleturn';
+  return 'conversation';
+}
+
+// Helper to construct ExtendedAIType from provider and mode
+function getExtendedAIType(provider: AIProvider, mode: ConversationMode): ExtendedAIType {
+  if (provider === 'openai') {
+    return mode === 'singleturn' ? 'openai-singleturn' : 'openai';
+  }
+  return mode === 'singleturn' ? 'gemini-singleturn' : 'gemini';
 }
 
 export function StartScreen({
@@ -128,8 +143,15 @@ export function StartScreen({
   };
 
   const handleAIProviderChange = (provider: AIProvider) => {
-    // Provider maps directly to ExtendedAIType for AI providers
-    onSelectAI(provider as ExtendedAIType);
+    // Preserve current mode when changing provider
+    const currentMode = getConversationMode(selectedAI);
+    onSelectAI(getExtendedAIType(provider, currentMode));
+  };
+
+  const handleConversationModeChange = (mode: ConversationMode) => {
+    // Preserve current provider when changing mode
+    const currentProvider = getAIProvider(selectedAI);
+    onSelectAI(getExtendedAIType(currentProvider, mode));
   };
 
   // Spectator mode handlers
@@ -137,7 +159,9 @@ export function StartScreen({
     if (category === 'cpu') {
       onSelectSpectatorAI(player, 'heuristic');
     } else {
-      onSelectSpectatorAI(player, defaultAIProvider);
+      // Use default provider with conversation mode
+      const newAI = getExtendedAIType(defaultAIProvider, 'conversation');
+      onSelectSpectatorAI(player, newAI);
       // Also update the model to a default for the new provider
       if (defaultAIProvider === 'openai') {
         onSelectSpectatorModel(player, openaiModel);
@@ -152,14 +176,23 @@ export function StartScreen({
   };
 
   const handleSpectatorAIProviderChange = (player: 'player1' | 'player2', provider: AIProvider) => {
-    onSelectSpectatorAI(player, provider as ExtendedAIType);
+    // Preserve current mode when changing provider
+    const currentAI = player === 'player1' ? spectatorAIs.player1 : spectatorAIs.player2;
+    const currentMode = getConversationMode(currentAI);
+    onSelectSpectatorAI(player, getExtendedAIType(provider, currentMode));
     // Also update the model to a default for the new provider
     if (provider === 'openai') {
       onSelectSpectatorModel(player, openaiModel);
     } else {
-      // Gemini or gemini-singleturn
       onSelectSpectatorModel(player, geminiModel);
     }
+  };
+
+  const handleSpectatorModeChange = (player: 'player1' | 'player2', mode: ConversationMode) => {
+    // Preserve current provider when changing mode
+    const currentAI = player === 'player1' ? spectatorAIs.player1 : spectatorAIs.player2;
+    const currentProvider = getAIProvider(currentAI);
+    onSelectSpectatorAI(player, getExtendedAIType(currentProvider, mode));
   };
 
   const handleStartGame = () => {
@@ -173,6 +206,7 @@ export function StartScreen({
     onCategoryChange: (cat: OpponentCategory) => void,
     onCPUTypeChange: (type: CPUType) => void,
     onAIProviderChange: (provider: AIProvider) => void,
+    onModeChange: (mode: ConversationMode) => void,
     onModelChange: (model: string) => void,
     currentModel: string,
     label: string
@@ -180,6 +214,7 @@ export function StartScreen({
     const cat = getOpponentCategory(currentAI);
     const cpu = getCPUType(currentAI);
     const provider = getAIProvider(currentAI);
+    const convMode = getConversationMode(currentAI);
     const isGemini = isGeminiAIType(currentAI);
     const isOpenAI = isOpenAIAIType(currentAI);
 
@@ -208,15 +243,30 @@ export function StartScreen({
               <option value="heuristic">{AI_INFO.heuristic.icon} {AI_INFO.heuristic.name}</option>
             </select>
           ) : (
-            <select
-              className={styles.dropdown}
-              value={provider}
-              onChange={(e) => onAIProviderChange(e.target.value as AIProvider)}
-            >
-              {geminiAvailable && <option value="gemini">{AI_INFO.gemini.icon} Gemini 💬</option>}
-              {geminiAvailable && <option value="gemini-singleturn">{AI_INFO['gemini-singleturn'].icon} Gemini 1️⃣</option>}
-              {openaiAvailable && <option value="openai">{AI_INFO.openai.icon} OpenAI 💬</option>}
-            </select>
+            <>
+              {/* AI Provider + Mode toggle row */}
+              <div className={styles.providerRow}>
+                <select
+                  className={styles.dropdown}
+                  value={provider}
+                  onChange={(e) => onAIProviderChange(e.target.value as AIProvider)}
+                >
+                  {geminiAvailable && <option value="gemini">{AI_INFO.gemini.icon} Gemini</option>}
+                  {openaiAvailable && <option value="openai">{AI_INFO.openai.icon} OpenAI</option>}
+                </select>
+
+                {/* Mode toggle button */}
+                <button
+                  className={styles.modeToggle}
+                  onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
+                  title={convMode === 'conversation'
+                    ? 'Multi-turn chat (click for single-turn)'
+                    : 'Single-turn requests (click for multi-turn)'}
+                >
+                  {convMode === 'conversation' ? '💬' : '1️⃣'}
+                </button>
+              </div>
+            </>
           )}
 
           {/* Model dropdown (only for AI) */}
@@ -323,6 +373,7 @@ export function StartScreen({
             handleCategoryChange,
             handleCPUTypeChange,
             handleAIProviderChange,
+            handleConversationModeChange,
             isGeminiAIType(selectedAI) ? onSelectGeminiModel : onSelectOpenAIModel,
             isGeminiAIType(selectedAI) ? geminiModel : openaiModel,
             'Opponent'
@@ -335,6 +386,7 @@ export function StartScreen({
                 (cat) => handleSpectatorCategoryChange('player1', cat),
                 (type) => handleSpectatorCPUTypeChange('player1', type),
                 (provider) => handleSpectatorAIProviderChange('player1', provider),
+                (mode) => handleSpectatorModeChange('player1', mode),
                 (model) => onSelectSpectatorModel('player1', model),
                 spectatorModels.player1,
                 'Player 1'
@@ -347,6 +399,7 @@ export function StartScreen({
                 (cat) => handleSpectatorCategoryChange('player2', cat),
                 (type) => handleSpectatorCPUTypeChange('player2', type),
                 (provider) => handleSpectatorAIProviderChange('player2', provider),
+                (mode) => handleSpectatorModeChange('player2', mode),
                 (model) => onSelectSpectatorModel('player2', model),
                 spectatorModels.player2,
                 'Player 2'

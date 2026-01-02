@@ -39,6 +39,7 @@ function GeminiIcon({ className }: { className?: string }) {
 function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: string }): ReactNode {
   switch (aiType) {
     case 'openai':
+    case 'openai-singleturn':
       return <OpenAIIcon size="1em" className={className} />;
     case 'gemini':
     case 'gemini-singleturn':
@@ -65,7 +66,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
       .join(' ');
   }
 
-  if (aiType === 'openai') {
+  if (aiType === 'openai' || aiType === 'openai-singleturn') {
     const modelId = model || 'gpt-4o-mini';
     return modelId
       .replace(/^gpt-/i, 'GPT-')
@@ -96,6 +97,7 @@ function getModeIndicator(aiType: ExtendedAIType): string | null {
   if (aiType === 'gemini') return '💬';
   if (aiType === 'gemini-singleturn') return '1️⃣';
   if (aiType === 'openai') return '💬';
+  if (aiType === 'openai-singleturn') return '1️⃣';
   return null;
 }
 
@@ -127,6 +129,7 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
     gemini: '✦',
     'gemini-singleturn': '✦',
     openai: '⬡',
+    'openai-singleturn': '⬡',
   };
 
   const icon = textIcons[aiType] || '';
