@@ -1,6 +1,6 @@
 // Gemini AI Player - Uses Google's Gemini API for intelligent play
 
-import { GoogleGenAI, Type, Chat } from '@google/genai';
+import { GoogleGenAI, Chat } from '@google/genai';
 import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
@@ -49,6 +49,34 @@ export interface GeminiTokenDelta {
 
 // Default model to use
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+// JSON schema for move selection response
+const MOVE_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    moveIndex: { type: 'integer', description: '0-based index of the selected move' },
+    reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' },
+  },
+  required: ['moveIndex', 'reasoning'],
+};
+
+/** Pro models cannot fully disable thinking, require minimum budget */
+function isProModel(modelId: string): boolean {
+  return modelId.toLowerCase().includes('-pro');
+}
+
+/**
+ * Get thinkingConfig for Gemini API requests.
+ * - Thinking enabled + multiple moves: dynamic budget (-1)
+ * - Thinking disabled: 0 for Flash models, 128 for Pro models (minimum required)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getMessageThinkingConfig(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): any {
+  const thinkingBudget = (useThinking && hasMultipleMoves)
+    ? -1
+    : isProModel(modelId) ? 128 : 0;
+  return { thinkingBudget };
+}
 
 // Cached models list
 let cachedModels: GeminiModelInfo[] | null = null;
@@ -176,6 +204,7 @@ class GeminiAI implements AsyncAIPlayer {
   private model: string;
   private modelDisplayName: string;
   private chat: Chat | null = null;
+  private useThinking: boolean;
   public lastReasoning: string = '';
   public tokenStats: GeminiTokenStats;
   public lastDelta: GeminiTokenDelta = {
@@ -186,9 +215,10 @@ class GeminiAI implements AsyncAIPlayer {
     turnTimeMs: 0,
   };
 
-  constructor(apiKey: string, model: string = DEFAULT_MODEL) {
+  constructor(apiKey: string, model: string = DEFAULT_MODEL, useThinking: boolean = true) {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
+    this.useThinking = useThinking;
     // Create display name from model ID (e.g., "gemini-2.5-flash" -> "Gemini 2.5 Flash")
     const shortName = model.replace('gemini-', '').split('-').map(
       (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
@@ -327,9 +357,8 @@ class GeminiAI implements AsyncAIPlayer {
   }
 
   /**
-   * Start a new round - create fresh chat session
-   * Note: Thinking config is passed per-message in selectMove() to allow
-   * dynamic control (disabled for single-move turns)
+   * Start a new round - create fresh chat session with JSON schema config.
+   * Per-message thinkingConfig is applied in selectMove() based on settings.
    */
   startRound(): void {
     // Reset round-specific stats
@@ -340,14 +369,7 @@ class GeminiAI implements AsyncAIPlayer {
       config: {
         systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
         responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            moveIndex: { type: Type.INTEGER },
-            reasoning: { type: Type.STRING },
-          },
-          required: ['moveIndex', 'reasoning'],
-        },
+        responseJsonSchema: MOVE_JSON_SCHEMA,
       },
     });
     this.lastReasoning = '';
@@ -384,16 +406,14 @@ class GeminiAI implements AsyncAIPlayer {
       const prompt = buildTurnPrompt(context);
       const startTime = performance.now();
 
-      // Use dynamic thinking (-1) when there are multiple moves, disabled (0) for single move
-      // This saves time and tokens when there's no decision to make
-      const thinkingBudget = validMoves.length > 1 ? -1 : 0;
+      const thinkingConfig = getMessageThinkingConfig(this.model, this.useThinking, validMoves.length > 1);
 
       const response = await this.chat!.sendMessage({
         message: prompt,
         config: {
-          thinkingConfig: {
-            thinkingBudget,
-          },
+          responseMimeType: 'application/json',
+          responseJsonSchema: MOVE_JSON_SCHEMA,
+          thinkingConfig,
         },
       });
 
@@ -448,37 +468,42 @@ export function getGeminiApiKey(): string | null {
 
 /**
  * Create a Gemini AI player instance
+ * @param model - Model ID to use
+ * @param useThinking - Enable thinking/reasoning mode (default: true)
  */
-export function createGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function createGeminiAI(model: string = DEFAULT_MODEL, useThinking: boolean = true): AsyncAIPlayer | null {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     console.warn('Gemini API key not found. Set VITE_GEMINI_API_KEY in .env.local');
     return null;
   }
-  return new GeminiAI(apiKey, model);
+  return new GeminiAI(apiKey, model, useThinking);
 }
 
-// Cache instances by model ID (supports multiple models in spectator mode)
+// Cache instances by model ID + thinking mode (supports multiple models in spectator mode)
 const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get a Gemini AI instance (cached by model ID)
+ * Get a Gemini AI instance (cached by model ID and thinking mode)
+ * @param model - Model ID to use
+ * @param useThinking - Enable thinking/reasoning mode (default: true)
  */
-export function getGeminiAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function getGeminiAI(model: string = DEFAULT_MODEL, useThinking: boolean = true): AsyncAIPlayer | null {
   if (!isGeminiAvailable()) {
     return null;
   }
 
-  // Return cached instance if exists for this model
-  const cached = instanceCache.get(model);
+  // Cache key includes thinking mode
+  const cacheKey = `${model}:${useThinking}`;
+  const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   // Create and cache new instance
-  const instance = createGeminiAI(model);
+  const instance = createGeminiAI(model, useThinking);
   if (instance) {
-    instanceCache.set(model, instance);
+    instanceCache.set(cacheKey, instance);
   }
   return instance;
 }
@@ -491,10 +516,12 @@ export function getDefaultGeminiModel(): string {
 }
 
 /**
- * Get token stats from a Gemini AI instance by model
+ * Get token stats from a Gemini AI instance by model and thinking mode
  */
-export function getGeminiTokenStats(model?: string): GeminiTokenStats | null {
-  const instance = model ? instanceCache.get(model) as GeminiAI | null : null;
+export function getGeminiTokenStats(model?: string, useThinking: boolean = true): GeminiTokenStats | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as GeminiAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -502,10 +529,12 @@ export function getGeminiTokenStats(model?: string): GeminiTokenStats | null {
 }
 
 /**
- * Get last turn delta from a Gemini AI instance by model
+ * Get last turn delta from a Gemini AI instance by model and thinking mode
  */
-export function getGeminiTokenDelta(model?: string): GeminiTokenDelta | null {
-  const instance = model ? instanceCache.get(model) as GeminiAI | null : null;
+export function getGeminiTokenDelta(model?: string, useThinking: boolean = true): GeminiTokenDelta | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as GeminiAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }

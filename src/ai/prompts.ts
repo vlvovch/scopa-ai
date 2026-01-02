@@ -43,7 +43,7 @@ Use the conversation history to track strategic information, such as:
 
 INPUT FORMAT (each turn):
 - Current game state (scores, deck/pile counts)
-- Opponent's last move (what they just played)
+- Your last move and opponent's last move (for context)
 - Current table and your hand
 - Numbered list of valid moves
 
@@ -125,7 +125,7 @@ export function buildTurnPrompt(context: LLMAIContext): string {
   const {
     hand, table, scores, targetScore, roundNumber,
     opponentHandCount, selfCapturedCount, opponentCapturedCount,
-    deckCount, lastOpponentMove, validMoves
+    deckCount, lastOpponentMove, lastSelfMove, validMoves
   } = context;
 
   const movesStr = validMoves.map((m, i) => formatMove(m, i)).join('\n');
@@ -134,6 +134,7 @@ export function buildTurnPrompt(context: LLMAIContext): string {
 Round ${roundNumber} | Score: You ${scores.self} - Opponent ${scores.opponent} (target: ${targetScore})
 Deck: ${deckCount} | My pile: ${selfCapturedCount} | Opponent pile: ${opponentCapturedCount} | Opponent hand: ${opponentHandCount}
 
+Your last move: ${formatLastMove(lastSelfMove)}
 Opponent's last move: ${formatLastMove(lastOpponentMove)}
 
 Table: ${formatCards(table)}

@@ -32,6 +32,8 @@ interface StartScreenProps {
   spectatorModels: { player1: string; player2: string };
   onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
   defaultTargetScore: number;
+  useThinking: boolean;
+  onToggleThinking: (enabled: boolean) => void;
 }
 
 const PRESET_SCORES = [11, 16, 21] as const;
@@ -85,6 +87,8 @@ export function StartScreen({
   spectatorModels,
   onSelectSpectatorModel,
   defaultTargetScore,
+  useThinking,
+  onToggleThinking,
 }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
@@ -283,87 +287,100 @@ export function StartScreen({
             </select>
           ) : (
             <>
-              {/* AI Provider + Mode toggle row */}
-              <div className={styles.providerRow}>
-                <CustomDropdown<AIProvider>
-                  options={[
-                    ...(geminiAvailable ? [{ value: 'gemini' as const, label: 'Gemini', icon: <GeminiIcon size="1.1em" /> }] : []),
-                    ...(openaiAvailable ? [{ value: 'openai' as const, label: 'OpenAI', icon: <OpenAIIcon size="1.1em" /> }] : []),
-                    ...(claudeAvailable ? [{ value: 'claude' as const, label: 'Claude', icon: <ClaudeIcon size="1.1em" /> }] : []),
-                  ]}
-                  value={provider}
-                  onChange={onAIProviderChange}
-                  className={styles.providerDropdown}
-                />
+              {/* AI Provider dropdown */}
+              <CustomDropdown<AIProvider>
+                options={[
+                  ...(geminiAvailable ? [{ value: 'gemini' as const, label: 'Gemini', icon: <GeminiIcon size="1.1em" /> }] : []),
+                  ...(openaiAvailable ? [{ value: 'openai' as const, label: 'OpenAI', icon: <OpenAIIcon size="1.1em" /> }] : []),
+                  ...(claudeAvailable ? [{ value: 'claude' as const, label: 'Claude', icon: <ClaudeIcon size="1.1em" /> }] : []),
+                ]}
+                value={provider}
+                onChange={onAIProviderChange}
+                className={styles.providerDropdown}
+              />
 
-                {/* Mode toggle button */}
+              {/* Model dropdown */}
+              {isGemini ? (
+                loadingGeminiModels ? (
+                  <select className={styles.dropdown} disabled>
+                    <option>Loading...</option>
+                  </select>
+                ) : (
+                  <select
+                    className={styles.dropdown}
+                    value={currentModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                  >
+                    {geminiModels.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                  </select>
+                )
+              ) : isOpenAI ? (
+                loadingOpenAIModels ? (
+                  <select className={styles.dropdown} disabled>
+                    <option>Loading...</option>
+                  </select>
+                ) : (
+                  <select
+                    className={styles.dropdown}
+                    value={currentModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                  >
+                    {openaiModels.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                  </select>
+                )
+              ) : isClaude ? (
+                loadingClaudeModels ? (
+                  <select className={styles.dropdown} disabled>
+                    <option>Loading...</option>
+                  </select>
+                ) : (
+                  <select
+                    className={styles.dropdown}
+                    value={currentModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                  >
+                    {claudeModels.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                  </select>
+                )
+              ) : null}
+
+              {/* Mode toggle button */}
+              <button
+                className={styles.modeToggle}
+                onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
+                title={convMode === 'conversation'
+                  ? 'Multi-turn chat (click for single-turn)'
+                  : 'Single-turn requests (click for multi-turn)'}
+              >
+                {convMode === 'conversation' ? '💬' : '1️⃣'}
+              </button>
+
+              {/* Thinking toggle (only for Gemini and Claude) */}
+              {(isGemini || isClaude) && (
                 <button
-                  className={styles.modeToggle}
-                  onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
-                  title={convMode === 'conversation'
-                    ? 'Multi-turn chat (click for single-turn)'
-                    : 'Single-turn requests (click for multi-turn)'}
+                  className={`${styles.thinkingToggle} ${useThinking ? styles.thinkingEnabled : ''}`}
+                  onClick={() => onToggleThinking(!useThinking)}
+                  title={useThinking ? 'Extended thinking enabled (click to disable)' : 'Extended thinking disabled (click to enable)'}
                 >
-                  {convMode === 'conversation' ? '💬' : '1️⃣'}
+                  {useThinking ? '🧠' : '⚡'}
                 </button>
-              </div>
+              )}
             </>
           )}
-
-          {/* Model dropdown (only for AI) */}
-          {cat === 'ai' && (
-            isGemini ? (
-              loadingGeminiModels ? (
-                <select className={styles.dropdown} disabled>
-                  <option>Loading...</option>
-                </select>
-              ) : (
-                <select
-                  className={styles.dropdown}
-                  value={currentModel}
-                  onChange={(e) => onModelChange(e.target.value)}
-                >
-                  {geminiModels.map((model) => (
-                    <option key={model.id} value={model.id}>{model.displayName}</option>
-                  ))}
-                </select>
-              )
-            ) : isOpenAI ? (
-              loadingOpenAIModels ? (
-                <select className={styles.dropdown} disabled>
-                  <option>Loading...</option>
-                </select>
-              ) : (
-                <select
-                  className={styles.dropdown}
-                  value={currentModel}
-                  onChange={(e) => onModelChange(e.target.value)}
-                >
-                  {openaiModels.map((model) => (
-                    <option key={model.id} value={model.id}>{model.displayName}</option>
-                  ))}
-                </select>
-              )
-            ) : isClaude ? (
-              loadingClaudeModels ? (
-                <select className={styles.dropdown} disabled>
-                  <option>Loading...</option>
-                </select>
-              ) : (
-                <select
-                  className={styles.dropdown}
-                  value={currentModel}
-                  onChange={(e) => onModelChange(e.target.value)}
-                >
-                  {claudeModels.map((model) => (
-                    <option key={model.id} value={model.id}>{model.displayName}</option>
-                  ))}
-                </select>
-              )
-            ) : null
-          )}
         </div>
-        <p className={styles.aiDescription}>{AI_INFO[currentAI].description}</p>
+        {/* Description with thinking status */}
+        <p className={styles.aiDescription}>
+          {AI_INFO[currentAI].description}
+          {cat === 'ai' && (isGemini || isClaude) && (
+            useThinking ? ' + extended thinking' : ' (fast mode)'
+          )}
+        </p>
       </div>
     );
   };

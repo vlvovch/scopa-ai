@@ -34,6 +34,8 @@ export interface LLMAIContext extends AIContext {
   deckCount: number;
   /** Last move made by opponent (null if first move of round) */
   lastOpponentMove: Move | null;
+  /** Last move made by self (null if first move of round for this player) */
+  lastSelfMove: Move | null;
   /** All valid moves available for this turn */
   validMoves: Move[];
 }

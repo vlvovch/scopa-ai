@@ -489,28 +489,30 @@ export function createClaudeAI(model: string = DEFAULT_MODEL, useExtendedThinkin
   return new ClaudeAI(apiKey, model, useExtendedThinking);
 }
 
-// Cache instances by model ID (supports multiple models in spectator mode)
+// Cache instances by model ID + thinking mode (supports multiple models in spectator mode)
 const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get a Claude AI instance (cached by model ID)
- * Note: Extended thinking is always enabled for cached instances
+ * Get a Claude AI instance (cached by model ID and thinking mode)
+ * @param model - Model ID to use
+ * @param useExtendedThinking - Enable extended thinking (default: true)
  */
-export function getClaudeAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function getClaudeAI(model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true): AsyncAIPlayer | null {
   if (!isClaudeAvailable()) {
     return null;
   }
 
-  // Return cached instance if exists for this model
-  const cached = instanceCache.get(model);
+  // Cache key includes thinking mode
+  const cacheKey = `${model}:${useExtendedThinking}`;
+  const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  // Create and cache new instance (extended thinking enabled by default)
-  const instance = createClaudeAI(model, true);
+  // Create and cache new instance
+  const instance = createClaudeAI(model, useExtendedThinking);
   if (instance) {
-    instanceCache.set(model, instance);
+    instanceCache.set(cacheKey, instance);
   }
   return instance;
 }
@@ -523,10 +525,12 @@ export function getDefaultClaudeModel(): string {
 }
 
 /**
- * Get token stats from a Claude AI instance by model
+ * Get token stats from a Claude AI instance by model and thinking mode
  */
-export function getClaudeTokenStats(model?: string): ClaudeTokenStats | null {
-  const instance = model ? instanceCache.get(model) as ClaudeAI | null : null;
+export function getClaudeTokenStats(model?: string, useThinking: boolean = true): ClaudeTokenStats | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as ClaudeAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -534,10 +538,12 @@ export function getClaudeTokenStats(model?: string): ClaudeTokenStats | null {
 }
 
 /**
- * Get last turn delta from a Claude AI instance by model
+ * Get last turn delta from a Claude AI instance by model and thinking mode
  */
-export function getClaudeTokenDelta(model?: string): ClaudeTokenDelta | null {
-  const instance = model ? instanceCache.get(model) as ClaudeAI | null : null;
+export function getClaudeTokenDelta(model?: string, useThinking: boolean = true): ClaudeTokenDelta | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as ClaudeAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }

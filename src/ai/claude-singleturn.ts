@@ -63,6 +63,7 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
   private client: Anthropic;
   private model: string;
   private modelDisplayName: string;
+  private useExtendedThinking: boolean;
 
   // Track moves for this round
   private roundMoveHistory: Move[] = [];
@@ -78,13 +79,14 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
     turnTimeMs: 0,
   };
 
-  constructor(apiKey: string, model: string = DEFAULT_MODEL) {
+  constructor(apiKey: string, model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true) {
     this.client = new Anthropic({
       apiKey,
       dangerouslyAllowBrowser: true
     });
     this.model = model;
     this.modelDisplayName = formatModelName(model);
+    this.useExtendedThinking = useExtendedThinking;
     this.name = `${this.modelDisplayName} (1-turn)`;
 
     // Initialize token stats with model info
@@ -294,27 +296,38 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       const startTime = performance.now();
 
       // Single request with full context using structured outputs (beta)
-      // Extended thinking enabled for better reasoning
-      const response = await this.client.beta.messages.create({
+      // Extended thinking enabled when useExtendedThinking is true and multiple moves available
+      const shouldThink = this.useExtendedThinking && validMoves.length > 1;
+
+      // Build API request parameters using structured outputs (beta)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requestParams: any = {
         model: this.model,
-        max_tokens: 16000, // Higher limit for thinking
+        max_tokens: shouldThink ? 16000 : 1024,
         system: SYSTEM_INSTRUCTION_SINGLETURN,
         output_format: MOVE_OUTPUT_SCHEMA,
         messages: [{ role: 'user', content: prompt }],
-        thinking: {
+        betas: ['structured-outputs-2025-11-13']
+      };
+
+      // Add extended thinking if enabled and there's a decision to make
+      if (shouldThink) {
+        requestParams.thinking = {
           type: 'enabled',
           budget_tokens: 10000,
-        },
-        betas: ['structured-outputs-2025-11-13']
-      });
+        };
+      }
+
+      const response = await this.client.beta.messages.create(requestParams);
 
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usage);
       this.updateTimingStats(turnTime);
 
       // Extract text block with JSON response
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const textBlock = response.content.find(
-        (block): block is Anthropic.TextBlock => block.type === 'text'
+        (block: any): block is Anthropic.TextBlock => block.type === 'text'
       );
 
       if (!textBlock) {
@@ -352,46 +365,53 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
 
 /**
  * Create a Claude Single-Turn AI player instance
+ * @param model - Model ID to use
+ * @param useExtendedThinking - Enable extended thinking (default: true)
  */
-export function createClaudeSingleTurnAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function createClaudeSingleTurnAI(model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true): AsyncAIPlayer | null {
   const apiKey = getClaudeApiKey();
   if (!apiKey) {
     console.warn('Claude API key not found. Set VITE_CLAUDE_API_KEY in .env.local');
     return null;
   }
-  return new ClaudeSingleTurnAI(apiKey, model);
+  return new ClaudeSingleTurnAI(apiKey, model, useExtendedThinking);
 }
 
-// Cache instances by model ID (supports multiple models in spectator mode)
+// Cache instances by model ID + thinking mode (supports multiple models in spectator mode)
 const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get a Claude Single-Turn AI instance (cached by model ID)
+ * Get a Claude Single-Turn AI instance (cached by model ID and thinking mode)
+ * @param model - Model ID to use
+ * @param useExtendedThinking - Enable extended thinking (default: true)
  */
-export function getClaudeSingleTurnAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function getClaudeSingleTurnAI(model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true): AsyncAIPlayer | null {
   if (!isClaudeAvailable()) {
     return null;
   }
 
-  // Return cached instance if exists for this model
-  const cached = instanceCache.get(model);
+  // Cache key includes thinking mode
+  const cacheKey = `${model}:${useExtendedThinking}`;
+  const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   // Create and cache new instance
-  const instance = createClaudeSingleTurnAI(model);
+  const instance = createClaudeSingleTurnAI(model, useExtendedThinking);
   if (instance) {
-    instanceCache.set(model, instance);
+    instanceCache.set(cacheKey, instance);
   }
   return instance;
 }
 
 /**
- * Get token stats from a Claude Single-Turn AI instance by model
+ * Get token stats from a Claude Single-Turn AI instance by model and thinking mode
  */
-export function getClaudeSingleTurnTokenStats(model?: string): ClaudeTokenStats | null {
-  const instance = model ? instanceCache.get(model) as ClaudeSingleTurnAI | null : null;
+export function getClaudeSingleTurnTokenStats(model?: string, useThinking: boolean = true): ClaudeTokenStats | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as ClaudeSingleTurnAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -399,10 +419,12 @@ export function getClaudeSingleTurnTokenStats(model?: string): ClaudeTokenStats 
 }
 
 /**
- * Get last turn delta from a Claude Single-Turn AI instance by model
+ * Get last turn delta from a Claude Single-Turn AI instance by model and thinking mode
  */
-export function getClaudeSingleTurnTokenDelta(model?: string): ClaudeTokenDelta | null {
-  const instance = model ? instanceCache.get(model) as ClaudeSingleTurnAI | null : null;
+export function getClaudeSingleTurnTokenDelta(model?: string, useThinking: boolean = true): ClaudeTokenDelta | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as ClaudeSingleTurnAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }

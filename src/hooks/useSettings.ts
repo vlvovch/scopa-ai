@@ -22,6 +22,8 @@ export interface GameSettings {
   openaiModel: string;
   /** Claude model to use (when cpuAI is 'claude' or 'claude-singleturn') */
   claudeModel: string;
+  /** Enable extended thinking for LLM AI (Claude, Gemini) */
+  useThinking: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -35,6 +37,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   geminiModel: 'gemini-2.5-flash',
   openaiModel: 'gpt-4o-mini',
   claudeModel: 'claude-sonnet-4-5-20250929',
+  useThinking: true,
 };
 
 function loadSettings(): GameSettings {

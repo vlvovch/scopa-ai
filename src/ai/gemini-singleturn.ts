@@ -2,7 +2,7 @@
 // Unlike the multi-turn version, each request is independent and includes
 // the complete round history in the prompt.
 
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import type { Card, Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
@@ -17,6 +17,38 @@ import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts'
 // Default model to use
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
+// JSON schema for move selection response
+const MOVE_JSON_SCHEMA = {
+  type: 'object',
+  properties: {
+    moveIndex: { type: 'integer', description: '0-based index of the selected move' },
+    reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' },
+  },
+  required: ['moveIndex', 'reasoning'],
+};
+
+/** Pro models cannot fully disable thinking, require minimum budget */
+function isProModel(modelId: string): boolean {
+  return modelId.toLowerCase().includes('-pro');
+}
+
+/**
+ * Get generation config with JSON schema and thinking settings.
+ * - Thinking enabled + multiple moves: dynamic budget (-1)
+ * - Thinking disabled: 0 for Flash models, 128 for Pro models (minimum required)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getGenerationConfig(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): any {
+  const thinkingBudget = (useThinking && hasMultipleMoves)
+    ? -1
+    : isProModel(modelId) ? 128 : 0;
+
+  return {
+    responseJsonSchema: MOVE_JSON_SCHEMA,
+    thinkingConfig: { thinkingBudget },
+  };
+}
+
 /**
  * Gemini Single-Turn AI Player using @google/genai SDK
  * Each request is independent - no chat session maintained.
@@ -29,6 +61,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
   private ai: GoogleGenAI;
   private model: string;
   private modelDisplayName: string;
+  private useThinking: boolean;
 
   // Track moves for this round
   private roundMoveHistory: Move[] = [];
@@ -45,9 +78,10 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
     turnTimeMs: 0,
   };
 
-  constructor(apiKey: string, model: string = DEFAULT_MODEL) {
+  constructor(apiKey: string, model: string = DEFAULT_MODEL, useThinking: boolean = true) {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
+    this.useThinking = useThinking;
     // Create display name from model ID (e.g., "gemini-2.5-flash" -> "Gemini 2.5 Flash")
     const shortName = model.replace('gemini-', '').split('-').map(
       (part, i) => i === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
@@ -277,25 +311,15 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
       console.log(`[${this.model}] Prompt:\n`, prompt);
       const startTime = performance.now();
 
-      // Single request with full context (no chat session)
-      // Use dynamic thinking (-1) for better reasoning
+      const generationConfig = getGenerationConfig(this.model, this.useThinking, validMoves.length > 1);
+
       const response = await this.ai.models.generateContent({
         model: this.model,
         contents: prompt,
         config: {
           systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
           responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              moveIndex: { type: Type.INTEGER },
-              reasoning: { type: Type.STRING },
-            },
-            required: ['moveIndex', 'reasoning'],
-          },
-          thinkingConfig: {
-            thinkingBudget: -1, // Dynamic thinking
-          },
+          ...generationConfig,
         },
       });
 
@@ -338,46 +362,53 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
 
 /**
  * Create a Gemini Single-Turn AI player instance
+ * @param model - Model ID to use
+ * @param useThinking - Enable thinking/reasoning mode (default: true)
  */
-export function createGeminiSingleTurnAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function createGeminiSingleTurnAI(model: string = DEFAULT_MODEL, useThinking: boolean = true): AsyncAIPlayer | null {
   const apiKey = getGeminiApiKey();
   if (!apiKey) {
     console.warn('Gemini API key not found. Set VITE_GEMINI_API_KEY in .env.local');
     return null;
   }
-  return new GeminiSingleTurnAI(apiKey, model);
+  return new GeminiSingleTurnAI(apiKey, model, useThinking);
 }
 
-// Cache instances by model ID (supports multiple models in spectator mode)
+// Cache instances by model ID + thinking mode (supports multiple models in spectator mode)
 const instanceCache = new Map<string, AsyncAIPlayer>();
 
 /**
- * Get a Gemini Single-Turn AI instance (cached by model ID)
+ * Get a Gemini Single-Turn AI instance (cached by model ID and thinking mode)
+ * @param model - Model ID to use
+ * @param useThinking - Enable thinking/reasoning mode (default: true)
  */
-export function getGeminiSingleTurnAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function getGeminiSingleTurnAI(model: string = DEFAULT_MODEL, useThinking: boolean = true): AsyncAIPlayer | null {
   if (!isGeminiAvailable()) {
     return null;
   }
 
-  // Return cached instance if exists for this model
-  const cached = instanceCache.get(model);
+  // Cache key includes thinking mode
+  const cacheKey = `${model}:${useThinking}`;
+  const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   // Create and cache new instance
-  const instance = createGeminiSingleTurnAI(model);
+  const instance = createGeminiSingleTurnAI(model, useThinking);
   if (instance) {
-    instanceCache.set(model, instance);
+    instanceCache.set(cacheKey, instance);
   }
   return instance;
 }
 
 /**
- * Get token stats from a Gemini Single-Turn AI instance by model
+ * Get token stats from a Gemini Single-Turn AI instance by model and thinking mode
  */
-export function getGeminiSingleTurnTokenStats(model?: string): GeminiTokenStats | null {
-  const instance = model ? instanceCache.get(model) as GeminiSingleTurnAI | null : null;
+export function getGeminiSingleTurnTokenStats(model?: string, useThinking: boolean = true): GeminiTokenStats | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as GeminiSingleTurnAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -385,10 +416,12 @@ export function getGeminiSingleTurnTokenStats(model?: string): GeminiTokenStats 
 }
 
 /**
- * Get last turn delta from a Gemini Single-Turn AI instance by model
+ * Get last turn delta from a Gemini Single-Turn AI instance by model and thinking mode
  */
-export function getGeminiSingleTurnTokenDelta(model?: string): GeminiTokenDelta | null {
-  const instance = model ? instanceCache.get(model) as GeminiSingleTurnAI | null : null;
+export function getGeminiSingleTurnTokenDelta(model?: string, useThinking: boolean = true): GeminiTokenDelta | null {
+  if (!model) return null;
+  const cacheKey = `${model}:${useThinking}`;
+  const instance = instanceCache.get(cacheKey) as GeminiSingleTurnAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }

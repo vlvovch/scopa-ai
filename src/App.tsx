@@ -97,40 +97,42 @@ function App() {
   // Helper to get delta for a specific AI type and model
   // Returns a unified delta type (Gemini, OpenAI, and Claude deltas are structurally compatible)
   const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenDelta | OpenAITokenDelta | ClaudeTokenDelta | null => {
+    const useThinking = settings.useThinking;
     if (aiType === 'gemini-singleturn') {
-      return getGeminiSingleTurnTokenDelta(model);
+      return getGeminiSingleTurnTokenDelta(model, useThinking);
     } else if (aiType === 'gemini') {
-      return getGeminiTokenDelta(model);
+      return getGeminiTokenDelta(model, useThinking);
     } else if (aiType === 'openai') {
       return getOpenAITokenDelta(model);
     } else if (aiType === 'openai-singleturn') {
       return getOpenAISingleTurnTokenDelta(model);
     } else if (aiType === 'claude') {
-      return getClaudeTokenDelta(model);
+      return getClaudeTokenDelta(model, useThinking);
     } else if (aiType === 'claude-singleturn') {
-      return getClaudeSingleTurnTokenDelta(model);
+      return getClaudeSingleTurnTokenDelta(model, useThinking);
     }
     return null;
-  }, []);
+  }, [settings.useThinking]);
 
   // Helper to get full stats for a specific AI type and model
   // Returns a unified stats type (Gemini, OpenAI, and Claude stats are structurally compatible)
   const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenStats | OpenAITokenStats | ClaudeTokenStats | null => {
+    const useThinking = settings.useThinking;
     if (aiType === 'gemini-singleturn') {
-      return getGeminiSingleTurnTokenStats(model);
+      return getGeminiSingleTurnTokenStats(model, useThinking);
     } else if (aiType === 'gemini') {
-      return getGeminiTokenStats(model);
+      return getGeminiTokenStats(model, useThinking);
     } else if (aiType === 'openai') {
       return getOpenAITokenStats(model);
     } else if (aiType === 'openai-singleturn') {
       return getOpenAISingleTurnTokenStats(model);
     } else if (aiType === 'claude') {
-      return getClaudeTokenStats(model);
+      return getClaudeTokenStats(model, useThinking);
     } else if (aiType === 'claude-singleturn') {
-      return getClaudeSingleTurnTokenStats(model);
+      return getClaudeSingleTurnTokenStats(model, useThinking);
     }
     return null;
-  }, []);
+  }, [settings.useThinking]);
 
   // Helper to update token stats for single player mode
   const updateTokenStats = useCallback(() => {
@@ -259,16 +261,17 @@ function App() {
 
   // Get AI player instance for a given AI type and model
   const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string): AnyAIPlayer => {
+    const useThinking = settings.useThinking;
     if (aiType === 'gemini') {
       const geminiModel = model || settings.geminiModel;
-      const gemini = getGeminiAI(geminiModel);
+      const gemini = getGeminiAI(geminiModel, useThinking);
       if (gemini) return gemini;
       // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'gemini-singleturn') {
       const geminiModel = model || settings.geminiModel;
-      const gemini = getGeminiSingleTurnAI(geminiModel);
+      const gemini = getGeminiSingleTurnAI(geminiModel, useThinking);
       if (gemini) return gemini;
       // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
@@ -289,20 +292,20 @@ function App() {
     }
     if (aiType === 'claude') {
       const claudeModel = model || settings.claudeModel;
-      const claude = getClaudeAI(claudeModel);
+      const claude = getClaudeAI(claudeModel, useThinking);
       if (claude) return claude;
       // Fallback to heuristic if Claude not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'claude-singleturn') {
       const claudeModel = model || settings.claudeModel;
-      const claude = getClaudeSingleTurnAI(claudeModel);
+      const claude = getClaudeSingleTurnAI(claudeModel, useThinking);
       if (claude) return claude;
       // Fallback to heuristic if Claude not available
       return AI_PLAYERS.heuristic;
     }
     return AI_PLAYERS[aiType];
-  }, [settings.geminiModel, settings.openaiModel, settings.claudeModel]);
+  }, [settings.geminiModel, settings.openaiModel, settings.claudeModel, settings.useThinking]);
 
   // Build extended context for LLM AI
   const buildLLMContext = useCallback((
@@ -335,6 +338,7 @@ function App() {
       opponentCapturedCount: state.players[oppPlayer].captured.length,
       deckCount: state.round.deck.length,
       lastOpponentMove: lastMoves.current[oppPlayer],
+      lastSelfMove: lastMoves.current[selfPlayer],
       validMoves,
     };
   }, [state.scores, state.targetScore, state.roundNumber, state.players, state.round.deck.length]);
@@ -1110,6 +1114,8 @@ function App() {
           spectatorModels={spectatorModels}
           onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
           defaultTargetScore={settings.defaultTargetScore}
+          useThinking={settings.useThinking}
+          onToggleThinking={(enabled) => updateSetting('useThinking', enabled)}
         />
         <SettingsModal
           isOpen={showSettings}
