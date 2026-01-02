@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-01 (Phase 25: OpenAI Responses API Migration)
+**Last Updated:** 2026-01-01 (Phase 26: OpenAI Single-Turn Mode & UI Improvements)
 
 ---
 
@@ -77,10 +77,13 @@ scopa-ai-claude/
 │   ├── ai/                 # AI opponent implementations
 │   │   ├── index.ts        # AI exports and registry
 │   │   ├── types.ts        # AIPlayer, AsyncAIPlayer, AIContext, LLMAIContext
+│   │   ├── prompts.ts      # Shared prompts for LLM AIs
 │   │   ├── random.ts       # Random AI (Scimmietta)
 │   │   ├── heuristic.ts    # Greedy heuristic AI (Furbo)
-│   │   ├── gemini.ts       # Gemini LLM AI with chat sessions
-│   │   └── openai.ts       # OpenAI GPT AI with structured outputs
+│   │   ├── gemini.ts       # Gemini LLM AI (multi-turn chat)
+│   │   ├── gemini-singleturn.ts  # Gemini single-turn mode
+│   │   ├── openai.ts       # OpenAI GPT AI (Responses API, conversation state)
+│   │   └── openai-singleturn.ts  # OpenAI single-turn mode
 │   │
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
@@ -460,6 +463,35 @@ Renders AI player names with proper SVG icons:
 - Fallback: Heuristic AI if API key not available
 - Model allowlist patterns: `gpt-4o`, `gpt-4o-mini`, `gpt-4.1[-mini|-nano]`, `gpt-4-turbo`, `gpt-5[.x][-mini]`, `o1`, `o3[-mini]`, `o4-mini`
 
+### OpenAI Single-Turn AI (openai-singleturn.ts)
+
+**Architecture:**
+- Uses `openai` SDK with Responses API (same as multi-turn)
+- **Single-turn mode**: Each request is independent, no conversation state
+- Full move history included in each prompt via `buildSingleTurnPrompt()`
+- Maintains local `roundMoveHistory` and `initialTable` for context reconstruction
+- Same structured JSON output as multi-turn
+
+**Key Differences from Multi-Turn:**
+
+| Multi-Turn (openai.ts) | Single-Turn (openai-singleturn.ts) |
+|------------------------|-----------------------------------|
+| Server manages history via `conversation` | No conversation - each request independent |
+| Stores `conversationId` between turns | Stores `roundMoveHistory[]` and `initialTable[]` |
+| Prompt includes only last opponent move | Prompt includes complete round history |
+| Lower token usage (incremental context) | Higher token usage (full history each turn) |
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `createOpenAISingleTurnAI(model)` | Creates new single-turn instance |
+| `getOpenAISingleTurnAI(model)` | Gets cached instance |
+| `getOpenAISingleTurnTokenStats()` | Returns cumulative token usage |
+| `getOpenAISingleTurnTokenDelta()` | Returns last turn's delta |
+| `startOpenAISingleTurnRound()` | Resets move history for new round |
+| `endOpenAISingleTurnRound()` | Clears move history |
+
 ### TokenStatsDisplay Component
 
 | File | Purpose |
@@ -746,7 +778,7 @@ Renders AI player names with proper SVG icons:
 
 ## MVP Complete!
 
-All 25 phases implemented:
+All 26 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -772,6 +804,7 @@ All 25 phases implemented:
 23. OpenAI GPT AI Integration (structured outputs, reasoning tokens, model selection)
 24. OpenAI Icon Integration & UI Polish (blossom SVG, AIPlayerLabel, raw model IDs)
 25. OpenAI Responses API Migration (server-side conversation state, cleaner code)
+26. OpenAI Single-Turn Mode & UI Improvements (single-turn AI, mode toggle button)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)

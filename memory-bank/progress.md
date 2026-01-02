@@ -582,6 +582,32 @@
 
 ---
 
+## Phase 26: OpenAI Single-Turn Mode & UI Improvements
+
+- [x] Step 26.1: Create openai-singleturn AI implementation - Completed 2026-01-01
+- [x] Step 26.2: Add conversation mode toggle to StartScreen - Completed 2026-01-01
+- [x] Step 26.3: Fix mode selector UI layout (dropdown to toggle button) - Completed 2026-01-01
+- [x] Step 26.4: Fix spectator mode layout (provider + mode on same row) - Completed 2026-01-01
+- [x] Step 26.5: Update AIPlayerLabel for openai-singleturn type - Completed 2026-01-01
+
+**Notes:**
+- Created `src/ai/openai-singleturn.ts` mirroring the Gemini single-turn pattern
+- Each request is independent with no server-side conversation state
+- Maintains local `roundMoveHistory` and `initialTable` for context reconstruction
+- Uses `buildSingleTurnPrompt()` with full round history in each request
+- Refactored AI type handling:
+  - `AIProvider` now just `'gemini' | 'openai'` (base provider)
+  - New `ConversationMode` type: `'conversation' | 'singleturn'`
+  - Helper functions: `getConversationMode()`, `getExtendedAIType()`
+- Changed mode selector from dropdown to compact toggle button (💬/1️⃣)
+- Button title shows descriptive text on hover
+- Added `.providerRow` CSS wrapper to keep provider dropdown + mode toggle on same line
+- Works correctly in both play mode and spectator mode
+- AIPlayerLabel updated with `openai-singleturn` case for icon and text display
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
