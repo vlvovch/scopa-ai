@@ -1,6 +1,6 @@
 # Scopa WebApp - Development Progress
 
-**Last Updated:** 2025-12-30
+**Last Updated:** 2026-01-01
 
 ---
 
@@ -550,6 +550,38 @@
 
 ---
 
+## Phase 25: OpenAI Responses API Migration
+
+- [x] Step 25.1: Research OpenAI Responses API and SDK types - Completed 2026-01-01
+- [x] Step 25.2: Migrate from Chat Completions to Responses API - Completed 2026-01-01
+- [x] Step 25.3: Implement server-side conversation state management - Completed 2026-01-01
+- [x] Step 25.4: Update token stats for new API response format - Completed 2026-01-01
+- [x] Step 25.5: Fix spectator mode model selection sync - Completed 2026-01-01
+- [x] Step 25.6: Use authentic SVG coin icons in CapturedPile - Completed 2026-01-01
+- [x] Step 25.7: Simplify single-move handling in AI implementations - Completed 2026-01-01
+
+**Notes:**
+- Migrated OpenAI implementation from Chat Completions API to new Responses API
+- Conversation state now managed server-side via `conversation` parameter:
+  - First request: no `conversation` param → API creates new conversation
+  - Response includes `conversation.id` → stored locally
+  - Subsequent requests: `conversation: { id }` → API continues conversation
+  - `startRound()` clears conversation ID for fresh state
+- No more manual `messages[]` array management
+- API differences:
+  - `client.chat.completions.create()` → `client.responses.create()`
+  - `response_format.json_schema` → `text.format.json_schema`
+  - `response.choices[0].message.content` → `response.output_text`
+  - `usage.prompt_tokens` → `usage.input_tokens`
+  - `usage.completion_tokens` → `usage.output_tokens`
+- Fixed spectator mode bug: changing AI provider now correctly updates model selection
+- CapturedPile now uses authentic denari SVG icon instead of "●" character
+- Sette Bello indicator uses "7" + coin SVG icon
+- Single-move cases: still call API for context continuity, use AI's actual reasoning
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -557,7 +589,7 @@ The Scopa game is now fully playable with:
 - Neapolitan card graphics (Siciliane suits available, card faces pending)
 - Selectable AI opponents (Random, Greedy heuristic, Gemini LLM, or OpenAI GPT)
 - Gemini AI with multi-turn chat sessions, token tracking, and model selection
-- OpenAI GPT AI with structured outputs, reasoning tokens support, and model selection
+- OpenAI GPT AI with Responses API (server-side conversation state), structured outputs, and reasoning tokens
 - Animated card interactions (3D flip CPU card reveal, drag and drop)
 - Enhanced round summary with Italian names, counts, captured card display, and hover highlighting
 - Deck-aware custom SVG icons for score categories

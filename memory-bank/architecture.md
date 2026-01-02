@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-01 (Phase 24: OpenAI Icon Integration & UI Polish)
+**Last Updated:** 2026-01-01 (Phase 25: OpenAI Responses API Migration)
 
 ---
 
@@ -397,9 +397,18 @@ Renders AI player names with proper SVG icons:
 
 **Architecture:**
 - Uses `openai` SDK with `dangerouslyAllowBrowser: true` for client-side usage
-- Multi-turn chat via messages array maintained across turns within a round
+- **Responses API with conversation state management** (server-side history)
+- No manual message array - conversation ID is stored and passed to each request
 - Same system instruction as Gemini (full Scopa rules, scoring, prime values)
-- Structured JSON output via `response_format: { type: 'json_schema', json_schema: {...}, strict: true }`
+- Structured JSON output via `text.format: { type: 'json_schema', name: '...', schema: {...} }`
+
+**Responses API Flow:**
+```
+1. First request: no conversation param → API creates new conversation
+2. Response includes conversation.id → stored in conversationId
+3. Next request: conversation: { id: conversationId } → API continues conversation
+4. startRound(): clear conversationId → fresh conversation next turn
+```
 
 **Key Functions:**
 
@@ -412,8 +421,22 @@ Renders AI player names with proper SVG icons:
 | `getOpenAITokenStats()` | Returns cumulative token usage |
 | `getOpenAITokenDelta()` | Returns last turn's token delta |
 | `resetOpenAITokenStats()` | Resets token counters (for new game) |
-| `startOpenAIRound()` | Creates fresh messages array with system instruction |
-| `endOpenAIRound()` | Clears messages array |
+| `startOpenAIRound()` | Clears conversationId for fresh state |
+| `endOpenAIRound()` | Clears conversationId |
+
+**API Comparison (Chat Completions → Responses):**
+
+| Chat Completions API | Responses API |
+|---------------------|---------------|
+| `client.chat.completions.create()` | `client.responses.create()` |
+| `messages: ChatMessage[]` | `conversation: { id: string }` |
+| Manual history management | Server manages history |
+| `response_format.json_schema` | `text.format.json_schema` |
+| `response.choices[0].message.content` | `response.output_text` |
+| `usage.prompt_tokens` | `usage.input_tokens` |
+| `usage.completion_tokens` | `usage.output_tokens` |
+| `usage.prompt_tokens_details.cached_tokens` | `usage.input_tokens_details.cached_tokens` |
+| `usage.completion_tokens_details.reasoning_tokens` | `usage.output_tokens_details.reasoning_tokens` |
 
 **Token Stats Tracked:**
 
@@ -723,7 +746,7 @@ Renders AI player names with proper SVG icons:
 
 ## MVP Complete!
 
-All 24 phases implemented:
+All 25 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -748,6 +771,7 @@ All 24 phases implemented:
 22. UI Polish & Settings (AI icons, flexible widths, custom target score, settings cleanup)
 23. OpenAI GPT AI Integration (structured outputs, reasoning tokens, model selection)
 24. OpenAI Icon Integration & UI Polish (blossom SVG, AIPlayerLabel, raw model IDs)
+25. OpenAI Responses API Migration (server-side conversation state, cleaner code)
 
 **Future Enhancements:**
 - Smarter AI (rule-based or LLM)

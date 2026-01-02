@@ -1,4 +1,4 @@
-// OpenAI GPT AI Player - Uses OpenAI's Chat Completions API for intelligent play
+// OpenAI GPT AI Player - Uses OpenAI's Responses API with conversation state
 
 import OpenAI from 'openai';
 import type { Move } from '../game/types';
@@ -181,14 +181,8 @@ export function getCachedOpenAIModels(): OpenAIModelInfo[] {
   return cachedModels || [];
 }
 
-// Message type for conversation history
-type ChatMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-};
-
 /**
- * OpenAI GPT AI Player using official OpenAI SDK
+ * OpenAI GPT AI Player using Responses API with conversation state
  */
 class OpenAIAI implements AsyncAIPlayer {
   readonly name: string;
@@ -197,7 +191,8 @@ class OpenAIAI implements AsyncAIPlayer {
   private client: OpenAI;
   private model: string;
   private modelDisplayName: string;
-  private messages: ChatMessage[] = [];
+  // Conversation ID for automatic state management (Responses API)
+  private conversationId: string | null = null;
   public lastReasoning: string = '';
   public tokenStats: OpenAITokenStats;
   public lastDelta: OpenAITokenDelta = {
@@ -241,20 +236,16 @@ class OpenAIAI implements AsyncAIPlayer {
   }
 
   /**
-   * Update token stats from response usage metadata
+   * Update token stats from Responses API usage metadata
    */
-  private updateTokenStats(usage: OpenAI.CompletionUsage | undefined): void {
+  private updateTokenStats(usage: OpenAI.Responses.ResponseUsage | undefined): void {
     if (!usage) return;
 
-    const promptDelta = usage.prompt_tokens || 0;
-    const responseDelta = usage.completion_tokens || 0;
-    // Extract reasoning tokens from completion_tokens_details if available
-    const reasoningDelta = (usage as { completion_tokens_details?: { reasoning_tokens?: number } })
-      .completion_tokens_details?.reasoning_tokens || 0;
+    const promptDelta = usage.input_tokens || 0;
+    const responseDelta = usage.output_tokens || 0;
+    const reasoningDelta = usage.output_tokens_details?.reasoning_tokens || 0;
     const totalDelta = usage.total_tokens || 0;
-    // Extract cached tokens from prompt_tokens_details if available
-    const cachedDelta = (usage as { prompt_tokens_details?: { cached_tokens?: number } })
-      .prompt_tokens_details?.cached_tokens || 0;
+    const cachedDelta = usage.input_tokens_details?.cached_tokens || 0;
 
     // Update cumulative stats
     this.tokenStats.promptTokens += promptDelta;
@@ -347,17 +338,12 @@ class OpenAIAI implements AsyncAIPlayer {
   }
 
   /**
-   * Start a new round - create fresh conversation
+   * Start a new round - reset conversation for fresh state
    */
   startRound(): void {
-    // Reset round-specific stats
     this.resetRoundStats();
-
-    // Initialize messages with system instruction
-    this.messages = [{
-      role: 'system',
-      content: SYSTEM_INSTRUCTION_MULTITURN
-    }];
+    // Clear conversation ID to start fresh (new conversation will be created on first request)
+    this.conversationId = null;
     this.lastReasoning = '';
   }
 
@@ -365,11 +351,11 @@ class OpenAIAI implements AsyncAIPlayer {
    * End the current round
    */
   endRound(): void {
-    this.messages = [];
+    this.conversationId = null;
   }
 
   /**
-   * Select a move using OpenAI GPT
+   * Select a move using OpenAI Responses API with conversation state
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
     const { hand, table, player, validMoves } = context;
@@ -382,65 +368,22 @@ class OpenAIAI implements AsyncAIPlayer {
       throw new Error('No valid moves available');
     }
 
-    // Create conversation if not exists
-    if (this.messages.length === 0) {
-      this.startRound();
-    }
-
-    // If only one move, still inform AI of game state for context
-    if (validMoves.length === 1) {
-      const prompt = buildTurnPrompt(context);
-      const startTime = performance.now();
-      try {
-        // Add user message
-        this.messages.push({ role: 'user', content: prompt });
-
-        const response = await this.client.chat.completions.create({
-          model: this.model,
-          messages: this.messages,
-          response_format: {
-            type: 'json_schema',
-            json_schema: {
-              name: 'move_selection',
-              schema: {
-                type: 'object',
-                properties: {
-                  moveIndex: { type: 'integer' },
-                  reasoning: { type: 'string' }
-                },
-                required: ['moveIndex', 'reasoning'],
-                additionalProperties: false
-              },
-              strict: true
-            }
-          }
-        });
-        const turnTime = performance.now() - startTime;
-        this.updateTokenStats(response.usage);
-        this.updateTimingStats(turnTime);
-
-        // Add assistant response to maintain context
-        const content = response.choices[0]?.message?.content || '';
-        this.messages.push({ role: 'assistant', content });
-      } catch (e) {
-        // Ignore errors for single-move updates
-        console.warn('[OpenAI] Error on single-move turn:', e);
-      }
-      this.lastReasoning = 'Only one move available.';
-      return validMoves[0];
-    }
-
     try {
       const prompt = buildTurnPrompt(context);
-      this.messages.push({ role: 'user', content: prompt });
-
       const startTime = performance.now();
-      const response = await this.client.chat.completions.create({
+
+      // Use Responses API with conversation state management
+      const response = await this.client.responses.create({
         model: this.model,
-        messages: this.messages,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
+        instructions: SYSTEM_INSTRUCTION_MULTITURN,
+        input: prompt,
+        // If we have a conversation ID, continue it; otherwise create new
+        conversation: this.conversationId
+          ? { id: this.conversationId }
+          : undefined,
+        text: {
+          format: {
+            type: 'json_schema',
             name: 'move_selection',
             schema: {
               type: 'object',
@@ -450,26 +393,35 @@ class OpenAIAI implements AsyncAIPlayer {
               },
               required: ['moveIndex', 'reasoning'],
               additionalProperties: false
-            },
-            strict: true
+            }
           }
         }
       });
+
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usage);
       this.updateTimingStats(turnTime);
 
-      const content = response.choices[0]?.message?.content;
+      // Store conversation ID for next turn (server manages history)
+      if (response.conversation?.id) {
+        this.conversationId = response.conversation.id;
+      }
+
+      const content = response.output_text;
       if (!content) {
         throw new Error('Empty response from AI');
       }
 
-      // Add assistant response to messages for context
-      this.messages.push({ role: 'assistant', content });
-
       const result = JSON.parse(content);
-      const index = result.moveIndex;
       this.lastReasoning = result.reasoning || '';
+
+      // Only one move - still called API for context continuity
+      if (validMoves.length === 1) {
+        console.log(`[${this.model}] ${this.lastReasoning}`);
+        return validMoves[0];
+      }
+
+      const index = result.moveIndex;
 
       if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
         console.log(`[${this.model}] ${this.lastReasoning}`);

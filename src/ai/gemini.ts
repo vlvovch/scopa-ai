@@ -377,23 +377,6 @@ class GeminiAI implements AsyncAIPlayer {
       this.startRound();
     }
 
-    // If only one move, still inform AI of game state for context
-    if (validMoves.length === 1) {
-      const prompt = buildTurnPrompt(context);
-      const startTime = performance.now();
-      try {
-        // Wait for response to keep chat session in sync
-        const response = await this.chat!.sendMessage({ message: prompt });
-        const turnTime = performance.now() - startTime;
-        this.updateTokenStats(response.usageMetadata);
-        this.updateTimingStats(turnTime);
-      } catch (e) {
-        // Ignore errors for single-move updates
-      }
-      this.lastReasoning = 'Only one move available.';
-      return validMoves[0];
-    }
-
     try {
       const prompt = buildTurnPrompt(context);
       const startTime = performance.now();
@@ -401,15 +384,22 @@ class GeminiAI implements AsyncAIPlayer {
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usageMetadata);
       this.updateTimingStats(turnTime);
-      const jsonText = response.text;
 
+      const jsonText = response.text;
       if (!jsonText) {
         throw new Error('Empty response from AI');
       }
 
       const result = JSON.parse(jsonText);
-      const index = result.moveIndex;
       this.lastReasoning = result.reasoning || '';
+
+      // Only one move - still called API for context continuity
+      if (validMoves.length === 1) {
+        console.log(`[${this.model}] ${this.lastReasoning}`);
+        return validMoves[0];
+      }
+
+      const index = result.moveIndex;
 
       if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
         console.log(`[${this.model}] ${this.lastReasoning}`);

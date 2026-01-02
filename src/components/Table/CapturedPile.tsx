@@ -6,7 +6,33 @@ import type { Card as CardType, PlayerId } from '../../game/types';
 import type { ExtendedAIType } from '../../ai';
 import { Card } from '../Card/Card';
 import { AIPlayerLabel } from '../UI/AIPlayerLabel';
+import { useDeck } from '../../contexts/DeckContext';
 import styles from './CapturedPile.module.css';
+
+// Denari (Coins) icon using authentic SVG from deck
+function DenariIcon({ size = 14 }: { size?: number }) {
+  const deckType = useDeck();
+  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} style={{ verticalAlign: 'middle' }}>
+      <image href={coinPath} x="2" y="2" width="20" height="20" />
+    </svg>
+  );
+}
+
+// Sette Bello indicator with "7" and coin icon
+function SetteBelloIndicator() {
+  const deckType = useDeck();
+  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  return (
+    <span className={styles.setteBelloContent}>
+      <span>7</span>
+      <svg viewBox="0 0 24 24" width={12} height={12} style={{ verticalAlign: 'middle', marginLeft: '1px' }}>
+        <image href={coinPath} x="2" y="2" width="20" height="20" />
+      </svg>
+    </span>
+  );
+}
 
 interface CapturedPileProps {
   /** Cards in the captured pile */
@@ -70,7 +96,7 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
         <div className={styles.statsRow}>
           {/* Denari (coins) count */}
           <div className={styles.stat} title="Denari (Coins)">
-            <span className={styles.coinIcon}>●</span>
+            <DenariIcon />
             <span>{stats.denariCount}</span>
           </div>
 
@@ -85,7 +111,7 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
           {/* Sette Bello indicator */}
           {stats.hasSetteBello && (
             <div className={styles.setteBello} title="Sette Bello (7 of Coins)">
-              7●
+              <SetteBelloIndicator />
             </div>
           )}
         </div>
