@@ -12,122 +12,10 @@ import {
   type GeminiTokenStats,
   type GeminiTokenDelta,
 } from './gemini';
+import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 
 // Default model to use
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-
-const SYSTEM_INSTRUCTION = `You are an expert Italian Scopa player.
-
-RULES:
-- 40-card deck, 4 suits: Denari (coins), Coppe (cups), Spade (swords), Bastoni (clubs)
-- Values: 1 (Asso) to 10 (Re). Face cards: Fante=8, Cavallo=9, Re=10
-- On your turn, you play one card from your hand. When playing a card:
-  - If it matches a table card's value, you must capture that card (pick one if there are multiple matches)
-  - Otherwise, you may capture multiple cards if their values sum to your card's value
-  - Only if no capture possible, place your card on the table
-- On the last hand of the round (the dealer deck is empty), the player who did last capture takes all remaining cards on the table
-
-SCORING (calculated at end of each round):
-- Carte: 1 point for most cards captured (21+ guarantees)
-- Denari: 1 point for most Denari suit cards (6+ guarantees)
-- Sette Bello: 1 point for capturing the 7 of Denari
-- Primiera: 1 point for best prime (highest-value card from each suit)
-  Prime values: 7=21, 6=18, Asso=16, 5=15, 4=14, 3=13, 2=12, face cards=10
-- Scopa: 1 point EACH TIME you clear all cards from the table EXCEPT for the last hand of the round
-
-First to reach target score wins.
-
-INPUT: Current game state with complete round move history and numbered list of valid moves.
-OUTPUT: JSON with moveIndex (0-based) and reasoning.`;
-
-/**
- * Format a card for display
- */
-function formatCard(card: Card): string {
-  return `${card.value} of ${card.suit}`;
-}
-
-/**
- * Format an array of cards
- */
-function formatCards(cards: Card[]): string {
-  if (cards.length === 0) return '(none)';
-  return cards.map(formatCard).join(', ');
-}
-
-/**
- * Format a move for display in history
- */
-function formatMoveForHistory(move: Move, perspective: 'self' | 'opponent'): string {
-  const who = perspective === 'self' ? 'You' : 'Opponent';
-  const cardStr = formatCard(move.cardPlayed);
-  if (move.capturedCards.length === 0) {
-    return `${who} played ${cardStr} (placed on table)`;
-  }
-  const captured = formatCards(move.capturedCards);
-  const scopa = move.isScopa ? ' [SCOPA!]' : '';
-  return `${who} played ${cardStr} → captured ${captured}${scopa}`;
-}
-
-/**
- * Format a move for display in valid moves list
- */
-function formatMove(move: Move, index: number): string {
-  const cardStr = formatCard(move.cardPlayed);
-  if (move.capturedCards.length === 0) {
-    return `[${index}] Play ${cardStr} (place on table)`;
-  }
-  const captured = formatCards(move.capturedCards);
-  const scopa = move.isScopa ? ' [SCOPA!]' : '';
-  return `[${index}] Play ${cardStr} → capture ${captured}${scopa}`;
-}
-
-/**
- * Format the complete move history for the round
- */
-function formatMoveHistory(history: Move[], selfPlayer: 'human' | 'cpu', initialTable: Card[]): string {
-  const lines: string[] = [];
-
-  // Always show initial table
-  lines.push(`Initial table: ${formatCards(initialTable)}`);
-
-  // Add each move
-  history.forEach((move, i) => {
-    const perspective = move.player === selfPlayer ? 'self' : 'opponent';
-    lines.push(`Turn ${i + 1}: ${formatMoveForHistory(move, perspective)}`);
-  });
-
-  return lines.join('\n');
-}
-
-/**
- * Build prompt for current turn with full move history
- */
-function buildPrompt(context: LLMAIContext, roundMoveHistory: Move[], initialTable: Card[]): string {
-  const {
-    hand, table, player, scores, targetScore, roundNumber,
-    opponentHandCount, selfCapturedCount, opponentCapturedCount,
-    deckCount, validMoves
-  } = context;
-
-  const movesStr = validMoves.map((m, i) => formatMove(m, i)).join('\n');
-  const historyStr = formatMoveHistory(roundMoveHistory, player, initialTable);
-
-  return `--- TURN ---
-Round ${roundNumber} | Score: You ${scores.self} - Opponent ${scores.opponent} (target: ${targetScore})
-Deck: ${deckCount} | My pile: ${selfCapturedCount} | Opponent pile: ${opponentCapturedCount} | Opponent hand: ${opponentHandCount}
-
-ROUND MOVE HISTORY:
-${historyStr}
-
-Table: ${formatCards(table)}
-My hand: ${formatCards(hand)}
-
-Valid moves:
-${movesStr}
-
-Choose best move (0-${validMoves.length - 1}):`;
-}
 
 /**
  * Gemini Single-Turn AI Player using @google/genai SDK
@@ -357,16 +245,16 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
           this.initialTable = [...table, ...lastOpponentMove.capturedCards];
         }
       }
-      console.log('[Gemini Single-Turn] Initial table:', this.initialTable.map(c => c.id).join(', '));
+      console.log(`[${this.model}] Initial table:`, this.initialTable.map(c => c.id).join(', '));
     }
 
     // Add opponent's last move to history if not already tracked
     if (lastOpponentMove && !this.isInHistory(lastOpponentMove)) {
       this.roundMoveHistory.push(lastOpponentMove);
-      console.log('[Gemini Single-Turn] Added opponent move to history:', lastOpponentMove.cardPlayed.id);
+      console.log(`[${this.model}] Added opponent move to history:`, lastOpponentMove.cardPlayed.id);
     }
 
-    console.log('[Gemini Single-Turn] Move history length:', this.roundMoveHistory.length);
+    console.log(`[${this.model}] Move history length:`, this.roundMoveHistory.length);
 
     // If only one move, just add it to history and return
     if (validMoves.length === 1) {
@@ -385,8 +273,8 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
     }
 
     try {
-      const prompt = buildPrompt(context, this.roundMoveHistory, this.initialTable);
-      console.log('[Gemini Single-Turn] Prompt:\n', prompt);
+      const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
+      console.log(`[${this.model}] Prompt:\n`, prompt);
       const startTime = performance.now();
 
       // Single request with full context (no chat session)
@@ -394,7 +282,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
         model: this.model,
         contents: prompt,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+          systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -412,7 +300,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
       this.updateTimingStats(turnTime);
 
       const jsonText = response.text;
-      console.log('[Gemini Single-Turn] Response:', jsonText);
+      console.log(`[${this.model}] Response:`, jsonText);
 
       if (!jsonText) {
         throw new Error('Empty response from AI');
@@ -426,16 +314,16 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
         const selectedMove = validMoves[index];
         // Add our move to history
         this.roundMoveHistory.push(selectedMove);
-        console.log(`[Gemini Single-Turn] Move ${index}: ${this.lastReasoning}`);
+        console.log(`[${this.model}] ${this.lastReasoning}`);
         return selectedMove;
       }
 
-      console.warn(`[Gemini Single-Turn] Invalid moveIndex ${index}, using first valid move`);
+      console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
       const fallbackMove = validMoves[0];
       this.roundMoveHistory.push(fallbackMove);
       return fallbackMove;
     } catch (error) {
-      console.error('Gemini Single-Turn AI error, falling back to random:', error);
+      console.error(`[${this.model}] Error, falling back to random:`, error);
       this.lastReasoning = 'Error occurred, random fallback.';
       const fallbackMove = randomAI.selectMove({ hand, table, player });
       this.roundMoveHistory.push(fallbackMove);

@@ -1,9 +1,10 @@
 // OpenAI GPT AI Player - Uses OpenAI's Chat Completions API for intelligent play
 
 import OpenAI from 'openai';
-import type { Card, Move } from '../game/types';
+import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
+import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
 
 // Model info returned from API
 export interface OpenAIModelInfo {
@@ -178,98 +179,6 @@ export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
  */
 export function getCachedOpenAIModels(): OpenAIModelInfo[] {
   return cachedModels || [];
-}
-
-const SYSTEM_INSTRUCTION = `You are an expert Italian Scopa player.
-
-RULES:
-- 40-card deck, 4 suits: Denari (coins), Coppe (cups), Spade (swords), Bastoni (clubs)
-- Values: 1 (Asso) to 10 (Re). Face cards: Fante=8, Cavallo=9, Re=10
-- On your turn, you play one card from your hand. When playing a card:
-  - If it matches a table card's value, you must capture that card (pick one if there are multiple matches)
-  - Otherwise, you may capture multiple cards if their values sum to your card's value
-  - Only if no capture possible, place your card on the table
-- On the last hand of the round (the dealer deck is empty), the player who did last capture takes all remaining cards on the table
-
-SCORING (calculated at end of each round):
-- Carte: 1 point for most cards captured (21+ guarantees)
-- Denari: 1 point for most Denari suit cards (6+ guarantees)
-- Sette Bello: 1 point for capturing the 7 of Denari
-- Primiera: 1 point for best prime (highest-value card from each suit)
-  Prime values: 7=21, 6=18, Asso=16, 5=15, 4=14, 3=13, 2=12, face cards=10
-- Scopa: 1 point EACH TIME you clear all cards from the table EXCEPT for the last hand of the round
-
-First to reach target score wins.
-
-INPUT: Current game state and numbered list of valid moves.
-OUTPUT: JSON with moveIndex (0-based) and reasoning.`;
-
-/**
- * Format a card for display
- */
-function formatCard(card: Card): string {
-  return `${card.value} of ${card.suit}`;
-}
-
-/**
- * Format an array of cards
- */
-function formatCards(cards: Card[]): string {
-  if (cards.length === 0) return '(none)';
-  return cards.map(formatCard).join(', ');
-}
-
-/**
- * Format a move for display
- */
-function formatMove(move: Move, index: number): string {
-  const cardStr = formatCard(move.cardPlayed);
-  if (move.capturedCards.length === 0) {
-    return `[${index}] Play ${cardStr} (place on table)`;
-  }
-  const captured = formatCards(move.capturedCards);
-  const scopa = move.isScopa ? ' [SCOPA!]' : '';
-  return `[${index}] Play ${cardStr} → capture ${captured}${scopa}`;
-}
-
-/**
- * Format last opponent move
- */
-function formatLastMove(move: Move | null): string {
-  if (!move) return 'None (start of round)';
-  const cardStr = formatCard(move.cardPlayed);
-  if (move.capturedCards.length === 0) {
-    return `Played ${cardStr} to table`;
-  }
-  const captured = formatCards(move.capturedCards);
-  return `Played ${cardStr} and captured: ${captured}`;
-}
-
-/**
- * Build prompt for current turn
- */
-function buildPrompt(context: LLMAIContext): string {
-  const {
-    hand, table, scores, targetScore, roundNumber,
-    opponentHandCount, selfCapturedCount, opponentCapturedCount,
-    deckCount, lastOpponentMove, validMoves
-  } = context;
-
-  const movesStr = validMoves.map((m, i) => formatMove(m, i)).join('\n');
-
-  return `--- TURN ---
-Round ${roundNumber} | Score: You ${scores.self} - Opponent ${scores.opponent} (target: ${targetScore})
-Deck: ${deckCount} | My pile: ${selfCapturedCount} | Opponent pile: ${opponentCapturedCount} | Opponent hand: ${opponentHandCount}
-
-Opponent's last move: ${formatLastMove(lastOpponentMove)}
-
-Table: ${formatCards(table)}
-My hand: ${formatCards(hand)}
-
-Valid moves:
-${movesStr}
-
-Choose best move (0-${validMoves.length - 1}):`;
 }
 
 // Message type for conversation history
@@ -447,7 +356,7 @@ class OpenAIAI implements AsyncAIPlayer {
     // Initialize messages with system instruction
     this.messages = [{
       role: 'system',
-      content: SYSTEM_INSTRUCTION
+      content: SYSTEM_INSTRUCTION_MULTITURN
     }];
     this.lastReasoning = '';
   }
@@ -480,7 +389,7 @@ class OpenAIAI implements AsyncAIPlayer {
 
     // If only one move, still inform AI of game state for context
     if (validMoves.length === 1) {
-      const prompt = buildPrompt(context);
+      const prompt = buildTurnPrompt(context);
       const startTime = performance.now();
       try {
         // Add user message
@@ -522,7 +431,7 @@ class OpenAIAI implements AsyncAIPlayer {
     }
 
     try {
-      const prompt = buildPrompt(context);
+      const prompt = buildTurnPrompt(context);
       this.messages.push({ role: 'user', content: prompt });
 
       const startTime = performance.now();
@@ -563,14 +472,14 @@ class OpenAIAI implements AsyncAIPlayer {
       this.lastReasoning = result.reasoning || '';
 
       if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
-        console.log(`[OpenAI] ${this.lastReasoning}`);
+        console.log(`[${this.model}] ${this.lastReasoning}`);
         return validMoves[index];
       }
 
-      console.warn(`[OpenAI] Invalid moveIndex ${index}, using first valid move`);
+      console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
       return validMoves[0];
     } catch (error) {
-      console.error('OpenAI AI error, falling back to random:', error);
+      console.error(`[${this.model}] Error, falling back to random:`, error);
       this.lastReasoning = 'Error occurred, random fallback.';
       return randomAI.selectMove({ hand, table, player });
     }
