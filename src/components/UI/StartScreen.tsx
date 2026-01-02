@@ -350,27 +350,28 @@ export function StartScreen({
                 )
               ) : null}
 
-              {/* Mode toggle button */}
-              <button
-                className={styles.modeToggle}
-                onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
-                title={convMode === 'conversation'
-                  ? 'Multi-turn chat (click for single-turn)'
-                  : 'Single-turn requests (click for multi-turn)'}
-              >
-                {convMode === 'conversation' ? '💬' : '1️⃣'}
-              </button>
-
-              {/* Thinking toggle (only for Gemini and Claude) */}
-              {(isGemini || isClaude) && (
+              {/* Mode and thinking toggles */}
+              <div className={styles.toggleGroup}>
                 <button
-                  className={`${styles.thinkingToggle} ${useThinking ? styles.thinkingEnabled : ''}`}
-                  onClick={() => onToggleThinking(!useThinking)}
-                  title={useThinking ? 'Extended thinking enabled (click to disable)' : 'Extended thinking disabled (click to enable)'}
+                  className={styles.modeToggle}
+                  onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
+                  title={convMode === 'conversation'
+                    ? 'Multi-turn chat (click for single-turn)'
+                    : 'Single-turn requests (click for multi-turn)'}
                 >
-                  {useThinking ? '🧠' : '⚡'}
+                  {convMode === 'conversation' ? '💬' : '1️⃣'}
                 </button>
-              )}
+
+                {(isGemini || isClaude) && (
+                  <button
+                    className={`${styles.thinkingToggle} ${useThinking ? styles.thinkingEnabled : ''}`}
+                    onClick={() => onToggleThinking(!useThinking)}
+                    title={useThinking ? 'Extended thinking enabled (click to disable)' : 'Extended thinking disabled (click to enable)'}
+                  >
+                    {useThinking ? '🧠' : '⚡'}
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -429,14 +430,15 @@ export function StartScreen({
               min="1"
               max="999"
               className={`${styles.customScoreInput} ${!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? styles.selected : ''}`}
-              value={selectedScore}
+              value={!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? selectedScore : ''}
+              placeholder="..."
               onChange={(e) => {
                 const val = parseInt(e.target.value, 10);
                 if (!isNaN(val) && val >= 1) {
                   setSelectedScore(val);
                 }
               }}
-              title="Custom target score"
+              title="Enter custom target score"
             />
           </div>
         </div>

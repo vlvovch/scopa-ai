@@ -5,8 +5,7 @@
   border-radius: 8px;
   padding: var(--space-4);
   color: var(--color-text-primary);
-  width: fit-content;
-  min-width: 180px;
+  min-width: 220px;
 }
 
 .header {
@@ -44,6 +43,7 @@
 .playerName {
   font-size: 12px;
   white-space: nowrap;
+  flex: 1;
 }
 
 .playerName.current {
@@ -55,6 +55,7 @@
   font-size: 24px;
   font-weight: bold;
   color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 .targetScore {

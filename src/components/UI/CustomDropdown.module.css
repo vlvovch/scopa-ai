@@ -6,6 +6,7 @@
   min-width: 120px;
   font-size: 0.95rem;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .container:focus {
@@ -50,8 +51,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 1;
-  min-width: 0;
 }
 
 .icon {
@@ -63,9 +62,7 @@
 }
 
 .label {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--color-text-primary);
 }
 
 .arrow {
@@ -78,7 +75,7 @@
   position: absolute;
   top: 100%;
   left: 0;
-  right: 0;
+  min-width: max-content;
   background: rgba(30, 30, 30, 0.98);
   border: 1px solid var(--color-accent);
   border-top: none;
@@ -97,6 +94,7 @@
   padding: 10px 12px;
   cursor: pointer;
   transition: background-color 0.1s;
+  white-space: nowrap;
 }
 
 .option:hover {
