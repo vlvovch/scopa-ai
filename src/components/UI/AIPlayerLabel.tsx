@@ -35,6 +35,8 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
       return <span style={{ fontSize: '1em' }}>🐒</span>;
     case 'heuristic':
       return <span style={{ fontSize: '1em' }}>🦊</span>;
+    case 'expert':
+      return <span style={{ fontSize: '1em' }}>🧠</span>;
     default:
       return null;
   }
@@ -90,6 +92,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
 
   if (aiType === 'random') return 'Scimmietta';
   if (aiType === 'heuristic') return 'Furbo';
+  if (aiType === 'expert') return 'Esperto';
 
   return aiType;
 }
@@ -132,6 +135,7 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
   const textIcons: Record<ExtendedAIType, string> = {
     random: '🐒',
     heuristic: '🦊',
+    expert: '🧠',
     gemini: '✦',
     'gemini-singleturn': '✦',
     openai: '⬡',

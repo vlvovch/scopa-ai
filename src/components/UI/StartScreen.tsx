@@ -11,7 +11,7 @@ import styles from './StartScreen.module.css';
 
 type GameModeOption = 'play' | 'watch';
 type OpponentCategory = 'cpu' | 'ai';
-type CPUType = 'random' | 'heuristic';
+type CPUType = 'random' | 'heuristic' | 'expert';
 // AI provider (base type without mode suffix)
 type AIProvider = 'gemini' | 'openai' | 'claude';
 // Conversation mode for LLM AIs
@@ -40,12 +40,14 @@ const PRESET_SCORES = [11, 16, 21] as const;
 
 // Helper to determine opponent category from AI type
 function getOpponentCategory(aiType: ExtendedAIType): OpponentCategory {
-  return (aiType === 'random' || aiType === 'heuristic') ? 'cpu' : 'ai';
+  return (aiType === 'random' || aiType === 'heuristic' || aiType === 'expert') ? 'cpu' : 'ai';
 }
 
 // Helper to get CPU type from AI type
 function getCPUType(aiType: ExtendedAIType): CPUType {
-  return aiType === 'random' ? 'random' : 'heuristic';
+  if (aiType === 'random') return 'random';
+  if (aiType === 'expert') return 'expert';
+  return 'heuristic';
 }
 
 // Helper to get base AI provider from AI type
@@ -284,6 +286,7 @@ export function StartScreen({
             >
               <option value="random">{AI_INFO.random.icon} {AI_INFO.random.name}</option>
               <option value="heuristic">{AI_INFO.heuristic.icon} {AI_INFO.heuristic.name}</option>
+              <option value="expert">{AI_INFO.expert.icon} {AI_INFO.expert.name}</option>
             </select>
           ) : (
             <>

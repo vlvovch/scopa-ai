@@ -68,10 +68,14 @@ export function GameEndScreen({
     resultText = "It's a Tie!";
     resultClass = styles.tie;
   } else if (humanWins) {
-    resultText = <>{renderPlayer1Name()} Wins!</>;
+    // Use "Win" for "You", "Wins" for AI names
+    const verb = !player1AIType && player1Name === 'You' ? 'Win' : 'Wins';
+    resultText = <>{renderPlayer1Name()} {verb}!</>;
     resultClass = styles.win;
   } else {
-    resultText = <>{renderPlayer2Name()} Wins!</>;
+    // Use "Win" for "You", "Wins" for AI names
+    const verb = !player2AIType && player2Name === 'You' ? 'Win' : 'Wins';
+    resultText = <>{renderPlayer2Name()} {verb}!</>;
     resultClass = styles.lose;
   }
 

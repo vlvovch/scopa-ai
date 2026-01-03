@@ -2,6 +2,7 @@
 
 import { randomAI, createRandomAI } from './random';
 import { heuristicAI, createHeuristicAI } from './heuristic';
+import { expertAI, createExpertAI, selectExpertMoveWithState, type ExpertOptions } from './expert';
 import { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, type GeminiModelInfo, type GeminiTokenStats, type GeminiTokenDelta } from './gemini';
 import { getGeminiSingleTurnAI, createGeminiSingleTurnAI, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound } from './gemini-singleturn';
 import { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCachedOpenAIModels, getDefaultOpenAIModel, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, type OpenAIModelInfo, type OpenAITokenStats, type OpenAITokenDelta } from './openai';
@@ -16,6 +17,8 @@ export { isAsyncAI } from './types';
 // Re-export AI implementations
 export { randomAI, createRandomAI };
 export { heuristicAI, createHeuristicAI };
+export { expertAI, createExpertAI, selectExpertMoveWithState };
+export type { ExpertOptions };
 export { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound };
 export { getGeminiSingleTurnAI, createGeminiSingleTurnAI, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound };
 export { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCachedOpenAIModels, getDefaultOpenAIModel, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound };
@@ -30,6 +33,7 @@ export type { ClaudeModelInfo, ClaudeTokenStats, ClaudeTokenDelta };
 export const AI_PLAYERS = {
   random: randomAI,
   heuristic: heuristicAI,
+  expert: expertAI,
 } as const;
 
 // All AI types (sync only - async AIs handled separately)
@@ -42,6 +46,7 @@ export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'openai' 
 export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean; icon: string }> = {
   random: { name: 'Scimmietta', description: 'Plays randomly like a little monkey', icon: '🐒' },
   heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures', icon: '🦊' },
+  expert: { name: 'Esperto', description: 'Advanced AI using Monte Carlo tree search', icon: '🧠' },
   gemini: { name: 'Gemini 💬', description: 'Google AI with multi-turn chat (remembers context)', isAsync: true, icon: '✦' },
   'gemini-singleturn': { name: 'Gemini 1️⃣', description: 'Google AI with single requests (full history each turn)', isAsync: true, icon: '✦' },
   openai: { name: 'GPT 💬', description: 'OpenAI GPT with multi-turn conversation (remembers context)', isAsync: true, icon: '⬡' },
@@ -54,7 +59,7 @@ export const AI_INFO: Record<ExtendedAIType, { name: string; description: string
  * Get list of available AI types based on API key availability
  */
 export function getAvailableAITypes(): ExtendedAIType[] {
-  const types: ExtendedAIType[] = ['random', 'heuristic'];
+  const types: ExtendedAIType[] = ['random', 'heuristic', 'expert'];
   if (isGeminiAvailable()) {
     types.push('gemini');
     types.push('gemini-singleturn');
