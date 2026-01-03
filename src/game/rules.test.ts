@@ -321,6 +321,7 @@ describe('Game Rules Engine', () => {
       },
       scores: { human: 0, cpu: 0 },
       roundNumber: 1,
+      roundHistory: [],
       targetScore: 11,
     });
 

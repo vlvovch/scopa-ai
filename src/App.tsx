@@ -255,9 +255,13 @@ function App() {
 
   // Animation speed multipliers based on settings
   const getAnimationDelay = useCallback((baseMs: number) => {
+    if (settings.animationSpeed === 'instant') return 10; // Minimal delay for instant mode
     const multipliers = { fast: 0.5, normal: 1, slow: 2 };
     return baseMs * multipliers[settings.animationSpeed];
   }, [settings.animationSpeed]);
+
+  // Check if animations should be skipped (instant mode)
+  const isInstantMode = settings.animationSpeed === 'instant';
 
   // Get AI player instance for a given AI type and model
   const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string): AnyAIPlayer => {
@@ -804,13 +808,13 @@ function App() {
       return;
     }
 
-    // Wait for any card animation to complete
-    if (animatingCard) {
+    // Wait for any card animation to complete (skip in instant mode)
+    if (animatingCard && !isInstantMode) {
       return;
     }
 
-    // Wait for any celebration to complete
-    if (scopaCelebration.show || setteBelloCelebration.show) {
+    // Wait for any celebration to complete (skip in instant mode)
+    if ((scopaCelebration.show || setteBelloCelebration.show) && !isInstantMode) {
       return;
     }
 
@@ -818,7 +822,8 @@ function App() {
     const setteBelloOnTable = state.round.table.some(c => c.suit === 'coins' && c.value === 7);
     const lastCapturePlayer = state.round.lastCapture;
 
-    if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null) {
+    // Skip celebration in instant mode
+    if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null && !isInstantMode) {
       // Sette Bello will be awarded in final hand - trigger celebration
       const playerName = lastCapturePlayer === 'human'
         ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
@@ -837,7 +842,13 @@ function App() {
       return;
     }
 
-    // Longer delay before showing round summary to let final animations complete
+    // In instant mode, mark sette bello owner without celebration
+    if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null) {
+      prevSetteBelloOwner.current = lastCapturePlayer;
+    }
+
+    // Delay before showing round summary (minimal in instant mode)
+    const delay = isInstantMode ? 10 : 1500;
     const timeoutId = setTimeout(() => {
       // Clear sessions for all LLM types (no-op if not active)
       endGeminiRound();
@@ -847,15 +858,21 @@ function App() {
       endClaudeRound();
       endClaudeSingleTurnRound();
       endRound();
-    }, 1500);
+    }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.status, state.lastRoundScores, state.round.table, state.round.lastCapture, animatingCard, scopaCelebration.show, setteBelloCelebration.show, endRound, isSpectatorMode, spectatorAIs, settings.cpuAI]);
+  }, [state.status, state.lastRoundScores, state.round.table, state.round.lastCapture, animatingCard, scopaCelebration.show, setteBelloCelebration.show, endRound, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode]);
 
   // Detect scopa and show celebration
   useEffect(() => {
     const currentHumanScopas = state.players.human.scopaCount;
     const currentCpuScopas = state.players.cpu.scopaCount;
+
+    // In instant mode, skip celebrations entirely
+    if (isInstantMode) {
+      prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
+      return;
+    }
 
     if (currentHumanScopas > prevScopaCounts.current.human) {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined;
@@ -875,7 +892,7 @@ function App() {
     }
 
     prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
-  }, [state.players.human.scopaCount, state.players.cpu.scopaCount, isSpectatorMode, spectatorAIs, settings.cpuAI]);
+  }, [state.players.human.scopaCount, state.players.cpu.scopaCount, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode]);
 
   // Detect sette bello capture and show celebration
   useEffect(() => {
@@ -888,6 +905,12 @@ function App() {
     );
 
     const currentOwner: PlayerId | null = humanHasSetteBello ? 'human' : cpuHasSetteBello ? 'cpu' : null;
+
+    // In instant mode, skip celebration but still track owner
+    if (isInstantMode) {
+      prevSetteBelloOwner.current = currentOwner;
+      return;
+    }
 
     // If someone just captured it (previous was null, now someone has it)
     if (prevSetteBelloOwner.current === null && currentOwner !== null) {
@@ -907,7 +930,7 @@ function App() {
     }
 
     prevSetteBelloOwner.current = currentOwner;
-  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI]);
+  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode]);
 
   // Helper to reset all token stats
   const resetAllTokenStats = useCallback(() => {
@@ -1155,6 +1178,7 @@ function App() {
               ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
               : isLLMAI(settings.cpuAI) ? tokenStats : null
           }
+          autoAdvance={isSpectatorMode && settings.autoAdvanceSpectator}
         />
       </DeckProvider>
     );
@@ -1179,6 +1203,7 @@ function App() {
               ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
               : isLLMAI(settings.cpuAI) ? tokenStats : null
           }
+          roundHistory={state.roundHistory}
         />
       </DeckProvider>
     );
@@ -1217,6 +1242,7 @@ function App() {
         startPlayer={state.round.dealer === 'cpu' ? 'human' : 'cpu'}
         deckPosition={state.round.dealer === 'cpu' ? 'left' : 'right'}
         dealMode={dealMode}
+        instant={isInstantMode}
         onComplete={() => {
           if (dealMode === 'table' && isRoundStartDeal) {
             // Phase 1 complete: enter pause phase (table cards appear, no animation)

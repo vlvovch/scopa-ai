@@ -278,6 +278,7 @@ describe('Scoring System', () => {
       },
       scores: { human: 5, cpu: 3 },
       roundNumber: 2,
+      roundHistory: [],
       targetScore: 11,
     });
 

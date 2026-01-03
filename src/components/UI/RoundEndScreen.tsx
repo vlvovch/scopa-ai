@@ -1,6 +1,6 @@
 // Step 8.4: RoundEndScreen Component with card display and hover highlighting
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Card, RoundScore } from '../../game/types';
 import type { GeminiTokenStats, ExtendedAIType } from '../../ai';
@@ -111,6 +111,10 @@ interface RoundEndScreenProps {
   player2AIType?: ExtendedAIType;
   /** Player 2 model (for LLM AIs) */
   player2Model?: string;
+  /** Auto-advance to next round after delay (for spectator mode) */
+  autoAdvance?: boolean;
+  /** Delay in ms before auto-advancing (default 2000) */
+  autoAdvanceDelay?: number;
 }
 
 // Get the best prime card for each suit
@@ -170,9 +174,43 @@ export function RoundEndScreen({
   player1Model,
   player2AIType,
   player2Model,
+  autoAdvance = false,
+  autoAdvanceDelay = 2000,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const deckType = useDeck();
+
+  // Auto-advance timer for spectator mode
+  useEffect(() => {
+    if (!autoAdvance) {
+      setCountdown(null);
+      return;
+    }
+
+    // Start countdown
+    setCountdown(Math.ceil(autoAdvanceDelay / 1000));
+
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) return null;
+        return prev - 1;
+      });
+    }, 1000);
+
+    const advanceTimer = setTimeout(() => {
+      if (isGameOver && onShowGameEnd) {
+        onShowGameEnd();
+      } else {
+        onNextRound();
+      }
+    }, autoAdvanceDelay);
+
+    return () => {
+      clearTimeout(advanceTimer);
+      clearInterval(countdownInterval);
+    };
+  }, [autoAdvance, autoAdvanceDelay, isGameOver, onNextRound, onShowGameEnd]);
 
   // Render player names with proper AI icons
   const renderPlayer1Name = (): ReactNode => {
@@ -354,10 +392,12 @@ export function RoundEndScreen({
         </div>
 
         <button
-          className={styles.nextButton}
+          className={`${styles.nextButton} ${autoAdvance ? styles.autoAdvancing : ''}`}
           onClick={isGameOver ? onShowGameEnd : onNextRound}
         >
-          {isGameOver ? 'See Results' : 'Next Round'}
+          {autoAdvance && countdown !== null
+            ? `${isGameOver ? 'Results' : 'Next Round'} in ${countdown}s`
+            : isGameOver ? 'See Results' : 'Next Round'}
         </button>
       </div>
 

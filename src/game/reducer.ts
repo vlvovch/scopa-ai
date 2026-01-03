@@ -50,6 +50,7 @@ export function createInitialState(targetScore: number = DEFAULT_TARGET_SCORE): 
     },
     roundNumber: 1,
     targetScore,
+    roundHistory: [],
   };
 }
 
@@ -226,6 +227,12 @@ function handleEndRound(state: GameState): GameState {
   const cpuReachedTarget = newCpuScore >= finalState.targetScore;
   const isGameOver = humanReachedTarget || cpuReachedTarget;
 
+  // Add to round history
+  const historyEntry = {
+    roundNumber: finalState.roundNumber,
+    scores: roundScores,
+  };
+
   // Always show round summary first (status stays 'roundEnd')
   // isGameOver flag indicates whether to show "See Results" vs "Next Round"
   return {
@@ -236,6 +243,7 @@ function handleEndRound(state: GameState): GameState {
       cpu: newCpuScore,
     },
     lastRoundScores: roundScores,
+    roundHistory: [...finalState.roundHistory, historyEntry],
     isGameOver,
   };
 }

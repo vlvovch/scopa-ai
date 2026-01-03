@@ -152,6 +152,7 @@ describe('Game State Management', () => {
       },
       scores: { human: 0, cpu: 0 },
       roundNumber: 1,
+      roundHistory: [],
       targetScore: 11,
     });
 
@@ -260,6 +261,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -303,6 +305,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -345,6 +348,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -387,6 +391,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 3, cpu: 2 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -428,6 +433,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 9, cpu: 5 },
         roundNumber: 2,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -457,6 +463,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -482,6 +489,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -508,6 +516,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -537,6 +546,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 2,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -562,6 +572,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -587,6 +598,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 5, cpu: 3 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -623,6 +635,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -667,6 +680,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -711,6 +725,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -754,6 +769,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -796,6 +812,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 0, cpu: 0 },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 
@@ -825,6 +842,7 @@ describe('Game State Management', () => {
         },
         scores: { human: 11, cpu: 8 },
         roundNumber: 4,
+      roundHistory: [],
         targetScore: 11,
       };
 

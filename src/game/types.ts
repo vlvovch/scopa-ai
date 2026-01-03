@@ -70,6 +70,8 @@ export interface GameState {
     human: RoundScore;
     cpu: RoundScore;
   };
+  /** History of all rounds played (for game end summary) */
+  roundHistory: RoundHistoryEntry[];
   /** Whether the game is over (show round summary first, then game end) */
   isGameOver?: boolean;
   /** Game mode (player vs CPU or spectator) */
@@ -115,5 +117,16 @@ export interface RoundScore {
     coins: number;
     /** Primiera score (null if missing a suit) */
     prime: number | null;
+  };
+}
+
+/** A single round's results for history tracking */
+export interface RoundHistoryEntry {
+  /** Round number */
+  roundNumber: number;
+  /** Scores for each player */
+  scores: {
+    human: RoundScore;
+    cpu: RoundScore;
   };
 }

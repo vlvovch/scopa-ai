@@ -23,6 +23,8 @@ interface DealingAnimationProps {
   dealMode: DealMode;
   /** Called when all cards have finished animating */
   onComplete?: () => void;
+  /** Skip animation and complete immediately (for instant mode) */
+  instant?: boolean;
 }
 
 // Animation timing constants - optimized for snappy feel with crossfade
@@ -34,10 +36,16 @@ const CARD_STAGGER = 0.08;   // Delay between each card (seconds)
 export const DEALING_TABLE_DURATION = Math.round((3 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.5)); // ~415ms
 export const DEALING_HANDS_DURATION = Math.round((5 * CARD_STAGGER * 1000) + (CARD_DURATION * 1000 * 0.5)); // ~575ms
 
-export function DealingAnimation({ isDealing, startPlayer, deckPosition, dealMode, onComplete }: DealingAnimationProps) {
+export function DealingAnimation({ isDealing, startPlayer, deckPosition, dealMode, onComplete, instant = false }: DealingAnimationProps) {
   // Simple timeout-based completion - most reliable approach
   useEffect(() => {
     if (!isDealing || !onComplete) return;
+
+    // Instant mode: complete immediately
+    if (instant) {
+      const timeoutId = setTimeout(onComplete, 10);
+      return () => clearTimeout(timeoutId);
+    }
 
     // Get duration based on mode
     let duration: number;
@@ -51,10 +59,10 @@ export function DealingAnimation({ isDealing, startPlayer, deckPosition, dealMod
     const timeoutId = setTimeout(onComplete, duration);
 
     return () => clearTimeout(timeoutId);
-  }, [isDealing, dealMode, onComplete]);
+  }, [isDealing, dealMode, onComplete, instant]);
 
-  // Early return after hooks - no animation during pause phase
-  if (!isDealing || dealMode === 'pause') {
+  // Early return after hooks - no animation during pause phase or instant mode
+  if (!isDealing || dealMode === 'pause' || instant) {
     return null;
   }
 

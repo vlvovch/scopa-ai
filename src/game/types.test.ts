@@ -133,6 +133,7 @@ describe('Type Definitions', () => {
           cpu: 0,
         },
         roundNumber: 1,
+      roundHistory: [],
         targetScore: 11,
       };
 

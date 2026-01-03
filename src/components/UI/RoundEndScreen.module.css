@@ -237,6 +237,16 @@
   transform: translateY(0);
 }
 
+.nextButton.autoAdvancing {
+  background: linear-gradient(90deg, var(--color-accent) 0%, rgba(212, 175, 55, 0.7) 100%);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
 /* Responsive: hide card columns on small screens */
 @media (max-width: 900px) {
   .cardColumn {

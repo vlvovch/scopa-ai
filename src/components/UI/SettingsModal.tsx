@@ -77,13 +77,14 @@ export function SettingsModal({
             <div className={styles.setting}>
               <label className={styles.label}>Animation Speed</label>
               <div className={styles.options}>
-                {(['fast', 'normal', 'slow'] as const).map((speed) => (
+                {(['instant', 'fast', 'normal', 'slow'] as const).map((speed) => (
                   <button
                     key={speed}
                     className={`${styles.option} ${settings.animationSpeed === speed ? styles.selected : ''}`}
                     onClick={() => onUpdateSetting('animationSpeed', speed)}
+                    title={speed === 'instant' ? 'Skip all animations for fast simulation' : undefined}
                   >
-                    {speed.charAt(0).toUpperCase() + speed.slice(1)}
+                    {speed === 'instant' ? '⚡' : speed.charAt(0).toUpperCase() + speed.slice(1)}
                   </button>
                 ))}
               </div>
@@ -102,6 +103,25 @@ export function SettingsModal({
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className={styles.setting}>
+              <label className={styles.label}>Watch Mode</label>
+              <div className={styles.toggleRow}>
+                <span className={styles.toggleLabel}>Auto-advance rounds</span>
+                <button
+                  className={`${styles.toggle} ${settings.autoAdvanceSpectator ? styles.on : ''}`}
+                  onClick={() => onUpdateSetting('autoAdvanceSpectator', !settings.autoAdvanceSpectator)}
+                  title={settings.autoAdvanceSpectator ? 'Auto-advance enabled (2s delay)' : 'Manual advance'}
+                >
+                  <span className={styles.toggleKnob} />
+                </button>
+              </div>
+              <p className={styles.settingHint}>
+                {settings.autoAdvanceSpectator
+                  ? 'Round summary shows for 2 seconds, then auto-continues'
+                  : 'Wait for manual click to proceed between rounds'}
+              </p>
             </div>
 
             <div className={styles.actions}>

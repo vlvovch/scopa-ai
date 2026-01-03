@@ -8,8 +8,8 @@ export type DeckType = 'napoletane' | 'siciliane';
 export interface GameSettings {
   /** Default target score for new games (minimum 1) */
   defaultTargetScore: number;
-  /** Animation speed: 'fast' | 'normal' | 'slow' */
-  animationSpeed: 'fast' | 'normal' | 'slow';
+  /** Animation speed: 'instant' | 'fast' | 'normal' | 'slow' */
+  animationSpeed: 'instant' | 'fast' | 'normal' | 'slow';
   /** Whether to show card values in corners */
   showCardValues: boolean;
   /** CPU AI type */
@@ -24,6 +24,8 @@ export interface GameSettings {
   claudeModel: string;
   /** Enable extended thinking for LLM AI (Claude, Gemini) */
   useThinking: boolean;
+  /** Auto-advance rounds in spectator mode (show summary for 2 seconds then continue) */
+  autoAdvanceSpectator: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -38,6 +40,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   openaiModel: 'gpt-4o-mini',
   claudeModel: 'claude-sonnet-4-5-20250929',
   useThinking: true,
+  autoAdvanceSpectator: true,
 };
 
 function loadSettings(): GameSettings {
