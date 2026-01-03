@@ -57,7 +57,7 @@ export function createInitialState(targetScore: number = DEFAULT_TARGET_SCORE): 
 /**
  * Helper: Deal initial hands and table cards for a new round/game.
  */
-function dealInitialCards(state: GameState): GameState {
+export function dealInitialCards(state: GameState): GameState {
   let deck = shuffleDeck(createDeck());
   let table: Card[];
   let remaining: Card[];

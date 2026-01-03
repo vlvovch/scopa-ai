@@ -759,6 +759,76 @@
 
 ---
 
+## Phase 31: CLI Simulation Tool
+
+- [x] Step 31.1: Create tsconfig.cli.json for Node.js TypeScript compilation - Completed 2026-01-03
+- [x] Step 31.2: Implement standalone CLI simulation script - Completed 2026-01-03
+- [x] Step 31.3: Add LLM AI support (Gemini, OpenAI, Claude) - Completed 2026-01-03
+- [x] Step 31.4: Add CLI argument parsing and help - Completed 2026-01-03
+- [x] Step 31.5: Add JSON output for results - Completed 2026-01-03
+- [x] Step 31.6: Add game state persistence to localStorage - Completed 2026-01-03
+
+**Notes:**
+
+**CLI Simulation Tool (`scripts/simulate.ts`):**
+- Standalone Node.js script for running AI vs AI simulations
+- Designed for long-running LLM simulations on remote servers (Contabo, etc.)
+- Works with `screen`, `tmux`, or `nohup` for background execution
+- Uses `tsx` runtime for direct TypeScript execution
+
+**Usage:**
+```bash
+# Run with npm script
+npm run simulate -- -p1=heuristic -p2=random -g=100
+
+# Or directly with tsx
+npx tsx scripts/simulate.ts --player1=gemini --player2=expert --games=50
+
+# Background execution on server
+nohup npm run simulate -- -p1=gemini -p2=claude -g=1000 > results.log 2>&1 &
+
+# With screen for interactive monitoring
+screen -S scopa-sim
+npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
+# Ctrl+A, D to detach
+```
+
+**CLI Options:**
+- `--player1, -p1`: AI type for player 1 (random, heuristic, expert, gemini, openai, claude)
+- `--player2, -p2`: AI type for player 2
+- `--model1, -m1`: Model for player 1 (for LLM AIs)
+- `--model2, -m2`: Model for player 2 (for LLM AIs)
+- `--games, -g`: Number of games (default: 10)
+- `--target, -t`: Target score per game (default: 11)
+- `--thinking`: Enable/disable thinking for LLMs (default: true)
+- `--verbose, -v`: Show round-by-round output
+- `--output, -o`: Save results to JSON file
+
+**Environment Variables:**
+- `GEMINI_API_KEY`: Google Gemini API key
+- `OPENAI_API_KEY`: OpenAI API key
+- `ANTHROPIC_API_KEY`: Anthropic Claude API key
+
+**Output Statistics:**
+- Win/loss/tie counts and percentages
+- Average scores per player
+- Average rounds per game
+- For LLM AIs: API call count, total tokens, average time per call
+
+**Game State Persistence:**
+- Game state automatically saved to localStorage during play
+- Survives browser refresh, tab closure, laptop sleep
+- Spectator AI selections also persisted
+- Cleared when game is reset to idle
+
+**Technical Notes:**
+- Self-contained script with all game logic (no imports from src/)
+- Uses same LLM SDKs: @google/genai, openai, @anthropic-ai/sdk
+- Expert AI uses simplified ISMCTS (1000 iterations with heuristic scoring)
+- Multi-turn conversation mode for LLMs (fresh session each round)
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -784,6 +854,8 @@ The Scopa game is now fully playable with:
 - Auto-advance spectator mode with configurable delays
 - Instant animation mode for fast simulations
 - Settings persistence (including AI selection and deck choice)
+- Game state persistence (survives browser refresh/laptop sleep)
 - New game and settings controls
 - Compact, polished StartScreen UI
 - Token usage display for LLM AI games (Gemini, OpenAI, and Claude)
+- CLI simulation tool for long-running server-side AI battles
