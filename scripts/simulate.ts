@@ -12,7 +12,38 @@
  *   GEMINI_API_KEY - Google Gemini API key
  *   OPENAI_API_KEY - OpenAI API key
  *   ANTHROPIC_API_KEY - Anthropic Claude API key
+ *
+ * Also loads from .env.local (VITE_* prefixed keys supported)
  */
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Load .env.local file if it exists
+function loadEnvFile() {
+  const envPath = path.resolve(process.cwd(), '.env.local');
+  try {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf-8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const eqIndex = trimmed.indexOf('=');
+          if (eqIndex > 0) {
+            const key = trimmed.slice(0, eqIndex);
+            const value = trimmed.slice(eqIndex + 1);
+            if (!process.env[key]) {
+              process.env[key] = value;
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore errors loading env file
+  }
+}
+loadEnvFile();
 
 import { GoogleGenAI, Chat } from '@google/genai';
 import OpenAI from 'openai';
@@ -30,7 +61,12 @@ import { heuristicAI } from '../src/ai/heuristic.js';
 import { selectExpertMoveWithState } from '../src/ai/expert.js';
 import type { AIPlayer, AIContext, AsyncAIPlayer, LLMAIContext } from '../src/ai/types.js';
 import { isAsyncAI } from '../src/ai/types.js';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from '../src/ai/prompts.js';
+import {
+  SYSTEM_INSTRUCTION_MULTITURN,
+  SYSTEM_INSTRUCTION_SINGLETURN,
+  buildTurnPrompt,
+  buildSingleTurnPrompt,
+} from '../src/ai/prompts.js';
 
 // ============================================================================
 // Expert AI Wrapper (uses selectExpertMoveWithState from src/ai/expert.ts)
@@ -70,13 +106,25 @@ const MOVE_JSON_SCHEMA = {
 interface TokenStats {
   promptTokens: number;
   responseTokens: number;
+  thinkingTokens: number;
   totalTokens: number;
   requestCount: number;
   totalTimeMs: number;
 }
 
 function createTokenStats(): TokenStats {
-  return { promptTokens: 0, responseTokens: 0, totalTokens: 0, requestCount: 0, totalTimeMs: 0 };
+  return { promptTokens: 0, responseTokens: 0, thinkingTokens: 0, totalTokens: 0, requestCount: 0, totalTimeMs: 0 };
+}
+
+function formatTokensCompact(stats: TokenStats): string {
+  const totalK = (stats.totalTokens / 1000).toFixed(1);
+  const inK = (stats.promptTokens / 1000).toFixed(1);
+  const outK = (stats.responseTokens / 1000).toFixed(1);
+  if (stats.thinkingTokens > 0) {
+    const thinkK = (stats.thinkingTokens / 1000).toFixed(1);
+    return `${totalK}K (${inK}K in, ${thinkK}K think, ${outK}K out)`;
+  }
+  return `${totalK}K (${inK}K in, ${outK}K out)`;
 }
 
 // Gemini AI
@@ -140,6 +188,7 @@ class GeminiAI implements AsyncAIPlayer {
       if (response.usageMetadata) {
         this.tokenStats.promptTokens += response.usageMetadata.promptTokenCount || 0;
         this.tokenStats.responseTokens += response.usageMetadata.candidatesTokenCount || 0;
+        this.tokenStats.thinkingTokens += response.usageMetadata.thoughtsTokenCount || 0;
         this.tokenStats.totalTokens += response.usageMetadata.totalTokenCount || 0;
       }
 
@@ -318,6 +367,283 @@ class ClaudeAI implements AsyncAIPlayer {
 }
 
 // ============================================================================
+// Single-Turn LLM AI Implementations
+// ============================================================================
+
+// Base class for single-turn AI with move history tracking
+abstract class SingleTurnAIBase implements AsyncAIPlayer {
+  abstract readonly name: string;
+  readonly isAsync = true as const;
+  abstract tokenStats: TokenStats;
+
+  protected roundMoveHistory: Move[] = [];
+  protected initialTable: Card[] = [];
+
+  startRound(): void {
+    this.roundMoveHistory = [];
+    this.initialTable = [];
+  }
+
+  endRound(): void {
+    this.roundMoveHistory = [];
+    this.initialTable = [];
+  }
+
+  protected captureInitialTable(table: Card[], lastOpponentMove: Move | null): void {
+    if (this.roundMoveHistory.length === 0 && this.initialTable.length === 0) {
+      if (!lastOpponentMove) {
+        this.initialTable = [...table];
+      } else {
+        if (lastOpponentMove.capturedCards.length === 0) {
+          this.initialTable = table.filter(c => c.id !== lastOpponentMove.cardPlayed.id);
+        } else {
+          this.initialTable = [...table, ...lastOpponentMove.capturedCards];
+        }
+      }
+    }
+  }
+
+  protected trackOpponentMove(lastOpponentMove: Move | null): void {
+    if (lastOpponentMove && !this.roundMoveHistory.some(
+      m => m.cardPlayed.id === lastOpponentMove.cardPlayed.id && m.player === lastOpponentMove.player
+    )) {
+      this.roundMoveHistory.push(lastOpponentMove);
+    }
+  }
+
+  protected trackOwnMove(move: Move): void {
+    this.roundMoveHistory.push(move);
+  }
+
+  abstract selectMove(context: LLMAIContext): Promise<Move>;
+}
+
+// Gemini Single-Turn AI
+class GeminiSingleTurnAI extends SingleTurnAIBase {
+  readonly name: string;
+  private ai: GoogleGenAI;
+  private model: string;
+  private useThinking: boolean;
+  public tokenStats: TokenStats;
+
+  constructor(apiKey: string, model: string, useThinking: boolean) {
+    super();
+    this.ai = new GoogleGenAI({ apiKey });
+    this.model = model;
+    this.useThinking = useThinking;
+    this.name = `Gemini (${model}) [1-turn]`;
+    this.tokenStats = createTokenStats();
+  }
+
+  async selectMove(context: LLMAIContext): Promise<Move> {
+    const { validMoves, table, lastOpponentMove } = context;
+    if (validMoves.length === 0) throw new Error('No valid moves');
+
+    this.captureInitialTable(table, lastOpponentMove);
+    this.trackOpponentMove(lastOpponentMove);
+
+    if (validMoves.length === 1) {
+      this.trackOwnMove(validMoves[0]);
+      return validMoves[0];
+    }
+
+    try {
+      const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
+      const startTime = performance.now();
+      const thinkingBudget = this.useThinking ? -1 : 0;
+
+      const response = await this.ai.models.generateContent({
+        model: this.model,
+        contents: prompt,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
+          responseMimeType: 'application/json',
+          responseJsonSchema: MOVE_JSON_SCHEMA,
+          thinkingConfig: { thinkingBudget },
+        },
+      });
+
+      const elapsed = performance.now() - startTime;
+      this.tokenStats.requestCount++;
+      this.tokenStats.totalTimeMs += elapsed;
+      if (response.usageMetadata) {
+        this.tokenStats.promptTokens += response.usageMetadata.promptTokenCount || 0;
+        this.tokenStats.responseTokens += response.usageMetadata.candidatesTokenCount || 0;
+        this.tokenStats.thinkingTokens += response.usageMetadata.thoughtsTokenCount || 0;
+        this.tokenStats.totalTokens += response.usageMetadata.totalTokenCount || 0;
+      }
+
+      const result = JSON.parse(response.text || '{}');
+      const index = result.moveIndex;
+
+      if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
+        this.trackOwnMove(validMoves[index]);
+        return validMoves[index];
+      }
+      this.trackOwnMove(validMoves[0]);
+      return validMoves[0];
+    } catch (error) {
+      console.error(`[Gemini 1-turn] Error:`, error);
+      const fallback = randomAI.selectMove(context);
+      this.trackOwnMove(fallback);
+      return fallback;
+    }
+  }
+}
+
+// OpenAI Single-Turn AI
+class OpenAISingleTurnAI extends SingleTurnAIBase {
+  readonly name: string;
+  private client: OpenAI;
+  private model: string;
+  public tokenStats: TokenStats;
+
+  constructor(apiKey: string, model: string) {
+    super();
+    this.client = new OpenAI({ apiKey });
+    this.model = model;
+    this.name = `GPT (${model}) [1-turn]`;
+    this.tokenStats = createTokenStats();
+  }
+
+  async selectMove(context: LLMAIContext): Promise<Move> {
+    const { validMoves, table, lastOpponentMove } = context;
+    if (validMoves.length === 0) throw new Error('No valid moves');
+
+    this.captureInitialTable(table, lastOpponentMove);
+    this.trackOpponentMove(lastOpponentMove);
+
+    if (validMoves.length === 1) {
+      this.trackOwnMove(validMoves[0]);
+      return validMoves[0];
+    }
+
+    try {
+      const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
+      const startTime = performance.now();
+
+      const response = await this.client.chat.completions.create({
+        model: this.model,
+        messages: [
+          { role: 'system', content: SYSTEM_INSTRUCTION_SINGLETURN },
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+      });
+
+      const elapsed = performance.now() - startTime;
+      this.tokenStats.requestCount++;
+      this.tokenStats.totalTimeMs += elapsed;
+      if (response.usage) {
+        this.tokenStats.promptTokens += response.usage.prompt_tokens || 0;
+        this.tokenStats.responseTokens += response.usage.completion_tokens || 0;
+        this.tokenStats.totalTokens += response.usage.total_tokens || 0;
+      }
+
+      const content = response.choices[0]?.message?.content || '{}';
+      const result = JSON.parse(content);
+      const index = result.moveIndex;
+
+      if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
+        this.trackOwnMove(validMoves[index]);
+        return validMoves[index];
+      }
+      this.trackOwnMove(validMoves[0]);
+      return validMoves[0];
+    } catch (error) {
+      console.error(`[OpenAI 1-turn] Error:`, error);
+      const fallback = randomAI.selectMove(context);
+      this.trackOwnMove(fallback);
+      return fallback;
+    }
+  }
+}
+
+// Claude Single-Turn AI
+class ClaudeSingleTurnAI extends SingleTurnAIBase {
+  readonly name: string;
+  private client: Anthropic;
+  private model: string;
+  private useThinking: boolean;
+  public tokenStats: TokenStats;
+
+  constructor(apiKey: string, model: string, useThinking: boolean) {
+    super();
+    this.client = new Anthropic({ apiKey });
+    this.model = model;
+    this.useThinking = useThinking;
+    this.name = `Claude (${model}) [1-turn]`;
+    this.tokenStats = createTokenStats();
+  }
+
+  async selectMove(context: LLMAIContext): Promise<Move> {
+    const { validMoves, table, lastOpponentMove } = context;
+    if (validMoves.length === 0) throw new Error('No valid moves');
+
+    this.captureInitialTable(table, lastOpponentMove);
+    this.trackOpponentMove(lastOpponentMove);
+
+    if (validMoves.length === 1) {
+      this.trackOwnMove(validMoves[0]);
+      return validMoves[0];
+    }
+
+    try {
+      const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
+      const startTime = performance.now();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const requestParams: any = {
+        model: this.model,
+        max_tokens: this.useThinking ? 16000 : 1024,
+        system: SYSTEM_INSTRUCTION_SINGLETURN,
+        messages: [{ role: 'user', content: prompt }],
+      };
+
+      if (this.useThinking && this.model.includes('3-7') && validMoves.length > 1) {
+        requestParams.thinking = { type: 'enabled', budget_tokens: 10000 };
+      }
+
+      const response = await this.client.messages.create(requestParams);
+
+      const elapsed = performance.now() - startTime;
+      this.tokenStats.requestCount++;
+      this.tokenStats.totalTimeMs += elapsed;
+      this.tokenStats.promptTokens += response.usage?.input_tokens || 0;
+      this.tokenStats.responseTokens += response.usage?.output_tokens || 0;
+      this.tokenStats.totalTokens += (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
+
+      let text = '';
+      for (const block of response.content) {
+        if (block.type === 'text') {
+          text = block.text;
+          break;
+        }
+      }
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const result = JSON.parse(jsonMatch[0]);
+        const index = result.moveIndex;
+
+        if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
+          this.trackOwnMove(validMoves[index]);
+          return validMoves[index];
+        }
+      }
+
+      this.trackOwnMove(validMoves[0]);
+      return validMoves[0];
+    } catch (error) {
+      console.error(`[Claude 1-turn] Error:`, error);
+      const fallback = randomAI.selectMove(context);
+      this.trackOwnMove(fallback);
+      return fallback;
+    }
+  }
+}
+
+// ============================================================================
 // AI Factory
 // ============================================================================
 
@@ -327,6 +653,7 @@ interface AIConfig {
   type: AIType;
   model?: string;
   useThinking?: boolean;
+  singleTurn?: boolean;
 }
 
 // Combined type for all AI players (sync, async, and expert)
@@ -334,6 +661,8 @@ type AnyAIPlayer = AIPlayer | AsyncAIPlayer;
 type AnyGameAIPlayer = AnyAIPlayer | ExpertAIPlayer;
 
 function createAI(config: AIConfig): AnyGameAIPlayer {
+  const singleTurn = config.singleTurn ?? false;
+
   switch (config.type) {
     case 'random':
       return randomAI;
@@ -342,18 +671,27 @@ function createAI(config: AIConfig): AnyGameAIPlayer {
     case 'expert':
       return expertAI;
     case 'gemini': {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       if (!apiKey) throw new Error('GEMINI_API_KEY environment variable not set');
+      if (singleTurn) {
+        return new GeminiSingleTurnAI(apiKey, config.model || 'gemini-2.5-flash', config.useThinking ?? true);
+      }
       return new GeminiAI(apiKey, config.model || 'gemini-2.5-flash', config.useThinking ?? true);
     }
     case 'openai': {
-      const apiKey = process.env.OPENAI_API_KEY;
+      const apiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY;
       if (!apiKey) throw new Error('OPENAI_API_KEY environment variable not set');
+      if (singleTurn) {
+        return new OpenAISingleTurnAI(apiKey, config.model || 'gpt-4o-mini');
+      }
       return new OpenAIAI(apiKey, config.model || 'gpt-4o-mini');
     }
     case 'claude': {
-      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY;
       if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable not set');
+      if (singleTurn) {
+        return new ClaudeSingleTurnAI(apiKey, config.model || 'claude-sonnet-4-20250514', config.useThinking ?? true);
+      }
       return new ClaudeAI(apiKey, config.model || 'claude-sonnet-4-20250514', config.useThinking ?? true);
     }
     default:
@@ -706,12 +1044,12 @@ async function runSimulation(
   };
 
   // Helper to finalize game output (moves to next line)
-  const finalizeGameOutput = (game: number, p1Score: number, p2Score: number) => {
+  const finalizeGameOutput = (game: number, p1Score: number, p2Score: number, tokenInfo: string = '') => {
     if (isTTY) {
       // Clear line completely, then print final score
       process.stdout.write(`\r\x1b[K`);
     }
-    console.log(`Game ${game}: ${p1Score}-${p2Score}`);
+    console.log(`Game ${game}: ${p1Score}-${p2Score}${tokenInfo}`);
     lastPrintedGame = game;
     currentProvisionalScore = '';
   };
@@ -723,12 +1061,21 @@ async function runSimulation(
 
     // Callback for round updates
     const onRoundEnd = verbose ? undefined : (info: RoundEndInfo) => {
+      // Build token usage string for LLM players
+      let tokenInfo = '';
+      if ('tokenStats' in player1 && (player1 as GeminiAI).tokenStats.totalTokens > 0) {
+        tokenInfo += ` | P1: ${formatTokensCompact((player1 as GeminiAI).tokenStats)}`;
+      }
+      if ('tokenStats' in player2 && (player2 as GeminiAI).tokenStats.totalTokens > 0) {
+        tokenInfo += ` | P2: ${formatTokensCompact((player2 as GeminiAI).tokenStats)}`;
+      }
+
       if (info.gameOver) {
         // Game finished - print final score on new line
-        finalizeGameOutput(game, info.player1Score, info.player2Score);
+        finalizeGameOutput(game, info.player1Score, info.player2Score, tokenInfo);
       } else {
         // Game in progress - show provisional score (will be overwritten)
-        currentProvisionalScore = `Game ${game}: ${info.player1Score}-${info.player2Score} (round ${info.round})`;
+        currentProvisionalScore = `Game ${game}: ${info.player1Score}-${info.player2Score} (round ${info.round})${tokenInfo}`;
         outputProgress();
       }
     };
@@ -737,7 +1084,14 @@ async function runSimulation(
 
     // Ensure final score is output even if callback wasn't called
     if (!verbose && lastPrintedGame < game) {
-      finalizeGameOutput(game, result.scores.player1, result.scores.player2);
+      let tokenInfo = '';
+      if ('tokenStats' in player1 && (player1 as GeminiAI).tokenStats.totalTokens > 0) {
+        tokenInfo += ` | P1: ${formatTokensCompact((player1 as GeminiAI).tokenStats)}`;
+      }
+      if ('tokenStats' in player2 && (player2 as GeminiAI).tokenStats.totalTokens > 0) {
+        tokenInfo += ` | P2: ${formatTokensCompact((player2 as GeminiAI).tokenStats)}`;
+      }
+      finalizeGameOutput(game, result.scores.player1, result.scores.player2, tokenInfo);
     }
 
     stats.gamesPlayed++;
@@ -805,7 +1159,11 @@ async function runSimulation(
   console.log(`  Avg score: ${(stats.player1TotalScore / stats.gamesPlayed).toFixed(1)}`);
   if (stats.player1TokenStats) {
     console.log(`  API calls: ${stats.player1TokenStats.requestCount}`);
-    console.log(`  Tokens: ${stats.player1TokenStats.totalTokens.toLocaleString()} (${stats.player1TokenStats.promptTokens.toLocaleString()} prompt, ${stats.player1TokenStats.responseTokens.toLocaleString()} response)`);
+    let tokenBreakdown = `${stats.player1TokenStats.promptTokens.toLocaleString()} prompt, ${stats.player1TokenStats.responseTokens.toLocaleString()} response`;
+    if (stats.player1TokenStats.thinkingTokens > 0) {
+      tokenBreakdown += `, ${stats.player1TokenStats.thinkingTokens.toLocaleString()} thinking`;
+    }
+    console.log(`  Tokens: ${stats.player1TokenStats.totalTokens.toLocaleString()} (${tokenBreakdown})`);
     console.log(`  Avg time/call: ${(stats.player1TokenStats.totalTimeMs / stats.player1TokenStats.requestCount).toFixed(0)}ms`);
   }
   console.log();
@@ -814,7 +1172,11 @@ async function runSimulation(
   console.log(`  Avg score: ${(stats.player2TotalScore / stats.gamesPlayed).toFixed(1)}`);
   if (stats.player2TokenStats) {
     console.log(`  API calls: ${stats.player2TokenStats.requestCount}`);
-    console.log(`  Tokens: ${stats.player2TokenStats.totalTokens.toLocaleString()} (${stats.player2TokenStats.promptTokens.toLocaleString()} prompt, ${stats.player2TokenStats.responseTokens.toLocaleString()} response)`);
+    let tokenBreakdown = `${stats.player2TokenStats.promptTokens.toLocaleString()} prompt, ${stats.player2TokenStats.responseTokens.toLocaleString()} response`;
+    if (stats.player2TokenStats.thinkingTokens > 0) {
+      tokenBreakdown += `, ${stats.player2TokenStats.thinkingTokens.toLocaleString()} thinking`;
+    }
+    console.log(`  Tokens: ${stats.player2TokenStats.totalTokens.toLocaleString()} (${tokenBreakdown})`);
     console.log(`  Avg time/call: ${(stats.player2TokenStats.totalTimeMs / stats.player2TokenStats.requestCount).toFixed(0)}ms`);
   }
   console.log();
@@ -900,6 +1262,7 @@ function parseArgs(): {
   let player1Model: string | undefined;
   let player2Model: string | undefined;
   let useThinking = true;
+  let singleTurn = false;
   let games = 10;
   let target = DEFAULT_TARGET_SCORE;
   let verbose = false;
@@ -941,6 +1304,9 @@ function parseArgs(): {
       case '--thinking':
         useThinking = value !== 'false' && value !== '0';
         break;
+      case '--mode':
+        singleTurn = value === 'single' || value === '1' || value === 'singleturn';
+        break;
       case '--verbose':
       case '-v':
         verbose = true;
@@ -957,8 +1323,8 @@ function parseArgs(): {
   }
 
   return {
-    player1: { type: player1Type, model: player1Model, useThinking },
-    player2: { type: player2Type, model: player2Model, useThinking },
+    player1: { type: player1Type, model: player1Model, useThinking, singleTurn },
+    player2: { type: player2Type, model: player2Model, useThinking, singleTurn },
     games,
     target,
     verbose,
@@ -982,6 +1348,8 @@ Options:
   --games, -g      Number of games to run (default: 10)
   --target, -t     Target score per game (default: 11)
   --thinking       Enable thinking for LLMs (default: true)
+  --mode           LLM conversation mode: 'multi' or 'single' (default: multi)
+                   multi = chat session per round, single = full history each request
   --interval, -i   Print progress every N games (default: 10, 0=off)
   --verbose, -v    Show detailed output (per-round scores)
   --output, -o     Save results to JSON file
