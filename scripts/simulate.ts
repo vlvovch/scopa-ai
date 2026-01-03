@@ -56,8 +56,8 @@ import { getValidMoves, isValidMove, executeMove } from '../src/game/rules.js';
 import { calculateRoundScore } from '../src/game/scoring.js';
 import { DEFAULT_TARGET_SCORE, CARDS_PER_HAND } from '../src/game/constants.js';
 import { createInitialState, dealInitialCards } from '../src/game/reducer.js';
-import { randomAI } from '../src/ai/random.js';
-import { heuristicAI } from '../src/ai/heuristic.js';
+import { randomAI as randomAIBase } from '../src/ai/random.js';
+import { heuristicAI as heuristicAIBase } from '../src/ai/heuristic.js';
 import { selectExpertMoveWithState } from '../src/ai/expert.js';
 import type { AIPlayer, AIContext, AsyncAIPlayer, LLMAIContext } from '../src/ai/types.js';
 import { isAsyncAI } from '../src/ai/types.js';
@@ -69,6 +69,13 @@ import {
 } from '../src/ai/prompts.js';
 
 // ============================================================================
+// Wrap imported AIs with game character names
+// ============================================================================
+
+const randomAI: AIPlayer = { ...randomAIBase, name: '🐒 Scimmietta' };
+const heuristicAI: AIPlayer = { ...heuristicAIBase, name: '🦊 Furbo' };
+
+// ============================================================================
 // Expert AI Wrapper (uses selectExpertMoveWithState from src/ai/expert.ts)
 // ============================================================================
 
@@ -78,7 +85,7 @@ interface ExpertAIPlayer {
 }
 
 const expertAI: ExpertAIPlayer = {
-  name: 'Expert (ISMCTS)',
+  name: '🧠 Esperto',
   selectMoveWithState(state: GameState): Move {
     return selectExpertMoveWithState(state, { timeBudgetMs: 100 });
   },
@@ -120,11 +127,12 @@ function formatTokensCompact(stats: TokenStats): string {
   const totalK = (stats.totalTokens / 1000).toFixed(1);
   const inK = (stats.promptTokens / 1000).toFixed(1);
   const outK = (stats.responseTokens / 1000).toFixed(1);
+  const avgTimeS = stats.requestCount > 0 ? (stats.totalTimeMs / stats.requestCount / 1000).toFixed(1) : '0';
   if (stats.thinkingTokens > 0) {
     const thinkK = (stats.thinkingTokens / 1000).toFixed(1);
-    return `${totalK}K (${inK}K in, ${thinkK}K think, ${outK}K out)`;
+    return `${totalK}K (${inK}K in, ${thinkK}K think, ${outK}K out) ${avgTimeS}s/turn`;
   }
-  return `${totalK}K (${inK}K in, ${outK}K out)`;
+  return `${totalK}K (${inK}K in, ${outK}K out) ${avgTimeS}s/turn`;
 }
 
 // Gemini AI
@@ -141,7 +149,8 @@ class GeminiAI implements AsyncAIPlayer {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
     this.useThinking = useThinking;
-    this.name = `Gemini (${model})`;
+    const thinkStr = useThinking ? 'think' : 'no-think';
+    this.name = `Gemini (${model}) [${thinkStr}, multi]`;
     this.tokenStats = createTokenStats();
   }
 
@@ -218,7 +227,7 @@ class OpenAIAI implements AsyncAIPlayer {
   constructor(apiKey: string, model: string) {
     this.client = new OpenAI({ apiKey });
     this.model = model;
-    this.name = `GPT (${model})`;
+    this.name = `GPT (${model}) [multi]`;
     this.tokenStats = createTokenStats();
   }
 
@@ -289,7 +298,8 @@ class ClaudeAI implements AsyncAIPlayer {
     this.client = new Anthropic({ apiKey });
     this.model = model;
     this.useThinking = useThinking;
-    this.name = `Claude (${model})`;
+    const thinkStr = useThinking ? 'think' : 'no-think';
+    this.name = `Claude (${model}) [${thinkStr}, multi]`;
     this.tokenStats = createTokenStats();
   }
 
@@ -431,7 +441,8 @@ class GeminiSingleTurnAI extends SingleTurnAIBase {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
     this.useThinking = useThinking;
-    this.name = `Gemini (${model}) [1-turn]`;
+    const thinkStr = useThinking ? 'think' : 'no-think';
+    this.name = `Gemini (${model}) [${thinkStr}, single]`;
     this.tokenStats = createTokenStats();
   }
 
@@ -483,7 +494,7 @@ class GeminiSingleTurnAI extends SingleTurnAIBase {
       this.trackOwnMove(validMoves[0]);
       return validMoves[0];
     } catch (error) {
-      console.error(`[Gemini 1-turn] Error:`, error);
+      console.error(`[Gemini single] Error:`, error);
       const fallback = randomAI.selectMove(context);
       this.trackOwnMove(fallback);
       return fallback;
@@ -502,7 +513,7 @@ class OpenAISingleTurnAI extends SingleTurnAIBase {
     super();
     this.client = new OpenAI({ apiKey });
     this.model = model;
-    this.name = `GPT (${model}) [1-turn]`;
+    this.name = `GPT (${model}) [single]`;
     this.tokenStats = createTokenStats();
   }
 
@@ -551,7 +562,7 @@ class OpenAISingleTurnAI extends SingleTurnAIBase {
       this.trackOwnMove(validMoves[0]);
       return validMoves[0];
     } catch (error) {
-      console.error(`[OpenAI 1-turn] Error:`, error);
+      console.error(`[OpenAI single] Error:`, error);
       const fallback = randomAI.selectMove(context);
       this.trackOwnMove(fallback);
       return fallback;
@@ -572,7 +583,8 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
     this.client = new Anthropic({ apiKey });
     this.model = model;
     this.useThinking = useThinking;
-    this.name = `Claude (${model}) [1-turn]`;
+    const thinkStr = useThinking ? 'think' : 'no-think';
+    this.name = `Claude (${model}) [${thinkStr}, single]`;
     this.tokenStats = createTokenStats();
   }
 
@@ -635,7 +647,7 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
       this.trackOwnMove(validMoves[0]);
       return validMoves[0];
     } catch (error) {
-      console.error(`[Claude 1-turn] Error:`, error);
+      console.error(`[Claude single] Error:`, error);
       const fallback = randomAI.selectMove(context);
       this.trackOwnMove(fallback);
       return fallback;
@@ -1185,16 +1197,18 @@ async function runSimulation(
   // Print category stats
   console.log();
   console.log(`Category Breakdown (total points across all games):`);
-  console.log(`${''.padEnd(14)}${player1.name.padEnd(20)}${player2.name}`);
-  console.log(`  Cards:      ${String(stats.player1Categories.cards).padEnd(20)}${stats.player2Categories.cards}`);
-  console.log(`  Coins:      ${String(stats.player1Categories.coins).padEnd(20)}${stats.player2Categories.coins}`);
-  console.log(`  Sette Bello:${String(stats.player1Categories.setteBello).padEnd(20)}${stats.player2Categories.setteBello}`);
-  console.log(`  Prime:      ${String(stats.player1Categories.prime).padEnd(20)}${stats.player2Categories.prime}`);
-  console.log(`  Scopas:     ${String(stats.player1Categories.scopas).padEnd(20)}${stats.player2Categories.scopas}`);
+  const col1Width = Math.max(player1.name.length, 8) + 2;
+  const col2Width = Math.max(player2.name.length, 8) + 2;
+  console.log(`${''.padEnd(15)}${player1.name.padEnd(col1Width)}${player2.name}`);
+  console.log(`  Cards:       ${String(stats.player1Categories.cards).padEnd(col1Width)}${stats.player2Categories.cards}`);
+  console.log(`  Coins:       ${String(stats.player1Categories.coins).padEnd(col1Width)}${stats.player2Categories.coins}`);
+  console.log(`  Sette Bello: ${String(stats.player1Categories.setteBello).padEnd(col1Width)}${stats.player2Categories.setteBello}`);
+  console.log(`  Prime:       ${String(stats.player1Categories.prime).padEnd(col1Width)}${stats.player2Categories.prime}`);
+  console.log(`  Scopas:      ${String(stats.player1Categories.scopas).padEnd(col1Width)}${stats.player2Categories.scopas}`);
   const p1CatTotal = stats.player1Categories.cards + stats.player1Categories.coins + stats.player1Categories.setteBello + stats.player1Categories.prime + stats.player1Categories.scopas;
   const p2CatTotal = stats.player2Categories.cards + stats.player2Categories.coins + stats.player2Categories.setteBello + stats.player2Categories.prime + stats.player2Categories.scopas;
-  console.log(`  ${'─'.repeat(40)}`);
-  console.log(`  Total:      ${String(p1CatTotal).padEnd(20)}${p2CatTotal}`);
+  console.log(`  ${'─'.repeat(12 + col1Width + col2Width)}`);
+  console.log(`  Total:       ${String(p1CatTotal).padEnd(col1Width)}${p2CatTotal}`);
 
   console.log(`${'='.repeat(60)}\n`);
 

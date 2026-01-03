@@ -1,0 +1,252 @@
+{
+  "config": {
+    "player1": {
+      "type": "expert",
+      "useThinking": true,
+      "singleTurn": false
+    },
+    "player2": {
+      "type": "heuristic",
+      "useThinking": true,
+      "singleTurn": false
+    },
+    "games": 10,
+    "targetScore": 101
+  },
+  "stats": {
+    "gamesPlayed": 10,
+    "player1Wins": 10,
+    "player2Wins": 0,
+    "ties": 0,
+    "player1TotalScore": 1025,
+    "player2TotalScore": 717,
+    "totalRounds": 355,
+    "player1Categories": {
+      "cards": 204,
+      "coins": 160,
+      "setteBello": 193,
+      "prime": 189,
+      "scopas": 279
+    },
+    "player2Categories": {
+      "cards": 134,
+      "coins": 114,
+      "setteBello": 162,
+      "prime": 153,
+      "scopas": 154
+    },
+    "gameResults": [
+      {
+        "game": 1,
+        "player1Score": 105,
+        "player2Score": 97,
+        "rounds": 42,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 23,
+          "coins": 16,
+          "setteBello": 21,
+          "prime": 19,
+          "scopas": 26
+        },
+        "player2Categories": {
+          "cards": 17,
+          "coins": 19,
+          "setteBello": 21,
+          "prime": 23,
+          "scopas": 17
+        }
+      },
+      {
+        "game": 2,
+        "player1Score": 101,
+        "player2Score": 57,
+        "rounds": 31,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 22,
+          "coins": 13,
+          "setteBello": 17,
+          "prime": 17,
+          "scopas": 32
+        },
+        "player2Categories": {
+          "cards": 8,
+          "coins": 8,
+          "setteBello": 14,
+          "prime": 14,
+          "scopas": 13
+        }
+      },
+      {
+        "game": 3,
+        "player1Score": 102,
+        "player2Score": 68,
+        "rounds": 36,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 18,
+          "coins": 18,
+          "setteBello": 21,
+          "prime": 20,
+          "scopas": 25
+        },
+        "player2Categories": {
+          "cards": 15,
+          "coins": 10,
+          "setteBello": 15,
+          "prime": 14,
+          "scopas": 14
+        }
+      },
+      {
+        "game": 4,
+        "player1Score": 102,
+        "player2Score": 74,
+        "rounds": 37,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 20,
+          "coins": 16,
+          "setteBello": 21,
+          "prime": 19,
+          "scopas": 26
+        },
+        "player2Categories": {
+          "cards": 15,
+          "coins": 12,
+          "setteBello": 16,
+          "prime": 17,
+          "scopas": 14
+        }
+      },
+      {
+        "game": 5,
+        "player1Score": 101,
+        "player2Score": 54,
+        "rounds": 32,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 23,
+          "coins": 19,
+          "setteBello": 19,
+          "prime": 20,
+          "scopas": 20
+        },
+        "player2Categories": {
+          "cards": 7,
+          "coins": 8,
+          "setteBello": 13,
+          "prime": 10,
+          "scopas": 16
+        }
+      },
+      {
+        "game": 6,
+        "player1Score": 101,
+        "player2Score": 53,
+        "rounds": 30,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 19,
+          "coins": 11,
+          "setteBello": 18,
+          "prime": 17,
+          "scopas": 36
+        },
+        "player2Categories": {
+          "cards": 8,
+          "coins": 9,
+          "setteBello": 12,
+          "prime": 11,
+          "scopas": 13
+        }
+      },
+      {
+        "game": 7,
+        "player1Score": 102,
+        "player2Score": 87,
+        "rounds": 38,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 19,
+          "coins": 17,
+          "setteBello": 16,
+          "prime": 18,
+          "scopas": 32
+        },
+        "player2Categories": {
+          "cards": 17,
+          "coins": 13,
+          "setteBello": 22,
+          "prime": 18,
+          "scopas": 17
+        }
+      },
+      {
+        "game": 8,
+        "player1Score": 104,
+        "player2Score": 61,
+        "rounds": 31,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 20,
+          "coins": 17,
+          "setteBello": 16,
+          "prime": 19,
+          "scopas": 32
+        },
+        "player2Categories": {
+          "cards": 11,
+          "coins": 11,
+          "setteBello": 15,
+          "prime": 12,
+          "scopas": 12
+        }
+      },
+      {
+        "game": 9,
+        "player1Score": 103,
+        "player2Score": 93,
+        "rounds": 41,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 21,
+          "coins": 16,
+          "setteBello": 22,
+          "prime": 19,
+          "scopas": 25
+        },
+        "player2Categories": {
+          "cards": 18,
+          "coins": 15,
+          "setteBello": 19,
+          "prime": 20,
+          "scopas": 21
+        }
+      },
+      {
+        "game": 10,
+        "player1Score": 104,
+        "player2Score": 73,
+        "rounds": 37,
+        "winner": "player1",
+        "player1Categories": {
+          "cards": 19,
+          "coins": 17,
+          "setteBello": 22,
+          "prime": 21,
+          "scopas": 25
+        },
+        "player2Categories": {
+          "cards": 18,
+          "coins": 9,
+          "setteBello": 15,
+          "prime": 14,
+          "scopas": 17
+        }
+      }
+    ]
+  },
+  "timestamp": "2026-01-03T20:38:19.223Z"
+}
