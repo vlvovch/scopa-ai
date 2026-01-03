@@ -70,8 +70,13 @@ export interface GameState {
     human: RoundScore;
     cpu: RoundScore;
   };
-  /** History of all rounds played (for game end summary) */
+  /** History of recent rounds played (limited to last 100 for memory) */
   roundHistory: RoundHistoryEntry[];
+  /** Cumulative category totals across ALL rounds (not truncated) */
+  categoryTotals?: {
+    human: { cards: number; coins: number; setteBello: number; prime: number; scopas: number };
+    cpu: { cards: number; coins: number; setteBello: number; prime: number; scopas: number };
+  };
   /** Whether the game is over (show round summary first, then game end) */
   isGameOver?: boolean;
   /** Game mode (player vs CPU or spectator) */

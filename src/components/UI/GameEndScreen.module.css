@@ -79,10 +79,11 @@
   border-radius: 12px;
   min-width: 90px;
   transition: transform 0.2s;
+  border: 2px solid transparent; /* Same size as winner border for equal height */
 }
 
 .winnerBox {
-  border: 2px solid var(--color-accent);
+  border-color: var(--color-accent);
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
 }
 
@@ -109,7 +110,7 @@
 .scoreDivider {
   font-size: 1.5rem;
   color: var(--color-text-secondary);
-  margin-top: var(--space-4);
+  align-self: center;
 }
 
 /* Section Titles */

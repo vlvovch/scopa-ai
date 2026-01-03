@@ -22,7 +22,48 @@ import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isG
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import type { PanInfo } from 'framer-motion';
-import type { Card, Move, PlayerId } from './game/types';
+import type { Card, Move, PlayerId, GameState } from './game/types';
+import { useGameWorker, type CPUType } from './hooks/useGameWorker';
+
+// Storage keys for persistence
+const SPECTATOR_AIS_KEY = 'scopa-spectator-ais';
+const SPECTATOR_MODELS_KEY = 'scopa-spectator-models';
+
+/**
+ * Load spectator AI settings from localStorage
+ */
+function loadSpectatorAIs(): { player1: ExtendedAIType; player2: ExtendedAIType } {
+  try {
+    const saved = localStorage.getItem(SPECTATOR_AIS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed.player1 === 'string' && typeof parsed.player2 === 'string') {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load spectator AI settings:', e);
+  }
+  return { player1: 'heuristic', player2: 'random' };
+}
+
+/**
+ * Load spectator model settings from localStorage
+ */
+function loadSpectatorModels(): { player1: string; player2: string } {
+  try {
+    const saved = localStorage.getItem(SPECTATOR_MODELS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed.player1 === 'string' && typeof parsed.player2 === 'string') {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load spectator model settings:', e);
+  }
+  return { player1: 'gemini-2.5-flash', player2: 'gemini-2.5-flash' };
+}
 
 function App() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
@@ -50,19 +91,52 @@ function App() {
     captureOptions: Move[];
   }>({ isOpen: false, playedCard: null, captureOptions: [] });
 
-  // Spectator mode state
-  const [spectatorAIs, setSpectatorAIs] = useState<{ player1: ExtendedAIType; player2: ExtendedAIType }>({
-    player1: 'heuristic',
-    player2: 'random',
-  });
+  // Spectator mode state (persisted to localStorage)
+  const [spectatorAIs, setSpectatorAIs] = useState<{ player1: ExtendedAIType; player2: ExtendedAIType }>(loadSpectatorAIs);
   // Separate model selection for spectator mode (each player can have different model)
-  const [spectatorModels, setSpectatorModels] = useState<{ player1: string; player2: string }>({
-    player1: 'gemini-2.5-flash',
-    player2: 'gemini-2.5-flash',
-  });
+  const [spectatorModels, setSpectatorModels] = useState<{ player1: string; player2: string }>(loadSpectatorModels);
   const [isSpectatorPaused, setIsSpectatorPaused] = useState(false);
   // Track pause state before settings opened (to restore on close)
   const pausedBeforeSettings = useRef(false);
+
+  // Web Worker for background simulation (runs when tab is hidden)
+  // Only used when both spectator AIs are sync (random, heuristic, expert)
+  const isSyncAI = useCallback((aiType: ExtendedAIType): aiType is CPUType => {
+    return aiType === 'random' || aiType === 'heuristic' || aiType === 'expert';
+  }, []);
+
+  const canUseWorker = isSyncAI(spectatorAIs.player1) && isSyncAI(spectatorAIs.player2);
+
+  // Track if we're using worker mode for background simulation
+  const [useWorkerMode, setUseWorkerMode] = useState(false);
+  // Store final game state from worker (persists after worker stops)
+  const [workerFinalState, setWorkerFinalState] = useState<GameState | null>(null);
+
+  const {
+    gameState: workerGameState,
+    isRunning: workerIsRunning,
+    isPaused: workerIsPaused,
+    startSimulation,
+    stopSimulation,
+    pauseSimulation,
+    resumeSimulation,
+  } = useGameWorker({
+    onGameEnd: (finalState) => {
+      // Store the final state so it persists for the game end screen
+      setWorkerFinalState(finalState);
+    },
+    onError: (message) => {
+      console.error('Worker error:', message);
+      setUseWorkerMode(false);
+      setWorkerFinalState(null);
+    },
+  });
+
+  // Use worker state when in worker mode, otherwise use local state
+  // Prioritize workerFinalState (for game end screen) over workerGameState (live updates)
+  const activeState: GameState = useWorkerMode
+    ? (workerFinalState || workerGameState || state)
+    : state;
 
   // Gemini token stats (refreshed after each AI move)
   // For single player mode: use tokenStats (direct from AI instance)
@@ -75,8 +149,8 @@ function App() {
   const [player1TokenDelta, setPlayer1TokenDelta] = useState<GeminiTokenDelta | null>(null);
   const [player2TokenDelta, setPlayer2TokenDelta] = useState<GeminiTokenDelta | null>(null);
 
-  // Check if in spectator mode
-  const isSpectatorMode = state.gameMode === 'cpuVsCPU';
+  // Check if in spectator mode (use activeState for worker-aware check)
+  const isSpectatorMode = activeState.gameMode === 'cpuVsCPU';
 
   // Helper to check if an AI type is a Gemini variant (use exported function)
   const isGeminiAI = isGeminiAIType;
@@ -399,6 +473,24 @@ function App() {
       document.body.style.overflowY = 'hidden';
     }
   }, [state.status]);
+
+  // Persist spectator AI settings to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPECTATOR_AIS_KEY, JSON.stringify(spectatorAIs));
+    } catch (e) {
+      console.warn('Failed to persist spectator AI settings:', e);
+    }
+  }, [spectatorAIs]);
+
+  // Persist spectator model settings to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPECTATOR_MODELS_KEY, JSON.stringify(spectatorModels));
+    } catch (e) {
+      console.warn('Failed to persist spectator model settings:', e);
+    }
+  }, [spectatorModels]);
 
   // Reset sette bello and last moves tracking when a new round starts
   useEffect(() => {
@@ -959,24 +1051,61 @@ function App() {
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
-    startGame(targetScore, gameMode);
-  }, [startGame, resetAllTokenStats]);
+
+    // Use worker mode ONLY for instant mode with sync AIs (no animations needed)
+    // For other speeds, use main thread to preserve animations and UI
+    if (gameMode === 'cpuVsCPU' && canUseWorker && settings.animationSpeed === 'instant') {
+      // Use Web Worker for instant background simulation
+      setUseWorkerMode(true);
+      setWorkerFinalState(null); // Clear any previous final state
+      startSimulation({
+        player1AI: spectatorAIs.player1 as CPUType,
+        player2AI: spectatorAIs.player2 as CPUType,
+        targetScore,
+        delayMs: 0,
+      });
+    } else {
+      // Use main thread for animations, LLM AIs, or player vs CPU
+      setUseWorkerMode(false);
+      startGame(targetScore, gameMode);
+    }
+  }, [startGame, resetAllTokenStats, canUseWorker, startSimulation, spectatorAIs, settings.animationSpeed]);
 
   // Handle new game request
   const handleNewGame = useCallback(() => {
-    if (state.status === 'playing') {
+    if (activeState.status === 'playing' || workerIsRunning) {
       setConfirmNewGame(true);
     } else {
+      if (useWorkerMode) {
+        stopSimulation();
+        setUseWorkerMode(false);
+      }
       resetAllTokenStats();
       resetGame();
     }
-  }, [state.status, resetGame, resetAllTokenStats]);
+  }, [activeState.status, workerIsRunning, useWorkerMode, stopSimulation, resetGame, resetAllTokenStats]);
 
   const confirmAndStartNewGame = useCallback(() => {
     setConfirmNewGame(false);
+    if (useWorkerMode) {
+      stopSimulation();
+      setUseWorkerMode(false);
+      setWorkerFinalState(null);
+    }
     resetAllTokenStats();
     resetGame();
-  }, [resetGame, resetAllTokenStats]);
+  }, [useWorkerMode, stopSimulation, resetGame, resetAllTokenStats]);
+
+  // Handle play again from game end screen (also resets worker mode)
+  const handlePlayAgain = useCallback(() => {
+    if (useWorkerMode) {
+      stopSimulation();
+      setUseWorkerMode(false);
+      setWorkerFinalState(null);
+    }
+    resetAllTokenStats();
+    resetGame();
+  }, [useWorkerMode, stopSimulation, resetGame, resetAllTokenStats]);
 
   // Handle AI selection change
   const handleSelectAI = useCallback((ai: ExtendedAIType) => {
@@ -1119,7 +1248,7 @@ function App() {
   }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext]);
 
   // If game hasn't started, show start screen
-  if (state.status === 'idle') {
+  if (activeState.status === 'idle') {
     return (
       <DeckProvider deck={settings.deck}>
         <StartScreen
@@ -1152,20 +1281,20 @@ function App() {
   }
 
   // Round end screen (wait for scores to be calculated)
-  if (state.status === 'roundEnd' && state.lastRoundScores) {
+  if (activeState.status === 'roundEnd' && activeState.lastRoundScores) {
     return (
       <DeckProvider deck={settings.deck}>
         <RoundEndScreen
-          roundNumber={state.roundNumber}
-          humanScore={state.lastRoundScores.human}
-          cpuScore={state.lastRoundScores.cpu}
-          cumulativeHuman={state.scores.human}
-          cumulativeCpu={state.scores.cpu}
-          humanCaptured={state.players.human.captured}
-          cpuCaptured={state.players.cpu.captured}
-          humanScopaCaptures={state.players.human.scopaCaptures}
-          cpuScopaCaptures={state.players.cpu.scopaCaptures}
-          isGameOver={state.isGameOver}
+          roundNumber={activeState.roundNumber}
+          humanScore={activeState.lastRoundScores.human}
+          cpuScore={activeState.lastRoundScores.cpu}
+          cumulativeHuman={activeState.scores.human}
+          cumulativeCpu={activeState.scores.cpu}
+          humanCaptured={activeState.players.human.captured}
+          cpuCaptured={activeState.players.cpu.captured}
+          humanScopaCaptures={activeState.players.human.scopaCaptures}
+          cpuScopaCaptures={activeState.players.cpu.scopaCaptures}
+          isGameOver={activeState.isGameOver}
           onNextRound={handleNextRound}
           onShowGameEnd={showGameEnd}
           player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
@@ -1185,14 +1314,14 @@ function App() {
   }
 
   // Game end screen
-  if (state.status === 'gameEnd') {
+  if (activeState.status === 'gameEnd') {
     return (
       <DeckProvider deck={settings.deck}>
         <GameEndScreen
-          humanScore={state.scores.human}
-          cpuScore={state.scores.cpu}
-          roundsPlayed={state.roundNumber}
-          onPlayAgain={resetGame}
+          humanScore={activeState.scores.human}
+          cpuScore={activeState.scores.cpu}
+          roundsPlayed={activeState.roundNumber}
+          onPlayAgain={handlePlayAgain}
           player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
           player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
           player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
@@ -1203,13 +1332,14 @@ function App() {
               ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
               : isLLMAI(settings.cpuAI) ? tokenStats : null
           }
-          roundHistory={state.roundHistory}
+          roundHistory={activeState.roundHistory}
+          categoryTotals={activeState.categoryTotals}
         />
       </DeckProvider>
     );
   }
 
-  const isHumanTurn = state.round.currentPlayer === 'human';
+  const isHumanTurn = activeState.round.currentPlayer === 'human';
 
   return (
     <DeckProvider deck={settings.deck}>
@@ -1337,11 +1467,11 @@ function App() {
         scoreBoard={
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
             <ScoreBoard
-              humanScore={state.scores.human}
-              cpuScore={state.scores.cpu}
-              roundNumber={state.roundNumber}
-              targetScore={state.targetScore}
-              currentPlayer={state.round.currentPlayer}
+              humanScore={activeState.scores.human}
+              cpuScore={activeState.scores.cpu}
+              roundNumber={activeState.roundNumber}
+              targetScore={activeState.targetScore}
+              currentPlayer={activeState.round.currentPlayer}
               isSpectatorMode={isSpectatorMode}
               player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}
               player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
@@ -1357,12 +1487,12 @@ function App() {
         cpuHand={
           <PlayerHand
             cards={
-              // Hide cards during dealing animation, otherwise filter out animating card
-              isDealing
+              // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
+              !useWorkerMode && isDealing
                 ? []
                 : animatingCard?.player === 'cpu'
-                  ? state.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
-                  : state.players.cpu.hand
+                  ? activeState.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
+                  : activeState.players.cpu.hand
             }
             isHuman={false}
           />
@@ -1370,8 +1500,8 @@ function App() {
         cpuPile={
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
             <CapturedPile
-              cards={state.players.cpu.captured}
-              scopaCount={state.players.cpu.scopaCount}
+              cards={activeState.players.cpu.captured}
+              scopaCount={activeState.players.cpu.scopaCount}
               player="cpu"
               aiType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
               aiModel={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
@@ -1391,7 +1521,7 @@ function App() {
         tableCards={
           <TableCards
             ref={tableRef}
-            cards={isDealing && dealMode === 'table' ? [] : state.round.table}
+            cards={!useWorkerMode && isDealing && dealMode === 'table' ? [] : activeState.round.table}
             highlightedCardIds={validCaptureTargetIds}
             selectedCardIds={selectedTableCards.map(c => c.id)}
             capturingCardIds={(animatingCard?.phase === 'moving' || animatingCard?.phase === 'capturing') && animatingCard?.capturedCards.length
@@ -1401,8 +1531,8 @@ function App() {
             onCardClick={handleTableCardClick}
             selectable={isHumanTurn && selectedCard !== null}
             isDragOver={isDragging}
-            deckCount={state.round.deck.length}
-            dealer={state.round.dealer}
+            deckCount={activeState.round.deck.length}
+            dealer={activeState.round.dealer}
           />
         }
         humanPile={
@@ -1411,8 +1541,8 @@ function App() {
               <TokenStatsDisplay stats={player1TokenStats} delta={player1TokenDelta} show mode="game" position="top" modelName={spectatorModels.player1} />
             )}
             <CapturedPile
-              cards={state.players.human.captured}
-              scopaCount={state.players.human.scopaCount}
+              cards={activeState.players.human.captured}
+              scopaCount={activeState.players.human.scopaCount}
               player="human"
               aiType={isSpectatorMode ? spectatorAIs.player1 : undefined}
               aiModel={isSpectatorMode ? spectatorModels.player1 : undefined}
@@ -1422,12 +1552,12 @@ function App() {
         humanHand={
           <PlayerHand
             cards={
-              // Hide cards during dealing animation, otherwise filter out animating card
-              isDealing
+              // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
+              !useWorkerMode && isDealing
                 ? []
                 : animatingCard?.player === 'human'
-                  ? state.players.human.hand.filter(c => c.id !== animatingCard.card.id)
-                  : state.players.human.hand
+                  ? activeState.players.human.hand.filter(c => c.id !== animatingCard.card.id)
+                  : activeState.players.human.hand
             }
             isHuman={!isSpectatorMode}
             onCardClick={isSpectatorMode ? undefined : handleHandCardClick}
@@ -1442,7 +1572,7 @@ function App() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px' }}>
             <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
               {isSpectatorMode
-                ? `${AI_INFO[getAIForPlayer(state.round.currentPlayer)].name}'s turn${isSpectatorPaused ? ' (Paused)' : ''}`
+                ? `${AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name}'s turn${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? ' (Paused)' : ''}`
                 : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} thinking...`}
             </span>
 
@@ -1451,18 +1581,29 @@ function App() {
               {/* Spectator mode pause/play controls */}
               {isSpectatorMode && (
                 <button
-                  onClick={() => setIsSpectatorPaused(prev => !prev)}
+                  onClick={() => {
+                    if (useWorkerMode) {
+                      // Toggle worker pause state
+                      if (workerIsPaused) {
+                        resumeSimulation();
+                      } else {
+                        pauseSimulation();
+                      }
+                    } else {
+                      setIsSpectatorPaused(prev => !prev);
+                    }
+                  }}
                   style={{
                     padding: '8px 16px',
                     fontSize: '14px',
-                    background: isSpectatorPaused ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
-                    color: isSpectatorPaused ? '#000' : 'var(--color-text-primary)',
-                    border: isSpectatorPaused ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                    background: (useWorkerMode ? workerIsPaused : isSpectatorPaused) ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
+                    color: (useWorkerMode ? workerIsPaused : isSpectatorPaused) ? '#000' : 'var(--color-text-primary)',
+                    border: (useWorkerMode ? workerIsPaused : isSpectatorPaused) ? 'none' : '1px solid rgba(255,255,255,0.2)',
                     borderRadius: '6px',
                     cursor: 'pointer',
                   }}
                 >
-                  {isSpectatorPaused ? '▶ Resume' : '⏸ Pause'}
+                  {(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? '▶ Resume' : '⏸ Pause'}
                 </button>
               )}
 

@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-02 (Phase 29: Claude Extended Thinking & Structured Outputs)
+**Last Updated:** 2026-01-02 (Phase 30: Expert AI & Background Simulation)
 
 ---
 
@@ -80,6 +80,7 @@ scopa-ai-claude/
 │   │   ├── prompts.ts      # Shared prompts for LLM AIs
 │   │   ├── random.ts       # Random AI (Scimmietta)
 │   │   ├── heuristic.ts    # Greedy heuristic AI (Furbo)
+│   │   ├── expert.ts       # Expert AI (ISMCTS with determinization)
 │   │   ├── gemini.ts       # Gemini LLM AI (multi-turn chat)
 │   │   ├── gemini-singleturn.ts  # Gemini single-turn mode
 │   │   ├── openai.ts       # OpenAI GPT AI (Responses API, conversation state)
@@ -87,9 +88,13 @@ scopa-ai-claude/
 │   │   ├── claude.ts       # Claude AI (Messages API, local conversation state)
 │   │   └── claude-singleturn.ts  # Claude single-turn mode
 │   │
+│   ├── workers/            # Web Workers for background processing
+│   │   └── gameSimulation.worker.ts  # Background CPU vs CPU simulation
+│   │
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
-│   │   └── useSettings.ts  # Settings with localStorage
+│   │   ├── useSettings.ts  # Settings with localStorage
+│   │   └── useGameWorker.ts # Web Worker management for background simulation
 │   │
 │   └── utils/              # Utility functions
 │       └── (storage.ts, cards.ts)
@@ -314,6 +319,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 |----|------|------|------|----------|
 | `randomAI` | Scimmietta | 🐒 | Sync | Picks random valid move |
 | `heuristicAI` | Furbo | 🦊 | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
+| `expertAI` | Esperto | 🧠 | Sync | ISMCTS (Information Set Monte Carlo Tree Search) with determinization and alpha-beta pruning |
 | `GeminiAI` | Gemini | ✦ (SVG) | Async | LLM-based using Google's Gemini API with structured JSON output |
 | `OpenAIAI` | GPT | Blossom (SVG) | Async | LLM-based using OpenAI's Responses API with structured JSON output |
 | `ClaudeAI` | Claude | 🔮 | Async | LLM-based using Anthropic's Messages API with tool use for structured output |
@@ -940,7 +946,7 @@ const response = await client.beta.messages.create({
 
 ## MVP Complete!
 
-All 29 phases implemented:
+All 30 phases implemented:
 1. Project Setup
 2. Core Types & Constants
 3. Deck Management
@@ -970,6 +976,7 @@ All 29 phases implemented:
 27. Claude Anthropic API Integration (Messages API, tool use, multi-turn & single-turn modes)
 28. Brand Icons & Custom Dropdown (official logos with brand colors, custom dropdown for SVG icons)
 29. Claude Extended Thinking & Structured Outputs (output_format, 10k thinking budget, PersonIcon)
+30. Expert AI & Background Simulation (ISMCTS, Web Worker, instant mode, enhanced GameEndScreen)
 
 **Future Enhancements:**
 - Multiplayer support

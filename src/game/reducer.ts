@@ -233,6 +233,28 @@ function handleEndRound(state: GameState): GameState {
     scores: roundScores,
   };
 
+  // Accumulate category totals (tracks ALL rounds, not truncated)
+  const prevTotals = finalState.categoryTotals || {
+    human: { cards: 0, coins: 0, setteBello: 0, prime: 0, scopas: 0 },
+    cpu: { cards: 0, coins: 0, setteBello: 0, prime: 0, scopas: 0 },
+  };
+  const newCategoryTotals = {
+    human: {
+      cards: prevTotals.human.cards + roundScores.human.cards,
+      coins: prevTotals.human.coins + roundScores.human.coins,
+      setteBello: prevTotals.human.setteBello + roundScores.human.setteBello,
+      prime: prevTotals.human.prime + roundScores.human.prime,
+      scopas: prevTotals.human.scopas + roundScores.human.scopas,
+    },
+    cpu: {
+      cards: prevTotals.cpu.cards + roundScores.cpu.cards,
+      coins: prevTotals.cpu.coins + roundScores.cpu.coins,
+      setteBello: prevTotals.cpu.setteBello + roundScores.cpu.setteBello,
+      prime: prevTotals.cpu.prime + roundScores.cpu.prime,
+      scopas: prevTotals.cpu.scopas + roundScores.cpu.scopas,
+    },
+  };
+
   // Always show round summary first (status stays 'roundEnd')
   // isGameOver flag indicates whether to show "See Results" vs "Next Round"
   return {
@@ -243,7 +265,9 @@ function handleEndRound(state: GameState): GameState {
       cpu: newCpuScore,
     },
     lastRoundScores: roundScores,
-    roundHistory: [...finalState.roundHistory, historyEntry],
+    // Limit history to last 100 rounds to prevent memory issues
+    roundHistory: [...finalState.roundHistory.slice(-9999), historyEntry],
+    categoryTotals: newCategoryTotals,
     isGameOver,
   };
 }

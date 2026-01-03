@@ -28,8 +28,13 @@ interface GameEndScreenProps {
   player2AIType?: ExtendedAIType;
   /** Player 2 model (for LLM AIs) */
   player2Model?: string;
-  /** History of all rounds played */
+  /** History of recent rounds played (may be truncated) */
   roundHistory?: RoundHistoryEntry[];
+  /** Cumulative category totals across ALL rounds */
+  categoryTotals?: {
+    human: { cards: number; coins: number; setteBello: number; prime: number; scopas: number };
+    cpu: { cards: number; coins: number; setteBello: number; prime: number; scopas: number };
+  };
 }
 
 /** Category totals for display */
@@ -55,12 +60,23 @@ export function GameEndScreen({
   player2AIType,
   player2Model,
   roundHistory = [],
+  categoryTotals: propCategoryTotals,
 }: GameEndScreenProps) {
   const humanWins = humanScore > cpuScore;
   const isTie = humanScore === cpuScore;
 
-  // Calculate category totals from round history
+  // Use prop categoryTotals if available (tracks ALL rounds), otherwise calculate from history
   const categoryTotals = useMemo(() => {
+    if (propCategoryTotals) {
+      // Use the cumulative totals from game state (not truncated)
+      const humanTotal = propCategoryTotals.human.cards + propCategoryTotals.human.coins +
+        propCategoryTotals.human.setteBello + propCategoryTotals.human.prime + propCategoryTotals.human.scopas;
+      const cpuTotal = propCategoryTotals.cpu.cards + propCategoryTotals.cpu.coins +
+        propCategoryTotals.cpu.setteBello + propCategoryTotals.cpu.prime + propCategoryTotals.cpu.scopas;
+      return { human: propCategoryTotals.human, cpu: propCategoryTotals.cpu, humanTotal, cpuTotal };
+    }
+
+    // Fallback: calculate from round history (may be truncated)
     const human: CategoryTotals = { cards: 0, coins: 0, setteBello: 0, prime: 0, scopas: 0 };
     const cpu: CategoryTotals = { cards: 0, coins: 0, setteBello: 0, prime: 0, scopas: 0 };
 
@@ -78,8 +94,11 @@ export function GameEndScreen({
       cpu.scopas += entry.scores.cpu.scopas;
     }
 
-    return { human, cpu };
-  }, [roundHistory]);
+    const humanTotal = human.cards + human.coins + human.setteBello + human.prime + human.scopas;
+    const cpuTotal = cpu.cards + cpu.coins + cpu.setteBello + cpu.prime + cpu.scopas;
+
+    return { human, cpu, humanTotal, cpuTotal };
+  }, [propCategoryTotals, roundHistory]);
 
   // Render player names with proper AI icons
   const renderPlayer1Name = (): ReactNode => {
@@ -200,11 +219,11 @@ export function GameEndScreen({
                 })}
                 <tr className={styles.totalRow}>
                   <td className={styles.categoryCell}>Total</td>
-                  <td className={`${styles.valueCell} ${humanWins ? styles.winningValue : ''}`}>
-                    {humanScore}
+                  <td className={`${styles.valueCell} ${categoryTotals.humanTotal > categoryTotals.cpuTotal ? styles.winningValue : ''}`}>
+                    {categoryTotals.humanTotal}
                   </td>
-                  <td className={`${styles.valueCell} ${!humanWins && !isTie ? styles.winningValue : ''}`}>
-                    {cpuScore}
+                  <td className={`${styles.valueCell} ${categoryTotals.cpuTotal > categoryTotals.humanTotal ? styles.winningValue : ''}`}>
+                    {categoryTotals.cpuTotal}
                   </td>
                 </tr>
               </tbody>

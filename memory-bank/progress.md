@@ -708,12 +708,64 @@
 
 ---
 
+## Phase 30: Expert AI & Background Simulation
+
+- [x] Step 30.1: Port Expert AI with ISMCTS from local project - Completed 2026-01-02
+- [x] Step 30.2: Create Web Worker for background CPU simulation - Completed 2026-01-02
+- [x] Step 30.3: Add instant animation mode for fast simulations - Completed 2026-01-02
+- [x] Step 30.4: Add auto-advance spectator setting - Completed 2026-01-02
+- [x] Step 30.5: Enhanced GameEndScreen with category breakdown and round history - Completed 2026-01-02
+- [x] Step 30.6: Add cumulative category totals tracking - Completed 2026-01-02
+- [x] Step 30.7: UI polish (sticky header fix, equal score box heights) - Completed 2026-01-02
+
+**Notes:**
+
+**Expert AI (ISMCTS):**
+- Ported `expert.ts` from separate project implementing Information Set Monte Carlo Tree Search
+- Uses determinization to handle hidden information (opponent's hand, deck)
+- Alpha-beta pruning for move evaluation within determinized states
+- Evaluation weights: scopaDiff×120, denariDiff×18, cardDiff×4, primiera×8, setteBello×120
+- Configurable time budget (default 30ms for worker, adjustable for main thread)
+- Registered as "Esperto" (🧠) in AI_PLAYERS and AI_INFO
+
+**Web Worker Background Simulation:**
+- Created `src/workers/gameSimulation.worker.ts` for unthrottled background execution
+- Created `src/hooks/useGameWorker.ts` React hook for worker management
+- Worker only used for **instant mode** with sync AIs (random, heuristic, expert)
+- Browsers throttle setTimeout in hidden tabs; Web Workers are not throttled
+- Batched state updates (every 20 moves) to reduce overhead in instant mode
+- Worker handles full game loop: playing → roundEnd → NEXT_ROUND → gameEnd
+- `workerFinalState` persists game end state for summary display
+
+**Animation & Timing:**
+- Added "instant" animation speed option (10ms delays, skip celebrations)
+- Auto-advance spectator setting: 2-second countdown then auto-continue
+- RoundEndScreen shows countdown button "Next Round in Xs" when enabled
+
+**GameEndScreen Enhancements:**
+- Category breakdown table: Carte, Denari, Sette Bello, Primiera, Scope
+- Round-by-round history table with running totals (last 10,000 rounds)
+- `categoryTotals` tracked separately in GameState (never truncated)
+- Breakdown totals always add up correctly even for 1000+ round games
+- Sticky table header fix using `border-collapse: separate`
+- Equal height score boxes using transparent border trick
+
+**UI Polish:**
+- Fixed "You Wins!" → "You Win!" grammar
+- Score divider "-" vertically centered with `align-self: center`
+- Round history limited to 10,000 entries (configurable)
+
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
 - Complete game rules (capture, sum capture, mandatory capture, scopa scoring)
 - Neapolitan card graphics (Siciliane suits available, card faces pending)
-- Selectable AI opponents (Random, Greedy heuristic, Gemini LLM, OpenAI GPT, or Anthropic Claude)
+- Selectable AI opponents (Random, Heuristic, Expert ISMCTS, Gemini LLM, OpenAI GPT, or Anthropic Claude)
+- Expert AI using Information Set Monte Carlo Tree Search with determinization
 - Gemini AI with multi-turn chat sessions, token tracking, and model selection
 - OpenAI GPT AI with Responses API (server-side conversation state), structured outputs, and reasoning tokens
 - Claude AI with Messages API, extended thinking (10k tokens), and structured outputs
@@ -727,6 +779,10 @@ The Scopa game is now fully playable with:
 - Sette Bello celebration animation
 - Dealer deck display that switches sides
 - Round and game end screens with detailed scoring breakdown
+- Enhanced GameEndScreen with category breakdown and round-by-round history
+- Web Worker for unthrottled background CPU simulation (instant mode)
+- Auto-advance spectator mode with configurable delays
+- Instant animation mode for fast simulations
 - Settings persistence (including AI selection and deck choice)
 - New game and settings controls
 - Compact, polished StartScreen UI
