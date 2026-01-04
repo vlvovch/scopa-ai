@@ -153,6 +153,19 @@ function getGeminiThinkingBudget(modelId: string, useThinking: boolean, hasMulti
 /** Extended thinking budget for Claude */
 const CLAUDE_THINKING_BUDGET = 10000;
 
+/** Claude structured output schema for guaranteed JSON response */
+const CLAUDE_OUTPUT_SCHEMA = {
+  type: 'json_schema' as const,
+  schema: {
+    type: 'object' as const,
+    properties: {
+      moveIndex: { type: 'integer' as const, description: '0-based index of the selected move' },
+      reasoning: { type: 'string' as const, description: 'Brief explanation of why this move was chosen' },
+    },
+    required: ['moveIndex', 'reasoning'],
+  },
+};
+
 // Gemini AI
 class GeminiAI implements AsyncAIPlayer {
   readonly name: string;
@@ -340,17 +353,20 @@ class ClaudeAI implements AsyncAIPlayer {
 
       const startTime = performance.now();
 
-      // Build request params
+      // Build request params with structured outputs
+      const shouldThink = this.useThinking && validMoves.length > 1;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestParams: any = {
         model: this.model,
-        max_tokens: this.useThinking ? 16000 : 1024,
+        max_tokens: shouldThink ? 16000 : 1024,
         system: SYSTEM_INSTRUCTION_MULTITURN,
+        output_format: CLAUDE_OUTPUT_SCHEMA,
         messages: this.messages,
+        betas: ['structured-outputs-2025-11-13'],
       };
 
       // Add extended thinking if enabled and there's a decision to make
-      if (this.useThinking && validMoves.length > 1) {
+      if (shouldThink) {
         requestParams.thinking = { type: 'enabled', budget_tokens: CLAUDE_THINKING_BUDGET };
       }
 
@@ -363,7 +379,7 @@ class ClaudeAI implements AsyncAIPlayer {
       this.tokenStats.responseTokens += response.usage?.output_tokens || 0;
       this.tokenStats.totalTokens += (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
 
-      // Extract text from response
+      // Extract text from response (guaranteed JSON by output_format)
       let text = '';
       for (const block of response.content) {
         if (block.type === 'text') {
@@ -375,15 +391,12 @@ class ClaudeAI implements AsyncAIPlayer {
       // Add assistant response to conversation
       this.messages.push({ role: 'assistant', content: text });
 
-      // Parse JSON from response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        const index = result.moveIndex;
+      // Parse JSON from response (guaranteed valid by structured outputs)
+      const result = JSON.parse(text);
+      const index = result.moveIndex;
 
-        if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
-          return validMoves[index];
-        }
+      if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
+        return validMoves[index];
       }
 
       return validMoves[0];
@@ -622,16 +635,20 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
       const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
       const startTime = performance.now();
 
+      // Build request params with structured outputs
+      const shouldThink = this.useThinking && validMoves.length > 1;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestParams: any = {
         model: this.model,
-        max_tokens: this.useThinking ? 16000 : 1024,
+        max_tokens: shouldThink ? 16000 : 1024,
         system: SYSTEM_INSTRUCTION_SINGLETURN,
+        output_format: CLAUDE_OUTPUT_SCHEMA,
         messages: [{ role: 'user', content: prompt }],
+        betas: ['structured-outputs-2025-11-13'],
       };
 
       // Add extended thinking if enabled and there's a decision to make
-      if (this.useThinking && validMoves.length > 1) {
+      if (shouldThink) {
         requestParams.thinking = { type: 'enabled', budget_tokens: CLAUDE_THINKING_BUDGET };
       }
 
@@ -644,6 +661,7 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
       this.tokenStats.responseTokens += response.usage?.output_tokens || 0;
       this.tokenStats.totalTokens += (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0);
 
+      // Extract text from response (guaranteed JSON by output_format)
       let text = '';
       for (const block of response.content) {
         if (block.type === 'text') {
@@ -652,15 +670,13 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
         }
       }
 
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const result = JSON.parse(jsonMatch[0]);
-        const index = result.moveIndex;
+      // Parse JSON from response (guaranteed valid by structured outputs)
+      const result = JSON.parse(text);
+      const index = result.moveIndex;
 
-        if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
-          this.trackOwnMove(validMoves[index]);
-          return validMoves[index];
-        }
+      if (typeof index === 'number' && index >= 0 && index < validMoves.length) {
+        this.trackOwnMove(validMoves[index]);
+        return validMoves[index];
       }
 
       this.trackOwnMove(validMoves[0]);
