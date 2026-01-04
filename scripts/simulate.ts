@@ -370,7 +370,8 @@ class ClaudeAI implements AsyncAIPlayer {
         requestParams.thinking = { type: 'enabled', budget_tokens: CLAUDE_THINKING_BUDGET };
       }
 
-      const response = await this.client.messages.create(requestParams);
+      // Use beta endpoint for structured outputs
+      const response = await this.client.beta.messages.create(requestParams);
 
       const elapsed = performance.now() - startTime;
       this.tokenStats.requestCount++;
@@ -652,7 +653,8 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
         requestParams.thinking = { type: 'enabled', budget_tokens: CLAUDE_THINKING_BUDGET };
       }
 
-      const response = await this.client.messages.create(requestParams);
+      // Use beta endpoint for structured outputs
+      const response = await this.client.beta.messages.create(requestParams);
 
       const elapsed = performance.now() - startTime;
       this.tokenStats.requestCount++;
@@ -737,9 +739,9 @@ function createAI(config: AIConfig): AnyGameAIPlayer {
       const apiKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.VITE_CLAUDE_API_KEY;
       if (!apiKey) throw new Error('ANTHROPIC_API_KEY or VITE_CLAUDE_API_KEY environment variable not set');
       if (singleTurn) {
-        return new ClaudeSingleTurnAI(apiKey, config.model || 'claude-sonnet-4-20250514', config.useThinking ?? true);
+        return new ClaudeSingleTurnAI(apiKey, config.model || 'claude-sonnet-4-5-20250929', config.useThinking ?? true);
       }
-      return new ClaudeAI(apiKey, config.model || 'claude-sonnet-4-20250514', config.useThinking ?? true);
+      return new ClaudeAI(apiKey, config.model || 'claude-sonnet-4-5-20250929', config.useThinking ?? true);
     }
     default:
       throw new Error(`Unknown AI type: ${config.type}`);
@@ -1424,7 +1426,7 @@ Examples:
 
   # Claude vs GPT, with specific models
   ANTHROPIC_API_KEY=xxx OPENAI_API_KEY=yyy npx tsx scripts/simulate.ts \\
-    -p1=claude -m1=claude-sonnet-4-20250514 \\
+    -p1=claude -m1=claude-sonnet-4-5-20250929 \\
     -p2=openai -m2=gpt-4o \\
     -g=20 --verbose
 
