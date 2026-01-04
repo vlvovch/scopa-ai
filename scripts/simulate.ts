@@ -135,6 +135,24 @@ function formatTokensCompact(stats: TokenStats): string {
   return `${totalK}K (${inK}K in, ${outK}K out) ${avgTimeS}s/turn`;
 }
 
+// ============================================================================
+// Model-specific thinking configuration (consistent with main app)
+// ============================================================================
+
+/** Pro models cannot fully disable thinking, require minimum budget of 128 */
+function isGeminiProModel(modelId: string): boolean {
+  return modelId.toLowerCase().includes('-pro');
+}
+
+/** Get thinking budget for Gemini models */
+function getGeminiThinkingBudget(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): number {
+  if (useThinking && hasMultipleMoves) return -1; // Dynamic budget
+  return isGeminiProModel(modelId) ? 128 : 0; // Pro models need minimum 128
+}
+
+/** Extended thinking budget for Claude */
+const CLAUDE_THINKING_BUDGET = 10000;
+
 // Gemini AI
 class GeminiAI implements AsyncAIPlayer {
   readonly name: string;
@@ -180,7 +198,7 @@ class GeminiAI implements AsyncAIPlayer {
       const prompt = buildTurnPrompt(context);
       const startTime = performance.now();
 
-      const thinkingBudget = this.useThinking ? -1 : 0;
+      const thinkingBudget = getGeminiThinkingBudget(this.model, this.useThinking, validMoves.length > 1);
 
       const response = await this.chat!.sendMessage({
         message: prompt,
@@ -331,9 +349,9 @@ class ClaudeAI implements AsyncAIPlayer {
         messages: this.messages,
       };
 
-      // Add thinking config for supported models
-      if (this.useThinking && this.model.includes('3-7') && validMoves.length > 1) {
-        requestParams.thinking = { type: 'enabled', budget_tokens: 10000 };
+      // Add extended thinking if enabled and there's a decision to make
+      if (this.useThinking && validMoves.length > 1) {
+        requestParams.thinking = { type: 'enabled', budget_tokens: CLAUDE_THINKING_BUDGET };
       }
 
       const response = await this.client.messages.create(requestParams);
@@ -461,7 +479,7 @@ class GeminiSingleTurnAI extends SingleTurnAIBase {
     try {
       const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
       const startTime = performance.now();
-      const thinkingBudget = this.useThinking ? -1 : 0;
+      const thinkingBudget = getGeminiThinkingBudget(this.model, this.useThinking, validMoves.length > 1);
 
       const response = await this.ai.models.generateContent({
         model: this.model,
@@ -612,8 +630,9 @@ class ClaudeSingleTurnAI extends SingleTurnAIBase {
         messages: [{ role: 'user', content: prompt }],
       };
 
-      if (this.useThinking && this.model.includes('3-7') && validMoves.length > 1) {
-        requestParams.thinking = { type: 'enabled', budget_tokens: 10000 };
+      // Add extended thinking if enabled and there's a decision to make
+      if (this.useThinking && validMoves.length > 1) {
+        requestParams.thinking = { type: 'enabled', budget_tokens: CLAUDE_THINKING_BUDGET };
       }
 
       const response = await this.client.messages.create(requestParams);
