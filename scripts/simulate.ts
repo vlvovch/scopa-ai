@@ -159,10 +159,11 @@ const CLAUDE_OUTPUT_SCHEMA = {
   schema: {
     type: 'object' as const,
     properties: {
-      moveIndex: { type: 'integer' as const, description: '0-based index of the selected move' },
+      moveIndex: { type: 'integer' as const, description: '0-based index of the selected move from the valid moves list' },
       reasoning: { type: 'string' as const, description: 'Brief explanation of why this move was chosen' },
     },
-    required: ['moveIndex', 'reasoning'],
+    required: ['moveIndex', 'reasoning'] as const,
+    additionalProperties: false,
   },
 };
 
