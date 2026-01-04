@@ -11,7 +11,7 @@
  * Environment variables:
  *   GEMINI_API_KEY - Google Gemini API key
  *   OPENAI_API_KEY - OpenAI API key
- *   ANTHROPIC_API_KEY - Anthropic Claude API key
+ *   ANTHROPIC_API_KEY or VITE_CLAUDE_API_KEY - Anthropic Claude API key
  *
  * Also loads from .env.local (VITE_* prefixed keys supported)
  */
@@ -718,8 +718,8 @@ function createAI(config: AIConfig): AnyGameAIPlayer {
       return new OpenAIAI(apiKey, config.model || 'gpt-4o-mini');
     }
     case 'claude': {
-      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY;
-      if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable not set');
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.VITE_CLAUDE_API_KEY;
+      if (!apiKey) throw new Error('ANTHROPIC_API_KEY or VITE_CLAUDE_API_KEY environment variable not set');
       if (singleTurn) {
         return new ClaudeSingleTurnAI(apiKey, config.model || 'claude-sonnet-4-20250514', config.useThinking ?? true);
       }
@@ -1394,7 +1394,7 @@ AI Types:
   expert       ISMCTS with alpha-beta and determinization (from src/ai/expert.ts)
   gemini       Google Gemini (requires GEMINI_API_KEY)
   openai       OpenAI GPT (requires OPENAI_API_KEY)
-  claude       Anthropic Claude (requires ANTHROPIC_API_KEY)
+  claude       Anthropic Claude (requires ANTHROPIC_API_KEY or VITE_CLAUDE_API_KEY)
 
 Examples:
   # Heuristic vs Random, 100 games
