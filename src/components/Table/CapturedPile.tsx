@@ -84,7 +84,7 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
               className={styles.stackedCard}
               style={{ zIndex: index }}
             >
-              <Card card={card} disabled />
+              <Card card={card} faceDown disabled />
             </div>
           ))
         )}

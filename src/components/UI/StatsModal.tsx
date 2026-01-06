@@ -82,23 +82,23 @@ function OpponentRow({
 }
 
 /** Game row in detail view */
-function GameRow({ game }: { game: GameRecord }) {
+function GameRow({ game, index }: { game: GameRecord; index: number }) {
   const resultClass = game.playerWon ? styles.win : styles.loss;
 
   return (
     <div className={styles.gameRow}>
+      <div className={styles.gameIndex}>#{index}</div>
       <div className={styles.gameDate}>
-        <span>{formatDate(game.timestamp)}</span>
-        <span className={styles.gameTime}>{formatTime(game.timestamp)}</span>
+        {formatDate(game.timestamp)} {formatTime(game.timestamp)}
       </div>
       <div className={styles.gameScore}>
         <span className={resultClass}>
-          {game.playerScore} - {game.opponentScore}
+          {game.playerScore}-{game.opponentScore}
         </span>
       </div>
       <div className={styles.gameResult}>
         <span className={resultClass}>
-          {game.playerWon ? 'WIN' : 'LOSS'}
+          {game.playerWon ? 'W' : 'L'}
         </span>
       </div>
     </div>
@@ -183,7 +183,7 @@ export function StatsModal({
             <div className={styles.header}>
               {selectedOpponent ? (
                 <button className={styles.backButton} onClick={handleBack}>
-                  ‹ Back
+                  ← Back
                 </button>
               ) : (
                 <div />
@@ -228,13 +228,14 @@ export function StatsModal({
 
                   <div className={styles.gamesList}>
                     <div className={styles.gamesHeader}>
+                      <span>#</span>
                       <span>Date</span>
                       <span>Score</span>
-                      <span>Result</span>
+                      <span></span>
                     </div>
                     {selectedGames.length > 0 ? (
-                      selectedGames.map((game) => (
-                        <GameRow key={game.id} game={game} />
+                      [...selectedGames].reverse().map((game, i) => (
+                        <GameRow key={game.id} game={game} index={selectedGames.length - i} />
                       ))
                     ) : (
                       <div className={styles.noGamesMessage}>No games played</div>
