@@ -124,6 +124,20 @@ export function SettingsModal({
               </p>
             </div>
 
+            <div className={styles.setting}>
+              <label className={styles.label}>Sound</label>
+              <div className={styles.toggleRow}>
+                <span className={styles.toggleLabel}>Sound effects</span>
+                <button
+                  className={`${styles.toggle} ${settings.soundEnabled ? styles.on : ''}`}
+                  onClick={() => onUpdateSetting('soundEnabled', !settings.soundEnabled)}
+                  title={settings.soundEnabled ? 'Sound on' : 'Sound off'}
+                >
+                  <span className={styles.toggleKnob} />
+                </button>
+              </div>
+            </div>
+
             <div className={styles.actions}>
               <button className={styles.resetButton} onClick={onResetSettings}>
                 Reset to Defaults

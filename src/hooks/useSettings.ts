@@ -26,6 +26,8 @@ export interface GameSettings {
   useThinking: boolean;
   /** Auto-advance rounds in spectator mode (show summary for 2 seconds then continue) */
   autoAdvanceSpectator: boolean;
+  /** Enable sound effects */
+  soundEnabled: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -41,6 +43,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   claudeModel: 'claude-sonnet-4-5-20250929',
   useThinking: true,
   autoAdvanceSpectator: true,
+  soundEnabled: true,
 };
 
 function loadSettings(): GameSettings {

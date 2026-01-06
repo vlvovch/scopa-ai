@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { useGame } from './hooks/useGame';
 import { useSettings } from './hooks/useSettings';
+import { useSound } from './hooks/useSound';
 import { GameLayout } from './components/Layout/GameLayout';
 import { PlayerHand } from './components/Table/PlayerHand';
 import { TableCards } from './components/Table/TableCards';
@@ -68,6 +69,9 @@ function loadSpectatorModels(): { player1: string; player2: string } {
 function App() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
+  const { play: playSound } = useSound({
+    enabled: settings.soundEnabled,
+  });
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
   const [scopaCelebration, setScopaCelebration] = useState<{ show: boolean; player: PlayerId; playerName?: string }>({
@@ -648,6 +652,7 @@ function App() {
       // Brief delay for levitate animation, then execute and show fly-to-pile
       setTimeout(() => {
         playCard(move);
+        playSound('capture'); // Play capture sound
         // Record last move for LLM context
         lastMoves.current.human = move;
         setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
@@ -661,12 +666,13 @@ function App() {
     } else {
       // No capture, just place
       playCard(move);
+      playSound('play'); // Play card place sound
       // Record last move for LLM context
       lastMoves.current.human = move;
       setSelectedCard(null);
       setSelectedTableCards([]);
     }
-  }, [playCard]);
+  }, [playCard, playSound]);
 
   // Handle card drag end - check if dropped on table
   const handleCardDragEnd = useCallback((card: Card, info: PanInfo) => {
@@ -753,10 +759,11 @@ function App() {
 
     const placeMove = validMoves[0];
     playCard(placeMove);
+    playSound('play'); // Play card place sound
     // Record last move for LLM context
     lastMoves.current.human = placeMove;
     setSelectedCard(null);
-  }, [selectedCard, canOnlyPlace, validMoves, playCard]);
+  }, [selectedCard, canOnlyPlace, validMoves, playCard, playSound]);
 
   // Handle capture selection from modal
   const handleCaptureChoice = useCallback((move: Move) => {
@@ -867,6 +874,8 @@ function App() {
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
           playCard(moveToExecute);
+          // Play appropriate sound
+          playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
           // Record last move for LLM context
           lastMoves.current.cpu = moveToExecute;
           if (moveToExecute.capturedCards.length > 0) {
@@ -891,7 +900,7 @@ function App() {
         cpuAnimationScheduled.current = false;
       }
     };
-  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext]);
+  }, [state.round.currentPlayer, state.status, state.players.cpu.hand, state.round.table, playCard, animatingCard, settings.cpuAI, isSpectatorMode, isSpectatorPaused, spectatorAIs.player2, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext, playSound]);
 
   // Calculate and store round scores when entering roundEnd status
   // Handles final animations and Sette Bello detection for cards awarded at round end
@@ -926,6 +935,7 @@ function App() {
 
       setCelebrationActive(true); // Block input until exit animation completes
       setSetteBelloCelebration({ show: true, player: lastCapturePlayer, playerName });
+      playSound('setteBello'); // Play sette bello celebration sound
       // Auto-hide after display duration to trigger exit animation
       setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
       // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
@@ -953,7 +963,7 @@ function App() {
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [state.status, state.lastRoundScores, state.round.table, state.round.lastCapture, animatingCard, scopaCelebration.show, setteBelloCelebration.show, endRound, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode]);
+  }, [state.status, state.lastRoundScores, state.round.table, state.round.lastCapture, animatingCard, scopaCelebration.show, setteBelloCelebration.show, endRound, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound]);
 
   // Detect scopa and show celebration
   useEffect(() => {
@@ -970,6 +980,7 @@ function App() {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined;
       setCelebrationActive(true); // Block input until exit animation completes
       setScopaCelebration({ show: true, player: 'human', playerName });
+      playSound('scopa'); // Play scopa celebration sound
       // Auto-hide after display duration to trigger exit animation
       setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
       // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
@@ -978,13 +989,14 @@ function App() {
       const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name;
       setCelebrationActive(true); // Block input until exit animation completes
       setScopaCelebration({ show: true, player: 'cpu', playerName });
+      playSound('scopa'); // Play scopa celebration sound
       setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
       // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
       setTimeout(() => setCelebrationActive(false), 2000);
     }
 
     prevScopaCounts.current = { human: currentHumanScopas, cpu: currentCpuScopas };
-  }, [state.players.human.scopaCount, state.players.cpu.scopaCount, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode]);
+  }, [state.players.human.scopaCount, state.players.cpu.scopaCount, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound]);
 
   // Detect sette bello capture and show celebration
   useEffect(() => {
@@ -1014,6 +1026,7 @@ function App() {
       setTimeout(() => {
         setCelebrationActive(true); // Block input until exit animation completes
         setSetteBelloCelebration({ show: true, player: currentOwner, playerName });
+        playSound('setteBello'); // Play sette bello celebration sound
         // Auto-hide after display duration to trigger exit animation
         setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
         // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
@@ -1022,7 +1035,7 @@ function App() {
     }
 
     prevSetteBelloOwner.current = currentOwner;
-  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode]);
+  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound]);
 
   // Helper to reset all token stats
   const resetAllTokenStats = useCallback(() => {
@@ -1221,6 +1234,8 @@ function App() {
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
           playCard(moveToExecute);
+          // Play appropriate sound
+          playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
           // Record last move for LLM context
           lastMoves.current.human = moveToExecute;
           if (moveToExecute.capturedCards.length > 0) {
@@ -1245,7 +1260,7 @@ function App() {
         cpuAnimationScheduled.current = false;
       }
     };
-  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext]);
+  }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext, playSound]);
 
   // If game hasn't started, show start screen
   if (activeState.status === 'idle') {
@@ -1376,12 +1391,14 @@ function App() {
         onComplete={() => {
           if (dealMode === 'table' && isRoundStartDeal) {
             // Phase 1 complete: enter pause phase (table cards appear, no animation)
+            playSound('deal'); // Play deal sound for table cards
             setDealMode('pause');
           } else if (dealMode === 'pause' && isRoundStartDeal) {
             // Pause complete: start dealing hands
             setDealMode('hands');
           } else {
             // Hands phase complete (or mid-round deal): finish dealing
+            playSound('deal'); // Play deal sound for hand cards
             setIsDealing(false);
             setIsRoundStartDeal(false);
           }
