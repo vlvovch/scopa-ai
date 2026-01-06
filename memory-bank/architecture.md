@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-02 (Phase 30: Expert AI & Background Simulation)
+**Last Updated:** 2026-01-06 (Phase 32: Sound Effects & Game Statistics)
 
 ---
 
@@ -40,8 +40,13 @@ scopa-ai-claude/
 │   │       ├── *.webp      # 40 card faces + back (~780KB total)
 │   │       └── suits/      # Suit SVGs from Wikimedia Commons
 │   │           ├── coins.svg, cups.svg, swords.svg, clubs.svg
-│   ├── sounds/             # Audio files (future)
-│   └── vite.svg            # Favicon
+│   ├── sounds/             # Audio files (Kenney.nl CC0)
+│   │   ├── card-fan-1.ogg  # Deal sound
+│   │   ├── card-place-*.ogg # Card play sounds
+│   │   ├── card-shove-*.ogg # Capture sounds
+│   │   ├── card-slide-*.ogg # Slide sounds
+│   │   └── chips-stack-*.ogg # Celebration sounds
+│   └── scopa-icon.svg      # Favicon (gold coin with 7)
 │
 ├── local/                  # Development files (gitignored)
 │   ├── napoletane*.svg     # Source sprite sheets (~105MB)
@@ -94,7 +99,9 @@ scopa-ai-claude/
 │   ├── hooks/              # React hooks
 │   │   ├── useGame.ts      # Main game state hook
 │   │   ├── useSettings.ts  # Settings with localStorage
-│   │   └── useGameWorker.ts # Web Worker management for background simulation
+│   │   ├── useGameWorker.ts # Web Worker management for background simulation
+│   │   ├── useSound.ts     # Sound effects playback
+│   │   └── useStats.ts     # Game statistics with localStorage
 │   │
 │   └── utils/              # Utility functions
 │       └── (storage.ts, cards.ts)
@@ -319,7 +326,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 |----|------|------|------|----------|
 | `randomAI` | Scimmietta | 🐒 | Sync | Picks random valid move |
 | `heuristicAI` | Furbo | 🦊 | Sync | Greedy scoring: Scopa (+1000), Sette Bello (+500), Denari (+50), Prime cards (+30/20/15) |
-| `expertAI` | Esperto | 🧠 | Sync | ISMCTS (Information Set Monte Carlo Tree Search) with determinization and alpha-beta pruning |
+| `expertAI` | Esperto | 🐍 | Sync | ISMCTS (Information Set Monte Carlo Tree Search) with determinization and alpha-beta pruning |
 | `GeminiAI` | Gemini | ✦ (SVG) | Async | LLM-based using Google's Gemini API with structured JSON output |
 | `OpenAIAI` | GPT | Blossom (SVG) | Async | LLM-based using OpenAI's Responses API with structured JSON output |
 | `ClaudeAI` | Claude | 🔮 | Async | LLM-based using Anthropic's Messages API with tool use for structured output |
@@ -339,6 +346,7 @@ Renders AI player names with proper SVG icons in brand colors:
 | `claude`, `claude-singleturn` | Claude logo SVG | Coral (#D97757) | `<ClaudeIcon />` |
 | `random` | 🐒 emoji | - | `<span>` |
 | `heuristic` | 🦊 emoji | - | `<span>` |
+| `expert` | 🐍 emoji | - | `<span>` |
 
 **Icon Components (UI/):**
 - `OpenAIIcon.tsx` - Official OpenAI blossom logo with brand color
@@ -977,9 +985,11 @@ All 30 phases implemented:
 28. Brand Icons & Custom Dropdown (official logos with brand colors, custom dropdown for SVG icons)
 29. Claude Extended Thinking & Structured Outputs (output_format, 10k thinking budget, PersonIcon)
 30. Expert AI & Background Simulation (ISMCTS, Web Worker, instant mode, enhanced GameEndScreen)
+31. CLI Simulation Tool (standalone script for server-side AI battles, JSON output, LLM support)
+32. Sound Effects & Game Statistics (useSound hook, useStats hook, StatsModal, app icon)
 
 **Future Enhancements:**
 - Multiplayer support
-- Sound effects
-- More card themes
-- Game statistics tracking
+- More card themes (Siciliane faces, Piacentine deck)
+- Undo/redo functionality
+- Tutorial mode for new players

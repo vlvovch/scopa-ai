@@ -1,0 +1,314 @@
+/* Statistics Modal Styles */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+}
+
+.modal {
+  background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  padding: var(--space-5);
+  min-width: 340px;
+  max-width: 420px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Header */
+.header {
+  display: grid;
+  grid-template-columns: 60px 1fr 60px;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  text-align: center;
+  color: var(--color-accent);
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+}
+
+.backButton:hover {
+  text-decoration: underline;
+}
+
+/* Content */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 200px;
+}
+
+/* Total stats banner */
+.totalStats {
+  text-align: center;
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.totalStats strong {
+  color: var(--color-text-primary);
+}
+
+/* Opponents list */
+.opponentsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.opponentRow {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: default;
+  transition: all 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.opponentRow.clickable {
+  cursor: pointer;
+}
+
+.opponentRow.clickable:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-accent);
+}
+
+.opponentRow:disabled {
+  opacity: 0.7;
+}
+
+.opponentInfo {
+  flex: 1;
+  font-size: 1rem;
+  color: var(--color-text-primary);
+}
+
+.statsInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.record {
+  font-size: 0.9375rem;
+  color: var(--color-text-primary);
+}
+
+.wins {
+  color: #4ade80;
+}
+
+.losses {
+  color: #f87171;
+}
+
+.winRate {
+  font-size: 0.875rem;
+  color: var(--color-accent);
+  min-width: 40px;
+  text-align: right;
+}
+
+.noGames {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.arrow {
+  margin-left: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: 1.25rem;
+}
+
+/* Empty state */
+.emptyState {
+  text-align: center;
+  padding: var(--space-6) var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.emptyState p {
+  margin: 0;
+}
+
+.hint {
+  font-size: 0.8125rem;
+  margin-top: var(--space-2) !important;
+  opacity: 0.7;
+}
+
+/* Detail view stats */
+.detailStats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.statBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.statLabel {
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  margin-top: var(--space-1);
+}
+
+/* Games list */
+.gamesList {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gamesHeader {
+  display: grid;
+  grid-template-columns: 1fr 80px 60px;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.gameRow {
+  display: grid;
+  grid-template-columns: 1fr 80px 60px;
+  padding: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.875rem;
+}
+
+.gameRow:first-of-type {
+  border-top: none;
+}
+
+.gameDate {
+  display: flex;
+  flex-direction: column;
+  color: var(--color-text-primary);
+}
+
+.gameTime {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.gameScore {
+  text-align: center;
+}
+
+.gameResult {
+  text-align: right;
+  font-weight: 600;
+}
+
+.win {
+  color: #4ade80;
+}
+
+.loss {
+  color: #f87171;
+}
+
+.noGamesMessage {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  justify-content: flex-end;
+}
+
+.clearButton {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.clearButton:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+}
+
+.clearButton.confirm {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: white;
+}
+
+.clearButton.confirm:hover {
+  background: #b91c1c;
+}
+
+.closeButton {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 6px;
+  color: #000;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.closeButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}

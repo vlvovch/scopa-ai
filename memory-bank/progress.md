@@ -1,6 +1,6 @@
 # Scopa WebApp - Development Progress
 
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-06
 
 ---
 
@@ -829,6 +829,60 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 
 ---
 
+## Phase 32: Sound Effects & Game Statistics
+
+- [x] Step 32.1: Add sound effects system with useSound hook - Completed 2026-01-06
+- [x] Step 32.2: Add sound toggle to settings - Completed 2026-01-06
+- [x] Step 32.3: Create new app icon (Sette Bello coin) - Completed 2026-01-06
+- [x] Step 32.4: Change Esperto icon to snake - Completed 2026-01-06
+- [x] Step 32.5: Implement game statistics tracking - Completed 2026-01-06
+- [x] Step 32.6: Create StatsModal with opponent summary and game history - Completed 2026-01-06
+- [x] Step 32.7: Improve custom target score input styling - Completed 2026-01-06
+
+**Notes:**
+
+**Sound Effects System:**
+- Created `src/hooks/useSound.ts` hook for audio playback
+- Audio files from Kenney.nl Casino Audio pack (CC0 license) in `public/sounds/`
+- Sound types: `deal`, `play`, `capture`, `slide`, `scopa`, `setteBello`
+- Sound triggers integrated at key game events:
+  - Deal: when cards are dealt (table + hands)
+  - Play: when a card is placed without capture
+  - Capture: when cards are captured
+  - Scopa: when scopa celebration triggers
+  - Sette Bello: when 7 of Coins is captured
+- Simple on/off toggle in Settings (no volume slider - uses system volume)
+- Random variant selection for natural feel (except deal which uses single file)
+
+**App Icon:**
+- Created `public/scopa-icon.svg` - gold coin with number 7 (Sette Bello theme)
+- Updated `index.html` to use new favicon instead of vite.svg
+
+**Esperto Icon Change:**
+- Changed Esperto (Expert AI) icon from 🧠 (brain) to 🐍 (snake)
+- Updated in `src/ai/index.ts` and `src/components/UI/AIPlayerLabel.tsx`
+
+**Game Statistics System:**
+- Created `src/hooks/useStats.ts` for localStorage-persisted statistics
+- Tracks: opponent type, model, scores, rounds played, timestamp
+- Stats recorded only for Player vs CPU games (not spectator mode)
+- Created `src/components/UI/StatsModal.tsx` with two views:
+  - Summary view: W-L record and win % for each opponent
+  - Detail view: game history with date, time, score, result
+- CPU players (Scimmietta, Furbo, Esperto) always shown
+- LLM players only shown if games were played against them
+- Added Stats button (bar chart icon) to GameControls
+- "Clear All" button with confirmation to reset stats
+
+**UI Polish:**
+- Custom target score input now has distinct underline style (dashed border)
+- Differentiates it from preset buttons (11, 16, 21)
+- Solid gold underline when selected/focused
+
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -859,3 +913,6 @@ The Scopa game is now fully playable with:
 - Compact, polished StartScreen UI
 - Token usage display for LLM AI games (Gemini, OpenAI, and Claude)
 - CLI simulation tool for long-running server-side AI battles
+- Sound effects for card dealing, playing, capturing, and celebrations
+- Game statistics tracking with W-L records against each opponent
+- Custom Sette Bello app icon (gold coin with 7)

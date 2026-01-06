@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } fr
 import { useGame } from './hooks/useGame';
 import { useSettings } from './hooks/useSettings';
 import { useSound } from './hooks/useSound';
+import { useStats } from './hooks/useStats';
 import { GameLayout } from './components/Layout/GameLayout';
 import { PlayerHand } from './components/Table/PlayerHand';
 import { TableCards } from './components/Table/TableCards';
@@ -13,6 +14,7 @@ import { GameEndScreen } from './components/UI/GameEndScreen';
 import { ScopaCelebration } from './components/UI/ScopaCelebration';
 import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
+import { StatsModal } from './components/UI/StatsModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
@@ -72,6 +74,13 @@ function App() {
   const { play: playSound } = useSound({
     enabled: settings.soundEnabled,
   });
+  const {
+    recordGame,
+    getOpponentStats,
+    getGamesAgainst,
+    getAllDisplayOpponents,
+    clearStats,
+  } = useStats();
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
   const [scopaCelebration, setScopaCelebration] = useState<{ show: boolean; player: PlayerId; playerName?: string }>({
@@ -86,6 +95,7 @@ function App() {
   // This prevents user input during the full celebration cycle
   const [celebrationActive, setCelebrationActive] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
   // Capture choice modal state (shown when multiple capture options exist)
@@ -1167,6 +1177,47 @@ function App() {
     }
   }, [isSpectatorMode]);
 
+  // Handle opening stats modal
+  const handleOpenStats = useCallback(() => {
+    setShowStats(true);
+  }, []);
+
+  // Record game stats when game ends (only for player vs CPU mode)
+  const gameRecorded = useRef(false);
+  useEffect(() => {
+    // Only record for player vs CPU games
+    if (activeState.gameMode !== 'pvsCPU') {
+      gameRecorded.current = false;
+      return;
+    }
+
+    // Record when game reaches 'gameEnd' status (only once)
+    if (activeState.status === 'gameEnd' && !gameRecorded.current) {
+      const opponentModel = isOpenAIAI(settings.cpuAI)
+        ? settings.openaiModel
+        : isClaudeAI(settings.cpuAI)
+          ? settings.claudeModel
+          : isGeminiAI(settings.cpuAI)
+            ? settings.geminiModel
+            : undefined;
+
+      recordGame(
+        settings.cpuAI,
+        activeState.scores.human,
+        activeState.scores.cpu,
+        activeState.roundNumber,
+        activeState.targetScore,
+        opponentModel
+      );
+      gameRecorded.current = true;
+    }
+
+    // Reset flag when game starts fresh
+    if (activeState.status === 'idle') {
+      gameRecorded.current = false;
+    }
+  }, [activeState.status, activeState.gameMode, activeState.scores, activeState.roundNumber, activeState.targetScore, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, recordGame, isOpenAIAI, isClaudeAI, isGeminiAI]);
+
   // Human turn auto-play in spectator mode (with animation)
   // Uses same cpuAnimationScheduled ref since only one player moves at a time
   useEffect(() => {
@@ -1411,6 +1462,14 @@ function App() {
         onUpdateSetting={updateSetting}
         onResetSettings={resetSettings}
       />
+      <StatsModal
+        isOpen={showStats}
+        onClose={() => setShowStats(false)}
+        opponents={getAllDisplayOpponents()}
+        getOpponentStats={getOpponentStats}
+        getGamesAgainst={getGamesAgainst}
+        onClearStats={clearStats}
+      />
       <CaptureChoiceModal
         isOpen={captureChoiceModal.isOpen}
         playedCard={captureChoiceModal.playedCard}
@@ -1498,6 +1557,7 @@ function App() {
             <GameControls
               onNewGame={handleNewGame}
               onOpenSettings={handleOpenSettings}
+              onOpenStats={handleOpenStats}
             />
           </div>
         }
