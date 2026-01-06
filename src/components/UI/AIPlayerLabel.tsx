@@ -36,7 +36,7 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
     case 'heuristic':
       return <span style={{ fontSize: '1em' }}>🦊</span>;
     case 'expert':
-      return <span style={{ fontSize: '1em' }}>🧠</span>;
+      return <span style={{ fontSize: '1em' }}>🐍</span>;
     default:
       return null;
   }

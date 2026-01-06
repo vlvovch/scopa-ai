@@ -46,7 +46,7 @@ export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'openai' 
 export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean; icon: string }> = {
   random: { name: 'Scimmietta', description: 'Plays randomly like a little monkey', icon: '🐒' },
   heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures', icon: '🦊' },
-  expert: { name: 'Esperto', description: 'Advanced CPU using Monte Carlo tree search', icon: '🧠' },
+  expert: { name: 'Esperto', description: 'Advanced CPU using Monte Carlo tree search', icon: '🐍' },
   gemini: { name: 'Gemini 💬', description: 'Google AI with multi-turn chat (remembers context)', isAsync: true, icon: '✦' },
   'gemini-singleturn': { name: 'Gemini 1️⃣', description: 'Google AI with single requests (full history each turn)', isAsync: true, icon: '✦' },
   openai: { name: 'GPT 💬', description: 'OpenAI GPT with multi-turn conversation (remembers context)', isAsync: true, icon: '⬡' },
