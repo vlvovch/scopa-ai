@@ -135,7 +135,7 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
   const textIcons: Record<ExtendedAIType, string> = {
     random: '🐒',
     heuristic: '🦊',
-    expert: '🧠',
+    expert: '🐍',
     gemini: '✦',
     'gemini-singleturn': '✦',
     openai: '⬡',
