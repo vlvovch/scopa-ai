@@ -7,6 +7,7 @@ import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { getClaudeApiKey } from '../hooks/useSettings';
 
 // Extended thinking configuration
 const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking
@@ -462,18 +463,14 @@ class ClaudeAI implements AsyncAIPlayer {
 }
 
 /**
- * Check if Claude API key is available
+ * Check if Claude API key is available (user-provided or env var)
  */
 export function isClaudeAvailable(): boolean {
-  return !!import.meta.env.VITE_CLAUDE_API_KEY;
+  return !!getClaudeApiKey();
 }
 
-/**
- * Get the Claude API key from environment
- */
-export function getClaudeApiKey(): string | null {
-  return import.meta.env.VITE_CLAUDE_API_KEY || null;
-}
+// Re-export for backwards compatibility
+export { getClaudeApiKey };
 
 /**
  * Create a Claude AI player instance

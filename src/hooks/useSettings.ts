@@ -28,6 +28,12 @@ export interface GameSettings {
   autoAdvanceSpectator: boolean;
   /** Enable sound effects */
   soundEnabled: boolean;
+  /** User-provided Gemini API key (BYOK) */
+  geminiApiKey: string;
+  /** User-provided OpenAI API key (BYOK) */
+  openaiApiKey: string;
+  /** User-provided Claude API key (BYOK) */
+  claudeApiKey: string;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -44,6 +50,9 @@ const DEFAULT_SETTINGS: GameSettings = {
   useThinking: true,
   autoAdvanceSpectator: true,
   soundEnabled: true,
+  geminiApiKey: '',
+  openaiApiKey: '',
+  claudeApiKey: '',
 };
 
 function loadSettings(): GameSettings {
@@ -57,6 +66,39 @@ function loadSettings(): GameSettings {
     console.warn('Failed to load settings from localStorage:', e);
   }
   return DEFAULT_SETTINGS;
+}
+
+/**
+ * Get Gemini API key: user-provided (localStorage) > env var
+ */
+export function getGeminiApiKey(): string | null {
+  const settings = loadSettings();
+  if (settings.geminiApiKey) {
+    return settings.geminiApiKey;
+  }
+  return import.meta.env.VITE_GEMINI_API_KEY || null;
+}
+
+/**
+ * Get OpenAI API key: user-provided (localStorage) > env var
+ */
+export function getOpenAIApiKey(): string | null {
+  const settings = loadSettings();
+  if (settings.openaiApiKey) {
+    return settings.openaiApiKey;
+  }
+  return import.meta.env.VITE_OPENAI_API_KEY || null;
+}
+
+/**
+ * Get Claude API key: user-provided (localStorage) > env var
+ */
+export function getClaudeApiKey(): string | null {
+  const settings = loadSettings();
+  if (settings.claudeApiKey) {
+    return settings.claudeApiKey;
+  }
+  return import.meta.env.VITE_CLAUDE_API_KEY || null;
 }
 
 function saveSettings(settings: GameSettings): void {

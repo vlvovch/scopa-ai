@@ -5,6 +5,7 @@ import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { getOpenAIApiKey } from '../hooks/useSettings';
 
 // Model info returned from API
 export interface OpenAIModelInfo {
@@ -439,18 +440,14 @@ class OpenAIAI implements AsyncAIPlayer {
 }
 
 /**
- * Check if OpenAI API key is available
+ * Check if OpenAI API key is available (user-provided or env var)
  */
 export function isOpenAIAvailable(): boolean {
-  return !!import.meta.env.VITE_OPENAI_API_KEY;
+  return !!getOpenAIApiKey();
 }
 
-/**
- * Get the OpenAI API key from environment
- */
-export function getOpenAIApiKey(): string | null {
-  return import.meta.env.VITE_OPENAI_API_KEY || null;
-}
+// Re-export for backwards compatibility
+export { getOpenAIApiKey };
 
 /**
  * Create an OpenAI AI player instance

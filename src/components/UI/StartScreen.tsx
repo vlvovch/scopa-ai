@@ -1,6 +1,6 @@
 // Step 8.6: StartScreen Component
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AI_INFO, isGeminiAvailable, isOpenAIAvailable, isClaudeAvailable, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isOpenAIAIType, isClaudeAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
 import { CustomDropdown } from './CustomDropdown';
@@ -101,10 +101,10 @@ export function StartScreen({
   const [loadingOpenAIModels, setLoadingOpenAIModels] = useState(false);
   const [loadingClaudeModels, setLoadingClaudeModels] = useState(false);
 
-  // Check API availability
-  const geminiAvailable = useMemo(() => isGeminiAvailable(), []);
-  const openaiAvailable = useMemo(() => isOpenAIAvailable(), []);
-  const claudeAvailable = useMemo(() => isClaudeAvailable(), []);
+  // Check API availability (called on each render to pick up settings changes)
+  const geminiAvailable = isGeminiAvailable();
+  const openaiAvailable = isOpenAIAvailable();
+  const claudeAvailable = isClaudeAvailable();
   const aiAvailable = geminiAvailable || openaiAvailable || claudeAvailable;
 
   // Default AI provider based on availability
@@ -503,6 +503,15 @@ export function StartScreen({
             <li>First to {selectedScore} points wins!</li>
           </ul>
         </div>
+
+        <footer className={styles.footer}>
+          <p>
+            Made by <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a>
+          </p>
+          <p>
+            Built with <a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>
+          </p>
+        </footer>
       </div>
     </div>
   );

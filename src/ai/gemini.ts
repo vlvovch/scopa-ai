@@ -5,6 +5,7 @@ import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { getGeminiApiKey } from '../hooks/useSettings';
 
 // Model info returned from API
 export interface GeminiModelInfo {
@@ -453,18 +454,14 @@ class GeminiAI implements AsyncAIPlayer {
 }
 
 /**
- * Check if Gemini API key is available
+ * Check if Gemini API key is available (user-provided or env var)
  */
 export function isGeminiAvailable(): boolean {
-  return !!import.meta.env.VITE_GEMINI_API_KEY;
+  return !!getGeminiApiKey();
 }
 
-/**
- * Get the Gemini API key from environment
- */
-export function getGeminiApiKey(): string | null {
-  return import.meta.env.VITE_GEMINI_API_KEY || null;
-}
+// Re-export for backwards compatibility
+export { getGeminiApiKey };
 
 /**
  * Create a Gemini AI player instance
