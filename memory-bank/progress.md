@@ -1020,6 +1020,46 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 
 ---
 
+## Phase 36: UI Polish & Rules Modal
+
+- [x] Step 36.1: Fix ScoreBoard layout shift (remove bold on current player) - Completed 2026-01-06
+- [x] Step 36.2: Add PersonIcon to RoundEndScreen - Completed 2026-01-06
+- [x] Step 36.3: Add PersonIcon to GameEndScreen - Completed 2026-01-06
+- [x] Step 36.4: Create RulesModal component with comprehensive Scopa rules - Completed 2026-01-06
+- [x] Step 36.5: Add rules button to GameControls - Completed 2026-01-06
+- [x] Step 36.6: Add "View Full Rules" link to StartScreen - Completed 2026-01-06
+- [x] Step 36.7: Add footer to GameLayout (in-game) - Completed 2026-01-06
+- [x] Step 36.8: Update footer styling (smaller, bold links) - Completed 2026-01-06
+- [x] Step 36.9: Make footer position:fixed for zoom compatibility - Completed 2026-01-06
+- [x] Step 36.10: Fix PlayerHand layout shift (min-width) - Completed 2026-01-06
+- [x] Step 36.11: Increase "Your turn" label spacing - Completed 2026-01-06
+
+**Notes:**
+
+**Rules Modal:**
+- Created `RulesModal.tsx` with comprehensive Scopa rules
+- Accessible from GameControls (question mark button) and StartScreen ("View Full Rules" link)
+- Covers: deck composition, setup, gameplay rules, mandatory capture, single card priority, scopa, scoring, primiera values
+- Scrollable content with styled sections and tables
+
+**Layout Stability Fixes:**
+- ScoreBoard: Removed `font-weight: bold` from `.current` class - only color changes now
+- PlayerHand: Added `min-width: 340px` to prevent shrinking when cards are played
+- Controls: Added `marginLeft: 16px` for better spacing from hand
+
+**PersonIcon Consistency:**
+- Added to RoundEndScreen `renderPlayer1Name()` for human player display
+- Added to GameEndScreen `renderPlayer1Name()` and `player1Short` for table headers
+- Now consistent across ScoreBoard, RoundEndScreen, and GameEndScreen
+
+**Footer:**
+- Updated format: `© 2026 Volodymyr Vovchenko. Built with help from Claude Code`
+- Styling: 11px font, bold links, 50% opacity, gold hover
+- GameLayout footer: `position: fixed` at bottom for zoom compatibility
+- StartScreen footer: Same styling, inline with existing layout
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -1061,3 +1101,7 @@ The Scopa game is now fully playable with:
 - Error badge display with fallback to heuristic AI
 - AI availability computed from React state (race condition fix)
 - AI hint on StartScreen when no providers available
+- In-game rules modal with comprehensive Scopa rules
+- Consistent PersonIcon across all screens (ScoreBoard, RoundEndScreen, GameEndScreen)
+- Copyright footer on StartScreen and in-game (position:fixed for zoom compatibility)
+- Layout stability improvements (no shift on turn change or card play)

@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-06 (Phase 34: BYOK API Key Management & Validation)
+**Last Updated:** 2026-01-06 (Phase 36: UI Polish & Rules Modal)
 
 ---
 
@@ -752,7 +752,8 @@ const response = await client.beta.messages.create({
 | `UI/CpuCardAnimation.tsx` | Card play animation (3D flip reveal, move, capture indicator on player's side) |
 | `UI/DealingAnimation.tsx` | Two-phase dealing animation (table cards, then player hands) |
 | `UI/SettingsModal.tsx` | Settings panel with target score, animation speed options |
-| `UI/GameControls.tsx` | New game and settings icon buttons |
+| `UI/RulesModal.tsx` | Comprehensive Scopa rules display (deck, gameplay, scoring, primiera) |
+| `UI/GameControls.tsx` | New game, rules, stats, and settings icon buttons |
 
 ### Layout Components
 
@@ -992,6 +993,8 @@ All 30 phases implemented:
 
 33. BYOK (Bring Your Own Key) Support
 34. API Key Validation & Error Handling
+35. BYOK Deployment (Caddy config, deployment script)
+36. UI Polish & Rules Modal
 
 **Future Enhancements:**
 - Multiplayer support
@@ -1172,5 +1175,55 @@ On first API key input each session, a warning popup appears:
 - Not transmitted to any server
 - API calls go directly from browser to AI provider
 - Dismissal stored in sessionStorage (reappears next session)
+
+---
+
+## UI Polish (Phase 36)
+
+### Rules Modal
+
+Comprehensive in-game rules accessible from:
+- **GameControls**: Question mark (?) button
+- **StartScreen**: "View Full Rules" link under Quick Rules
+
+**RulesModal.tsx** displays:
+- Overview (what is Scopa)
+- The Deck (40 cards, 4 suits: Coins, Cups, Swords, Clubs)
+- Setup (3 cards each, 4 on table)
+- Gameplay (capture rules, mandatory capture, single card priority)
+- Scopa (sweep) explanation
+- Scoring table (Carte, Denari, Sette Bello, Primiera, Scopa)
+- Primiera values (7=21, 6=18, A=16, 5=15, 4=14, 3=13, 2=12, 8-10=10)
+
+### Layout Stability
+
+**ScoreBoard** - Removed `font-weight: bold` from current player indicator to prevent layout shift. Only color changes to gold now.
+
+**PlayerHand** - Added `min-width: 340px` to prevent layout shift when cards are played (hand shrinking causes adjacent elements to move).
+
+**Controls spacing** - Added `marginLeft: 16px` to controls container for better spacing between hand and "Your turn" label.
+
+### PersonIcon Consistency
+
+Added PersonIcon (human silhouette) to identify human player across all screens:
+- ScoreBoard (already had it)
+- RoundEndScreen (table headers, card column labels)
+- GameEndScreen (final scores, category breakdown, round history)
+
+### Footer
+
+Added copyright footer to both StartScreen and in-game layout:
+
+```
+© 2026 Volodymyr Vovchenko. Built with help from Claude Code
+```
+
+**Styling:**
+- Font size: 0.6875rem (11px)
+- Links are bold (`font-weight: 600`)
+- Opacity: 0.5 for subtlety
+- Links highlight gold on hover
+
+**GameLayout footer** is `position: fixed` at viewport bottom to remain visible at any zoom level.
 
 ---
