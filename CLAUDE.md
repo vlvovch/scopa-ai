@@ -10,7 +10,7 @@ This is a **design documentation repository** for the Scopa WebApp project - a w
 
 ```
 scopa-ai-claude/
-└── memory-bank/
+└── docs/
     ├── architecture.md           # System architecture (update after milestones)
     ├── progress.md               # Development progress tracking
     ├── game-design-document.md   # Complete game rules, UI design, scoring
@@ -31,10 +31,10 @@ scopa-ai-claude/
 - **implementation-plan.md**: Phased MVP implementation with validation tests for each step. Covers game engine, UI components, animations, and state management.
 
 > **IMPORTANT**: Before writing code:
-> 1. Read `memory-bank/architecture.md` for system architecture
-> 2. Read `memory-bank/game-design-document.md` for game rules
+> 1. Read `docs/architecture.md` for system architecture
+> 2. Read `docs/game-design-document.md` for game rules
 >
-> After completing a major feature or milestone, update `memory-bank/architecture.md`.
+> After completing a major feature or milestone, update `docs/architecture.md`.
 
 ## Game Rules Quick Reference
 
