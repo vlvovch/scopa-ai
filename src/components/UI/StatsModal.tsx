@@ -81,15 +81,34 @@ function OpponentRow({
   );
 }
 
+/** Format AI mode indicator */
+function formatAIMode(game: GameRecord): string | null {
+  // Only show for LLM games
+  if (game.isMultiTurn === undefined) return null;
+
+  const turnMode = game.isMultiTurn ? '💬' : '1️⃣';
+  const thinkingMode = game.useThinking ? '🧠' : '';
+  return `${turnMode}${thinkingMode}`;
+}
+
 /** Game row in detail view */
 function GameRow({ game, index }: { game: GameRecord; index: number }) {
   const resultClass = game.playerWon ? styles.win : styles.loss;
+  const aiMode = formatAIMode(game);
 
   return (
     <div className={styles.gameRow}>
       <div className={styles.gameIndex}>#{index}</div>
       <div className={styles.gameDate}>
         {formatDate(game.timestamp)} {formatTime(game.timestamp)}
+        {aiMode && (
+          <span
+            className={styles.gameMode}
+            title={`${game.isMultiTurn ? 'Multi-turn' : 'Single-turn'}${game.useThinking ? ' + Thinking' : ''}`}
+          >
+            {aiMode}
+          </span>
+        )}
       </div>
       <div className={styles.gameScore}>
         <span className={resultClass}>

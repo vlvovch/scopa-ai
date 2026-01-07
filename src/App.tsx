@@ -663,6 +663,10 @@ function App() {
       setTimeout(() => {
         playCard(move);
         playSound('capture'); // Play capture sound
+        // Play coin sound if any denari added to pile (played card or captured cards)
+        if (move.cardPlayed.suit === 'coins' || move.capturedCards.some(c => c.suit === 'coins')) {
+          playSound('coin');
+        }
         // Record last move for LLM context
         lastMoves.current.human = move;
         setAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
@@ -886,6 +890,11 @@ function App() {
           playCard(moveToExecute);
           // Play appropriate sound
           playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
+          // Play coin sound if any denari captured (including the played card)
+          if (moveToExecute.capturedCards.length > 0 &&
+              (moveToExecute.cardPlayed.suit === 'coins' || moveToExecute.capturedCards.some(c => c.suit === 'coins'))) {
+            playSound('coin');
+          }
           // Record last move for LLM context
           lastMoves.current.cpu = moveToExecute;
           if (moveToExecute.capturedCards.length > 0) {
@@ -933,8 +942,8 @@ function App() {
     const setteBelloOnTable = state.round.table.some(c => c.suit === 'coins' && c.value === 7);
     const lastCapturePlayer = state.round.lastCapture;
 
-    // Skip celebration in instant mode
-    if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null && !isInstantMode) {
+    // Skip celebration in instant mode, or if already showing
+    if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null && !isInstantMode && !setteBelloCelebration.show) {
       // Sette Bello will be awarded in final hand - trigger celebration
       const playerName = lastCapturePlayer === 'human'
         ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
@@ -1027,10 +1036,14 @@ function App() {
     }
 
     // If someone just captured it (previous was null, now someone has it)
-    if (prevSetteBelloOwner.current === null && currentOwner !== null) {
+    // Also check celebration isn't already showing to prevent double-trigger
+    if (prevSetteBelloOwner.current === null && currentOwner !== null && !setteBelloCelebration.show) {
       const playerName = currentOwner === 'human'
         ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
         : (isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name);
+
+      // Mark as captured immediately to prevent re-triggering from other effect
+      prevSetteBelloOwner.current = currentOwner;
 
       // Small delay to let capture animation start first
       setTimeout(() => {
@@ -1045,7 +1058,7 @@ function App() {
     }
 
     prevSetteBelloOwner.current = currentOwner;
-  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound]);
+  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound, setteBelloCelebration.show]);
 
   // Helper to reset all token stats
   const resetAllTokenStats = useCallback(() => {
@@ -1201,22 +1214,34 @@ function App() {
             ? settings.geminiModel
             : undefined;
 
+      // Determine AI mode for LLM opponents
+      const isLLMOpponent = isLLMAI(settings.cpuAI);
+      const isMultiTurn = isLLMOpponent
+        ? !settings.cpuAI.includes('singleturn')
+        : undefined;
+      const useThinking = isLLMOpponent ? settings.useThinking : undefined;
+
       recordGame(
         settings.cpuAI,
         activeState.scores.human,
         activeState.scores.cpu,
         activeState.roundNumber,
         activeState.targetScore,
-        opponentModel
+        opponentModel,
+        isMultiTurn,
+        useThinking
       );
       gameRecorded.current = true;
+
+      // Play victory celebration sound
+      playSound('victory');
     }
 
     // Reset flag when game starts fresh
     if (activeState.status === 'idle') {
       gameRecorded.current = false;
     }
-  }, [activeState.status, activeState.gameMode, activeState.scores, activeState.roundNumber, activeState.targetScore, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, recordGame, isOpenAIAI, isClaudeAI, isGeminiAI]);
+  }, [activeState.status, activeState.gameMode, activeState.scores, activeState.roundNumber, activeState.targetScore, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, settings.useThinking, recordGame, isOpenAIAI, isClaudeAI, isGeminiAI, isLLMAI, playSound]);
 
   // Human turn auto-play in spectator mode (with animation)
   // Uses same cpuAnimationScheduled ref since only one player moves at a time
@@ -1287,6 +1312,11 @@ function App() {
           playCard(moveToExecute);
           // Play appropriate sound
           playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
+          // Play coin sound if any denari captured (including the played card)
+          if (moveToExecute.capturedCards.length > 0 &&
+              (moveToExecute.cardPlayed.suit === 'coins' || moveToExecute.capturedCards.some(c => c.suit === 'coins'))) {
+            playSound('coin');
+          }
           // Record last move for LLM context
           lastMoves.current.human = moveToExecute;
           if (moveToExecute.capturedCards.length > 0) {

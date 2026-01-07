@@ -10,7 +10,9 @@ export type SoundType =
   | 'capture'   // Capturing cards
   | 'slide'     // Card sliding
   | 'scopa'     // Scopa celebration
-  | 'setteBello'; // Sette Bello celebration
+  | 'setteBello' // Sette Bello celebration
+  | 'victory'   // Game end victory
+  | 'coin';     // Denari (coin) captured
 
 // Sound file mapping with variants for variety
 const SOUND_FILES: Record<SoundType, string[]> = {
@@ -18,8 +20,10 @@ const SOUND_FILES: Record<SoundType, string[]> = {
   play: ['./sounds/card-place-1.ogg', './sounds/card-place-2.ogg'],
   capture: ['./sounds/card-shove-1.ogg', './sounds/card-shove-2.ogg'],
   slide: ['./sounds/card-slide-1.ogg', './sounds/card-slide-2.ogg'],
-  scopa: ['./sounds/chips-stack-1.ogg', './sounds/chips-stack-4.ogg'],
-  setteBello: ['./sounds/chips-stack-1.ogg', './sounds/chips-stack-4.ogg'],
+  scopa: ['./sounds/broom-sweep.mp3'],
+  setteBello: ['./sounds/chips-stack-4.ogg'],
+  victory: ['./sounds/chips-stack-1.ogg', './sounds/chips-stack-4.ogg'],
+  coin: ['./sounds/coin-dropped-81172.mp3'],
 };
 
 // Preloaded audio elements cache

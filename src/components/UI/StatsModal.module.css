@@ -241,6 +241,13 @@
   color: var(--color-text-secondary);
 }
 
+.gameMode {
+  margin-left: var(--space-2);
+  font-size: 0.7rem;
+  opacity: 0.9;
+  cursor: help;
+}
+
 .gameScore {
   text-align: center;
 }

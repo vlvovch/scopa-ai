@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-06 (Phase 32: Sound Effects & Game Statistics)
+**Last Updated:** 2026-01-06 (Phase 33: Sound Enhancements & Stats Improvements)
 
 ---
 
@@ -40,12 +40,14 @@ scopa-ai-claude/
 │   │       ├── *.webp      # 40 card faces + back (~780KB total)
 │   │       └── suits/      # Suit SVGs from Wikimedia Commons
 │   │           ├── coins.svg, cups.svg, swords.svg, clubs.svg
-│   ├── sounds/             # Audio files (Kenney.nl CC0)
+│   ├── sounds/             # Audio files (Kenney.nl CC0 + custom)
 │   │   ├── card-fan-1.ogg  # Deal sound
 │   │   ├── card-place-*.ogg # Card play sounds
 │   │   ├── card-shove-*.ogg # Capture sounds
 │   │   ├── card-slide-*.ogg # Slide sounds
-│   │   └── chips-stack-*.ogg # Celebration sounds
+│   │   ├── chips-stack-*.ogg # Celebration sounds (victory, setteBello)
+│   │   ├── coin-dropped-81172.mp3 # Denari capture sound
+│   │   └── broom-sweep.mp3 # Scopa celebration (first sweep only)
 │   └── scopa-icon.svg      # Favicon (gold coin with 7)
 │
 ├── local/                  # Development files (gitignored)

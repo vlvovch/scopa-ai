@@ -23,6 +23,10 @@ export interface GameRecord {
   targetScore: number;
   /** Timestamp when game ended */
   timestamp: number;
+  /** Whether multi-turn mode was used (for LLM AIs) */
+  isMultiTurn?: boolean;
+  /** Whether thinking/reasoning was enabled (for LLM AIs) */
+  useThinking?: boolean;
 }
 
 /** Summary stats for an opponent */
@@ -112,7 +116,9 @@ export function useStats() {
     opponentScore: number,
     roundsPlayed: number,
     targetScore: number,
-    opponentModel?: string
+    opponentModel?: string,
+    isMultiTurn?: boolean,
+    useThinking?: boolean
   ) => {
     const record: GameRecord = {
       id: generateGameId(),
@@ -124,6 +130,8 @@ export function useStats() {
       roundsPlayed,
       targetScore,
       timestamp: Date.now(),
+      isMultiTurn,
+      useThinking,
     };
 
     setStats(prev => ({

@@ -883,6 +883,68 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 
 ---
 
+## Phase 33: Sound Enhancements & Stats Improvements
+
+- [x] Step 33.1: Add victory sound for game end - Completed 2026-01-06
+- [x] Step 33.2: Add coin sound for denari captures - Completed 2026-01-06
+- [x] Step 33.3: Add broom sweep sound for Scopa celebration - Completed 2026-01-06
+- [x] Step 33.4: Fix Sette Bello double-trigger issue - Completed 2026-01-06
+- [x] Step 33.5: Improve stats modal game history UI - Completed 2026-01-06
+- [x] Step 33.6: Add AI mode tracking to game stats - Completed 2026-01-06
+- [x] Step 33.7: Make captured pile cards face down - Completed 2026-01-06
+
+**Notes:**
+
+**Sound Effects Enhancements:**
+- Added `victory` sound type for game end celebration (chips-stack sounds)
+- Added `coin` sound type for denari captures using `coin-dropped-81172.mp3`
+- Coin sound triggers when:
+  - Any captured cards have coins suit, OR
+  - The played card has coins suit (and captures something)
+- Added `broom-sweep.mp3` for Scopa celebration (cut to first sweep, ~0.65s)
+- Differentiated celebration sounds:
+  - `chips-stack-1.ogg` - coin capture
+  - `chips-stack-4.ogg` - scopa, setteBello celebrations
+  - Both variants for victory (random selection)
+
+**Sette Bello Fix:**
+- Fixed double-trigger bug where celebration could fire twice
+- Added `!setteBelloCelebration.show` guard to both detection effects
+- Moved ref update to happen immediately (before setTimeout) in capture effect
+- Two effects now properly mutually exclusive:
+  - Capture during play effect (in captured pile)
+  - Round end effect (still on table, awarded to last capture player)
+
+**Stats Modal Improvements:**
+- Fixed alignment of DATE, SCORE, RESULT columns
+- Smaller font (0.75rem for rows, 0.6875rem for headers)
+- Date and time on one line (was two lines before)
+- Added match counter (#1, #2, etc.) column
+- Reverse chronological order (newest games first)
+- Fixed Back button character (← instead of ‹)
+- Grid now 4 columns: # | Date/Time | Score | W/L
+
+**AI Mode Tracking:**
+- Added `isMultiTurn` and `useThinking` fields to GameRecord
+- Updated `recordGame()` to accept AI mode parameters
+- Mode determined from AI type and settings:
+  - `isMultiTurn`: true for 'gemini'/'openai'/'claude', false for '-singleturn' variants
+  - `useThinking`: from `settings.useThinking` for LLM opponents
+- Display in game history:
+  - 💬 = Multi-turn mode (chat with context)
+  - 1️⃣ = Single-turn mode (full history each turn)
+  - 🧠 = Thinking/reasoning enabled (appended after turn mode)
+- Tooltip shows full description on hover
+- Only displayed for LLM opponents (not CPU AIs)
+
+**Captured Pile:**
+- Cards in captured pile now display face down
+- Added `faceDown` prop to Card component in CapturedPile
+
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -914,5 +976,8 @@ The Scopa game is now fully playable with:
 - Token usage display for LLM AI games (Gemini, OpenAI, and Claude)
 - CLI simulation tool for long-running server-side AI battles
 - Sound effects for card dealing, playing, capturing, and celebrations
+- Distinct sounds: coin drop for denari, broom sweep for scopa, chips for victory
 - Game statistics tracking with W-L records against each opponent
+- AI mode tracking in stats (multi-turn/single-turn, thinking enabled)
 - Custom Sette Bello app icon (gold coin with 7)
+- Face-down cards in captured piles for cleaner visual
