@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#1B5E20" />
   <meta name="description" content="Play the classic Italian card game Scopa against AI opponents" />
   <link rel="manifest" href="./manifest.json" />
-  <title>Scopa</title>
+  <title>Scopa AI</title>
 
   <!-- Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=%VITE_GA_ID%"></script>
@@ -39,15 +39,10 @@
       });
     }
 
-    // PWA installation
+    // PWA installation tracking
     window.addEventListener('appinstalled', () => {
-      console.log('PWA installed');
-      if (typeof gtag === 'function') {
-        gtag('event', 'pwa_install');
-      }
-      if (typeof umami === 'object') {
-        umami.track('pwa_install');
-      }
+      if (typeof gtag === 'function') gtag('event', 'pwa_install');
+      if (window.umami?.track) window.umami.track('pwa_install');
     });
   </script>
 </body>
