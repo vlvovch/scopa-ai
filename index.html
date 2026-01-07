@@ -4,8 +4,12 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/scopa-icon.svg" />
+  <link rel="apple-touch-icon" href="/pwa-192.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B5E20" />
+  <meta name="description" content="Play the classic Italian card game Scopa against AI opponents" />
+  <link rel="manifest" href="/manifest.json" />
   <title>Scopa</title>
 
   <!-- Google Analytics -->
@@ -24,6 +28,17 @@
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Register Service Worker for offline support -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('SW registered'))
+          .catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
 </body>
 
 </html>

@@ -33,9 +33,10 @@
   --duration-normal: 300ms;
   --duration-slow: 500ms;
 
-  /* Card dimensions (2:3 ratio) - base desktop sizes */
-  --card-width: 70px;
-  --card-height: 115px;
+  /* Card dimensions (2:3 ratio) - balanced for 100-125% zoom */
+  /* At 125% zoom, 66px renders as ~82px, 108px renders as ~135px */
+  --card-width: clamp(48px, 8.5vh, 66px);
+  --card-height: clamp(78px, 14vh, 108px);
   --card-border-radius: 6px;
 
   /* Mini card dimensions for RoundEndScreen */

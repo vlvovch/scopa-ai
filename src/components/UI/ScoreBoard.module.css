@@ -3,9 +3,9 @@
 .scoreBoard {
   background: rgba(0, 0, 0, 0.4);
   border-radius: 8px;
-  padding: var(--space-4);
+  padding: var(--space-3);
   color: var(--color-text-primary);
-  min-width: 220px;
+  min-width: clamp(140px, 16vw, 200px);
 }
 
 .header {

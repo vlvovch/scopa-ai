@@ -18,7 +18,7 @@
   align-items: center;
   gap: var(--space-3);
   padding: 8px;
-  min-height: 100px;
+  min-height: calc(var(--card-height) + 16px);
   min-width: min(280px, 85vw);
   flex: 1;
   background: rgba(0, 0, 0, 0.1);

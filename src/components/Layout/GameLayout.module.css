@@ -3,17 +3,15 @@
 .gameLayout {
   display: grid;
   /* 5 rows: header, CPU hand, table, human hand, footer */
-  grid-template-rows: auto auto auto auto auto;
+  grid-template-rows: auto auto 1fr auto auto;
   grid-template-columns: auto 1fr auto;
-  gap: 4px;
+  gap: 2px;
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
-  padding: var(--space-4);
-  padding-bottom: calc(var(--space-4) + 24px);
+  padding: var(--space-2);
+  padding-bottom: calc(var(--space-2) + 18px);
   min-height: 100vh;
-  /* Center content vertically */
-  align-content: center;
 }
 
 /* Score board - row 1 left */
@@ -34,7 +32,7 @@
   grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
 
 /* Table area - row 3 */
@@ -52,7 +50,7 @@
   grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  margin-top: 8px;
+  margin-top: 2px;
 }
 
 /* Human captured pile - row 5 left */
@@ -68,8 +66,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  min-height: 50px;
-  min-width: 200px;
+  min-height: clamp(40px, 5vh, 50px);
+  min-width: clamp(150px, 16vw, 200px);
 }
 
 /* Responsive adjustments - tablets and large phones (portrait) */
