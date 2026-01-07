@@ -13,6 +13,10 @@ interface TokenStatsDisplayProps {
   mode?: 'round' | 'game';
   /** Model name to display when stats not yet available */
   modelName?: string;
+  /** Error message to display (e.g., API failure) */
+  error?: string | null;
+  /** Callback to dismiss error */
+  onDismissError?: () => void;
 }
 
 export function TokenStatsDisplay({
@@ -22,9 +26,11 @@ export function TokenStatsDisplay({
   position = 'top',
   mode = 'game',
   modelName,
+  error,
+  onDismissError,
 }: TokenStatsDisplayProps) {
-  // Show if explicitly requested or if there are stats
-  if (!show && (!stats || stats.requestCount === 0)) {
+  // Show if explicitly requested, if there are stats, or if there's an error
+  if (!show && (!stats || stats.requestCount === 0) && !error) {
     return null;
   }
 
@@ -117,6 +123,17 @@ export function TokenStatsDisplay({
         </svg>
         <span className={styles.iconText}>{formatCompact(iconTokens)}</span>
       </div>
+
+      {/* Error indicator */}
+      {error && (
+        <div
+          className={styles.errorBadge}
+          title={error}
+          onClick={onDismissError}
+        >
+          API Error
+        </div>
+      )}
 
       {/* Popup table on hover */}
       <div className={`${styles.popup} ${positionClass}`}>

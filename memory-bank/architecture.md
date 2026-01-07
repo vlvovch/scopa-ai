@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-06 (Phase 33: Sound Enhancements & Stats Improvements)
+**Last Updated:** 2026-01-06 (Phase 34: BYOK API Key Management & Validation)
 
 ---
 
@@ -990,8 +990,187 @@ All 30 phases implemented:
 31. CLI Simulation Tool (standalone script for server-side AI battles, JSON output, LLM support)
 32. Sound Effects & Game Statistics (useSound hook, useStats hook, StatsModal, app icon)
 
+33. BYOK (Bring Your Own Key) Support
+34. API Key Validation & Error Handling
+
 **Future Enhancements:**
 - Multiplayer support
 - More card themes (Siciliane faces, Piacentine deck)
 - Undo/redo functionality
 - Tutorial mode for new players
+
+---
+
+## BYOK API Key Management (Phase 33-34)
+
+The application supports user-provided API keys stored in localStorage for static deployment. Users can provide their own Gemini, OpenAI, or Claude API keys without any server-side infrastructure.
+
+### API Key Storage
+
+**Settings Structure (useSettings.ts):**
+```typescript
+interface GameSettings {
+  // ... other settings
+  geminiApiKey: string;       // User's Gemini API key
+  openaiApiKey: string;       // User's OpenAI API key
+  claudeApiKey: string;       // User's Claude API key
+  geminiKeyValid: boolean;    // Validation status
+  openaiKeyValid: boolean;    // Validation status
+  claudeKeyValid: boolean;    // Validation status
+}
+```
+
+**Validity Functions (useSettings.ts):**
+```typescript
+export function isGeminiKeyValid(): boolean {
+  const settings = loadSettings();
+  if (settings.geminiApiKey) {
+    return settings.geminiKeyValid;
+  }
+  return !!import.meta.env.VITE_GEMINI_API_KEY;
+}
+// Similar for isOpenAIKeyValid(), isClaudeKeyValid()
+```
+
+### API Key Validation (validateApiKey.ts)
+
+**Validation Functions:**
+
+| Function | Method | Details |
+|----------|--------|---------|
+| `validateGeminiKey(key)` | API call | Calls `models.list()` endpoint |
+| `validateOpenAIKey(key)` | API call | Calls `/models` with Bearer token |
+| `validateClaudeKey(key)` | Format check | Validates `sk-ant-` prefix (API call CORS-blocked) |
+
+**ValidationStatus Type:**
+```typescript
+type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';
+```
+
+**SettingsModal Validation Flow:**
+1. User enters key → `handleApiKeyChange()` called
+2. Cache cleared immediately via `clearCacheForProvider()`
+3. Validity flag set to `false` until validation completes
+4. Debounced validation (500ms) via `useEffect`
+5. Validation runs → status updated (validating → valid/invalid)
+6. Validity flag saved to settings on completion
+
+### Cache Invalidation
+
+When an API key changes, cached AI instances must be cleared so the new key is used.
+
+**Clear Functions (each AI module):**
+
+| Function | Module |
+|----------|--------|
+| `clearGeminiCache()` | gemini.ts |
+| `clearGeminiSingleTurnCache()` | gemini-singleturn.ts |
+| `clearOpenAICache()` | openai.ts |
+| `clearOpenAISingleTurnCache()` | openai-singleturn.ts |
+| `clearClaudeCache()` | claude.ts |
+| `clearClaudeSingleTurnCache()` | claude-singleturn.ts |
+
+All exported from `ai/index.ts` and called in SettingsModal when key changes.
+
+### Error Handling & Display
+
+**AI Module Error Behavior:**
+- AI modules re-throw API errors instead of swallowing them
+- App.tsx catches errors and displays via TokenStatsDisplay error badge
+- Fallback to heuristic AI when API call fails
+
+**App.tsx Error State:**
+```typescript
+const [player1ApiError, setPlayer1ApiError] = useState<string | null>(null);
+const [player2ApiError, setPlayer2ApiError] = useState<string | null>(null);
+
+// In AI selectMove try-catch:
+} catch (err) {
+  const errorMessage = err instanceof Error ? err.message : 'API call failed';
+  setPlayer2ApiError(errorMessage);
+  const fallbackAI = AI_PLAYERS.heuristic;
+  moveToExecute = fallbackAI.selectMove({...});
+}
+```
+
+**TokenStatsDisplay Error Badge:**
+```tsx
+{error && (
+  <div className={styles.errorBadge} title={error} onClick={onDismissError}>
+    API Error
+  </div>
+)}
+```
+
+### AI Availability (Race Condition Fix)
+
+**Problem:** StartScreen was reading from localStorage, but localStorage updates in `useEffect` AFTER React render. This caused invalid keys to still show AI as available.
+
+**Solution:** Pass `aiAvailability` as props computed from React state.
+
+**App.tsx:**
+```typescript
+<StartScreen
+  aiAvailability={{
+    gemini: (!!settings.geminiApiKey && settings.geminiKeyValid)
+            || !!import.meta.env.VITE_GEMINI_API_KEY,
+    openai: (!!settings.openaiApiKey && settings.openaiKeyValid)
+            || !!import.meta.env.VITE_OPENAI_API_KEY,
+    claude: (!!settings.claudeApiKey && settings.claudeKeyValid)
+            || !!import.meta.env.VITE_CLAUDE_API_KEY,
+  }}
+/>
+```
+
+**StartScreen:**
+```typescript
+interface StartScreenProps {
+  aiAvailability: {
+    gemini: boolean;
+    openai: boolean;
+    claude: boolean;
+  };
+}
+
+// Use props instead of localStorage:
+const geminiAvailable = aiAvailability.gemini;
+```
+
+### AI Hint for Users Without Keys
+
+When no AI providers are available, StartScreen shows a hint with a link to Settings.
+
+**StartScreen.tsx:**
+```tsx
+{!aiAvailable && onOpenSettings && (
+  <div className={styles.aiHint}>
+    <span>Want to play against AI?</span>
+    <a onClick={onOpenSettings}>Add API keys in Settings</a>
+  </div>
+)}
+```
+
+**CSS (StartScreen.module.css):**
+```css
+.aiHint {
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+.aiHint a {
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+```
+
+### Security Warning
+
+On first API key input each session, a warning popup appears:
+- Stored only in browser's localStorage
+- Not transmitted to any server
+- API calls go directly from browser to AI provider
+- Dismissal stored in sessionStorage (reappears next session)
+
+---

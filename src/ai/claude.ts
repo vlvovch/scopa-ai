@@ -5,9 +5,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { getClaudeApiKey } from '../hooks/useSettings';
+import { getClaudeApiKey, isClaudeKeyValid } from '../hooks/useSettings';
 
 // Extended thinking configuration
 const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking
@@ -358,7 +357,7 @@ class ClaudeAI implements AsyncAIPlayer {
    * Uses output_format for guaranteed JSON response, compatible with extended thinking
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
-    const { hand, table, player, validMoves } = context;
+    const { hand, validMoves } = context;
 
     if (hand.length === 0) {
       throw new Error('Cannot select move with empty hand');
@@ -454,19 +453,20 @@ class ClaudeAI implements AsyncAIPlayer {
       console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
       return validMoves[0];
     } catch (error) {
-      console.error(`[${this.model}] Error, falling back to random:`, error);
-      this.lastReasoning = 'Error occurred, random fallback.';
+      console.error(`[${this.model}] API error:`, error);
+      this.lastReasoning = 'API error occurred.';
       this.lastThinking = '';
-      return randomAI.selectMove({ hand, table, player });
+      // Re-throw so App.tsx can catch and display error badge
+      throw error;
     }
   }
 }
 
 /**
- * Check if Claude API key is available (user-provided or env var)
+ * Check if Claude API key is available AND valid
  */
 export function isClaudeAvailable(): boolean {
-  return !!getClaudeApiKey();
+  return !!getClaudeApiKey() && isClaudeKeyValid();
 }
 
 // Re-export for backwards compatibility
@@ -581,4 +581,12 @@ export function endClaudeRound(): void {
       ai.endRound();
     }
   }
+}
+
+/**
+ * Clear the Claude instance cache (call when API key changes)
+ */
+export function clearClaudeCache(): void {
+  instanceCache.clear();
+  cachedModels = null;
 }

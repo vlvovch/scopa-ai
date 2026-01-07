@@ -958,6 +958,66 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 
 ---
 
+## Phase 35: BYOK API Key Management & Validation
+
+- [x] Step 35.1: Create API key validation functions (validateApiKey.ts) - Completed 2026-01-06
+- [x] Step 35.2: Add validation status display in SettingsModal - Completed 2026-01-06
+- [x] Step 35.3: Add validity flags to GameSettings - Completed 2026-01-06
+- [x] Step 35.4: Implement cache clearing when API keys change - Completed 2026-01-06
+- [x] Step 35.5: Make AI modules re-throw errors for App.tsx handling - Completed 2026-01-06
+- [x] Step 35.6: Add error badge display in TokenStatsDisplay - Completed 2026-01-06
+- [x] Step 35.7: Fix race condition with aiAvailability from React state - Completed 2026-01-06
+- [x] Step 35.8: Add AI hint when no providers available on StartScreen - Completed 2026-01-06
+- [x] Step 35.9: Add API key security warning popup - Completed 2026-01-06
+
+**Notes:**
+
+**API Key Validation:**
+- Created `src/ai/validateApiKey.ts` with validation functions:
+  - `validateGeminiKey()`: Makes API call to list models endpoint
+  - `validateOpenAIKey()`: Makes API call with Bearer token
+  - `validateClaudeKey()`: Format check only (sk-ant- prefix) due to CORS restrictions
+- Validation status type: `'idle' | 'validating' | 'valid' | 'invalid'`
+- SettingsModal shows status indicator next to each API key input
+- Debounced validation (500ms) to avoid excessive API calls while typing
+
+**Settings Structure:**
+- Added validity flags: `geminiKeyValid`, `openaiKeyValid`, `claudeKeyValid`
+- Added validity check functions: `isGeminiKeyValid()`, `isOpenAIKeyValid()`, `isClaudeKeyValid()`
+- `isXXXAvailable()` functions now check both key existence AND validity
+- Keys marked invalid until validation completes
+
+**Cache Invalidation:**
+- Added `clearXXXCache()` functions to all 6 AI modules
+- Exported from `ai/index.ts`
+- Called in SettingsModal when API key changes
+- Ensures new key is used immediately on next AI request
+
+**Error Handling:**
+- AI modules now re-throw errors instead of swallowing them
+- App.tsx catches errors and displays via TokenStatsDisplay error badge
+- Falls back to heuristic AI when LLM API call fails
+- Error badge is clickable to dismiss
+
+**Race Condition Fix:**
+- Problem: StartScreen read from localStorage, but updates happen in useEffect AFTER render
+- Solution: Pass `aiAvailability` as props computed from React state in App.tsx
+- AI availability now synchronized with React render cycle
+
+**AI Hint:**
+- Shows "Want to play against AI? Add API keys in Settings" when no providers available
+- Settings link opens the settings modal directly
+- Only displayed when `onOpenSettings` prop is provided
+
+**Security Warning:**
+- Popup appears on first API key input each session
+- Explains: local storage only, no server transmission, direct browser-to-provider calls
+- Dismissal stored in sessionStorage (reappears next session)
+
+- 135 tests passing
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
@@ -994,3 +1054,8 @@ The Scopa game is now fully playable with:
 - AI mode tracking in stats (multi-turn/single-turn, thinking enabled)
 - Custom Sette Bello app icon (gold coin with 7)
 - Face-down cards in captured piles for cleaner visual
+- BYOK (Bring Your Own Key) support with API key validation
+- Cache invalidation when API keys change
+- Error badge display with fallback to heuristic AI
+- AI availability computed from React state (race condition fix)
+- AI hint on StartScreen when no providers available

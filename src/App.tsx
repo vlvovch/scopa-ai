@@ -163,6 +163,10 @@ function App() {
   const [player1TokenDelta, setPlayer1TokenDelta] = useState<GeminiTokenDelta | null>(null);
   const [player2TokenDelta, setPlayer2TokenDelta] = useState<GeminiTokenDelta | null>(null);
 
+  // API error state for LLM players
+  const [player1ApiError, setPlayer1ApiError] = useState<string | null>(null);
+  const [player2ApiError, setPlayer2ApiError] = useState<string | null>(null);
+
   // Check if in spectator mode (use activeState for worker-aware check)
   const isSpectatorMode = activeState.gameMode === 'cpuVsCPU';
 
@@ -855,12 +859,26 @@ function App() {
           // Async AI (e.g., Gemini) - build extended context and await
           const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
           moveToExecute = await ai.selectMove(context);
+          // Clear any previous error on success
+          setPlayer2ApiError(null);
           // Update token stats after async AI move
           if (isSpectatorMode) {
             updatePlayerTokenStats('player2');
           } else {
             updateTokenStats();
           }
+        } catch (err) {
+          // Set error state for display
+          const errorMessage = err instanceof Error ? err.message : 'API call failed';
+          setPlayer2ApiError(errorMessage);
+          console.error('AI API error:', err);
+          // Fall back to heuristic AI for this move
+          const fallbackAI = AI_PLAYERS.heuristic;
+          moveToExecute = fallbackAI.selectMove({
+            hand: cpuHand,
+            table: state.round.table,
+            player: 'cpu',
+          });
         } finally {
           aiRequestInFlight.current = false;
         }
@@ -1067,7 +1085,7 @@ function App() {
     prevSetteBelloOwner.current = currentOwner;
   }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound, setteBelloCelebration.show, state.status]);
 
-  // Helper to reset all token stats
+  // Helper to reset all token stats and errors
   const resetAllTokenStats = useCallback(() => {
     resetGeminiTokenStats();
     resetGeminiSingleTurnTokenStats();
@@ -1081,6 +1099,9 @@ function App() {
     setPlayer2TokenStats(null);
     setPlayer1TokenDelta(null);
     setPlayer2TokenDelta(null);
+    // Reset API error states
+    setPlayer1ApiError(null);
+    setPlayer2ApiError(null);
   }, []);
 
   // Handle starting a new game (wraps startGame to reset token stats)
@@ -1288,8 +1309,22 @@ function App() {
           // Async AI (e.g., Gemini) - build extended context and await
           const context = buildLLMContext(humanHand, state.round.table, 'human');
           moveToExecute = await ai.selectMove(context);
+          // Clear any previous error on success
+          setPlayer1ApiError(null);
           // Update token stats after async AI move (player1 in spectator mode)
           updatePlayerTokenStats('player1');
+        } catch (err) {
+          // Set error state for display
+          const errorMessage = err instanceof Error ? err.message : 'API call failed';
+          setPlayer1ApiError(errorMessage);
+          console.error('AI API error:', err);
+          // Fall back to heuristic AI for this move
+          const fallbackAI = AI_PLAYERS.heuristic;
+          moveToExecute = fallbackAI.selectMove({
+            hand: humanHand,
+            table: state.round.table,
+            player: 'human',
+          });
         } finally {
           aiRequestInFlight.current = false;
         }
@@ -1371,6 +1406,12 @@ function App() {
           defaultTargetScore={settings.defaultTargetScore}
           useThinking={settings.useThinking}
           onToggleThinking={(enabled) => updateSetting('useThinking', enabled)}
+          onOpenSettings={() => setShowSettings(true)}
+          aiAvailability={{
+            gemini: (!!settings.geminiApiKey && settings.geminiKeyValid) || !!import.meta.env.VITE_GEMINI_API_KEY,
+            openai: (!!settings.openaiApiKey && settings.openaiKeyValid) || !!import.meta.env.VITE_OPENAI_API_KEY,
+            claude: (!!settings.claudeApiKey && settings.claudeKeyValid) || !!import.meta.env.VITE_CLAUDE_API_KEY,
+          }}
         />
         <SettingsModal
           isOpen={showSettings}
@@ -1628,6 +1669,8 @@ function App() {
                 mode="game"
                 position="bottom"
                 modelName={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
+                error={player2ApiError}
+                onDismissError={() => setPlayer2ApiError(null)}
               />
             )}
           </div>
@@ -1652,7 +1695,16 @@ function App() {
         humanPile={
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
             {isSpectatorMode && isLLMAI(spectatorAIs.player1) && (
-              <TokenStatsDisplay stats={player1TokenStats} delta={player1TokenDelta} show mode="game" position="top" modelName={spectatorModels.player1} />
+              <TokenStatsDisplay
+                stats={player1TokenStats}
+                delta={player1TokenDelta}
+                show
+                mode="game"
+                position="top"
+                modelName={spectatorModels.player1}
+                error={player1ApiError}
+                onDismissError={() => setPlayer1ApiError(null)}
+              />
             )}
             <CapturedPile
               cards={activeState.players.human.captured}
@@ -1687,7 +1739,7 @@ function App() {
             <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
               {isSpectatorMode
                 ? `${AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name}'s turn${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? ' (Paused)' : ''}`
-                : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} thinking...`}
+                : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} is thinking...`}
             </span>
 
             {/* Action buttons container - always takes up space */}

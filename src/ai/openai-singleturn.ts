@@ -5,7 +5,6 @@
 import OpenAI from 'openai';
 import type { Card, Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { randomAI } from './random';
 import {
   getOpenAIApiKey,
   isOpenAIAvailable,
@@ -232,7 +231,7 @@ class OpenAISingleTurnAI implements AsyncAIPlayer {
    * Select a move using OpenAI Responses API (single request with full history)
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
-    const { hand, table, player, validMoves, lastOpponentMove } = context;
+    const { hand, table, validMoves, lastOpponentMove } = context;
 
     if (hand.length === 0) {
       throw new Error('Cannot select move with empty hand');
@@ -340,11 +339,10 @@ class OpenAISingleTurnAI implements AsyncAIPlayer {
       this.roundMoveHistory.push(fallbackMove);
       return fallbackMove;
     } catch (error) {
-      console.error(`[${this.model}] Error, falling back to random:`, error);
-      this.lastReasoning = 'Error occurred, random fallback.';
-      const fallbackMove = randomAI.selectMove({ hand, table, player });
-      this.roundMoveHistory.push(fallbackMove);
-      return fallbackMove;
+      console.error(`[${this.model}] API error:`, error);
+      this.lastReasoning = 'API error occurred.';
+      // Re-throw so App.tsx can catch and display error badge
+      throw error;
     }
   }
 }
@@ -442,4 +440,11 @@ export function endOpenAISingleTurnRound(): void {
       ai.endRound();
     }
   }
+}
+
+/**
+ * Clear the OpenAI single-turn AI instance cache (call when API key changes)
+ */
+export function clearOpenAISingleTurnCache(): void {
+  instanceCache.clear();
 }

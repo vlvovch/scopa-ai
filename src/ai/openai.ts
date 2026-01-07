@@ -3,9 +3,8 @@
 import OpenAI from 'openai';
 import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { getOpenAIApiKey } from '../hooks/useSettings';
+import { getOpenAIApiKey, isOpenAIKeyValid } from '../hooks/useSettings';
 
 // Model info returned from API
 export interface OpenAIModelInfo {
@@ -359,7 +358,7 @@ class OpenAIAI implements AsyncAIPlayer {
    * Select a move using OpenAI Responses API with conversation state
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
-    const { hand, table, player, validMoves } = context;
+    const { hand, validMoves } = context;
 
     if (hand.length === 0) {
       throw new Error('Cannot select move with empty hand');
@@ -432,18 +431,19 @@ class OpenAIAI implements AsyncAIPlayer {
       console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
       return validMoves[0];
     } catch (error) {
-      console.error(`[${this.model}] Error, falling back to random:`, error);
-      this.lastReasoning = 'Error occurred, random fallback.';
-      return randomAI.selectMove({ hand, table, player });
+      console.error(`[${this.model}] API error:`, error);
+      this.lastReasoning = 'API error occurred.';
+      // Re-throw so App.tsx can catch and display error badge
+      throw error;
     }
   }
 }
 
 /**
- * Check if OpenAI API key is available (user-provided or env var)
+ * Check if OpenAI API key is available AND valid
  */
 export function isOpenAIAvailable(): boolean {
-  return !!getOpenAIApiKey();
+  return !!getOpenAIApiKey() && isOpenAIKeyValid();
 }
 
 // Re-export for backwards compatibility
@@ -549,4 +549,12 @@ export function endOpenAIRound(): void {
       ai.endRound();
     }
   }
+}
+
+/**
+ * Clear the OpenAI instance cache (call when API key changes)
+ */
+export function clearOpenAICache(): void {
+  instanceCache.clear();
+  cachedModels = null;
 }

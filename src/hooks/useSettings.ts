@@ -34,6 +34,12 @@ export interface GameSettings {
   openaiApiKey: string;
   /** User-provided Claude API key (BYOK) */
   claudeApiKey: string;
+  /** Whether the Gemini API key has been validated as working */
+  geminiKeyValid: boolean;
+  /** Whether the OpenAI API key has been validated as working */
+  openaiKeyValid: boolean;
+  /** Whether the Claude API key has been validated as working */
+  claudeKeyValid: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -53,6 +59,9 @@ const DEFAULT_SETTINGS: GameSettings = {
   geminiApiKey: '',
   openaiApiKey: '',
   claudeApiKey: '',
+  geminiKeyValid: false,
+  openaiKeyValid: false,
+  claudeKeyValid: false,
 };
 
 function loadSettings(): GameSettings {
@@ -80,6 +89,19 @@ export function getGeminiApiKey(): string | null {
 }
 
 /**
+ * Check if Gemini API key is valid (user key must be validated, env key assumed valid)
+ */
+export function isGeminiKeyValid(): boolean {
+  const settings = loadSettings();
+  // User-provided key requires validation
+  if (settings.geminiApiKey) {
+    return settings.geminiKeyValid;
+  }
+  // Env var key is assumed valid if present
+  return !!import.meta.env.VITE_GEMINI_API_KEY;
+}
+
+/**
  * Get OpenAI API key: user-provided (localStorage) > env var
  */
 export function getOpenAIApiKey(): string | null {
@@ -91,6 +113,19 @@ export function getOpenAIApiKey(): string | null {
 }
 
 /**
+ * Check if OpenAI API key is valid (user key must be validated, env key assumed valid)
+ */
+export function isOpenAIKeyValid(): boolean {
+  const settings = loadSettings();
+  // User-provided key requires validation
+  if (settings.openaiApiKey) {
+    return settings.openaiKeyValid;
+  }
+  // Env var key is assumed valid if present
+  return !!import.meta.env.VITE_OPENAI_API_KEY;
+}
+
+/**
  * Get Claude API key: user-provided (localStorage) > env var
  */
 export function getClaudeApiKey(): string | null {
@@ -99,6 +134,19 @@ export function getClaudeApiKey(): string | null {
     return settings.claudeApiKey;
   }
   return import.meta.env.VITE_CLAUDE_API_KEY || null;
+}
+
+/**
+ * Check if Claude API key is valid (user key must be validated, env key assumed valid)
+ */
+export function isClaudeKeyValid(): boolean {
+  const settings = loadSettings();
+  // User-provided key requires validation
+  if (settings.claudeApiKey) {
+    return settings.claudeKeyValid;
+  }
+  // Env var key is assumed valid if present
+  return !!import.meta.env.VITE_CLAUDE_API_KEY;
 }
 
 function saveSettings(settings: GameSettings): void {

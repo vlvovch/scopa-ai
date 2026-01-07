@@ -1,7 +1,7 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useEffect } from 'react';
-import { AI_INFO, isGeminiAvailable, isOpenAIAvailable, isClaudeAvailable, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isOpenAIAIType, isClaudeAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
+import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isOpenAIAIType, isClaudeAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
 import { CustomDropdown } from './CustomDropdown';
 import { GeminiIcon } from './GeminiIcon';
@@ -34,6 +34,13 @@ interface StartScreenProps {
   defaultTargetScore: number;
   useThinking: boolean;
   onToggleThinking: (enabled: boolean) => void;
+  onOpenSettings?: () => void;
+  /** AI provider availability (computed from React state, not localStorage) */
+  aiAvailability: {
+    gemini: boolean;
+    openai: boolean;
+    claude: boolean;
+  };
 }
 
 const PRESET_SCORES = [11, 16, 21] as const;
@@ -91,6 +98,8 @@ export function StartScreen({
   defaultTargetScore,
   useThinking,
   onToggleThinking,
+  onOpenSettings,
+  aiAvailability,
 }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
@@ -101,10 +110,10 @@ export function StartScreen({
   const [loadingOpenAIModels, setLoadingOpenAIModels] = useState(false);
   const [loadingClaudeModels, setLoadingClaudeModels] = useState(false);
 
-  // Check API availability (called on each render to pick up settings changes)
-  const geminiAvailable = isGeminiAvailable();
-  const openaiAvailable = isOpenAIAvailable();
-  const claudeAvailable = isClaudeAvailable();
+  // Use availability from props (computed from React state in App.tsx)
+  const geminiAvailable = aiAvailability.gemini;
+  const openaiAvailable = aiAvailability.openai;
+  const claudeAvailable = aiAvailability.claude;
   const aiAvailable = geminiAvailable || openaiAvailable || claudeAvailable;
 
   // Default AI provider based on availability
@@ -447,44 +456,60 @@ export function StartScreen({
         </div>
 
         {gameMode === 'play' ? (
-          renderOpponentSelector(
-            selectedAI,
-            handleCategoryChange,
-            handleCPUTypeChange,
-            handleAIProviderChange,
-            handleConversationModeChange,
-            isGeminiAIType(selectedAI) ? onSelectGeminiModel : (isOpenAIAIType(selectedAI) ? onSelectOpenAIModel : onSelectClaudeModel),
-            isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
-            'Opponent'
-          )
+          <>
+            {renderOpponentSelector(
+              selectedAI,
+              handleCategoryChange,
+              handleCPUTypeChange,
+              handleAIProviderChange,
+              handleConversationModeChange,
+              isGeminiAIType(selectedAI) ? onSelectGeminiModel : (isOpenAIAIType(selectedAI) ? onSelectOpenAIModel : onSelectClaudeModel),
+              isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
+              'Opponent'
+            )}
+            {!aiAvailable && onOpenSettings && (
+              <div className={styles.aiHint}>
+                <span>Want to play against AI?</span>
+                <a onClick={onOpenSettings}>Add API keys in Settings</a>
+              </div>
+            )}
+          </>
         ) : (
-          <div className={styles.spectatorSetup}>
-            <div className={styles.spectatorPlayer}>
-              {renderOpponentSelector(
-                spectatorAIs.player1,
-                (cat) => handleSpectatorCategoryChange('player1', cat),
-                (type) => handleSpectatorCPUTypeChange('player1', type),
-                (provider) => handleSpectatorAIProviderChange('player1', provider),
-                (mode) => handleSpectatorModeChange('player1', mode),
-                (model) => onSelectSpectatorModel('player1', model),
-                spectatorModels.player1,
-                'Player 1'
-              )}
+          <>
+            <div className={styles.spectatorSetup}>
+              <div className={styles.spectatorPlayer}>
+                {renderOpponentSelector(
+                  spectatorAIs.player1,
+                  (cat) => handleSpectatorCategoryChange('player1', cat),
+                  (type) => handleSpectatorCPUTypeChange('player1', type),
+                  (provider) => handleSpectatorAIProviderChange('player1', provider),
+                  (mode) => handleSpectatorModeChange('player1', mode),
+                  (model) => onSelectSpectatorModel('player1', model),
+                  spectatorModels.player1,
+                  'Player 1'
+                )}
+              </div>
+              <div className={styles.vsLabel}>vs</div>
+              <div className={styles.spectatorPlayer}>
+                {renderOpponentSelector(
+                  spectatorAIs.player2,
+                  (cat) => handleSpectatorCategoryChange('player2', cat),
+                  (type) => handleSpectatorCPUTypeChange('player2', type),
+                  (provider) => handleSpectatorAIProviderChange('player2', provider),
+                  (mode) => handleSpectatorModeChange('player2', mode),
+                  (model) => onSelectSpectatorModel('player2', model),
+                  spectatorModels.player2,
+                  'Player 2'
+                )}
+              </div>
             </div>
-            <div className={styles.vsLabel}>vs</div>
-            <div className={styles.spectatorPlayer}>
-              {renderOpponentSelector(
-                spectatorAIs.player2,
-                (cat) => handleSpectatorCategoryChange('player2', cat),
-                (type) => handleSpectatorCPUTypeChange('player2', type),
-                (provider) => handleSpectatorAIProviderChange('player2', provider),
-                (mode) => handleSpectatorModeChange('player2', mode),
-                (model) => onSelectSpectatorModel('player2', model),
-                spectatorModels.player2,
-                'Player 2'
-              )}
-            </div>
-          </div>
+            {!aiAvailable && onOpenSettings && (
+              <div className={styles.aiHint}>
+                <span>Want to watch AI play?</span>
+                <a onClick={onOpenSettings}>Add API keys in Settings</a>
+              </div>
+            )}
+          </>
         )}
 
         <button

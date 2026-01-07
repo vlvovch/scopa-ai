@@ -5,7 +5,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Card, Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { randomAI } from './random';
 import {
   getClaudeApiKey,
   isClaudeAvailable,
@@ -239,7 +238,7 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
    * Select a move using Claude Messages API (single request with full history)
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
-    const { hand, table, player, validMoves, lastOpponentMove } = context;
+    const { hand, table, validMoves, lastOpponentMove } = context;
 
     if (hand.length === 0) {
       throw new Error('Cannot select move with empty hand');
@@ -354,11 +353,10 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       this.roundMoveHistory.push(fallbackMove);
       return fallbackMove;
     } catch (error) {
-      console.error(`[${this.model}] Error, falling back to random:`, error);
-      this.lastReasoning = 'Error occurred, random fallback.';
-      const fallbackMove = randomAI.selectMove({ hand, table, player });
-      this.roundMoveHistory.push(fallbackMove);
-      return fallbackMove;
+      console.error(`[${this.model}] API error:`, error);
+      this.lastReasoning = 'API error occurred.';
+      // Re-throw so App.tsx can catch and display error badge
+      throw error;
     }
   }
 }
@@ -465,4 +463,11 @@ export function endClaudeSingleTurnRound(): void {
       ai.endRound();
     }
   }
+}
+
+/**
+ * Clear the Claude single-turn AI instance cache (call when API key changes)
+ */
+export function clearClaudeSingleTurnCache(): void {
+  instanceCache.clear();
 }

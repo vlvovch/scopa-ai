@@ -1,8 +1,10 @@
 // Step 10.2: Settings Modal Component
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType } from '../../hooks/useSettings';
+import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../ai/validateApiKey';
+import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../ai';
 import styles from './SettingsModal.module.css';
 
 const DECK_OPTIONS: { value: DeckType; label: string }[] = [
@@ -37,15 +39,96 @@ export function SettingsModal({
     value: string;
   } | null>(null);
 
+  // Validation status for each provider
+  const [geminiStatus, setGeminiStatus] = useState<ValidationStatus>('idle');
+  const [openaiStatus, setOpenaiStatus] = useState<ValidationStatus>('idle');
+  const [claudeStatus, setClaudeStatus] = useState<ValidationStatus>('idle');
+
+  // Validate API key and save validity status to settings
+  const validateKey = useCallback(async (
+    provider: 'gemini' | 'openai' | 'claude',
+    key: string
+  ) => {
+    const validityKey = provider === 'gemini' ? 'geminiKeyValid'
+      : provider === 'openai' ? 'openaiKeyValid' : 'claudeKeyValid';
+
+    if (!key) {
+      if (provider === 'gemini') setGeminiStatus('idle');
+      else if (provider === 'openai') setOpenaiStatus('idle');
+      else setClaudeStatus('idle');
+      // Mark as invalid when key is empty
+      onUpdateSetting(validityKey, false);
+      return;
+    }
+
+    const setStatus = provider === 'gemini' ? setGeminiStatus
+      : provider === 'openai' ? setOpenaiStatus : setClaudeStatus;
+
+    setStatus('validating');
+
+    const validateFn = provider === 'gemini' ? validateGeminiKey
+      : provider === 'openai' ? validateOpenAIKey : validateClaudeKey;
+
+    const result = await validateFn(key);
+    const isValid = result.valid;
+    setStatus(isValid ? 'valid' : 'invalid');
+    // Save validity status to settings
+    onUpdateSetting(validityKey, isValid);
+  }, [onUpdateSetting]);
+
+  // Validate keys when modal opens or keys change (with debounce)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const timer = setTimeout(() => {
+      if (settings.geminiApiKey) validateKey('gemini', settings.geminiApiKey);
+      if (settings.openaiApiKey) validateKey('openai', settings.openaiApiKey);
+      if (settings.claudeApiKey) validateKey('claude', settings.claudeApiKey);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, settings.geminiApiKey, settings.openaiApiKey, settings.claudeApiKey, validateKey]);
+
+  // Reset validation status when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setGeminiStatus('idle');
+      setOpenaiStatus('idle');
+      setClaudeStatus('idle');
+    }
+  }, [isOpen]);
+
   // Check if warning was already shown this session
   const wasWarningShown = () => sessionStorage.getItem(API_KEY_WARNING_KEY) === 'true';
   const markWarningShown = () => sessionStorage.setItem(API_KEY_WARNING_KEY, 'true');
+
+  // Clear AI caches for a specific provider (call when key changes)
+  const clearCacheForProvider = useCallback((key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey') => {
+    if (key === 'geminiApiKey') {
+      clearGeminiCache();
+      clearGeminiSingleTurnCache();
+    } else if (key === 'openaiApiKey') {
+      clearOpenAICache();
+      clearOpenAISingleTurnCache();
+    } else if (key === 'claudeApiKey') {
+      clearClaudeCache();
+      clearClaudeSingleTurnCache();
+    }
+  }, []);
 
   // Handle API key input - show warning on first input if not shown before
   const handleApiKeyChange = (
     key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey',
     value: string
   ) => {
+    // Clear cache when key changes (so new key is used on next AI request)
+    clearCacheForProvider(key);
+
+    // Mark the key as invalid until validation completes
+    const validityKey = key === 'geminiApiKey' ? 'geminiKeyValid'
+      : key === 'openaiApiKey' ? 'openaiKeyValid' : 'claudeKeyValid';
+    onUpdateSetting(validityKey, false);
+
     // If clearing the key, just do it
     if (value === '') {
       onUpdateSetting(key, value);
@@ -77,6 +160,22 @@ export function SettingsModal({
   const handleWarningCancel = () => {
     setShowApiKeyWarning(false);
     setPendingKeyUpdate(null);
+  };
+
+  // Render validation status indicator
+  const renderValidationStatus = (status: ValidationStatus, hasKey: boolean) => {
+    if (!hasKey) return null;
+
+    switch (status) {
+      case 'validating':
+        return <span className={`${styles.apiKeyStatus} ${styles.validating}`}>Checking...</span>;
+      case 'valid':
+        return <span className={`${styles.apiKeyStatus} ${styles.valid}`}>Valid</span>;
+      case 'invalid':
+        return <span className={`${styles.apiKeyStatus} ${styles.invalid}`}>Invalid</span>;
+      default:
+        return <span className={`${styles.apiKeyStatus} ${styles.configured}`}>Configured</span>;
+    }
   };
 
   return (
@@ -197,13 +296,11 @@ export function SettingsModal({
             <div className={styles.apiKeyGroup}>
               <label className={styles.apiKeyLabel}>
                 Gemini
-                {settings.geminiApiKey && (
-                  <span className={`${styles.apiKeyStatus} ${styles.configured}`}>Configured</span>
-                )}
+                {renderValidationStatus(geminiStatus, !!settings.geminiApiKey)}
               </label>
               <input
                 type="password"
-                className={styles.apiKeyInput}
+                className={`${styles.apiKeyInput} ${geminiStatus === 'invalid' ? styles.inputInvalid : ''}`}
                 placeholder="Enter your Gemini API key"
                 value={settings.geminiApiKey}
                 onChange={(e) => handleApiKeyChange('geminiApiKey', e.target.value)}
@@ -213,13 +310,11 @@ export function SettingsModal({
             <div className={styles.apiKeyGroup}>
               <label className={styles.apiKeyLabel}>
                 OpenAI
-                {settings.openaiApiKey && (
-                  <span className={`${styles.apiKeyStatus} ${styles.configured}`}>Configured</span>
-                )}
+                {renderValidationStatus(openaiStatus, !!settings.openaiApiKey)}
               </label>
               <input
                 type="password"
-                className={styles.apiKeyInput}
+                className={`${styles.apiKeyInput} ${openaiStatus === 'invalid' ? styles.inputInvalid : ''}`}
                 placeholder="Enter your OpenAI API key"
                 value={settings.openaiApiKey}
                 onChange={(e) => handleApiKeyChange('openaiApiKey', e.target.value)}
@@ -229,13 +324,11 @@ export function SettingsModal({
             <div className={styles.apiKeyGroup}>
               <label className={styles.apiKeyLabel}>
                 Claude
-                {settings.claudeApiKey && (
-                  <span className={`${styles.apiKeyStatus} ${styles.configured}`}>Configured</span>
-                )}
+                {renderValidationStatus(claudeStatus, !!settings.claudeApiKey)}
               </label>
               <input
                 type="password"
-                className={styles.apiKeyInput}
+                className={`${styles.apiKeyInput} ${claudeStatus === 'invalid' ? styles.inputInvalid : ''}`}
                 placeholder="Enter your Claude API key"
                 value={settings.claudeApiKey}
                 onChange={(e) => handleApiKeyChange('claudeApiKey', e.target.value)}

@@ -5,7 +5,6 @@
 import { GoogleGenAI } from '@google/genai';
 import type { Card, Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { randomAI } from './random';
 import {
   getGeminiApiKey,
   isGeminiAvailable,
@@ -250,7 +249,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
    * Select a move using Gemini AI (single request with full history)
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
-    const { hand, table, player, validMoves, lastOpponentMove } = context;
+    const { hand, table, validMoves, lastOpponentMove } = context;
 
     if (hand.length === 0) {
       throw new Error('Cannot select move with empty hand');
@@ -351,11 +350,10 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
       this.roundMoveHistory.push(fallbackMove);
       return fallbackMove;
     } catch (error) {
-      console.error(`[${this.model}] Error, falling back to random:`, error);
-      this.lastReasoning = 'Error occurred, random fallback.';
-      const fallbackMove = randomAI.selectMove({ hand, table, player });
-      this.roundMoveHistory.push(fallbackMove);
-      return fallbackMove;
+      console.error(`[${this.model}] API error:`, error);
+      this.lastReasoning = 'API error occurred.';
+      // Re-throw so App.tsx can catch and display error badge
+      throw error;
     }
   }
 }
@@ -462,4 +460,11 @@ export function endGeminiSingleTurnRound(): void {
       ai.endRound();
     }
   }
+}
+
+/**
+ * Clear the Gemini single-turn AI instance cache (call when API key changes)
+ */
+export function clearGeminiSingleTurnCache(): void {
+  instanceCache.clear();
 }

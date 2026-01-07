@@ -3,9 +3,8 @@
 import { GoogleGenAI, Chat } from '@google/genai';
 import type { Move } from '../game/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { randomAI } from './random';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { getGeminiApiKey } from '../hooks/useSettings';
+import { getGeminiApiKey, isGeminiKeyValid } from '../hooks/useSettings';
 
 // Model info returned from API
 export interface GeminiModelInfo {
@@ -388,7 +387,7 @@ class GeminiAI implements AsyncAIPlayer {
    * Uses dynamic thinking budget (-1) for multi-move turns, disabled (0) for single-move
    */
   async selectMove(context: LLMAIContext): Promise<Move> {
-    const { hand, table, player, validMoves } = context;
+    const { hand, validMoves } = context;
 
     if (hand.length === 0) {
       throw new Error('Cannot select move with empty hand');
@@ -446,18 +445,19 @@ class GeminiAI implements AsyncAIPlayer {
       console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
       return validMoves[0];
     } catch (error) {
-      console.error(`[${this.model}] Error, falling back to random:`, error);
-      this.lastReasoning = 'Error occurred, random fallback.';
-      return randomAI.selectMove({ hand, table, player });
+      console.error(`[${this.model}] API error:`, error);
+      this.lastReasoning = 'API error occurred.';
+      // Re-throw so App.tsx can catch and display error badge
+      throw error;
     }
   }
 }
 
 /**
- * Check if Gemini API key is available (user-provided or env var)
+ * Check if Gemini API key is available AND valid
  */
 export function isGeminiAvailable(): boolean {
-  return !!getGeminiApiKey();
+  return !!getGeminiApiKey() && isGeminiKeyValid();
 }
 
 // Re-export for backwards compatibility
@@ -572,4 +572,12 @@ export function endGeminiRound(): void {
       ai.endRound();
     }
   }
+}
+
+/**
+ * Clear the Gemini AI instance cache (call when API key changes)
+ */
+export function clearGeminiCache(): void {
+  instanceCache.clear();
+  cachedModels = null;
 }

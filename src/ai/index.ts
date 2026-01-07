@@ -3,12 +3,12 @@
 import { randomAI, createRandomAI } from './random';
 import { heuristicAI, createHeuristicAI } from './heuristic';
 import { expertAI, createExpertAI, selectExpertMoveWithState, type ExpertOptions } from './expert';
-import { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, type GeminiModelInfo, type GeminiTokenStats, type GeminiTokenDelta } from './gemini';
-import { getGeminiSingleTurnAI, createGeminiSingleTurnAI, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound } from './gemini-singleturn';
-import { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCachedOpenAIModels, getDefaultOpenAIModel, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, type OpenAIModelInfo, type OpenAITokenStats, type OpenAITokenDelta } from './openai';
-import { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound } from './openai-singleturn';
-import { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, type ClaudeModelInfo, type ClaudeTokenStats, type ClaudeTokenDelta } from './claude';
-import { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './claude-singleturn';
+import { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, clearGeminiCache, type GeminiModelInfo, type GeminiTokenStats, type GeminiTokenDelta } from './gemini';
+import { getGeminiSingleTurnAI, createGeminiSingleTurnAI, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, clearGeminiSingleTurnCache } from './gemini-singleturn';
+import { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCachedOpenAIModels, getDefaultOpenAIModel, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, clearOpenAICache, type OpenAIModelInfo, type OpenAITokenStats, type OpenAITokenDelta } from './openai';
+import { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, clearOpenAISingleTurnCache } from './openai-singleturn';
+import { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, clearClaudeCache, type ClaudeModelInfo, type ClaudeTokenStats, type ClaudeTokenDelta } from './claude';
+import { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, clearClaudeSingleTurnCache } from './claude-singleturn';
 
 // Re-export types
 export type { AIPlayer, AIContext, AIPlayerFactory, AsyncAIPlayer, LLMAIContext, AnyAIPlayer } from './types';
@@ -19,12 +19,12 @@ export { randomAI, createRandomAI };
 export { heuristicAI, createHeuristicAI };
 export { expertAI, createExpertAI, selectExpertMoveWithState };
 export type { ExpertOptions };
-export { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound };
-export { getGeminiSingleTurnAI, createGeminiSingleTurnAI, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound };
-export { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCachedOpenAIModels, getDefaultOpenAIModel, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound };
-export { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound };
-export { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound };
-export { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound };
+export { getGeminiAI, isGeminiAvailable, createGeminiAI, fetchGeminiModels, getCachedGeminiModels, getDefaultGeminiModel, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, clearGeminiCache };
+export { getGeminiSingleTurnAI, createGeminiSingleTurnAI, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, clearGeminiSingleTurnCache };
+export { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCachedOpenAIModels, getDefaultOpenAIModel, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, clearOpenAICache };
+export { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, clearOpenAISingleTurnCache };
+export { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, clearClaudeCache };
+export { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, clearClaudeSingleTurnCache };
 export type { GeminiModelInfo, GeminiTokenStats, GeminiTokenDelta };
 export type { OpenAIModelInfo, OpenAITokenStats, OpenAITokenDelta };
 export type { ClaudeModelInfo, ClaudeTokenStats, ClaudeTokenDelta };
