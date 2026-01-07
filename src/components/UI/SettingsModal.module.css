@@ -434,3 +434,85 @@
 .warningConfirm:hover {
   background: #b91c1c;
 }
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .modal {
+    min-width: auto;
+    max-width: 95vw;
+    width: 100%;
+    margin: var(--space-2);
+    padding: var(--space-4);
+  }
+
+  .title {
+    font-size: 1.25rem;
+    margin-bottom: var(--space-4);
+  }
+
+  .setting {
+    padding: var(--space-2) 0;
+  }
+
+  .label {
+    font-size: 0.85rem;
+  }
+
+  .option {
+    padding: var(--space-2);
+    font-size: 0.8rem;
+  }
+
+  .apiKeyInput {
+    font-size: 0.75rem;
+  }
+
+  .warningModal {
+    max-width: 95vw;
+    padding: var(--space-4);
+    margin: var(--space-2);
+  }
+}
+
+@media (max-width: 380px) {
+  .modal {
+    padding: var(--space-3);
+  }
+
+  .title {
+    font-size: 1.1rem;
+  }
+
+  .options {
+    gap: var(--space-1);
+  }
+
+  .option {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+
+  .toggle {
+    width: 42px;
+    height: 24px;
+  }
+
+  .toggleKnob {
+    width: 18px;
+    height: 18px;
+  }
+
+  .toggle.on .toggleKnob {
+    transform: translateX(18px);
+  }
+
+  .actions {
+    gap: var(--space-2);
+  }
+
+  .resetButton,
+  .closeButton {
+    padding: var(--space-2);
+    font-size: 0.8rem;
+  }
+}

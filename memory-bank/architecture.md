@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-06 (Phase 36: UI Polish & Rules Modal)
+**Last Updated:** 2026-01-06 (Phase 37: Mobile Optimization)
 
 ---
 
@@ -163,6 +163,44 @@ Defined in `src/index.css` under `:root`:
 | `--card-img-offset` | `0%` | Card face image margin offset (negative to center) |
 | `--card-back-scale` | `100%` | Card back image scale |
 | `--card-back-offset` | `0%` | Card back image margin offset |
+
+---
+
+## Mobile Responsive Design
+
+The app is optimized for mobile devices using CSS media queries and fluid sizing.
+
+### Breakpoints
+
+| Breakpoint | Target | Card Width |
+|------------|--------|------------|
+| > 600px | Desktop / tablets | 70px (fixed) |
+| ≤ 600px | Large phones | `clamp(52px, 17vw, 70px)` |
+| ≤ 480px | Standard phones | `clamp(48px, 16vw, 60px)` |
+| ≤ 380px | Small phones (iPhone SE) | `clamp(44px, 15vw, 52px)` |
+
+### Mobile Optimizations
+
+- **Fluid card sizing**: Cards scale proportionally using `clamp()` with `vw` units
+- **Touch optimization**: `touch-action: manipulation` prevents 300ms tap delay
+- **iOS safe areas**: `env(safe-area-inset-*)` for notch and home indicator
+- **Overflow prevention**: `min()` function limits element widths (e.g., `min(340px, 90vw)`)
+- **Responsive spacing**: `--space-*` variables reduced on smaller screens
+- **Larger touch targets**: Control buttons scale up to 40px on mobile
+- **Stacked layouts**: Spectator mode setup and certain UI elements stack vertically
+
+### Key CSS Patterns
+
+```css
+/* Fluid card sizing */
+--card-width: clamp(48px, 16vw, 60px);
+
+/* Responsive min-width */
+min-width: min(340px, 90vw);
+
+/* iOS safe area insets */
+padding-bottom: env(safe-area-inset-bottom, 20px);
+```
 
 ---
 

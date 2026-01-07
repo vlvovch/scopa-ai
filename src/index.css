@@ -33,10 +33,14 @@
   --duration-normal: 300ms;
   --duration-slow: 500ms;
 
-  /* Card dimensions (2:3 ratio) */
+  /* Card dimensions (2:3 ratio) - base desktop sizes */
   --card-width: 70px;
   --card-height: 115px;
   --card-border-radius: 6px;
+
+  /* Mini card dimensions for RoundEndScreen */
+  --mini-card-width: 46px;
+  --mini-card-height: 76px;
 
   /* Card image scaling (clips SVG's built-in border) */
   --card-img-scale: 100%;
@@ -105,4 +109,116 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ===========================================
+   MOBILE RESPONSIVE STYLES
+   =========================================== */
+
+/* Touch optimization - prevents 300ms tap delay */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Allow cards to handle touch naturally (except drag) */
+.card {
+  touch-action: auto;
+}
+
+/* Large phones and small tablets (landscape phones) */
+@media (max-width: 600px) {
+  :root {
+    /* Scale cards based on viewport height to fit in screen */
+    --card-width: clamp(45px, 11vh, 60px);
+    --card-height: clamp(74px, 18vh, 99px);
+    --card-border-radius: 5px;
+
+    /* Tighter spacing on mobile */
+    --space-4: 10px;
+    --space-5: 14px;
+    --space-6: 16px;
+  }
+
+  body {
+    /* iOS safe area support */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    /* Allow overscroll and ensuring overflow is possible */
+    overscroll-behavior: auto;
+    overflow-x: auto;
+    overflow-y: auto;
+    position: static;
+    height: auto;
+    min-height: 100vh;
+  }
+}
+
+/* Standard phones */
+@media (max-width: 480px) {
+  :root {
+    /* Larger cards for better visibility */
+    --card-width: clamp(48px, 13vh, 60px);
+    --card-height: clamp(74px, 20vh, 96px);
+    --card-border-radius: 5px;
+
+    /* Tighter spacing */
+    --space-3: 4px;
+    --space-4: 6px;
+    --space-5: 8px;
+    --space-6: 10px;
+  }
+}
+
+/* Small phones (iPhone SE, older Android) */
+@media (max-width: 380px) {
+  :root {
+    /* Compact but legible cards */
+    --card-width: clamp(40px, 11vh, 50px);
+    --card-height: clamp(64px, 17vh, 80px);
+    --card-border-radius: 4px;
+
+    /* Minimal spacing */
+    --space-2: 2px;
+    --space-3: 3px;
+    --space-4: 4px;
+  }
+
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Mobile landscape - cards sized for horizontal layout */
+@media (max-width: 900px) and (orientation: landscape) {
+  :root {
+    /* In landscape, height is the constraint - use smaller cards */
+    --card-width: clamp(32px, 12vh, 50px);
+    --card-height: clamp(53px, 19.7vh, 82px);
+    --space-2: 3px;
+    --space-3: 4px;
+    --space-4: 6px;
+    --space-5: 8px;
+    --space-6: 10px;
+  }
+
+  html {
+    font-size: 13px;
+  }
+}
+
+/* Very short landscape (e.g., phones with notch) */
+@media (max-height: 400px) and (orientation: landscape) {
+  :root {
+    --card-width: clamp(28px, 10vh, 40px);
+    --card-height: clamp(46px, 16.4vh, 66px);
+    --space-2: 2px;
+    --space-3: 3px;
+    --space-4: 4px;
+  }
+
+  html {
+    font-size: 12px;
+  }
 }

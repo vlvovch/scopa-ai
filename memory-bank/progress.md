@@ -1105,3 +1105,69 @@ The Scopa game is now fully playable with:
 - Consistent PersonIcon across all screens (ScoreBoard, RoundEndScreen, GameEndScreen)
 - Copyright footer on StartScreen and in-game (position:fixed for zoom compatibility)
 - Layout stability improvements (no shift on turn change or card play)
+- Mobile-optimized responsive design (see Phase 37)
+
+---
+
+## Phase 37: Mobile Optimization
+
+- [x] Step 37.1: Add responsive card CSS variables with clamp() - Completed 2026-01-06
+- [x] Step 37.2: Fix PlayerHand min-width overflow issue - Completed 2026-01-06
+- [x] Step 37.3: Add phone breakpoints (600px, 480px, 380px) - Completed 2026-01-06
+- [x] Step 37.4: Add touch-action CSS and iOS safe area insets - Completed 2026-01-06
+- [x] Step 37.5: Optimize ScoreBoard for mobile - Completed 2026-01-06
+- [x] Step 37.6: Fix TableCards min-width for mobile - Completed 2026-01-06
+- [x] Step 37.7: Optimize StartScreen for narrow phones - Completed 2026-01-06
+- [x] Step 37.8: Optimize modals (Settings, RoundEnd, GameEnd) - Completed 2026-01-06
+- [x] Step 37.9: Add responsive styles to CapturedPile and GameControls - Completed 2026-01-06
+- [x] Step 37.10: Update viewport meta for iOS safe areas - Completed 2026-01-06
+
+**Notes:**
+
+**Responsive Card Sizing:**
+- Cards now scale fluidly using CSS `clamp()`:
+  - 600px: `clamp(52px, 17vw, 70px)` width
+  - 480px: `clamp(48px, 16vw, 60px)` width
+  - 380px: `clamp(44px, 15vw, 52px)` width
+- Height maintains 2:3 ratio automatically
+- Border radius scales down on smaller screens
+
+**New Breakpoints:**
+- 600px: Large phones, landscape mode
+- 480px: Standard phones (iPhone, Android)
+- 380px: Small phones (iPhone SE, older Android)
+
+**Touch Optimizations:**
+- `touch-action: manipulation` prevents 300ms tap delay
+- Applied to buttons, links, and card elements
+- iOS safe area insets via `env(safe-area-inset-*)` for notch/home bar
+- `viewport-fit=cover` in meta tag for edge-to-edge support
+
+**Fixed Overflow Issues:**
+- `PlayerHand`: Changed `min-width: 340px` → `min(340px, 90vw)`
+- `TableCards`: Changed `min-width: 280px` → `min(280px, 85vw)`
+- `ScoreBoard`: `min-width: auto` on mobile
+- `GameLayout.controlsArea`: `min-width: auto` on mobile
+
+**Component-Specific Optimizations:**
+- ScoreBoard: Smaller fonts, reduced padding on mobile
+- StartScreen: Stacked spectator setup, smaller buttons/inputs
+- Modals: Full-width on mobile, smaller padding, adjusted fonts
+- CapturedPile: Smaller badges and stats text
+- GameControls: Larger touch targets (40px) on mobile
+
+**Files Modified:**
+- `src/index.css` - Global responsive variables and touch-action
+- `src/components/Layout/GameLayout.module.css`
+- `src/components/Table/PlayerHand.module.css`
+- `src/components/Table/TableCards.module.css`
+- `src/components/Table/CapturedPile.module.css`
+- `src/components/UI/ScoreBoard.module.css`
+- `src/components/UI/StartScreen.module.css`
+- `src/components/UI/SettingsModal.module.css`
+- `src/components/UI/RoundEndScreen.module.css`
+- `src/components/UI/GameEndScreen.module.css`
+- `src/components/UI/GameControls.module.css`
+- `index.html` - viewport-fit=cover
+
+- 135 tests passing

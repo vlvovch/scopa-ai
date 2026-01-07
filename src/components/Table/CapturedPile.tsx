@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Card as CardType, PlayerId } from '../../game/types';
 import type { ExtendedAIType } from '../../ai';
-import { Card } from '../Card/Card';
+import { CardBack } from '../Card/CardImage';
 import { AIPlayerLabel } from '../UI/AIPlayerLabel';
 import { useDeck } from '../../contexts/DeckContext';
 import styles from './CapturedPile.module.css';
@@ -50,8 +50,9 @@ interface CapturedPileProps {
 }
 
 export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel }: CapturedPileProps) {
-  // Show top 3 cards of the pile for visual stacking effect
-  const visibleCards = cards.slice(-3);
+  // Calculate visual stack depth based on card count (max 6 layers)
+  // More cards = thicker stack appearance
+  const stackLayers = Math.min(6, Math.max(1, Math.ceil(cards.length / 4)));
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -78,13 +79,17 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
             <span>Empty</span>
           </div>
         ) : (
-          visibleCards.map((card, index) => (
+          /* Render stack layers for 3D depth effect based on card count */
+          Array.from({ length: stackLayers }).map((_, i) => (
             <div
-              key={card.id}
+              key={i}
               className={styles.stackedCard}
-              style={{ zIndex: index }}
+              style={{
+                transform: `translate(${i * 1}px, ${i * 1}px)`,
+                zIndex: stackLayers - i,
+              }}
             >
-              <Card card={card} faceDown disabled />
+              <CardBack />
             </div>
           ))
         )}

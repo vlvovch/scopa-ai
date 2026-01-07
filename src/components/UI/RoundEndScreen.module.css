@@ -253,3 +253,84 @@
     display: none;
   }
 }
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .overlay {
+    padding: var(--space-2);
+  }
+
+  .modal {
+    padding: var(--space-4);
+    min-width: auto;
+    width: 100%;
+    max-width: 95vw;
+  }
+
+  .title {
+    font-size: 1.25rem;
+    margin-bottom: var(--space-3);
+  }
+
+  .scoreTable th,
+  .scoreTable td {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.8rem;
+  }
+
+  .scoreTable th {
+    font-size: 0.65rem;
+  }
+
+  .categoryIcon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .emojiIcon {
+    font-size: 1rem;
+  }
+
+  .cumulativeScores {
+    padding: var(--space-3);
+    gap: var(--space-3);
+    margin: var(--space-4) 0;
+  }
+
+  .scoreValue {
+    font-size: 1.5rem;
+  }
+
+  .scoreLabel {
+    font-size: 0.6rem;
+  }
+
+  .nextButton {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .modal {
+    padding: var(--space-3);
+  }
+
+  .title {
+    font-size: 1.1rem;
+  }
+
+  .scoreTable th,
+  .scoreTable td {
+    padding: 4px 6px;
+    font-size: 0.75rem;
+  }
+
+  .categoryName {
+    font-size: 0.7rem;
+  }
+
+  .scoreValue {
+    font-size: 1.25rem;
+  }
+}

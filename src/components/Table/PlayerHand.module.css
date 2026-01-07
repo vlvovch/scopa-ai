@@ -3,10 +3,13 @@
 .hand {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  /* Fixed width to prevent layout shift when cards change */
-  min-width: 340px;
+  /* Responsive min-width to prevent layout shift when cards change */
+  min-width: min(340px, 90vw);
+  /* Fixed height to prevent layout shift when hand becomes empty */
+  min-height: calc(var(--card-height) + var(--space-4) * 2);
 }
 
 .hand.human {
@@ -24,4 +27,48 @@
 /* Fan out on hover for human hand */
 .hand.human .handCard:hover {
   z-index: 10;
+}
+
+/* Mobile: tighter layout */
+@media (max-width: 600px) {
+  .hand {
+    gap: var(--space-2);
+    padding: var(--space-2);
+    min-width: auto;
+    min-height: calc(var(--card-height) + var(--space-2) * 2);
+    /* Scale down flex items if needed, but don't force clip */
+    flex-wrap: wrap;
+    width: 100%;
+    /* Match table width: 4 cards per row */
+    max-width: calc(4 * var(--card-width) + 3 * var(--space-2) + 2 * var(--space-4));
+  }
+}
+
+@media (max-width: 480px) {
+  .hand {
+    gap: var(--space-1);
+    padding: var(--space-1);
+    min-height: calc(var(--card-height) + var(--space-1) * 2);
+    /* Limit to 4 cards per row */
+    max-width: calc(4 * var(--card-width) + 3 * var(--space-2) + 2 * var(--space-4));
+  }
+}
+
+@media (max-width: 380px) {
+  .hand {
+    /* Tighter gaps */
+    gap: 2px;
+    /* Limit to 3 cards per row */
+    max-width: calc(3 * var(--card-width) + 2 * var(--space-1) + 2 * var(--space-2));
+  }
+}
+
+/* Landscape mobile - compact horizontal hand */
+@media (max-width: 900px) and (orientation: landscape) {
+  .hand {
+    gap: var(--space-1);
+    padding: var(--space-1);
+    min-width: auto;
+    min-height: calc(var(--card-height) + var(--space-1) * 2);
+  }
 }

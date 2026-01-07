@@ -472,3 +472,190 @@
   text-decoration: underline;
   opacity: 0.8;
 }
+
+/* ===========================================
+   MOBILE RESPONSIVE STYLES
+   =========================================== */
+
+@media (max-width: 600px) {
+  .content {
+    padding: var(--space-4) var(--space-4);
+    max-width: 100%;
+    margin: var(--space-2);
+    border-radius: 10px;
+  }
+
+  .title {
+    font-size: 2.25rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+  }
+
+  .scoreOptions {
+    flex-wrap: wrap;
+  }
+
+  .scoreOption {
+    width: 48px;
+    height: 48px;
+    font-size: 1rem;
+  }
+
+  .customScoreInput {
+    width: 48px;
+    height: 48px;
+    font-size: 1rem;
+  }
+
+  .dropdownRow {
+    flex-wrap: wrap;
+  }
+
+  .dropdown {
+    font-size: 0.8rem;
+    min-width: 80px;
+  }
+
+  .spectatorSetup {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .spectatorPlayer {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .vsLabel {
+    padding-top: 0;
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--space-2);
+  }
+
+  .content {
+    padding: var(--space-3);
+  }
+
+  .title {
+    font-size: 2rem;
+    letter-spacing: 0.05em;
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+    margin-bottom: var(--space-4);
+  }
+
+  .scoreSelection {
+    margin-bottom: var(--space-4);
+  }
+
+  .label {
+    font-size: 0.7rem;
+  }
+
+  .scoreOption {
+    width: 44px;
+    height: 44px;
+    font-size: 0.95rem;
+    border-radius: 8px;
+  }
+
+  .scoreOption.aiOption {
+    min-width: 60px;
+    font-size: 0.85rem;
+    padding: 0 var(--space-2);
+  }
+
+  .scoreOption.modeOption {
+    min-width: 70px;
+    padding: 0 var(--space-3);
+    font-size: 0.95rem;
+  }
+
+  .customScoreInput {
+    width: 44px;
+    height: 44px;
+    font-size: 0.95rem;
+  }
+
+  .startButton {
+    padding: var(--space-3) var(--space-4);
+    font-size: 1rem;
+    margin-bottom: var(--space-4);
+  }
+
+  .rulesHint {
+    padding: var(--space-2);
+  }
+
+  .rulesHint h3 {
+    font-size: 0.65rem;
+  }
+
+  .rulesHint ul {
+    font-size: 0.75rem;
+  }
+
+  .modeToggle,
+  .thinkingToggle {
+    min-width: 36px;
+    padding: 6px;
+    font-size: 0.9rem;
+  }
+
+  .providerRow {
+    gap: var(--space-1);
+  }
+
+  .providerDropdown {
+    min-width: 100px !important;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .title {
+    font-size: 1.75rem;
+  }
+
+  .scoreOptions {
+    gap: var(--space-1);
+  }
+
+  .scoreOption {
+    width: 40px;
+    height: 40px;
+    font-size: 0.9rem;
+  }
+
+  .customScoreInput {
+    width: 40px;
+    height: 40px;
+  }
+
+  .dropdown {
+    font-size: 0.75rem;
+    padding: 6px 8px;
+    padding-right: var(--space-5);
+    min-width: 70px;
+  }
+
+  .scoreOption.aiOption {
+    min-width: 55px;
+    font-size: 0.8rem;
+  }
+
+  .modeToggle,
+  .thinkingToggle {
+    min-width: 32px;
+    padding: 5px;
+  }
+}

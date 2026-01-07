@@ -316,3 +316,108 @@
 .modal::-webkit-scrollbar-thumb:hover {
   background: rgba(212, 175, 55, 0.6);
 }
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .overlay {
+    padding: var(--space-2);
+  }
+
+  .modal {
+    padding: var(--space-4);
+    min-width: auto;
+    width: 100%;
+    max-width: 95vw;
+    border-radius: 12px;
+  }
+
+  .gameOver {
+    font-size: 0.85rem;
+  }
+
+  .result {
+    font-size: 1.5rem;
+    margin-bottom: var(--space-3);
+  }
+
+  .finalScores {
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .scoreBox {
+    padding: var(--space-2) var(--space-3);
+    min-width: 70px;
+  }
+
+  .scoreValue {
+    font-size: 1.5rem;
+  }
+
+  .scoreLabel {
+    font-size: 0.6rem;
+  }
+
+  .categoryBreakdown {
+    margin: var(--space-3) 0;
+    padding: var(--space-2);
+  }
+
+  .categoryTable {
+    font-size: 0.75rem;
+  }
+
+  .categoryTable th,
+  .categoryTable td {
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .roundHistory {
+    margin: var(--space-3) 0;
+  }
+
+  .roundTable {
+    font-size: 0.7rem;
+  }
+
+  .roundTableWrapper {
+    max-height: 140px;
+  }
+
+  .playAgainButton {
+    padding: var(--space-2) var(--space-5);
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .modal {
+    padding: var(--space-3);
+  }
+
+  .result {
+    font-size: 1.25rem;
+  }
+
+  .scoreValue {
+    font-size: 1.25rem;
+  }
+
+  .categoryTable {
+    font-size: 0.7rem;
+  }
+
+  .categoryIcon {
+    font-size: 0.85rem;
+    width: 1.2em;
+  }
+
+  .roundTable {
+    font-size: 0.65rem;
+  }
+
+  .roundTable th,
+  .roundTable td {
+    padding: 4px 6px;
+  }
+}

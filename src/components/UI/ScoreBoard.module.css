@@ -66,3 +66,101 @@
   font-size: 11px;
   color: var(--color-text-secondary);
 }
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .scoreBoard {
+    min-width: auto;
+    padding: var(--space-2);
+    background: rgba(0, 0, 0, 0.3);
+    /* Slightly more transparent */
+  }
+
+  .header {
+    margin-bottom: var(--space-1);
+    padding-bottom: var(--space-1);
+    border-bottom: 0.5px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .roundLabel {
+    font-size: 9px;
+  }
+
+  .roundNumber {
+    font-size: 11px;
+  }
+
+  .scores {
+    gap: var(--space-1);
+  }
+
+  .scoreValue {
+    font-size: 16px;
+  }
+
+  .playerName {
+    font-size: 10px;
+  }
+
+  .targetScore {
+    margin-top: var(--space-1);
+    font-size: 9px;
+    padding-top: var(--space-1);
+  }
+}
+
+@media (max-width: 380px) {
+  .scoreBoard {
+    padding: var(--space-2);
+  }
+
+  .scores {
+    gap: var(--space-2);
+  }
+
+  .scoreValue {
+    font-size: 18px;
+  }
+
+  .playerName {
+    font-size: 10px;
+  }
+}
+
+/* Landscape mobile - very compact */
+@media (max-width: 900px) and (orientation: landscape) {
+  .scoreBoard {
+    min-width: auto;
+    padding: var(--space-2);
+  }
+
+  .header {
+    margin-bottom: var(--space-1);
+    padding-bottom: var(--space-1);
+  }
+
+  .roundLabel {
+    font-size: 9px;
+  }
+
+  .roundNumber {
+    font-size: 11px;
+  }
+
+  .scores {
+    gap: var(--space-1);
+  }
+
+  .scoreValue {
+    font-size: 16px;
+  }
+
+  .playerName {
+    font-size: 9px;
+  }
+
+  .targetScore {
+    margin-top: var(--space-1);
+    font-size: 9px;
+  }
+}

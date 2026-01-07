@@ -126,3 +126,140 @@
   font-size: 10px;
   color: var(--color-text-secondary);
 }
+
+/* Mobile responsive styles */
+@media (max-width: 600px) {
+  .pile {
+    padding: var(--space-1);
+    gap: 2px;
+  }
+
+  .pileInfo {
+    gap: 2px;
+  }
+
+  .cardCount {
+    font-size: 10px;
+    padding: 1px 5px;
+  }
+
+  .stat {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .playerLabel {
+    font-size: 8px;
+  }
+
+  .setteBello {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+
+  .scopaMarker {
+    width: 8px;
+    height: 8px;
+  }
+
+  .statsRow {
+    gap: 4px;
+  }
+
+  /* Scale down the entire pile to prevent overflow in top corners */
+  .pile {
+    transform: scale(0.85);
+    transform-origin: top right;
+  }
+}
+
+@media (max-width: 480px) {
+  .pile {
+    padding: 2px;
+    gap: 1px;
+  }
+
+  .cardCount {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .stat {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+
+  .playerLabel {
+    display: none;
+    /* Hide label to save space */
+  }
+
+  .scopaMarker {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+@media (max-width: 380px) {
+  .pileInfo {
+    gap: 1px;
+  }
+
+  .statsRow {
+    gap: 2px;
+  }
+
+  .cardCount {
+    font-size: 8px;
+  }
+
+  .stat {
+    font-size: 7px;
+  }
+
+  .setteBello {
+    font-size: 7px;
+  }
+}
+
+/* Landscape mobile - vertical pile layout */
+@media (max-width: 900px) and (orientation: landscape) {
+  .pile {
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .pileInfo {
+    gap: 1px;
+  }
+
+  .cardCount {
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+
+  .statsRow {
+    gap: 3px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .stat {
+    font-size: 7px;
+    padding: 1px 3px;
+  }
+
+  .playerLabel {
+    font-size: 7px;
+  }
+
+  .setteBello {
+    font-size: 7px;
+    padding: 1px 2px;
+  }
+
+  .scopaMarker {
+    width: 6px;
+    height: 6px;
+  }
+}

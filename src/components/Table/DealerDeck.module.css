@@ -59,3 +59,10 @@
   opacity: 0.5;
   text-align: center;
 }
+
+@media (max-width: 600px) {
+  .deckContainer {
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+}

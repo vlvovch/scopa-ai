@@ -33,3 +33,50 @@
   width: 18px;
   height: 18px;
 }
+
+/* Mobile: larger touch targets */
+@media (max-width: 600px) {
+  .button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .button svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  .controls {
+    gap: var(--space-1);
+  }
+
+  .button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .button svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* Landscape mobile - vertical stack */
+@media (max-width: 900px) and (orientation: landscape) {
+  .controls {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .button {
+    width: 32px;
+    height: 32px;
+  }
+
+  .button svg {
+    width: 16px;
+    height: 16px;
+  }
+}
