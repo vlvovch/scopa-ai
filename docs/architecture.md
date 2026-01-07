@@ -242,6 +242,36 @@ npm run test:watch # Run tests in watch mode
 - Can be deployed to any subdirectory
 - Framer Motion split into separate chunk for caching
 
+### PWA Deployment (Caddy)
+
+The PWA requires correct MIME types for Chrome to recognize it as installable:
+
+```caddy
+# Example Caddyfile configuration
+example.com {
+    root * /var/www/scopa
+    file_server
+    try_files {path} /index.html
+
+    # PWA manifest MIME type
+    @manifest {
+        path /manifest.json
+    }
+    header @manifest Content-Type "application/manifest+json"
+
+    # Service worker MIME type
+    @sw {
+        path /sw.js
+    }
+    header @sw Content-Type "application/javascript"
+}
+```
+
+**Important:** Ensure PWA files have readable permissions (644):
+```bash
+chmod 644 sw.js manifest.json pwa-*.png
+```
+
 ---
 
 ## Architectural Decisions

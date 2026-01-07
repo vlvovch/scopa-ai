@@ -1,12 +1,12 @@
 // Service Worker for Scopa PWA
-const CACHE_NAME = 'scopa-v1';
+const CACHE_NAME = 'scopa-v2';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/scopa-icon.svg',
-  '/manifest.json'
+  './',
+  './index.html',
+  './scopa-icon.svg',
+  './manifest.json'
 ];
 
 // Install event - cache core assets
@@ -89,7 +89,7 @@ self.addEventListener('fetch', (event) => {
         }).catch(() => {
           // Offline and not in cache - return offline page for navigation
           if (event.request.mode === 'navigate') {
-            return caches.match('/');
+            return caches.match('./');
           }
         });
       })

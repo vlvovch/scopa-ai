@@ -1188,6 +1188,10 @@ The Scopa game is now fully playable with:
 - Created `sw.js` service worker with cache-first strategy for offline support
 - Added apple-touch-icon and theme-color meta tags to index.html
 - Offline play works for non-LLM opponents (Random, Heuristic, Expert)
+- File permissions set to 644 for web server readability
+- Caddy server requires explicit MIME types:
+  - `manifest.json` → `application/manifest+json`
+  - `sw.js` → `application/javascript`
 
 **Zoom Tolerance:**
 - Browser zoom scales CSS pixels but not viewport units - 125% zoom = 25% larger visually
