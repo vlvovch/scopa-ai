@@ -35,6 +35,7 @@ interface StartScreenProps {
   useThinking: boolean;
   onToggleThinking: (enabled: boolean) => void;
   onOpenSettings?: () => void;
+  onOpenRules?: () => void;
   /** AI provider availability (computed from React state, not localStorage) */
   aiAvailability: {
     gemini: boolean;
@@ -99,6 +100,7 @@ export function StartScreen({
   useThinking,
   onToggleThinking,
   onOpenSettings,
+  onOpenRules,
   aiAvailability,
 }: StartScreenProps) {
   const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
@@ -527,15 +529,15 @@ export function StartScreen({
             <li>Clearing the table scores a Scopa</li>
             <li>First to {selectedScore} points wins!</li>
           </ul>
+          {onOpenRules && (
+            <a className={styles.fullRulesLink} onClick={onOpenRules}>
+              View Full Rules
+            </a>
+          )}
         </div>
 
         <footer className={styles.footer}>
-          <p>
-            Made by <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a>
-          </p>
-          <p>
-            Built with <a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>
-          </p>
+          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a>. Built with help from <a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>
         </footer>
       </div>
     </div>

@@ -5,6 +5,8 @@
   justify-content: center;
   gap: var(--space-3);
   padding: var(--space-4);
+  /* Fixed width to prevent layout shift when cards change */
+  min-width: 340px;
 }
 
 .hand.human {

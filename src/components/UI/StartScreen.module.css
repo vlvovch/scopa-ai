@@ -246,6 +246,20 @@
   margin-bottom: 2px;
 }
 
+.fullRulesLink {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font-size: 0.8rem;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  transition: opacity 0.15s;
+}
+
+.fullRulesLink:hover {
+  opacity: 0.8;
+}
+
 .modelSelect {
   width: 100%;
   max-width: 280px;
@@ -416,26 +430,20 @@
   padding-top: var(--space-3);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   text-align: center;
-}
-
-.footer p {
-  margin: 0;
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   color: var(--color-text-secondary);
-  opacity: 0.6;
-  line-height: 1.6;
+  opacity: 0.5;
 }
 
 .footer a {
-  color: var(--color-accent);
+  color: var(--color-text-secondary);
+  font-weight: 600;
   text-decoration: none;
-  opacity: 0.8;
-  transition: opacity 0.15s;
+  transition: color 0.15s;
 }
 
 .footer a:hover {
-  opacity: 1;
-  text-decoration: underline;
+  color: var(--color-accent);
 }
 
 /* API Key hint when no AI available */

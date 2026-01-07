@@ -15,6 +15,7 @@ import { ScopaCelebration } from './components/UI/ScopaCelebration';
 import { SetteBelloCelebration } from './components/UI/SetteBelloCelebration';
 import { SettingsModal } from './components/UI/SettingsModal';
 import { StatsModal } from './components/UI/StatsModal';
+import { RulesModal } from './components/UI/RulesModal';
 import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
@@ -96,6 +97,7 @@ function App() {
   const [celebrationActive, setCelebrationActive] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
   // Capture choice modal state (shown when multiple capture options exist)
@@ -1223,6 +1225,11 @@ function App() {
     setShowStats(true);
   }, []);
 
+  // Handle opening rules modal
+  const handleOpenRules = useCallback(() => {
+    setShowRules(true);
+  }, []);
+
   // Record game stats when game ends (only for player vs CPU mode)
   const gameRecorded = useRef(false);
   useEffect(() => {
@@ -1407,6 +1414,7 @@ function App() {
           useThinking={settings.useThinking}
           onToggleThinking={(enabled) => updateSetting('useThinking', enabled)}
           onOpenSettings={() => setShowSettings(true)}
+          onOpenRules={() => setShowRules(true)}
           aiAvailability={{
             gemini: (!!settings.geminiApiKey && settings.geminiKeyValid) || !!import.meta.env.VITE_GEMINI_API_KEY,
             openai: (!!settings.openaiApiKey && settings.openaiKeyValid) || !!import.meta.env.VITE_OPENAI_API_KEY,
@@ -1419,6 +1427,10 @@ function App() {
           settings={settings}
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
+        />
+        <RulesModal
+          isOpen={showRules}
+          onClose={() => setShowRules(false)}
         />
       </DeckProvider>
     );
@@ -1548,6 +1560,10 @@ function App() {
         getGamesAgainst={getGamesAgainst}
         onClearStats={clearStats}
       />
+      <RulesModal
+        isOpen={showRules}
+        onClose={() => setShowRules(false)}
+      />
       <CaptureChoiceModal
         isOpen={captureChoiceModal.isOpen}
         playedCard={captureChoiceModal.playedCard}
@@ -1636,6 +1652,7 @@ function App() {
               onNewGame={handleNewGame}
               onOpenSettings={handleOpenSettings}
               onOpenStats={handleOpenStats}
+              onOpenRules={handleOpenRules}
             />
           </div>
         }
@@ -1735,7 +1752,7 @@ function App() {
           />
         }
         controls={
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
             <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
               {isSpectatorMode
                 ? `${AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name}'s turn${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? ' (Paused)' : ''}`

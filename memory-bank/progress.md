@@ -958,7 +958,7 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 
 ---
 
-## Phase 35: BYOK API Key Management & Validation
+## Phase 35: BYOK API Key Management & Deployment
 
 - [x] Step 35.1: Create API key validation functions (validateApiKey.ts) - Completed 2026-01-06
 - [x] Step 35.2: Add validation status display in SettingsModal - Completed 2026-01-06
@@ -969,6 +969,8 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 - [x] Step 35.7: Fix race condition with aiAvailability from React state - Completed 2026-01-06
 - [x] Step 35.8: Add AI hint when no providers available on StartScreen - Completed 2026-01-06
 - [x] Step 35.9: Add API key security warning popup - Completed 2026-01-06
+- [x] Step 35.10: Create Caddy deployment configuration - Completed 2026-01-06
+- [x] Step 35.11: Create deployment automation script - Completed 2026-01-06
 
 **Notes:**
 

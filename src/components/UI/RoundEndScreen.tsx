@@ -8,6 +8,7 @@ import { PRIME_VALUES, SUITS } from '../../game/constants';
 import { CardImage } from '../Card/CardImage';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';
+import { PersonIcon } from './PersonIcon';
 import { useDeck } from '../../contexts/DeckContext';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './RoundEndScreen.module.css';
@@ -217,7 +218,13 @@ export function RoundEndScreen({
     if (player1AIType) {
       return <AIPlayerLabel aiType={player1AIType} model={player1Model} />;
     }
-    return player1Name;
+    // Human player with person icon
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+        <PersonIcon size="1em" />
+        <span>{player1Name}</span>
+      </span>
+    );
   };
 
   const renderPlayer2Name = (): ReactNode => {

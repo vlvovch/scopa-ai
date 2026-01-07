@@ -48,7 +48,7 @@
 
 .playerName.current {
   color: var(--color-accent);
-  font-weight: bold;
+  /* No font-weight change to prevent layout shift */
 }
 
 .scoreValue {

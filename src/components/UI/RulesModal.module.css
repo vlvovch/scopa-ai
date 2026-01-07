@@ -1,0 +1,169 @@
+/* Rules Modal Styles */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  padding: var(--space-4);
+}
+
+.modal {
+  background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  padding: var(--space-5);
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.title {
+  text-align: center;
+  color: var(--color-accent);
+  margin: 0 0 var(--space-4);
+  font-size: 1.5rem;
+}
+
+.content {
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.section {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+  margin-bottom: var(--space-2);
+}
+
+.sectionTitle {
+  color: var(--color-accent);
+  font-size: 0.9375rem;
+  margin: 0 0 var(--space-2);
+}
+
+.section p {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.section ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.section li {
+  margin-bottom: var(--space-1);
+}
+
+.section strong {
+  color: var(--color-text-primary);
+}
+
+.rule {
+  background: rgba(212, 175, 55, 0.1);
+  border-left: 3px solid var(--color-accent);
+  padding: var(--space-2) var(--space-3);
+  margin: var(--space-2) 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.note {
+  font-size: 0.8125rem;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.scoreTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-2) 0;
+}
+
+.scoreTable td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-text-secondary);
+}
+
+.scoreTable td:first-child {
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.scoreTable td:nth-child(2) {
+  color: var(--color-accent);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.scoreTable tr:last-child td {
+  border-bottom: none;
+}
+
+.primeValues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.primeValues span {
+  background: rgba(255, 255, 255, 0.1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
+}
+
+.closeButton {
+  display: block;
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--color-accent);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: var(--space-3);
+}
+
+.closeButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+/* Scrollbar styling */
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+}
+
+.modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.5);
+}

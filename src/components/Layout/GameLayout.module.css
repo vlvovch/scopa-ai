@@ -9,6 +9,7 @@
   max-width: 900px;
   margin: 0 auto;
   padding: var(--space-4);
+  padding-bottom: calc(var(--space-4) + 24px);
   min-height: 100vh;
 }
 
@@ -107,4 +108,29 @@
     grid-row: 5;
     grid-column: 2;
   }
+}
+
+/* Footer */
+.footer {
+  position: fixed;
+  bottom: var(--space-1);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.footer a {
+  pointer-events: auto;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.footer a:hover {
+  color: var(--color-accent);
 }

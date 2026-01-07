@@ -5,6 +5,7 @@ import type { GeminiTokenStats, ExtendedAIType } from '../../ai';
 import type { RoundHistoryEntry } from '../../game/types';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';
+import { PersonIcon } from './PersonIcon';
 import styles from './GameEndScreen.module.css';
 
 interface GameEndScreenProps {
@@ -105,7 +106,13 @@ export function GameEndScreen({
     if (player1AIType) {
       return <AIPlayerLabel aiType={player1AIType} model={player1Model} showModeIndicator={false} />;
     }
-    return player1Name;
+    // Human player with person icon
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+        <PersonIcon size="1em" />
+        <span>{player1Name}</span>
+      </span>
+    );
   };
 
   const renderPlayer2Name = (): ReactNode => {
@@ -118,7 +125,12 @@ export function GameEndScreen({
   // Short names for table headers
   const player1Short = player1AIType ? (
     <AIPlayerLabel aiType={player1AIType} model={player1Model} showModeIndicator={false} />
-  ) : player1Name;
+  ) : (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+      <PersonIcon size="1em" />
+      <span>{player1Name}</span>
+    </span>
+  );
 
   const player2Short = player2AIType ? (
     <AIPlayerLabel aiType={player2AIType} model={player2Model} showModeIndicator={false} />
