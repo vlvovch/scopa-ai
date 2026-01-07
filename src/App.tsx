@@ -892,7 +892,7 @@ function App() {
           playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
           // Play coin sound if any denari captured (including the played card)
           if (moveToExecute.capturedCards.length > 0 &&
-              (moveToExecute.cardPlayed.suit === 'coins' || moveToExecute.capturedCards.some(c => c.suit === 'coins'))) {
+            (moveToExecute.cardPlayed.suit === 'coins' || moveToExecute.capturedCards.some(c => c.suit === 'coins'))) {
             playSound('coin');
           }
           // Record last move for LLM context
@@ -1057,8 +1057,15 @@ function App() {
       }, 300);
     }
 
+    // If we are in roundEnd status and the card is still on the table (currentOwner is null),
+    // do NOT reset the ref. The roundEnd effect (above) handles the "virtual" ownership
+    // for the celebration, and resetting it here causes an infinite loop.
+    if (state.status === 'roundEnd' && currentOwner === null) {
+      return;
+    }
+
     prevSetteBelloOwner.current = currentOwner;
-  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound, setteBelloCelebration.show]);
+  }, [state.players.human.captured, state.players.cpu.captured, isSpectatorMode, spectatorAIs, settings.cpuAI, isInstantMode, playSound, setteBelloCelebration.show, state.status]);
 
   // Helper to reset all token stats
   const resetAllTokenStats = useCallback(() => {
@@ -1314,7 +1321,7 @@ function App() {
           playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
           // Play coin sound if any denari captured (including the played card)
           if (moveToExecute.capturedCards.length > 0 &&
-              (moveToExecute.cardPlayed.suit === 'coins' || moveToExecute.capturedCards.some(c => c.suit === 'coins'))) {
+            (moveToExecute.cardPlayed.suit === 'coins' || moveToExecute.capturedCards.some(c => c.suit === 'coins'))) {
             playSound('coin');
           }
           // Record last move for LLM context

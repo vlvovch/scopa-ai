@@ -945,6 +945,19 @@ npm run simulate -- -p1=openai -m1=gpt-4o -p2=expert -g=100 -v
 
 ---
 
+## Phase 34: General Bug Fixes
+
+- [x] Step 34.1: Fix Sette Bello infinite loop at round end - Completed 2026-01-06
+
+**Notes:**
+
+**Sette Bello Infinite Loop Fix:**
+- Fixed a bug where the Sette Bello celebration would enter an infinite loop if captured at the end of the round.
+- The issue caused by race condition between two effects: one setting ownership for round-end awarding, and another resetting it based on play-time capture piles (which are empty on table cards).
+- Added guard clause to prevent resetting ownership tracking when in `roundEnd` status.
+
+---
+
 ## MVP Complete!
 
 The Scopa game is now fully playable with:
