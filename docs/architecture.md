@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-06 (Phase 37: Mobile Optimization)
+**Last Updated:** 2026-01-07 (Phase 38: Browser Zoom Tolerance)
 
 ---
 
@@ -35,6 +35,10 @@ scopa-ai-claude/
 ├── eslint.config.js        # ESLint configuration
 │
 ├── public/                 # Static assets (copied to dist/)
+│   ├── manifest.json       # PWA manifest
+│   ├── sw.js               # Service worker for offline support
+│   ├── pwa-192.png         # PWA icon 192x192
+│   ├── pwa-512.png         # PWA icon 512x512
 │   ├── cards/
 │   │   └── napoletane/     # Neapolitan deck (WebP format)
 │   │       ├── *.webp      # 40 card faces + back (~780KB total)
@@ -157,7 +161,7 @@ Defined in `src/index.css` under `:root`:
 | `--color-text-secondary` | `rgba(255,255,255,0.7)` | Subdued text |
 | `--space-{n}` | `4px * n` | Spacing scale |
 | `--duration-fast/normal/slow` | `150/300/500ms` | Animation timing |
-| `--card-width/height` | `70px/115px` | Card dimensions (matches SVG proportions) |
+| `--card-width/height` | `66px/108px` | Card dimensions (sized for 125% zoom tolerance) |
 | `--card-border-radius` | `6px` | Card corner radius |
 | `--card-img-scale` | `100%` | Card face image scale (clips border if >100%) |
 | `--card-img-offset` | `0%` | Card face image margin offset (negative to center) |
@@ -174,10 +178,10 @@ The app is optimized for mobile devices using CSS media queries and fluid sizing
 
 | Breakpoint | Target | Card Width |
 |------------|--------|------------|
-| > 600px | Desktop / tablets | 70px (fixed) |
-| ≤ 600px | Large phones | `clamp(52px, 17vw, 70px)` |
-| ≤ 480px | Standard phones | `clamp(48px, 16vw, 60px)` |
-| ≤ 380px | Small phones (iPhone SE) | `clamp(44px, 15vw, 52px)` |
+| > 600px | Desktop / tablets | `clamp(48px, 8.5vh, 66px)` (zoom-tolerant) |
+| ≤ 600px | Large phones | `clamp(45px, 11vh, 60px)` |
+| ≤ 480px | Standard phones | `clamp(48px, 13vh, 60px)` |
+| ≤ 380px | Small phones (iPhone SE) | `clamp(40px, 11vh, 50px)` |
 
 ### Mobile Optimizations
 
@@ -192,15 +196,31 @@ The app is optimized for mobile devices using CSS media queries and fluid sizing
 ### Key CSS Patterns
 
 ```css
-/* Fluid card sizing */
+/* Zoom-tolerant card sizing (desktop) */
+--card-width: clamp(48px, 8.5vh, 66px);
+--card-height: clamp(78px, 14vh, 108px);
+
+/* Fluid card sizing (mobile) */
 --card-width: clamp(48px, 16vw, 60px);
 
 /* Responsive min-width */
 min-width: min(340px, 90vw);
 
+/* Viewport-relative component sizing */
+min-width: clamp(140px, 16vw, 200px);
+
 /* iOS safe area insets */
 padding-bottom: env(safe-area-inset-bottom, 20px);
 ```
+
+### Browser Zoom Tolerance
+
+The layout is designed to work at 100-125% browser zoom without overflow:
+
+- **Key insight**: Browser zoom scales CSS pixels but NOT viewport units (vh/vw)
+- At 125% zoom, a 66px element renders as ~82px visually
+- Card dimensions use smaller base sizes that look correct when scaled up
+- Component min-widths use `clamp()` with viewport units for flexibility
 
 ---
 
@@ -1033,6 +1053,8 @@ All 30 phases implemented:
 34. API Key Validation & Error Handling
 35. BYOK Deployment (Caddy config, deployment script)
 36. UI Polish & Rules Modal
+37. Mobile Optimization
+38. Browser Zoom Tolerance (100-125%) & PWA Support
 
 **Future Enhancements:**
 - Multiplayer support

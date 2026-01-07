@@ -1171,3 +1171,48 @@ The Scopa game is now fully playable with:
 - `index.html` - viewport-fit=cover
 
 - 135 tests passing
+
+---
+
+## Phase 38: Browser Zoom Tolerance (100-125%)
+
+- [x] Step 38.1: Add PWA support with service worker and manifest - Completed 2026-01-07
+- [x] Step 38.2: Reduce card dimensions for 125% zoom tolerance - Completed 2026-01-07
+- [x] Step 38.3: Reduce padding and spacing throughout layout - Completed 2026-01-07
+- [x] Step 38.4: Use clamp() with viewport units for flexible sizing - Completed 2026-01-07
+
+**Notes:**
+
+**PWA Support:**
+- Added `manifest.json` with app metadata and icons (192px, 512px)
+- Created `sw.js` service worker with cache-first strategy for offline support
+- Added apple-touch-icon and theme-color meta tags to index.html
+- Offline play works for non-LLM opponents (Random, Heuristic, Expert)
+
+**Zoom Tolerance:**
+- Browser zoom scales CSS pixels but not viewport units - 125% zoom = 25% larger visually
+- Reduced base card dimensions to fit at 125% zoom:
+  - Width: 70px → 66px (at 125% zoom renders as ~82px)
+  - Height: 115px → 108px (at 125% zoom renders as ~135px)
+- Card dimensions now use clamp(): `clamp(48px, 8.5vh, 66px)` width, `clamp(78px, 14vh, 108px)` height
+- Reduced padding throughout:
+  - GameLayout: space-2 padding, 18px bottom padding
+  - Hand margins: 2px (was 4px)
+  - CapturedPile: 2px gap, space-1 padding
+- Used clamp() with viewport units for flexible component sizing:
+  - ScoreBoard min-width: `clamp(140px, 16vw, 200px)`
+  - Controls min-height/width: `clamp(40px, 5vh, 50px)` / `clamp(150px, 16vw, 200px)`
+  - Table area min-height: `calc(var(--card-height) + 16px)`
+
+**Files Modified:**
+- `src/index.css` - Card dimensions with clamp()
+- `src/components/Layout/GameLayout.module.css` - Reduced padding and margins
+- `src/components/Table/PlayerHand.module.css` - Reduced gap and padding
+- `src/components/Table/TableCards.module.css` - Reduced gap and padding
+- `src/components/Table/CapturedPile.module.css` - Reduced gap and padding
+- `src/components/UI/ScoreBoard.module.css` - Viewport-relative min-width
+- `index.html` - PWA manifest link, service worker registration
+- `public/manifest.json` - PWA manifest (new)
+- `public/sw.js` - Service worker (new)
+
+- 135 tests passing
