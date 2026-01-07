@@ -71,9 +71,7 @@
   }
 
   .deckArea {
-    /* Push deck to far right */
-    order: 1;
-    /* No scale - match other cards */
+    /* No forced order - let React control left/right placement */
     /* Less margin */
     margin-left: -5px;
   }

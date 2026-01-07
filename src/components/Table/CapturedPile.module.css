@@ -131,7 +131,8 @@
 @media (max-width: 600px) {
   .pile {
     padding: var(--space-1);
-    gap: 2px;
+    /* Increase gap to prevent overlap with stacked cards */
+    gap: 8px;
   }
 
   .pileInfo {
@@ -176,7 +177,7 @@
 @media (max-width: 480px) {
   .pile {
     padding: 2px;
-    gap: 1px;
+    gap: 6px;
   }
 
   .cardCount {
