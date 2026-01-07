@@ -64,11 +64,15 @@
 }
 
 /* Landscape mobile - compact horizontal hand */
-@media (max-width: 900px) and (orientation: landscape) {
+@media (max-width: 1280px) and (orientation: landscape) {
   .hand {
     gap: var(--space-1);
     padding: var(--space-1);
     min-width: auto;
-    min-height: calc(var(--card-height) + var(--space-1) * 2);
+    /* Height is now natural based on smaller --card-height */
+    min-height: calc(var(--card-height) + var(--space-2) * 2);
+    /* Explicitly lift off the bottom */
+    margin-bottom: 48px;
+    margin-top: 0;
   }
 }

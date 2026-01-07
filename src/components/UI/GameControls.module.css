@@ -66,7 +66,7 @@
 /* Landscape mobile - vertical stack */
 @media (max-width: 900px) and (orientation: landscape) {
   .controls {
-    flex-direction: column;
+    flex-direction: row;
     gap: var(--space-1);
   }
 

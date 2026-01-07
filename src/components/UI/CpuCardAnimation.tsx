@@ -21,24 +21,43 @@ export function CpuCardAnimation({ card, phase, capturedCardIds, player = 'cpu' 
     return null;
   }
 
-  // Position offsets based on player (CPU from top, human from bottom)
+  // Check for landscape orientation
+  const isLandscape = typeof window !== 'undefined' && window.matchMedia('(orientation: landscape) and (max-height: 500px)').matches;
+
+  // Position offsets based on player and orientation
   const isHumanPlayer = player === 'human';
-  const startY = isHumanPlayer ? 120 : -120;  // Start near player's hand
+
+  // Landscape adjustments (smaller vertical distance)
+  const startY = isHumanPlayer
+    ? (isLandscape ? 80 : 120)
+    : (isLandscape ? -80 : -120);
+
   const tableY = 0;  // Center of table
-  const captureY = isHumanPlayer ? 80 : -80;  // Move toward player's capture pile
+
+  const captureY = isHumanPlayer
+    ? (isLandscape ? 50 : 80)
+    : (isLandscape ? -50 : -80);
+
+  // X-axis movement for capture piles in landscape
+  // Human pile: Bottom-Left (move left)
+  // CPU pile: Top-Right (move right)
+  const captureX = phase === 'capturing' && isLandscape
+    ? (isHumanPlayer ? -150 : 150)
+    : 0;
+
 
   return (
     <AnimatePresence>
       <div className={styles.overlay}>
         <motion.div
           className={styles.cardContainer}
-          initial={{ y: startY }}
+          initial={{ y: startY, x: 0 }}
           animate={
             phase === 'reveal'
-              ? { y: startY }  // Stay in place during flip
+              ? { y: startY, x: 0 }  // Stay in place during flip
               : phase === 'moving'
-              ? { y: tableY }  // Move to table center
-              : { y: captureY, opacity: 0, scale: 0.8 }  // Move toward capture pile
+                ? { y: tableY, x: 0 }  // Move to table center
+                : { y: captureY, x: captureX, opacity: 0, scale: 0.8 }  // Move toward capture pile
           }
           transition={{
             type: 'spring',

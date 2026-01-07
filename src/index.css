@@ -191,16 +191,22 @@ a,
 }
 
 /* Mobile landscape - cards sized for horizontal layout */
-@media (max-width: 900px) and (orientation: landscape) {
+@media (max-width: 1280px) and (orientation: landscape) {
   :root {
-    /* In landscape, height is the constraint - use smaller cards */
-    --card-width: clamp(32px, 12vh, 50px);
-    --card-height: clamp(53px, 19.7vh, 82px);
-    --space-2: 3px;
-    --space-3: 4px;
-    --space-4: 6px;
-    --space-5: 8px;
-    --space-6: 10px;
+    /* In landscape, height is the constraint - use smaller cards naturally */
+    /* Force smaller dimensions to fit vertical space physically, avoiding transform scale */
+    --card-width: 44px;
+    --card-height: 72px;
+
+    /* Reduced spacing */
+    --space-1: 3px;
+    --space-2: 4px;
+    --space-3: 6px;
+    --space-4: 8px;
+    --space-5: 10px;
+    --space-6: 12px;
+
+    --card-border-radius: 4px;
   }
 
   html {
