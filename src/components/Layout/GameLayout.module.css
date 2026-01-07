@@ -9,9 +9,11 @@
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
-  padding: var(--space-2);
-  padding-bottom: calc(var(--space-2) + 18px);
-  min-height: 100vh;
+  padding: var(--space-1);
+  padding-bottom: calc(var(--space-1) + 14px);
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
 }
 
 /* Score board - row 1 left */
@@ -57,6 +59,10 @@
 .humanPileArea {
   grid-row: 5;
   grid-column: 1;
+  /* Pull up into previous row to save vertical space */
+  margin-top: -70px;
+  position: relative;
+  z-index: 5;
 }
 
 /* Controls area - row 5 right */
@@ -68,6 +74,10 @@
   justify-content: flex-start;
   min-height: clamp(40px, 5vh, 50px);
   min-width: clamp(150px, 16vw, 200px);
+  /* Pull up into previous row */
+  margin-top: -70px;
+  position: relative;
+  z-index: 5;
 }
 
 /* Responsive adjustments - tablets and large phones (portrait) */
