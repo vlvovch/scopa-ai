@@ -10,6 +10,9 @@
   min-width: min(320px, 90vw);
   /* Min-height prevents layout shift when last card is played */
   min-height: calc(var(--card-height) + 8px);
+  /* Prevent text selection in hand area */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .hand.human {
@@ -22,11 +25,20 @@
 
 .handCard {
   transition: transform var(--duration-fast);
+  /* Ensure cards are positioned for z-index to work */
+  position: relative;
+  z-index: 1;
 }
 
-/* Fan out on hover for human hand */
+/* Raise card above siblings on hover for human hand */
 .hand.human .handCard:hover {
-  z-index: 10;
+  z-index: 20;
+}
+
+/* Ensure selected/active cards stay on top */
+.hand.human .handCard:active,
+.hand.human .handCard:focus-within {
+  z-index: 30;
 }
 
 /* Mobile: tighter layout */

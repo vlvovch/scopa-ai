@@ -8,7 +8,11 @@
   cursor: pointer;
   /* Use CSS transitions only for box-shadow; transform is handled by Framer Motion */
   transition: box-shadow var(--duration-fast) ease-out;
+  /* Prevent text selection and native drag */
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   will-change: transform;
   background-color: #ffffff;
   overflow: hidden;
@@ -20,6 +24,10 @@
   height: var(--card-img-scale);
   margin: var(--card-img-offset);
   object-fit: cover;
+  /* Prevent native image drag */
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
 
 .card:hover:not(.disabled):not(.selected) {
@@ -52,6 +60,8 @@
 
 .card.draggable {
   cursor: grab;
+  /* Only draggable cards need touch-action: none for Framer Motion drag */
+  touch-action: none;
 }
 
 .card.draggable:active {

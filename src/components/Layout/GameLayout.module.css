@@ -70,6 +70,9 @@
   min-height: 0;
   flex: 1 1 auto;
   overflow: visible;
+  /* Ensure cards are above topRow/bottomRow for interactions */
+  position: relative;
+  z-index: 5;
 }
 
 .cpuArea {
@@ -92,6 +95,9 @@
   justify-content: center;
   width: 100%;
   flex-shrink: 0;
+  /* Ensure hand cards are above bottomRow for interactions */
+  position: relative;
+  z-index: 10;
 }
 
 /* ============================================

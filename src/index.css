@@ -129,10 +129,7 @@ a,
   touch-action: manipulation;
 }
 
-/* Allow cards to handle touch naturally (except drag) */
-.card {
-  touch-action: auto;
-}
+/* Cards handle their own touch-action via CSS modules */
 
 /* Large phones and small tablets (landscape phones) */
 @media (max-width: 600px) {

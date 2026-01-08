@@ -51,7 +51,7 @@ export function PlayerHand({
           <motion.div
             key={card.id}
             className={styles.handCard}
-            layout
+            layout="position"
             initial={{ opacity: 0, scale: 0.85, y: isHuman ? 40 : -40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{
@@ -65,8 +65,8 @@ export function PlayerHand({
               stiffness: 500,
               damping: 35,
               mass: 0.4,
-              // No stagger delay - cards appear instantly after dealing animation
             }}
+            style={{ touchAction: isHuman ? 'none' as const : 'auto' as const }}
           >
             <Card
               card={card}

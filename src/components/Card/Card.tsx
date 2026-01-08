@@ -107,9 +107,12 @@ export function Card({
     dragSnapToOrigin: true,
     dragElastic: 1, // Full elasticity - card follows cursor exactly
     dragMomentum: false,
+    dragListener: true, // Explicitly enable drag listener
+    dragTransition: { bounceStiffness: 300, bounceDamping: 20 },
     onDragStart,
     onDragEnd,
-    whileDrag: { scale: 1.08, zIndex: 100 },
+    whileDrag: { scale: 1.08, zIndex: 100, cursor: 'grabbing' },
+    style: { touchAction: 'none' as const, userSelect: 'none' as const },
   } : {};
 
   // Hover/tap animation config - don't use y for draggable cards
