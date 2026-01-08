@@ -8,6 +8,7 @@
   align-items: center;
   justify-content: center;
   z-index: 150;
+  padding: var(--space-4);
 }
 
 .modal {
@@ -17,7 +18,28 @@
   padding: var(--space-6);
   min-width: 320px;
   max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Scrollbar styling */
+.modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+}
+
+.modal::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.5);
 }
 
 .title {
