@@ -20,7 +20,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: 8px;
-  /* No min-height - let content determine size */
+  /* Min height = card height + padding to prevent layout shift when empty */
+  min-height: calc(var(--card-height) + 16px);
   min-width: min(280px, 70vw);
   /* Max 8 cards per row */
   max-width: calc(8 * var(--card-width) + 7 * var(--space-3) + 16px);
@@ -44,6 +45,7 @@
   color: var(--color-text-secondary);
   font-style: italic;
   font-size: 14px;
+  white-space: nowrap;
 }
 
 /* Drop target state when card is being dragged */
