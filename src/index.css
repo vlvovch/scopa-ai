@@ -33,13 +33,13 @@
   --duration-normal: 300ms;
   --duration-slow: 500ms;
 
-  /* Card dimensions (2:3 ratio) - scales with viewport height */
+  /* Card dimensions (1:1.633 ratio) - scales with viewport height */
   /* Relative to window height, scales with zoom level */
-  /* At 100% zoom on 900px height: ~81px width, ~133px height */
+  /* At 100% zoom on 900px height: ~99px width, ~162px height */
   /* At 125% zoom: cards scale down proportionally */
   /* Lower minimums allow smooth scaling on short viewports */
-  --card-width: clamp(32px, 9vh, 90px);
-  --card-height: clamp(52px, 14.7vh, 147px);
+  --card-width: clamp(32px, 11vh, 110px);
+  --card-height: clamp(52px, 18vh, 180px);
   --card-border-radius: 6px;
 
   /* Playing area width - enough for scoreboard + pile on same row */

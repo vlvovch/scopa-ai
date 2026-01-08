@@ -11,24 +11,17 @@
 .pileStack {
   position: relative;
   width: var(--card-width);
-  height: var(--card-height);
+  /* Height includes card + generous buffer for stacked layers offset */
+  /* Using percentage of card height makes it scale-resistant */
+  height: calc(var(--card-height) * 1.08);
+  margin-bottom: 4px;
 }
 
-/* Stacked cards effect */
+/* Stacked cards effect - offsets handled by inline transforms */
 .stackedCard {
   position: absolute;
   top: 0;
   left: 0;
-}
-
-.stackedCard:nth-child(2) {
-  top: 2px;
-  left: 2px;
-}
-
-.stackedCard:nth-child(3) {
-  top: 4px;
-  left: 4px;
 }
 
 .pileInfo {
@@ -36,6 +29,9 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-1);
+  /* Ensure stats appear above stacked cards */
+  position: relative;
+  z-index: 10;
 }
 
 .cardCount {
@@ -110,6 +106,9 @@
   letter-spacing: 0.3px;
   white-space: nowrap;
   text-align: center;
+  /* Ensure label appears above stacked cards */
+  position: relative;
+  z-index: 10;
 }
 
 .emptyPile {
