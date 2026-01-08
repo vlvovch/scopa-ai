@@ -1,289 +1,129 @@
-/* GameLayout Component Styles */
+/* GameLayout - Centered playing area with aligned corner elements
 
+   Layout structure:
+   ┌─────────────────────────────────────────────────────┐
+   │ [Scoreboard+Buttons]              [CPU Pile]        │ ← topRow
+   ├─────────────────────────────────────────────────────┤
+   │                    [CPU Hand]                       │
+   │              [Deck] [Table Cards]                   │ ← centerColumn
+   │                   [Human Hand]                      │
+   ├─────────────────────────────────────────────────────┤
+   │ [Human Pile]                         [Controls]     │ ← bottomRow
+   └─────────────────────────────────────────────────────┘
+*/
+
+/* ============================================
+   MAIN CONTAINER - CSS Grid for reliable layout
+   ============================================ */
 .gameLayout {
   display: grid;
-  /* 5 rows: header/piles, CPU hand, table, human hand, bottom piles/controls */
-  grid-template-rows: auto auto 1fr auto auto;
-  grid-template-columns: auto 1fr auto;
-  gap: var(--space-2);
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
+  /* Top row auto, center flexible, bottom row auto (always visible) */
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: 1fr;
+  height: 100vh;
+  height: 100dvh;
   padding: var(--space-3);
-  padding-bottom: 28px; /* Space for fixed footer */
-  /* Use min-height to fit content, allow scrolling if needed */
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Fixed bottom padding ensures bottomRow stays visible */
+  padding-bottom: 24px;
   box-sizing: border-box;
+  gap: var(--space-3);
+  justify-items: center;
+  overflow: hidden;
 }
 
-/* Score board - row 1 left */
+/* ============================================
+   TOP ROW - Scoreboard (left) & CPU Pile (right)
+   ============================================ */
+.topRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
+  width: 100%;
+  max-width: var(--playing-area-width, 1000px);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
 .scoreBoardArea {
-  grid-row: 1;
-  grid-column: 1;
-  align-self: start;
+  flex-shrink: 0;
 }
 
-/* CPU captured pile - row 1 right */
 .cpuPileArea {
-  grid-row: 1;
-  grid-column: 3;
-  align-self: start;
-  /* Pull down into CPU hand row to save vertical space */
-  margin-bottom: -60px;
-  position: relative;
-  z-index: 5;
+  flex-shrink: 0;
 }
 
-/* CPU area - row 2, spans full width */
+/* ============================================
+   CENTER COLUMN - CPU hand, Table, Human hand
+   ============================================ */
+.centerColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Center vertically */
+  justify-content: center;
+  width: 100%;
+  max-width: var(--playing-area-width, 1000px);
+  /* Strict gap between areas */
+  gap: var(--space-2);
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
 .cpuArea {
-  grid-row: 2;
-  grid-column: 1 / -1;
   display: flex;
   justify-content: center;
-  /* Pull up to reduce gap from header row */
-  margin-top: -40px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
-/* Table area - row 3, flexible height */
 .tableArea {
-  grid-row: 3;
-  grid-column: 1 / -1;
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 0; /* Allow shrinking */
+  width: 100%;
+  flex-shrink: 0;
 }
 
-/* Human hand - row 4, spans full width */
 .humanArea {
-  grid-row: 4;
-  grid-column: 1 / -1;
   display: flex;
   justify-content: center;
+  width: 100%;
+  flex-shrink: 0;
 }
 
-/* Human captured pile - row 5 left */
-.humanPileArea {
-  grid-row: 5;
-  grid-column: 1;
-  align-self: start;
-  /* Pull up into human hand row to save vertical space */
-  margin-top: -80px;
+/* ============================================
+   BOTTOM ROW - Human Pile (left) & Controls (right)
+   Always visible at bottom
+   ============================================ */
+.bottomRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+  max-width: var(--playing-area-width, 1000px);
+  flex-shrink: 0;
   position: relative;
-  z-index: 5;
+  z-index: 1;
 }
 
-/* Controls area - row 5 right */
+.humanPileArea {
+  flex-shrink: 0;
+}
+
 .controlsArea {
-  grid-row: 5;
-  grid-column: 3;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  min-width: clamp(120px, 14vw, 180px);
-  align-self: center;
-  /* Pull up into human hand row to save vertical space */
-  margin-top: -80px;
-  position: relative;
-  z-index: 5;
+  gap: var(--space-2);
 }
 
-/* ==================================================
-   DESKTOP: Small height handling (height < 700px)
-   Allow content to scroll rather than cut off
-   ================================================== */
-@media (max-height: 700px) and (min-width: 769px) {
-  .gameLayout {
-    /* Don't force 100vh, let content determine height */
-    min-height: auto;
-    height: auto;
-    padding-bottom: 32px;
-  }
-
-  body {
-    overflow-y: auto;
-  }
-}
-
-/* ==================================================
-   TABLETS: Portrait mode (max-width: 768px)
-   ================================================== */
-@media (max-width: 768px) and (orientation: portrait) {
-  .gameLayout {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: min-content min-content 1fr min-content min-content;
-    gap: var(--space-1);
-    padding: var(--space-2);
-    min-height: 100vh;
-    min-height: 100dvh;
-    height: auto;
-    padding-top: max(var(--space-2), env(safe-area-inset-top, 0px));
-    padding-bottom: max(var(--space-2), env(safe-area-inset-bottom, 0px));
-    align-content: start;
-  }
-
-  .cpuArea {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    align-self: end;
-    padding-bottom: var(--space-1);
-    margin-top: 0; /* Reset negative margin for mobile */
-  }
-
-  .scoreBoardArea {
-    grid-row: 1;
-    grid-column: 1;
-    align-self: start;
-    z-index: 10;
-  }
-
-  .cpuPileArea {
-    grid-row: 1;
-    grid-column: 2;
-    justify-self: end;
-    align-self: start;
-    margin-bottom: 0; /* Reset negative margin for mobile */
-  }
-
-  .tableArea {
-    grid-row: 3;
-    grid-column: 1 / -1;
-    align-self: center;
-    min-height: 0;
-  }
-
-  .humanPileArea {
-    grid-row: 5;
-    grid-column: 1;
-    align-self: center;
-    margin-top: 0; /* Reset negative margin for mobile */
-  }
-
-  .humanArea {
-    grid-row: 4;
-    grid-column: 1 / -1;
-    align-self: start;
-    padding-top: var(--space-1);
-  }
-
-  .controlsArea {
-    grid-row: 5;
-    grid-column: 2;
-    min-width: auto;
-    justify-self: end;
-    align-self: center;
-    transform: scale(0.9);
-    transform-origin: right center;
-    margin-top: 0; /* Reset negative margin for mobile */
-  }
-}
-
-/* ==================================================
-   MOBILE LANDSCAPE: Phones only (small height + landscape)
-   Only apply to actual mobile devices, not desktop windows
-   ================================================== */
-@media (max-height: 500px) and (orientation: landscape) {
-  .gameLayout {
-    grid-template-columns: auto 1fr auto;
-    grid-template-rows: auto 1fr auto;
-    gap: var(--space-1);
-    padding: var(--space-1);
-    padding-left: max(var(--space-2), env(safe-area-inset-left, 0px));
-    padding-right: max(var(--space-2), env(safe-area-inset-right, 0px));
-    padding-bottom: max(var(--space-2), env(safe-area-inset-bottom, 20px));
-    height: 100vh;
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .scoreBoardArea {
-    grid-row: 1 / 4;
-    grid-column: 1;
-    align-self: start;
-    transform: scale(0.85);
-    transform-origin: top left;
-  }
-
-  .cpuArea {
-    grid-row: 1;
-    grid-column: 2;
-    padding-bottom: 0;
-    margin-top: 0; /* Reset negative margin */
-  }
-
-  .tableArea {
-    grid-row: 2;
-    grid-column: 2;
-  }
-
-  .humanArea {
-    grid-row: 3;
-    grid-column: 2;
-    padding-top: 0;
-  }
-
-  .controlsArea {
-    grid-row: 3;
-    grid-column: 3;
-    justify-self: end;
-    align-self: end;
-    min-width: auto;
-    flex-direction: row;
-    padding-bottom: 0;
-    margin-top: 0; /* Reset negative margin */
-  }
-
-  .cpuPileArea {
-    grid-row: 1;
-    grid-column: 3;
-    justify-self: end;
-    align-self: start;
-    margin-bottom: 0; /* Reset negative margin */
-  }
-
-  .humanPileArea {
-    grid-row: 3;
-    grid-column: 1;
-    justify-self: start;
-    align-self: end;
-    margin-top: 0; /* Reset negative margin */
-  }
-}
-
-/* ==================================================
-   STANDARD PHONES: Portrait (max-width: 480px)
-   ================================================== */
-@media (max-width: 480px) and (orientation: portrait) {
-  .gameLayout {
-    gap: var(--space-2);
-    padding: var(--space-2);
-    padding-top: max(var(--space-3), env(safe-area-inset-top, 0px));
-    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px) + 20px);
-  }
-
-  .controlsArea {
-    min-width: auto;
-    justify-content: flex-end;
-  }
-}
-
-/* ==================================================
-   SMALL PHONES: Portrait (max-width: 380px)
-   ================================================== */
-@media (max-width: 380px) and (orientation: portrait) {
-  .gameLayout {
-    gap: var(--space-1);
-    padding: var(--space-1);
-    padding-top: max(var(--space-2), env(safe-area-inset-top, 0px));
-    padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px) + 18px);
-  }
-}
-
-/* ==================================================
+/* ============================================
    FOOTER
-   ================================================== */
+   ============================================ */
 .footer {
   position: fixed;
   bottom: var(--space-1);
@@ -309,6 +149,69 @@
   color: var(--color-accent);
 }
 
+/* ============================================
+   RESPONSIVE: Tablets Portrait
+   ============================================ */
+@media (max-width: 768px) and (orientation: portrait) {
+  .gameLayout {
+    padding: var(--space-2);
+    gap: var(--space-2);
+    padding-top: max(var(--space-2), env(safe-area-inset-top, 0px));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .topRow {
+    margin-bottom: -40px;
+  }
+
+  .centerColumn {
+    gap: var(--space-1);
+    margin-bottom: -40px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE: Standard Phones Portrait
+   ============================================ */
+@media (max-width: 480px) and (orientation: portrait) {
+  .gameLayout {
+    padding: var(--space-2);
+    padding-top: max(var(--space-3), env(safe-area-inset-top, 0px));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .topRow {
+    margin-bottom: -30px;
+  }
+
+  .centerColumn {
+    margin-bottom: -30px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE: Small Phones Portrait
+   ============================================ */
+@media (max-width: 380px) and (orientation: portrait) {
+  .gameLayout {
+    padding: var(--space-1);
+    gap: var(--space-1);
+    padding-top: max(var(--space-2), env(safe-area-inset-top, 0px));
+    padding-bottom: max(18px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .topRow {
+    margin-bottom: -20px;
+  }
+
+  .centerColumn {
+    margin-bottom: -20px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE: Smaller footer on mobile
+   ============================================ */
 @media (max-width: 768px) {
   .footer {
     font-size: 0.5625rem;

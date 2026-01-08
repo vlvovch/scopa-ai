@@ -442,9 +442,14 @@ function App() {
   }, [state.scores, state.targetScore, state.roundNumber, state.players, state.round.deck.length]);
 
   // Track previous scopa counts to detect new scopas
-  const prevScopaCounts = useRef({ human: 0, cpu: 0 });
+  // Initialize from current state to prevent replay on page refresh
+  const prevScopaCounts = useRef({ human: state.players.human.scopaCount, cpu: state.players.cpu.scopaCount });
   // Track who has sette bello (null = neither, 'human' or 'cpu' = that player has it)
-  const prevSetteBelloOwner = useRef<PlayerId | null>(null);
+  // Initialize from current state to prevent replay on page refresh
+  const prevSetteBelloOwner = useRef<PlayerId | null>(
+    state.players.human.captured.some(c => c.suit === 'coins' && c.value === 7) ? 'human' :
+    state.players.cpu.captured.some(c => c.suit === 'coins' && c.value === 7) ? 'cpu' : null
+  );
   // Track last move made by each player (for LLM context)
   const lastMoves = useRef<{ human: Move | null; cpu: Move | null }>({ human: null, cpu: null });
 
@@ -512,10 +517,17 @@ function App() {
     }
   }, [spectatorModels]);
 
+  // Track previous round number to detect actual round changes (not initial mount)
+  const prevRoundNumberForCelebrations = useRef(state.roundNumber);
+
   // Reset sette bello and last moves tracking when a new round starts
+  // Skip on initial mount (when loading from localStorage) to prevent replaying celebrations
   useEffect(() => {
-    prevSetteBelloOwner.current = null;
-    lastMoves.current = { human: null, cpu: null };
+    if (prevRoundNumberForCelebrations.current !== state.roundNumber) {
+      prevSetteBelloOwner.current = null;
+      lastMoves.current = { human: null, cpu: null };
+      prevRoundNumberForCelebrations.current = state.roundNumber;
+    }
   }, [state.roundNumber]);
 
   // Detect dealing by tracking deck count changes

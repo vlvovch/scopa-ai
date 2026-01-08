@@ -8,8 +8,8 @@
   padding: 4px;
   /* Responsive min-width to prevent layout shift when cards change */
   min-width: min(320px, 90vw);
-  /* Height based on card height variable */
-  min-height: calc(var(--card-height) + 6px);
+  /* Min-height prevents layout shift when last card is played */
+  min-height: calc(var(--card-height) + 8px);
 }
 
 .hand.human {
@@ -35,7 +35,6 @@
     gap: var(--space-2);
     padding: var(--space-2);
     min-width: auto;
-    min-height: calc(var(--card-height) + var(--space-2) * 2);
     /* Scale down flex items if needed, but don't force clip */
     flex-wrap: wrap;
     width: 100%;
@@ -48,7 +47,6 @@
   .hand {
     gap: var(--space-1);
     padding: var(--space-1);
-    min-height: calc(var(--card-height) + var(--space-1) * 2);
     /* Limit to 4 cards per row */
     max-width: calc(4 * var(--card-width) + 3 * var(--space-2) + 2 * var(--space-4));
   }
@@ -63,12 +61,11 @@
   }
 }
 
-/* Landscape mobile - compact horizontal hand (phones only) */
-@media (max-height: 500px) and (orientation: landscape) {
+/* Landscape mobile - compact horizontal hand (phones only - requires small width too) */
+@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .hand {
     gap: var(--space-1);
     padding: var(--space-1);
     min-width: auto;
-    min-height: calc(var(--card-height) + var(--space-2) * 2);
   }
 }

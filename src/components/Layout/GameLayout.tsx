@@ -1,4 +1,4 @@
-// Step 7.8: GameLayout Component
+// GameLayout Component - Centered playing area with aligned elements
 
 import type { ReactNode } from 'react';
 import styles from './GameLayout.module.css';
@@ -31,15 +31,24 @@ export function GameLayout({
 }: GameLayoutProps) {
   return (
     <div className={styles.gameLayout}>
-      <div className={styles.scoreBoardArea}>{scoreBoard}</div>
-      <div className={styles.cpuArea}>{cpuHand}</div>
-      <div className={styles.cpuPileArea}>{cpuPile}</div>
+      {/* Top row: scoreboard left, CPU pile right - aligned with playing area */}
+      <div className={styles.topRow}>
+        <div className={styles.scoreBoardArea}>{scoreBoard}</div>
+        <div className={styles.cpuPileArea}>{cpuPile}</div>
+      </div>
 
-      <div className={styles.tableArea}>{tableCards}</div>
+      {/* Center column: CPU hand, playing area, human hand */}
+      <div className={styles.centerColumn}>
+        <div className={styles.cpuArea}>{cpuHand}</div>
+        <div className={styles.tableArea}>{tableCards}</div>
+        <div className={styles.humanArea}>{humanHand}</div>
+      </div>
 
-      <div className={styles.humanPileArea}>{humanPile}</div>
-      <div className={styles.humanArea}>{humanHand}</div>
-      <div className={styles.controlsArea}>{controls}</div>
+      {/* Bottom row: human pile left, controls right - aligned with playing area */}
+      <div className={styles.bottomRow}>
+        <div className={styles.humanPileArea}>{humanPile}</div>
+        <div className={styles.controlsArea}>{controls}</div>
+      </div>
 
       <footer className={styles.footer}>
         © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a>. Built with help from <a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>

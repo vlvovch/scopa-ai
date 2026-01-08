@@ -223,8 +223,8 @@
   }
 }
 
-/* Landscape mobile - vertical pile layout (phones only) */
-@media (max-height: 500px) and (orientation: landscape) {
+/* Landscape mobile - vertical pile layout (phones only - requires small width too) */
+@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .pile {
     padding: 2px;
     gap: 2px;
