@@ -113,32 +113,24 @@
   }
 }
 
-/* Landscape mobile */
-@media (max-width: 1280px) and (orientation: landscape) {
+/* Landscape mobile (phones only) */
+@media (max-height: 500px) and (orientation: landscape) {
   .tableContainer {
-    /* Larger gap between deck and table cards */
-    gap: 32px;
+    gap: var(--space-4);
     width: 100%;
     justify-content: center;
-    /* No transform scale - use natural variable sizing */
   }
 
   .tableArea {
     padding: var(--space-2);
-    /* Allow min-height to adjust naturally */
     min-height: calc(var(--card-height) + var(--space-2) * 2);
     gap: var(--space-1);
     border-radius: 6px;
-    /* Force single row as requested */
     flex-wrap: nowrap;
-    /* Ensure it doesn't overflow container width visually */
-    max-width: 90vw;
-    /* Allow many cards per row (up to ~10) */
     max-width: calc(10 * var(--card-width) + 9 * var(--space-1) + 2 * var(--space-2));
   }
 
   .deckArea {
-    /* Ensure deck respects new size */
     transform: none;
   }
 

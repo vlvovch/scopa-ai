@@ -63,16 +63,12 @@
   }
 }
 
-/* Landscape mobile - compact horizontal hand */
-@media (max-width: 1280px) and (orientation: landscape) {
+/* Landscape mobile - compact horizontal hand (phones only) */
+@media (max-height: 500px) and (orientation: landscape) {
   .hand {
     gap: var(--space-1);
     padding: var(--space-1);
     min-width: auto;
-    /* Height is now natural based on smaller --card-height */
     min-height: calc(var(--card-height) + var(--space-2) * 2);
-    /* Explicitly lift off the bottom */
-    margin-bottom: 48px;
-    margin-top: 0;
   }
 }

@@ -33,10 +33,10 @@
   --duration-normal: 300ms;
   --duration-slow: 500ms;
 
-  /* Card dimensions (2:3 ratio) - balanced for 100-125% zoom */
-  /* At 125% zoom, 66px renders as ~82px, 108px renders as ~135px */
-  --card-width: clamp(48px, 8.5vh, 66px);
-  --card-height: clamp(78px, 14vh, 108px);
+  /* Card dimensions (2:3 ratio) - scales with viewport height */
+  /* Scales smoothly from small to large viewports */
+  --card-width: clamp(50px, 9vh, 72px);
+  --card-height: clamp(82px, 14.7vh, 118px);
   --card-border-radius: 6px;
 
   /* Mini card dimensions for RoundEndScreen */
@@ -191,13 +191,12 @@ a,
   }
 }
 
-/* Mobile landscape - cards sized for horizontal layout */
-@media (max-width: 1280px) and (orientation: landscape) {
+/* Mobile landscape - only for actual phones (small viewport height) */
+@media (max-height: 500px) and (orientation: landscape) {
   :root {
-    /* In landscape, height is the constraint - use smaller cards naturally */
-    /* Force smaller dimensions to fit vertical space physically, avoiding transform scale */
-    --card-width: 44px;
-    --card-height: 72px;
+    /* In mobile landscape, height is the constraint - use smaller cards */
+    --card-width: clamp(36px, 12vh, 52px);
+    --card-height: clamp(59px, 19.6vh, 85px);
 
     /* Reduced spacing */
     --space-1: 3px;
@@ -227,5 +226,19 @@ a,
 
   html {
     font-size: 12px;
+  }
+}
+
+/* Desktop small height - allow scrolling when viewport is short */
+@media (max-height: 700px) and (min-width: 769px) {
+  body {
+    overflow-y: auto;
+    min-height: 100vh;
+    height: auto;
+  }
+
+  #root {
+    min-height: auto;
+    height: auto;
   }
 }
