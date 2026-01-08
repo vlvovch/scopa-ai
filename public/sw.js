@@ -1,12 +1,74 @@
 // Service Worker for Scopa PWA
-const CACHE_NAME = 'scopa-v2';
+const CACHE_NAME = 'scopa-v3';
 
-// Assets to cache on install
+// Assets to cache on install - essential for offline play
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './scopa-icon.svg',
-  './manifest.json'
+  './manifest.json',
+  './pwa-192.png',
+  './pwa-512.png',
+  // Card images (Napoletane deck)
+  './cards/napoletane/back.webp',
+  './cards/napoletane/coins-1.webp',
+  './cards/napoletane/coins-2.webp',
+  './cards/napoletane/coins-3.webp',
+  './cards/napoletane/coins-4.webp',
+  './cards/napoletane/coins-5.webp',
+  './cards/napoletane/coins-6.webp',
+  './cards/napoletane/coins-7.webp',
+  './cards/napoletane/coins-8.webp',
+  './cards/napoletane/coins-9.webp',
+  './cards/napoletane/coins-10.webp',
+  './cards/napoletane/cups-1.webp',
+  './cards/napoletane/cups-2.webp',
+  './cards/napoletane/cups-3.webp',
+  './cards/napoletane/cups-4.webp',
+  './cards/napoletane/cups-5.webp',
+  './cards/napoletane/cups-6.webp',
+  './cards/napoletane/cups-7.webp',
+  './cards/napoletane/cups-8.webp',
+  './cards/napoletane/cups-9.webp',
+  './cards/napoletane/cups-10.webp',
+  './cards/napoletane/swords-1.webp',
+  './cards/napoletane/swords-2.webp',
+  './cards/napoletane/swords-3.webp',
+  './cards/napoletane/swords-4.webp',
+  './cards/napoletane/swords-5.webp',
+  './cards/napoletane/swords-6.webp',
+  './cards/napoletane/swords-7.webp',
+  './cards/napoletane/swords-8.webp',
+  './cards/napoletane/swords-9.webp',
+  './cards/napoletane/swords-10.webp',
+  './cards/napoletane/clubs-1.webp',
+  './cards/napoletane/clubs-2.webp',
+  './cards/napoletane/clubs-3.webp',
+  './cards/napoletane/clubs-4.webp',
+  './cards/napoletane/clubs-5.webp',
+  './cards/napoletane/clubs-6.webp',
+  './cards/napoletane/clubs-7.webp',
+  './cards/napoletane/clubs-8.webp',
+  './cards/napoletane/clubs-9.webp',
+  './cards/napoletane/clubs-10.webp',
+  // Suit icons for score screen
+  './cards/napoletane/suits/coins.svg',
+  './cards/napoletane/suits/cups.svg',
+  './cards/napoletane/suits/swords.svg',
+  './cards/napoletane/suits/clubs.svg',
+  // Sound effects
+  './sounds/broom-sweep.mp3',
+  './sounds/card-fan-1.ogg',
+  './sounds/card-fan-2.ogg',
+  './sounds/card-place-1.ogg',
+  './sounds/card-place-2.ogg',
+  './sounds/card-shove-1.ogg',
+  './sounds/card-shove-2.ogg',
+  './sounds/card-slide-1.ogg',
+  './sounds/card-slide-2.ogg',
+  './sounds/chips-stack-1.ogg',
+  './sounds/chips-stack-4.ogg',
+  './sounds/coin-dropped-81172.mp3'
 ];
 
 // Install event - cache core assets
@@ -35,7 +97,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - cache-first for assets, network-first for API calls
+// Fetch event - cache-first for assets, skip API calls
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
