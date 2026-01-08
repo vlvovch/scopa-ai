@@ -1,6 +1,5 @@
 // Sound effects hook for game audio
 // Audio files from Kenney.nl Casino Audio pack (CC0 license)
-// Optimized for iOS Safari compatibility
 
 import { useCallback, useRef, useEffect } from 'react';
 
@@ -28,32 +27,36 @@ const SOUND_FILES: Record<SoundType, string[]> = {
   coin: ['./sounds/coin-dropped-81172.mp3'],
 };
 
-// Number of pre-created instances per sound file for concurrent playback
-const INSTANCES_PER_SOUND = 3;
+// Audio pool for reuse (iOS performs better with reused elements)
+const POOL_SIZE = 8;
+const audioPool: HTMLAudioElement[] = [];
+let poolIndex = 0;
 
-// Pre-created audio instances per sound file
-// Key: file path, Value: array of audio elements for that file
-const audioInstances: Map<string, HTMLAudioElement[]> = new Map();
-const instanceIndex: Map<string, number> = new Map();
+// Preloaded audio buffers
+const audioCache: Map<string, HTMLAudioElement> = new Map();
 
 // Track if audio has been unlocked (iOS requires user gesture)
 let audioUnlocked = false;
 
-// Initialize all audio instances
-function initAudioInstances(): void {
-  if (audioInstances.size > 0) return;
+// Initialize audio pool
+function initPool(): void {
+  if (audioPool.length > 0) return;
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audioPool.push(audio);
+  }
+}
 
+// Preload all audio files
+function preloadAudio(): void {
   Object.values(SOUND_FILES).flat().forEach(src => {
-    if (!audioInstances.has(src)) {
-      const instances: HTMLAudioElement[] = [];
-      for (let i = 0; i < INSTANCES_PER_SOUND; i++) {
-        const audio = new Audio(src);
-        audio.preload = 'auto';
-        audio.load(); // Force load on iOS
-        instances.push(audio);
-      }
-      audioInstances.set(src, instances);
-      instanceIndex.set(src, 0);
+    if (!audioCache.has(src)) {
+      const audio = new Audio(src);
+      audio.preload = 'auto';
+      // Load the audio data
+      audio.load();
+      audioCache.set(src, audio);
     }
   });
 }
@@ -62,25 +65,23 @@ function initAudioInstances(): void {
 function unlockAudio(): void {
   if (audioUnlocked) return;
 
-  // Touch all audio elements to unlock them on iOS
-  audioInstances.forEach((instances) => {
-    instances.forEach(audio => {
-      // Play and immediately pause to unlock
-      audio.volume = 0;
-      const promise = audio.play();
-      if (promise) {
-        promise.then(() => {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 1;
-        }).catch(() => {
-          audio.volume = 1;
-        });
-      }
-    });
-  });
+  // Play silent audio to unlock iOS audio
+  const audio = audioPool[0] || new Audio();
+  audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQZB4P8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==';
+  audio.volume = 0.01;
 
-  audioUnlocked = true;
+  const playPromise = audio.play();
+  if (playPromise) {
+    playPromise
+      .then(() => {
+        audioUnlocked = true;
+        audio.pause();
+        audio.currentTime = 0;
+      })
+      .catch(() => {
+        // Still locked, will try again on next interaction
+      });
+  }
 }
 
 // Get a random variant of a sound type
@@ -89,15 +90,10 @@ function getRandomSound(type: SoundType): string {
   return files[Math.floor(Math.random() * files.length)];
 }
 
-// Get next audio instance for a sound file (round-robin)
-function getAudioInstance(src: string): HTMLAudioElement | null {
-  const instances = audioInstances.get(src);
-  if (!instances || instances.length === 0) return null;
-
-  const idx = instanceIndex.get(src) || 0;
-  const audio = instances[idx];
-  instanceIndex.set(src, (idx + 1) % instances.length);
-
+// Get next audio element from pool
+function getPooledAudio(): HTMLAudioElement {
+  const audio = audioPool[poolIndex];
+  poolIndex = (poolIndex + 1) % POOL_SIZE;
   return audio;
 }
 
@@ -117,10 +113,7 @@ export interface UseSoundReturn {
 
 /**
  * Hook for playing game sound effects
- * Optimized for iOS Safari compatibility:
- * - Pre-creates audio elements for each sound file
- * - Unlocks all audio on first user interaction
- * - Reuses elements without changing src (iOS loads faster)
+ * Optimized for iOS Safari compatibility
  */
 export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
   const { enabled = true } = options;
@@ -128,26 +121,22 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
   // Track active audio elements for cleanup
   const activeAudios = useRef<Set<HTMLAudioElement>>(new Set());
 
-  // Initialize and unlock audio
+  // Initialize pool and preload audio on first use
   useEffect(() => {
-    initAudioInstances();
+    initPool();
+    preloadAudio();
 
     // Unlock audio on first user interaction (iOS requirement)
     const handleInteraction = () => {
       unlockAudio();
     };
 
-    // Use multiple events to catch interaction
-    document.addEventListener('touchstart', handleInteraction, { passive: true });
-    document.addEventListener('touchend', handleInteraction, { passive: true });
-    document.addEventListener('click', handleInteraction);
-    document.addEventListener('keydown', handleInteraction);
+    document.addEventListener('touchstart', handleInteraction, { once: true });
+    document.addEventListener('click', handleInteraction, { once: true });
 
     return () => {
       document.removeEventListener('touchstart', handleInteraction);
-      document.removeEventListener('touchend', handleInteraction);
       document.removeEventListener('click', handleInteraction);
-      document.removeEventListener('keydown', handleInteraction);
     };
   }, []);
 
@@ -156,17 +145,21 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
     if (!enabled) return;
 
     const src = getRandomSound(type);
-    const audio = getAudioInstance(src);
 
-    if (!audio) return;
+    // Use pooled audio element for better iOS performance
+    const audio = getPooledAudio();
 
-    // Reset and play (don't change src - it's already set)
+    // Stop any current playback on this element
+    audio.pause();
     audio.currentTime = 0;
+
+    // Set new source and play
+    audio.src = src;
 
     // Track for cleanup
     activeAudios.current.add(audio);
 
-    // Clean up tracking after playback
+    // Clean up after playback
     const handleEnded = () => {
       activeAudios.current.delete(audio);
       audio.removeEventListener('ended', handleEnded);
@@ -174,6 +167,7 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
     audio.addEventListener('ended', handleEnded);
 
     audio.play().catch(err => {
+      // Ignore autoplay errors (browser policy)
       console.debug('Sound play failed:', err.message);
       activeAudios.current.delete(audio);
     });
