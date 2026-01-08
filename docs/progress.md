@@ -1,6 +1,6 @@
 # Scopa WebApp - Development Progress
 
-**Last Updated:** 2026-01-06
+**Last Updated:** 2026-01-07
 
 ---
 
@@ -1218,5 +1218,72 @@ The Scopa game is now fully playable with:
 - `index.html` - PWA manifest link, service worker registration
 - `public/manifest.json` - PWA manifest (new)
 - `public/sw.js` - Service worker (new)
+
+- 135 tests passing
+
+---
+
+## Phase 39: Layout Stability & Interaction Fixes
+
+- [x] Step 39.1: Fix layout shift when player plays last card - Completed 2026-01-07
+- [x] Step 39.2: Fix celebration animations replaying on page refresh - Completed 2026-01-07
+- [x] Step 39.3: Increase desktop card size by ~22% - Completed 2026-01-07
+- [x] Step 39.4: Fix captured pile stats overlapping with cards - Completed 2026-01-07
+- [x] Step 39.5: Fix card hover/click/drag interactions blocked by bottomRow - Completed 2026-01-07
+- [x] Step 39.6: Fix empty table area height consistency - Completed 2026-01-07
+- [x] Step 39.7: Fix "Table is empty" text wrapping - Completed 2026-01-07
+- [x] Step 39.8: Make Settings modal scrollable - Completed 2026-01-07
+
+**Notes:**
+
+**Layout Shift Fixes:**
+- PlayerHand: Added `min-height: calc(var(--card-height) + 8px)` to prevent collapse when last card played
+- TableCards: Added `min-height: calc(var(--card-height) + 16px)` to maintain consistent height when empty
+- CapturedPile: Changed pileStack height to `calc(var(--card-height) * 1.08)` for stacked card offset
+
+**Celebration Replay Fix:**
+- Problem: Page refresh restored game state but refs were initialized with default values (0, null)
+- Solution: Initialize `prevScopaCounts` ref from `state.players.*.scopaCount`
+- Solution: Initialize `prevSetteBelloOwner` ref by checking captured cards for 7 of coins
+- Added `prevRoundNumberForCelebrations` ref to skip reset on initial mount (only reset on actual round change)
+
+**Card Size Increase:**
+- Width: `9vh` → `11vh` (max: `90px` → `110px`)
+- Height: `14.7vh` → `18vh` (max: `147px` → `180px`)
+- Maintains original ~1.633 aspect ratio (height/width)
+- On 900px viewport: ~99px width, ~162px height
+
+**Captured Pile Stats Fix:**
+- Added `position: relative` and `z-index: 10` to `.pileInfo` and `.playerLabel`
+- Changed pileStack height to percentage-based: `calc(var(--card-height) * 1.08)`
+- Added `margin-bottom: 4px` to pileStack for extra buffer
+- Removed redundant CSS nth-child offsets (inline transforms handle stacking)
+
+**Card Interaction Fixes:**
+- Removed `touch-action: none` from base `.card` class (was blocking hover/click)
+- Added `touch-action: none` only to `.card.draggable` (needed for Framer Motion drag)
+- Added inline `style={{ touchAction: 'none' }}` to draggable cards and wrappers
+- Changed PlayerHand wrapper `layout` to `layout="position"` (reduces drag interference)
+- Added `dragListener: true` and `dragTransition` to Card drag props
+- Added `z-index: 5` to `.centerColumn` to put cards above `.bottomRow` (z-index: 1)
+- Added `z-index: 10` to `.humanArea` for additional stacking context
+- Improved `.handCard` z-index management: base 1, hover 20, active/focus 30
+
+**UI Polish:**
+- Added `white-space: nowrap` to `.emptyMessage` in TableCards
+- Settings modal: Added `max-height: 90vh`, `overflow-y: auto`, and scrollbar styling
+- Settings overlay: Added `padding: var(--space-4)` for margin around modal
+
+**Files Modified:**
+- `src/components/Table/PlayerHand.module.css`
+- `src/components/Table/TableCards.module.css`
+- `src/components/Table/CapturedPile.module.css`
+- `src/components/Card/Card.tsx`
+- `src/components/Card/Card.module.css`
+- `src/components/Table/PlayerHand.tsx`
+- `src/components/Layout/GameLayout.module.css`
+- `src/components/UI/SettingsModal.module.css`
+- `src/App.tsx`
+- `src/index.css`
 
 - 135 tests passing
