@@ -63,8 +63,8 @@
   }
 }
 
-/* Landscape mobile - vertical stack */
-@media (max-width: 900px) and (orientation: landscape) {
+/* Landscape mobile - compact controls (phones only - requires small width too) */
+@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .controls {
     flex-direction: row;
     gap: var(--space-1);

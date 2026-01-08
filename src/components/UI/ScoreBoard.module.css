@@ -127,8 +127,8 @@
   }
 }
 
-/* Landscape mobile - very compact */
-@media (max-width: 900px) and (orientation: landscape) {
+/* Landscape mobile - very compact (phones only - requires small width too) */
+@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .scoreBoard {
     min-width: auto;
     padding: var(--space-2);

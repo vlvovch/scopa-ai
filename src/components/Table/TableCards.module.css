@@ -3,8 +3,10 @@
 .tableContainer {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-4);
   width: 100%;
+  max-width: 100%;
 }
 
 .deckArea {
@@ -18,8 +20,10 @@
   align-items: center;
   gap: var(--space-3);
   padding: 8px;
-  min-height: calc(var(--card-height) + 16px);
-  min-width: min(280px, 85vw);
+  /* No min-height - let content determine size */
+  min-width: min(280px, 70vw);
+  /* Max 8 cards per row */
+  max-width: calc(8 * var(--card-width) + 7 * var(--space-3) + 16px);
   flex: 1;
   background: rgba(0, 0, 0, 0.1);
   border-radius: 12px;
@@ -60,8 +64,6 @@
 
   .tableArea {
     padding: var(--space-2);
-    /* Dynamic height calculation */
-    min-height: calc(var(--card-height) + var(--space-4));
     gap: var(--space-1);
     /* Force 4 cards per row max: 4 * width + 3 * gap + 2 * padding */
     max-width: calc(4 * var(--card-width) + 3 * var(--space-1) + 2 * var(--space-2));
@@ -84,7 +86,6 @@
 
   .tableArea {
     padding: var(--space-3);
-    min-height: 100px;
     border-radius: 8px;
     /* Limit to ~4 cards per row */
     max-width: calc(4 * var(--card-width) + 3 * var(--space-2) + 2 * var(--space-3));
@@ -102,7 +103,6 @@
 @media (max-width: 380px) and (orientation: portrait) {
   .tableArea {
     padding: var(--space-2);
-    min-height: 90px;
     /* Limit to 3 cards per row on very small screens */
     max-width: calc(3 * var(--card-width) + 2 * var(--space-1) + 2 * var(--space-2));
     gap: var(--space-1);
@@ -113,32 +113,23 @@
   }
 }
 
-/* Landscape mobile */
-@media (max-width: 1280px) and (orientation: landscape) {
+/* Landscape mobile (phones only - requires small width too) */
+@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .tableContainer {
-    /* Larger gap between deck and table cards */
-    gap: 32px;
+    gap: var(--space-4);
     width: 100%;
     justify-content: center;
-    /* No transform scale - use natural variable sizing */
   }
 
   .tableArea {
     padding: var(--space-2);
-    /* Allow min-height to adjust naturally */
-    min-height: calc(var(--card-height) + var(--space-2) * 2);
     gap: var(--space-1);
     border-radius: 6px;
-    /* Force single row as requested */
     flex-wrap: nowrap;
-    /* Ensure it doesn't overflow container width visually */
-    max-width: 90vw;
-    /* Allow many cards per row (up to ~10) */
     max-width: calc(10 * var(--card-width) + 9 * var(--space-1) + 2 * var(--space-2));
   }
 
   .deckArea {
-    /* Ensure deck respects new size */
     transform: none;
   }
 

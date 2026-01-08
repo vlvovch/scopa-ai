@@ -223,11 +223,13 @@
   }
 }
 
-/* Landscape mobile - vertical pile layout */
-@media (max-width: 900px) and (orientation: landscape) {
+/* Landscape mobile - vertical pile layout (phones only - requires small width too) */
+@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .pile {
     padding: 2px;
     gap: 2px;
+    transform: scale(0.85);
+    transform-origin: center center;
   }
 
   .pileInfo {
@@ -262,13 +264,5 @@
   .scopaMarker {
     width: 6px;
     height: 6px;
-  }
-
-  /* Ensure proper scaling and anchor for piles in corners */
-  .pile {
-    transform: scale(0.85);
-    /* Let the parent grid layout determine the anchor (left/right) by overriding origin below if needed, 
-       but default to center for safety or flexible alignment */
-    transform-origin: center center;
   }
 }
