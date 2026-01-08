@@ -1287,3 +1287,45 @@ The Scopa game is now fully playable with:
 - `src/index.css`
 
 - 135 tests passing
+
+---
+
+## Phase 40: View Captured Cards Feature
+
+- [x] Step 40.1: Create CapturedCardsModal component - Completed 2026-01-07
+- [x] Step 40.2: Add click handler to CapturedPile component - Completed 2026-01-07
+- [x] Step 40.3: Integrate modal state in App.tsx - Completed 2026-01-07
+- [x] Step 40.4: Fix z-index layering for pile clickability - Completed 2026-01-07
+
+**Notes:**
+
+**View Captured Cards Modal:**
+- Created `CapturedCardsModal.tsx` - displays all captured cards in a grid
+- Cards sorted by suit (Coins, Cups, Swords, Clubs) then by value
+- Shows stats: total cards, coins count, Sette Bello highlight
+- Cards have white background to preserve card image appearance
+- Scrollbar hidden but scroll functionality preserved
+- Sette Bello (7 of Coins) highlighted with gold box-shadow
+
+**CapturedPile Click Handler:**
+- Added `onClick` prop to CapturedPile component
+- Only enabled in Player vs CPU mode (disabled in spectator mode)
+- Added `.clickable` CSS class with hover effect (gold background tint)
+- `pointer-events: none` on all descendants to ensure full pile area is clickable
+
+**Z-Index Layering Fix:**
+- Problem: centerColumn (z-index: 5) with negative margins overlapped bottomRow
+- Initial fix (bottomRow z-index: 6) broke card dragging
+- Solution: Remove z-index from bottomRow, add z-index: 11 to humanPileArea only
+- humanPileArea now above centerColumn without blocking card drag events
+- Card dragging still works since it happens within centerColumn's stacking context
+
+**Files Created:**
+- `src/components/UI/CapturedCardsModal.tsx`
+- `src/components/UI/CapturedCardsModal.module.css`
+
+**Files Modified:**
+- `src/components/Table/CapturedPile.tsx` - Added onClick prop
+- `src/components/Table/CapturedPile.module.css` - Added .clickable styles
+- `src/components/Layout/GameLayout.module.css` - z-index fix for humanPileArea
+- `src/App.tsx` - Modal state, import, and rendering

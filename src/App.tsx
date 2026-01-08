@@ -20,6 +20,7 @@ import { GameControls } from './components/UI/GameControls';
 import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
+import { CapturedCardsModal } from './components/UI/CapturedCardsModal';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './ai';
@@ -98,6 +99,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showCapturedCards, setShowCapturedCards] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
   // Capture choice modal state (shown when multiple capture options exist)
@@ -1583,6 +1585,12 @@ function App() {
         onSelectCapture={handleCaptureChoice}
         onCancel={handleCancelCaptureChoice}
       />
+      <CapturedCardsModal
+        isOpen={showCapturedCards}
+        onClose={() => setShowCapturedCards(false)}
+        cards={activeState.players.human.captured}
+        playerName="Your"
+      />
       {/* New Game Confirmation Dialog */}
       {confirmNewGame && (
         <div
@@ -1741,6 +1749,7 @@ function App() {
               player="human"
               aiType={isSpectatorMode ? spectatorAIs.player1 : undefined}
               aiModel={isSpectatorMode ? spectatorModels.player1 : undefined}
+              onClick={!isSpectatorMode ? () => setShowCapturedCards(true) : undefined}
             />
           </div>
         }

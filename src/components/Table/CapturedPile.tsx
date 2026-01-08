@@ -47,12 +47,15 @@ interface CapturedPileProps {
   aiType?: ExtendedAIType;
   /** Model ID for LLM AIs */
   aiModel?: string;
+  /** Optional click handler (for viewing captured cards) */
+  onClick?: () => void;
 }
 
-export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel }: CapturedPileProps) {
+export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel, onClick }: CapturedPileProps) {
   // Calculate visual stack depth based on card count (max 6 layers)
   // More cards = thicker stack appearance
   const stackLayers = Math.min(6, Math.max(1, Math.ceil(cards.length / 4)));
+  const isClickable = !!onClick && cards.length > 0;
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -70,7 +73,13 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
   };
 
   return (
-    <div className={styles.pile}>
+    <div
+      className={`${styles.pile} ${isClickable ? styles.clickable : ''}`}
+      onClick={isClickable ? onClick : undefined}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); } : undefined}
+    >
       <span className={styles.playerLabel}>{renderLabel()}</span>
 
       <div className={styles.pileStack}>

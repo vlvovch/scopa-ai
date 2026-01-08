@@ -8,6 +8,25 @@
   padding: var(--space-1);
 }
 
+.clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.15s, transform 0.15s;
+}
+
+/* Pass pointer events from all descendants to parent for consistent click area */
+.clickable * {
+  pointer-events: none;
+}
+
+.clickable:hover {
+  background-color: rgba(212, 175, 55, 0.1);
+}
+
+.clickable:active {
+  transform: scale(0.98);
+}
+
 .pileStack {
   position: relative;
   width: var(--card-width);

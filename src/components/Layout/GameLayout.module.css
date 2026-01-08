@@ -112,12 +112,14 @@
   width: 100%;
   max-width: var(--playing-area-width, 1000px);
   flex-shrink: 0;
-  position: relative;
-  z-index: 1;
+  /* No z-index here - let children establish their own stacking contexts */
 }
 
 .humanPileArea {
   flex-shrink: 0;
+  /* Higher z-index than humanArea (10) to ensure pile is clickable above overlapping cards */
+  position: relative;
+  z-index: 11;
 }
 
 .controlsArea {
