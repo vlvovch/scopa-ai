@@ -1,5 +1,5 @@
 // Service Worker for Scopa PWA
-const CACHE_NAME = 'scopa-v4';
+const CACHE_NAME = 'scopa-v5';
 
 // Assets to cache on install - essential for offline play
 const PRECACHE_ASSETS = [

@@ -27,8 +27,26 @@ const SOUND_FILES: Record<SoundType, string[]> = {
   coin: ['./sounds/coin-dropped-81172.mp3'],
 };
 
-// Preloaded audio elements cache
+// Audio pool for reuse (iOS performs better with reused elements)
+const POOL_SIZE = 8;
+const audioPool: HTMLAudioElement[] = [];
+let poolIndex = 0;
+
+// Preloaded audio buffers
 const audioCache: Map<string, HTMLAudioElement> = new Map();
+
+// Track if audio has been unlocked (iOS requires user gesture)
+let audioUnlocked = false;
+
+// Initialize audio pool
+function initPool(): void {
+  if (audioPool.length > 0) return;
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const audio = new Audio();
+    audio.preload = 'auto';
+    audioPool.push(audio);
+  }
+}
 
 // Preload all audio files
 function preloadAudio(): void {
@@ -36,15 +54,47 @@ function preloadAudio(): void {
     if (!audioCache.has(src)) {
       const audio = new Audio(src);
       audio.preload = 'auto';
+      // Load the audio data
+      audio.load();
       audioCache.set(src, audio);
     }
   });
+}
+
+// Unlock audio on iOS (must be called from user gesture)
+function unlockAudio(): void {
+  if (audioUnlocked) return;
+
+  // Play silent audio to unlock iOS audio
+  const audio = audioPool[0] || new Audio();
+  audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQZB4P8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==';
+  audio.volume = 0.01;
+
+  const playPromise = audio.play();
+  if (playPromise) {
+    playPromise
+      .then(() => {
+        audioUnlocked = true;
+        audio.pause();
+        audio.currentTime = 0;
+      })
+      .catch(() => {
+        // Still locked, will try again on next interaction
+      });
+  }
 }
 
 // Get a random variant of a sound type
 function getRandomSound(type: SoundType): string {
   const files = SOUND_FILES[type];
   return files[Math.floor(Math.random() * files.length)];
+}
+
+// Get next audio element from pool
+function getPooledAudio(): HTMLAudioElement {
+  const audio = audioPool[poolIndex];
+  poolIndex = (poolIndex + 1) % POOL_SIZE;
+  return audio;
 }
 
 export interface UseSoundOptions {
@@ -63,6 +113,7 @@ export interface UseSoundReturn {
 
 /**
  * Hook for playing game sound effects
+ * Optimized for iOS Safari compatibility
  */
 export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
   const { enabled = true } = options;
@@ -70,9 +121,23 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
   // Track active audio elements for cleanup
   const activeAudios = useRef<Set<HTMLAudioElement>>(new Set());
 
-  // Preload audio on first use
+  // Initialize pool and preload audio on first use
   useEffect(() => {
+    initPool();
     preloadAudio();
+
+    // Unlock audio on first user interaction (iOS requirement)
+    const handleInteraction = () => {
+      unlockAudio();
+    };
+
+    document.addEventListener('touchstart', handleInteraction, { once: true });
+    document.addEventListener('click', handleInteraction, { once: true });
+
+    return () => {
+      document.removeEventListener('touchstart', handleInteraction);
+      document.removeEventListener('click', handleInteraction);
+    };
   }, []);
 
   // Play a single sound
@@ -81,16 +146,25 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
 
     const src = getRandomSound(type);
 
-    // Create new audio element for concurrent playback
-    const audio = new Audio(src);
+    // Use pooled audio element for better iOS performance
+    const audio = getPooledAudio();
+
+    // Stop any current playback on this element
+    audio.pause();
+    audio.currentTime = 0;
+
+    // Set new source and play
+    audio.src = src;
 
     // Track for cleanup
     activeAudios.current.add(audio);
 
     // Clean up after playback
-    audio.addEventListener('ended', () => {
+    const handleEnded = () => {
       activeAudios.current.delete(audio);
-    });
+      audio.removeEventListener('ended', handleEnded);
+    };
+    audio.addEventListener('ended', handleEnded);
 
     audio.play().catch(err => {
       // Ignore autoplay errors (browser policy)
