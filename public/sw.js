@@ -56,18 +56,18 @@ const PRECACHE_ASSETS = [
   './cards/napoletane/suits/cups.svg',
   './cards/napoletane/suits/swords.svg',
   './cards/napoletane/suits/clubs.svg',
-  // Sound effects
+  // Sound effects (MP3 for Safari/iOS compatibility)
   './sounds/broom-sweep.mp3',
-  './sounds/card-fan-1.ogg',
-  './sounds/card-fan-2.ogg',
-  './sounds/card-place-1.ogg',
-  './sounds/card-place-2.ogg',
-  './sounds/card-shove-1.ogg',
-  './sounds/card-shove-2.ogg',
-  './sounds/card-slide-1.ogg',
-  './sounds/card-slide-2.ogg',
-  './sounds/chips-stack-1.ogg',
-  './sounds/chips-stack-4.ogg',
+  './sounds/card-fan-1.mp3',
+  './sounds/card-fan-2.mp3',
+  './sounds/card-place-1.mp3',
+  './sounds/card-place-2.mp3',
+  './sounds/card-shove-1.mp3',
+  './sounds/card-shove-2.mp3',
+  './sounds/card-slide-1.mp3',
+  './sounds/card-slide-2.mp3',
+  './sounds/chips-stack-1.mp3',
+  './sounds/chips-stack-4.mp3',
   './sounds/coin-dropped-81172.mp3'
 ];
 

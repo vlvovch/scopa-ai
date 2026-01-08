@@ -15,14 +15,15 @@ export type SoundType =
   | 'coin';     // Denari (coin) captured
 
 // Sound file mapping with variants for variety
+// Using MP3 format for Safari/iOS compatibility (Safari doesn't support OGG)
 const SOUND_FILES: Record<SoundType, string[]> = {
-  deal: ['./sounds/card-fan-1.ogg'],
-  play: ['./sounds/card-place-1.ogg', './sounds/card-place-2.ogg'],
-  capture: ['./sounds/card-shove-1.ogg', './sounds/card-shove-2.ogg'],
-  slide: ['./sounds/card-slide-1.ogg', './sounds/card-slide-2.ogg'],
+  deal: ['./sounds/card-fan-1.mp3'],
+  play: ['./sounds/card-place-1.mp3', './sounds/card-place-2.mp3'],
+  capture: ['./sounds/card-shove-1.mp3', './sounds/card-shove-2.mp3'],
+  slide: ['./sounds/card-slide-1.mp3', './sounds/card-slide-2.mp3'],
   scopa: ['./sounds/broom-sweep.mp3'],
-  setteBello: ['./sounds/chips-stack-4.ogg'],
-  victory: ['./sounds/chips-stack-1.ogg', './sounds/chips-stack-4.ogg'],
+  setteBello: ['./sounds/chips-stack-4.mp3'],
+  victory: ['./sounds/chips-stack-1.mp3', './sounds/chips-stack-4.mp3'],
   coin: ['./sounds/coin-dropped-81172.mp3'],
 };
 
