@@ -15,7 +15,6 @@ export type SoundType =
   | 'coin';     // Denari (coin) captured
 
 // Sound file mapping with variants for variety
-// Using MP3 format for Safari/iOS compatibility (Safari doesn't support OGG)
 const SOUND_FILES: Record<SoundType, string[]> = {
   deal: ['./sounds/card-fan-1.mp3'],
   play: ['./sounds/card-place-1.mp3', './sounds/card-place-2.mp3'],
@@ -27,75 +26,94 @@ const SOUND_FILES: Record<SoundType, string[]> = {
   coin: ['./sounds/coin-dropped-81172.mp3'],
 };
 
-// Audio pool for reuse (iOS performs better with reused elements)
-const POOL_SIZE = 8;
-const audioPool: HTMLAudioElement[] = [];
-let poolIndex = 0;
+// --- Web Audio API Singleton ---
 
-// Preloaded audio buffers
-const audioCache: Map<string, HTMLAudioElement> = new Map();
+// Global AudioContext
+let audioContext: AudioContext | null = null;
 
-// Track if audio has been unlocked (iOS requires user gesture)
-let audioUnlocked = false;
+// Cache for decoded AudioBuffers
+const bufferCache: Map<string, AudioBuffer> = new Map();
 
-// Initialize audio pool
-function initPool(): void {
-  if (audioPool.length > 0) return;
-  for (let i = 0; i < POOL_SIZE; i++) {
-    const audio = new Audio();
-    audio.preload = 'auto';
-    audioPool.push(audio);
+// Track loading state to prevent redundant fetches
+const loadingPromises: Map<string, Promise<AudioBuffer>> = new Map();
+
+/**
+ * Get or create the global AudioContext
+ */
+function getAudioContext(): AudioContext {
+  if (!audioContext) {
+    // Standard AudioContext with fallback for older browsers
+    // @ts-ignore - for vendor prefix fallback
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    audioContext = new AudioCtx();
   }
+  return audioContext;
 }
 
-// Preload all audio files
-function preloadAudio(): void {
-  Object.values(SOUND_FILES).flat().forEach(src => {
-    if (!audioCache.has(src)) {
-      const audio = new Audio(src);
-      audio.preload = 'auto';
-      // Load the audio data
-      audio.load();
-      audioCache.set(src, audio);
+/**
+ * Decode an audio file from a URL into an AudioBuffer
+ */
+async function loadAndDecodeAudio(url: string): Promise<AudioBuffer> {
+  // Check cache first
+  const cached = bufferCache.get(url);
+  if (cached) return cached;
+
+  // Check if already loading
+  const existingPromise = loadingPromises.get(url);
+  if (existingPromise) return existingPromise;
+
+  const promise = (async () => {
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const context = getAudioContext();
+      const audioBuffer = await context.decodeAudioData(arrayBuffer);
+      bufferCache.set(url, audioBuffer);
+      return audioBuffer;
+    } catch (error) {
+      console.error(`Failed to load/decode audio from ${url}:`, error);
+      throw error;
+    } finally {
+      loadingPromises.delete(url);
     }
+  })();
+
+  loadingPromises.set(url, promise);
+  return promise;
+}
+
+/**
+ * Preload all audio files
+ */
+function preloadAllAudio(): void {
+  Object.values(SOUND_FILES).flat().forEach(src => {
+    loadAndDecodeAudio(src).catch(() => {
+      // Errors logged in loadAndDecodeAudio
+    });
   });
 }
 
-// Unlock audio on iOS (must be called from user gesture)
-function unlockAudio(): void {
-  if (audioUnlocked) return;
-
-  // Play silent audio to unlock iOS audio
-  const audio = audioPool[0] || new Audio();
-  audio.src = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRwmHAAAAAAD/+xBkAA/wAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAARMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV//sQZB4P8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==';
-  audio.volume = 0.01;
-
-  const playPromise = audio.play();
-  if (playPromise) {
-    playPromise
-      .then(() => {
-        audioUnlocked = true;
-        audio.pause();
-        audio.currentTime = 0;
-      })
-      .catch(() => {
-        // Still locked, will try again on next interaction
-      });
+/**
+ * Resume AudioContext on user gesture (standard requirement)
+ */
+async function resumeContext(): Promise<void> {
+  const context = getAudioContext();
+  if (context.state === 'suspended') {
+    await context.resume().catch(err => {
+      console.debug('Failed to resume AudioContext:', err);
+    });
   }
 }
 
-// Get a random variant of a sound type
+/**
+ * Get a random variant of a sound type
+ */
 function getRandomSound(type: SoundType): string {
   const files = SOUND_FILES[type];
   return files[Math.floor(Math.random() * files.length)];
 }
 
-// Get next audio element from pool
-function getPooledAudio(): HTMLAudioElement {
-  const audio = audioPool[poolIndex];
-  poolIndex = (poolIndex + 1) % POOL_SIZE;
-  return audio;
-}
+// --- Hook Implementation ---
 
 export interface UseSoundOptions {
   /** Whether sounds are enabled (default: true) */
@@ -107,101 +125,114 @@ export interface UseSoundReturn {
   play: (type: SoundType) => void;
   /** Play deal sound for multiple cards (staggered) */
   playDeal: (cardCount: number, staggerMs?: number) => void;
-  /** Stop all sounds */
+  /** Stop all sounds (immediate) */
   stopAll: () => void;
 }
 
 /**
- * Hook for playing game sound effects
- * Optimized for iOS Safari compatibility
+ * Hook for playing game sound effects using Web Audio API.
+ * This is more robust than HTMLAudioElement for Mac/Safari compatibility
+ * and prevents sound blocking by resuming context on every interaction.
  */
 export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
   const { enabled = true } = options;
 
-  // Track active audio elements for cleanup
-  const activeAudios = useRef<Set<HTMLAudioElement>>(new Set());
+  // Track active buffer sources for cleanup (though normally they're one-shot)
+  const activeSources = useRef<Set<AudioBufferSourceNode>>(new Set());
 
-  // Initialize pool and preload audio on first use
+  // Initialize and preload on mount
   useEffect(() => {
-    initPool();
-    preloadAudio();
+    preloadAllAudio();
 
-    // Unlock audio on first user interaction (iOS requirement)
+    // Interaction handlers to resume AudioContext
     const handleInteraction = () => {
-      unlockAudio();
+      resumeContext();
     };
 
-    document.addEventListener('touchstart', handleInteraction, { once: true });
-    document.addEventListener('click', handleInteraction, { once: true });
+    document.addEventListener('touchstart', handleInteraction, { once: false });
+    document.addEventListener('mousedown', handleInteraction, { once: false });
+    document.addEventListener('keydown', handleInteraction, { once: false });
 
     return () => {
       document.removeEventListener('touchstart', handleInteraction);
-      document.removeEventListener('click', handleInteraction);
+      document.removeEventListener('mousedown', handleInteraction);
+      document.removeEventListener('keydown', handleInteraction);
     };
   }, []);
 
-  // Play a single sound
-  const play = useCallback((type: SoundType) => {
+  /**
+   * Play a single sound using Web Audio API
+   */
+  const play = useCallback(async (type: SoundType) => {
     if (!enabled) return;
 
-    const src = getRandomSound(type);
+    try {
+      const src = getRandomSound(type);
+      const buffer = await loadAndDecodeAudio(src);
+      const context = getAudioContext();
 
-    // Use pooled audio element for better iOS performance
-    const audio = getPooledAudio();
+      // Always try to resume context to ensure it's active
+      if (context.state === 'suspended') {
+        await context.resume();
+      }
 
-    // Stop any current playback on this element
-    audio.pause();
-    audio.currentTime = 0;
+      // Create and configure source node
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
 
-    // Set new source and play
-    audio.src = src;
+      // Track source
+      activeSources.current.add(source);
+      source.onended = () => {
+        activeSources.current.delete(source);
+      };
 
-    // Track for cleanup
-    activeAudios.current.add(audio);
-
-    // Clean up after playback
-    const handleEnded = () => {
-      activeAudios.current.delete(audio);
-      audio.removeEventListener('ended', handleEnded);
-    };
-    audio.addEventListener('ended', handleEnded);
-
-    audio.play().catch(err => {
-      // Ignore autoplay errors (browser policy)
-      console.debug('Sound play failed:', err.message);
-      activeAudios.current.delete(audio);
-    });
+      source.start(0);
+    } catch (err) {
+      console.debug('Sound play failed:', err);
+    }
   }, [enabled]);
 
-  // Play staggered deal sounds for multiple cards
+  /**
+   * Play staggered deal sounds for multiple cards
+   */
   const playDeal = useCallback((cardCount: number, staggerMs = 100) => {
     if (!enabled || cardCount <= 0) return;
 
-    // Play first sound immediately
+    // First card immediately
     play('deal');
 
-    // Play subsequent sounds with stagger
+    // Subsequent cards with stagger
     for (let i = 1; i < cardCount; i++) {
       setTimeout(() => play('deal'), i * staggerMs);
     }
   }, [enabled, play]);
 
-  // Stop all active sounds
+  /**
+   * Stop all currently playing sounds (rarely needed for short effects)
+   */
   const stopAll = useCallback(() => {
-    activeAudios.current.forEach(audio => {
-      audio.pause();
-      audio.currentTime = 0;
+    activeSources.current.forEach(source => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Source might already have stopped
+      }
     });
-    activeAudios.current.clear();
+    activeSources.current.clear();
   }, []);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      activeAudios.current.forEach(audio => {
-        audio.pause();
+      activeSources.current.forEach(source => {
+        try {
+          source.stop();
+        } catch (e) {
+          // Ignore errors
+        }
       });
-      activeAudios.current.clear();
+      activeSources.current.clear();
     };
   }, []);
 
