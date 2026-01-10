@@ -18,6 +18,7 @@ Scopa is a static single-page application built with React, TypeScript, and Vite
 | TypeScript | 5.6.x | Type safety |
 | Vite | 6.x | Build tool & dev server |
 | Framer Motion | 11.x | Card animations |
+| Web Audio API | - | Robust game audio (Safari/Mac) |
 | Terser | 5.x | Production minification |
 | Vitest | 3.x | Unit testing |
 
@@ -45,13 +46,13 @@ scopa-ai-claude/
 │   │       └── suits/      # Suit SVGs from Wikimedia Commons
 │   │           ├── coins.svg, cups.svg, swords.svg, clubs.svg
 │   ├── sounds/             # Audio files (Kenney.nl CC0 + custom)
-│   │   ├── card-fan-1.ogg  # Deal sound
-│   │   ├── card-place-*.ogg # Card play sounds
-│   │   ├── card-shove-*.ogg # Capture sounds
-│   │   ├── card-slide-*.ogg # Slide sounds
-│   │   ├── chips-stack-*.ogg # Celebration sounds (victory, setteBello)
+│   │   ├── card-fan-1.mp3  # Deal sound
+│   │   ├── card-place-*.mp3 # Card play sounds
+│   │   ├── card-shove-*.mp3 # Capture sounds
+│   │   ├── card-slide-*.mp3 # Slide sounds
+│   │   ├── chips-stack-*.mp3 # Celebration sounds (victory, setteBello)
 │   │   ├── coin-dropped-81172.mp3 # Denari capture sound
-│   │   └── broom-sweep.mp3 # Scopa celebration (first sweep only)
+│   │   └── broom-sweep.mp3 # Scopa celebration
 │   └── scopa-icon.svg      # Favicon (gold coin with 7)
 │
 ├── local/                  # Development files (gitignored)
