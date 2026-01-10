@@ -1,5 +1,5 @@
 // Service Worker for Scopa PWA
-const CACHE_NAME = 'scopa-v6';
+const CACHE_NAME = 'scopa-v7';
 
 // Assets to cache on install - essential for offline play
 const PRECACHE_ASSETS = [
@@ -108,16 +108,16 @@ self.addEventListener('fetch', (event) => {
 
   // Skip external API calls (Gemini, OpenAI, Claude)
   if (url.hostname.includes('googleapis.com') ||
-      url.hostname.includes('openai.com') ||
-      url.hostname.includes('anthropic.com') ||
-      url.hostname.includes('google.com')) {
+    url.hostname.includes('openai.com') ||
+    url.hostname.includes('anthropic.com') ||
+    url.hostname.includes('google.com')) {
     return;
   }
 
   // Skip analytics
   if (url.hostname.includes('googletagmanager.com') ||
-      url.hostname.includes('google-analytics.com') ||
-      url.pathname.includes('analytics')) {
+    url.hostname.includes('google-analytics.com') ||
+    url.pathname.includes('analytics')) {
     return;
   }
 
@@ -134,7 +134,7 @@ self.addEventListener('fetch', (event) => {
                   cache.put(event.request, networkResponse.clone());
                 });
               }
-            }).catch(() => {})
+            }).catch(() => { })
           );
           return cachedResponse;
         }
