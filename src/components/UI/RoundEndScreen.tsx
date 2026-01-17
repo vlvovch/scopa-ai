@@ -116,6 +116,13 @@ interface RoundEndScreenProps {
   autoAdvance?: boolean;
   /** Delay in ms before auto-advancing (default 2000) */
   autoAdvanceDelay?: number;
+  // Multiplayer next round confirmation
+  /** Whether this player has requested next round (multiplayer) */
+  nextRoundRequested?: boolean;
+  /** Whether opponent has requested next round (multiplayer) */
+  opponentRequestedNextRound?: boolean;
+  /** Opponent's name for waiting message (multiplayer) */
+  opponentName?: string;
 }
 
 // Get the best prime card for each suit
@@ -177,10 +184,14 @@ export function RoundEndScreen({
   player2Model,
   autoAdvance = false,
   autoAdvanceDelay = 2000,
+  nextRoundRequested,
+  opponentRequestedNextRound,
+  opponentName,
 }: RoundEndScreenProps) {
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const deckType = useDeck();
+  const isMultiplayer = nextRoundRequested !== undefined;
 
   // Auto-advance timer for spectator mode
   useEffect(() => {
@@ -325,7 +336,7 @@ export function RoundEndScreen({
       {/* Human cards on the left */}
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>{renderPlayer1Name()}'s Cards</span>
+          <span>{!player1AIType && player1Name === 'You' ? 'Your' : <>{renderPlayer1Name()}'s</>} Cards</span>
           {player1TokenStats && <TokenStatsDisplay stats={player1TokenStats} show={!!player1TokenStats} mode="round" position="bottom" modelName={player1Model} />}
         </div>
         <div className={styles.cardGrid}>
@@ -398,20 +409,32 @@ export function RoundEndScreen({
           </div>
         </div>
 
+        {/* Multiplayer waiting message */}
+        {isMultiplayer && (
+          <div className={styles.waitingSection}>
+            {nextRoundRequested && !opponentRequestedNextRound ? (
+              <p className={styles.waitingMessage}>Waiting for {opponentName} to continue...</p>
+            ) : opponentRequestedNextRound && !nextRoundRequested ? (
+              <p className={styles.waitingMessage}>{opponentName} is ready to continue!</p>
+            ) : null}
+          </div>
+        )}
+
         <button
-          className={`${styles.nextButton} ${autoAdvance ? styles.autoAdvancing : ''}`}
+          className={`${styles.nextButton} ${autoAdvance ? styles.autoAdvancing : ''} ${nextRoundRequested ? styles.buttonDisabled : ''}`}
           onClick={isGameOver ? onShowGameEnd : onNextRound}
+          disabled={nextRoundRequested}
         >
           {autoAdvance && countdown !== null
             ? `${isGameOver ? 'Results' : 'Next Round'} in ${countdown}s`
-            : isGameOver ? 'See Results' : 'Next Round'}
+            : isGameOver ? 'See Results' : (nextRoundRequested ? 'Waiting...' : 'Next Round')}
         </button>
       </div>
 
       {/* CPU cards on the right */}
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>{renderPlayer2Name()}'s Cards</span>
+          <span>{!player2AIType && player2Name === 'You' ? 'Your' : <>{renderPlayer2Name()}'s</>} Cards</span>
           {player2TokenStats && <TokenStatsDisplay stats={player2TokenStats} show={!!player2TokenStats} mode="round" position="bottom" modelName={player2Model} />}
         </div>
         <div className={styles.cardGrid}>

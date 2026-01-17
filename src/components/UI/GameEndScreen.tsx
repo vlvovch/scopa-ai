@@ -36,6 +36,15 @@ interface GameEndScreenProps {
     human: { cards: number; coins: number; setteBello: number; prime: number; scopas: number };
     cpu: { cards: number; coins: number; setteBello: number; prime: number; scopas: number };
   };
+  // Multiplayer rematch props
+  /** Whether rematch has been requested by player 1 (current player) */
+  rematchRequested?: boolean;
+  /** Whether opponent has requested rematch */
+  opponentRequestedRematch?: boolean;
+  /** Opponent's name for rematch message */
+  opponentName?: string;
+  /** Callback for leaving multiplayer game */
+  onLeaveGame?: () => void;
 }
 
 /** Category totals for display */
@@ -62,7 +71,12 @@ export function GameEndScreen({
   player2Model,
   roundHistory = [],
   categoryTotals: propCategoryTotals,
+  rematchRequested,
+  opponentRequestedRematch,
+  opponentName,
+  onLeaveGame,
 }: GameEndScreenProps) {
+  const isMultiplayer = onLeaveGame !== undefined;
   const humanWins = humanScore > cpuScore;
   const isTie = humanScore === cpuScore;
 
@@ -295,9 +309,32 @@ export function GameEndScreen({
           Completed in {roundsPlayed} round{roundsPlayed !== 1 ? 's' : ''}
         </p>
 
-        <button className={styles.playAgainButton} onClick={onPlayAgain}>
-          Play Again
+        {/* Multiplayer rematch UI */}
+        {isMultiplayer && (
+          <div className={styles.rematchSection}>
+            {opponentRequestedRematch && !rematchRequested ? (
+              <p className={styles.rematchMessage}>{opponentName} wants a rematch!</p>
+            ) : rematchRequested ? (
+              <p className={styles.rematchMessage}>Waiting for opponent to accept rematch...</p>
+            ) : null}
+          </div>
+        )}
+
+        <button
+          className={`${styles.playAgainButton} ${rematchRequested ? styles.disabledButton : ''}`}
+          onClick={onPlayAgain}
+          disabled={rematchRequested}
+        >
+          {isMultiplayer
+            ? (opponentRequestedRematch ? 'Accept Rematch' : 'Request Rematch')
+            : 'Play Again'}
         </button>
+
+        {isMultiplayer && onLeaveGame && (
+          <button className={styles.leaveButton} onClick={onLeaveGame}>
+            Leave Game
+          </button>
+        )}
       </div>
     </div>
   );

@@ -34,7 +34,7 @@ import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import { ThinkingBubble } from './components/UI/ThinkingBubble';
 import { ReasoningModal, type LastMoveData } from './components/UI/ReasoningModal';
 import type { PanInfo } from 'framer-motion';
-import type { Card, Move, PlayerId, GameState } from './game/types';
+import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './game/types';
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
 
 // Storage keys for persistence
@@ -107,6 +107,7 @@ function App() {
   const multiplayer = useMultiplayer();
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
   const [initialJoinCode] = useState(getInitialJoinCode);
+  const [multiplayerRoundHistory, setMultiplayerRoundHistory] = useState<RoundHistoryEntry[]>([]);
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -1426,6 +1427,71 @@ function App() {
     player: PlayerId;
   } | null>(null);
 
+  // Multiplayer dealing animation state
+  const [multiplayerIsDealing, setMultiplayerIsDealing] = useState(false);
+  const [multiplayerDealMode, setMultiplayerDealMode] = useState<DealMode>('hands');
+  const [multiplayerIsRoundStartDeal, setMultiplayerIsRoundStartDeal] = useState(false);
+  // Track deck count and round number to detect deals (similar to single-player)
+  const prevMultiplayerDeckCount = useRef<number | null>(null);
+  const prevMpDealRoundNumber = useRef<number | null>(null);
+
+  // Track table state for "last capture takes remaining cards" animation
+  const [multiplayerRoundEndAnimation, setMultiplayerRoundEndAnimation] = useState<{
+    tableCards: Card[];
+    lastCapture: PlayerId;
+  } | null>(null);
+  // Track previous table state to detect when cards were cleared at round end
+  const prevMultiplayerTableCards = useRef<Card[]>([]);
+
+  // Trigger multiplayer dealing animation by tracking deck count changes (like single-player)
+  useLayoutEffect(() => {
+    if (!multiplayer.gameState || multiplayer.gameState.status !== 'playing') {
+      prevMultiplayerDeckCount.current = null;
+      prevMpDealRoundNumber.current = null;
+      return;
+    }
+
+    const currentDeckCount = multiplayer.gameState.round.deckCount;
+    const currentRoundNumber = multiplayer.gameState.roundNumber;
+
+    // On first render with game state (fresh game or after reconnect with deckCount 30)
+    if (prevMultiplayerDeckCount.current === null) {
+      prevMultiplayerDeckCount.current = currentDeckCount;
+      prevMpDealRoundNumber.current = currentRoundNumber;
+
+      // If deck is 30 (fresh deal: 40 - 4 table - 6 hands), trigger round start animation
+      if (currentDeckCount === 30) {
+        setMultiplayerIsDealing(true);
+        setMultiplayerDealMode('table');
+        setMultiplayerIsRoundStartDeal(true);
+      }
+      return;
+    }
+
+    // Check for new round (round number increased)
+    if (currentRoundNumber !== prevMpDealRoundNumber.current) {
+      prevMpDealRoundNumber.current = currentRoundNumber;
+      prevMultiplayerDeckCount.current = currentDeckCount;
+      if (currentDeckCount === 30 && !multiplayerIsDealing) {
+        setMultiplayerIsDealing(true);
+        setMultiplayerDealMode('table');
+        setMultiplayerIsRoundStartDeal(true);
+      }
+      return;
+    }
+
+    // Detect mid-round deals: deck decreased by 6 (dealt 3 cards to each player)
+    const deckDecrease = prevMultiplayerDeckCount.current - currentDeckCount;
+    if (deckDecrease === 6 && !multiplayerIsDealing) {
+      setMultiplayerIsDealing(true);
+      setMultiplayerDealMode('hands');
+      setMultiplayerIsRoundStartDeal(false);
+    }
+
+    // Update tracking
+    prevMultiplayerDeckCount.current = currentDeckCount;
+  }, [multiplayer.gameState, multiplayerIsDealing]);
+
   // Handle sounds, animations, and sette bello celebration when multiplayer moves are played
   useEffect(() => {
     if (!multiplayer.lastMove) return;
@@ -1525,6 +1591,19 @@ function App() {
     // The ref prevents re-processing the same move
   }, [multiplayer.lastMove, multiplayer.playerId, multiplayer.nickname, multiplayer.opponentNickname, playSound, multiplayer.applyPendingState]);
 
+  // Safety: clear animation state when lastMove is cleared (e.g., after applyPendingState)
+  // This ensures the game doesn't get stuck if timeouts fail to clear the animation
+  useEffect(() => {
+    if (!multiplayer.lastMove && multiplayerAnimatingCard) {
+      // Give a brief grace period for the animation to complete naturally (1 second)
+      // Then force clear to prevent getting stuck
+      const safetyTimeout = setTimeout(() => {
+        setMultiplayerAnimatingCard(null);
+      }, 1000);
+      return () => clearTimeout(safetyTimeout);
+    }
+  }, [multiplayer.lastMove, multiplayerAnimatingCard]);
+
   // Detect scopa celebrations in multiplayer
   useEffect(() => {
     if (!multiplayer.gameState) {
@@ -1554,6 +1633,77 @@ function App() {
 
     prevMultiplayerScopaCounts.current = currentCounts;
   }, [multiplayer.gameState, multiplayer.nickname, multiplayer.opponentNickname, playSound]);
+
+  // Track table state for "last capture takes remaining cards" animation at round end
+  const roundEndAnimationTriggeredForRound = useRef<number>(0);
+  useEffect(() => {
+    if (!multiplayer.gameState) {
+      prevMultiplayerTableCards.current = [];
+      roundEndAnimationTriggeredForRound.current = 0;
+      return;
+    }
+
+    // Store current table cards for reference when round ends
+    const currentTable = multiplayer.gameState.round.table;
+    const lastCapture = multiplayer.gameState.round.lastCapture;
+    const currentRound = multiplayer.gameState.roundNumber;
+
+    // When roundEndData appears and we had cards on the table, trigger animation (once per round)
+    if (
+      multiplayer.roundEndData &&
+      prevMultiplayerTableCards.current.length > 0 &&
+      lastCapture &&
+      roundEndAnimationTriggeredForRound.current !== currentRound
+    ) {
+      roundEndAnimationTriggeredForRound.current = currentRound;
+      const capturePlayer: PlayerId = lastCapture === multiplayer.playerId ? 'human' : 'cpu';
+      setMultiplayerRoundEndAnimation({
+        tableCards: prevMultiplayerTableCards.current,
+        lastCapture: capturePlayer,
+      });
+      // Clear after animation duration
+      setTimeout(() => {
+        setMultiplayerRoundEndAnimation(null);
+      }, 1200);
+    }
+
+    // Update previous table cards (but not when roundEndData is showing, to preserve the captured state)
+    if (!multiplayer.roundEndData) {
+      prevMultiplayerTableCards.current = currentTable;
+    }
+  }, [multiplayer.gameState, multiplayer.roundEndData, multiplayer.playerId]);
+
+  // Track multiplayer round history for game end screen
+  const prevMultiplayerRoundNumber = useRef<number>(0);
+  useEffect(() => {
+    if (!multiplayer.roundEndData || !multiplayer.gameState || !multiplayer.playerId) return;
+
+    const roundNumber = multiplayer.gameState.roundNumber;
+    // Only add if this is a new round (prevents duplicates)
+    if (roundNumber <= prevMultiplayerRoundNumber.current) return;
+    prevMultiplayerRoundNumber.current = roundNumber;
+
+    const myId = multiplayer.playerId;
+    const oppId = myId === 'player1' ? 'player2' : 'player1';
+
+    const entry: RoundHistoryEntry = {
+      roundNumber,
+      scores: {
+        human: multiplayer.roundEndData.scores[myId],
+        cpu: multiplayer.roundEndData.scores[oppId],
+      },
+    };
+
+    setMultiplayerRoundHistory(prev => [...prev, entry]);
+  }, [multiplayer.roundEndData, multiplayer.gameState, multiplayer.playerId]);
+
+  // Clear multiplayer round history when leaving multiplayer or starting a new game
+  useEffect(() => {
+    if (!multiplayer.gameState && multiplayerRoundHistory.length > 0) {
+      setMultiplayerRoundHistory([]);
+      prevMultiplayerRoundNumber.current = 0;
+    }
+  }, [multiplayer.gameState, multiplayerRoundHistory.length]);
 
   // Handle starting a new game (wraps startGame to reset token stats)
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
@@ -1878,64 +2028,30 @@ function App() {
     const mpState = multiplayer.gameState;
     const isMyTurn = mpState.round.currentPlayer === multiplayer.playerId;
 
-    // Multiplayer round end screen
-    if (multiplayer.roundEndData) {
+    // Multiplayer round end screen (delay while last-capture animation plays)
+    if (multiplayer.roundEndData && !multiplayerRoundEndAnimation) {
       const myId = multiplayer.playerId!;
       const oppId = myId === 'player1' ? 'player2' : 'player1';
 
       return (
         <DeckProvider deck={settings.deck}>
-          <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-4)',
-            background: 'linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%)',
-          }}>
-            <h2 style={{ color: 'var(--color-accent)', marginBottom: '24px' }}>
-              Round {mpState.roundNumber} Complete
-            </h2>
-            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
-                  {multiplayer.nickname} (You)
-                </div>
-                <div style={{ fontSize: '2rem', color: 'var(--color-text-primary)' }}>
-                  +{multiplayer.roundEndData.scores[myId].total}
-                </div>
-                <div style={{ color: 'var(--color-text-secondary)', marginTop: '8px' }}>
-                  Total: {multiplayer.roundEndData.cumulativeScores[myId]}
-                </div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
-                  {multiplayer.opponentNickname}
-                </div>
-                <div style={{ fontSize: '2rem', color: 'var(--color-text-primary)' }}>
-                  +{multiplayer.roundEndData.scores[oppId].total}
-                </div>
-                <div style={{ color: 'var(--color-text-secondary)', marginTop: '8px' }}>
-                  Total: {multiplayer.roundEndData.cumulativeScores[oppId]}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={multiplayer.clearRoundEnd}
-              style={{
-                padding: '12px 32px',
-                fontSize: '1.1rem',
-                background: 'var(--color-accent)',
-                color: '#000',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-              }}
-            >
-              Continue
-            </button>
-          </div>
+          <RoundEndScreen
+            roundNumber={mpState.roundNumber}
+            humanScore={multiplayer.roundEndData.scores[myId]}
+            cpuScore={multiplayer.roundEndData.scores[oppId]}
+            cumulativeHuman={multiplayer.roundEndData.cumulativeScores[myId]}
+            cumulativeCpu={multiplayer.roundEndData.cumulativeScores[oppId]}
+            humanCaptured={multiplayer.roundEndData.capturedCards[myId]}
+            cpuCaptured={multiplayer.roundEndData.capturedCards[oppId]}
+            humanScopaCaptures={[]}
+            cpuScopaCaptures={[]}
+            onNextRound={multiplayer.continueToNextRound}
+            player1Name="You"
+            player2Name={multiplayer.opponentNickname || 'Opponent'}
+            nextRoundRequested={multiplayer.nextRoundRequests.has(myId)}
+            opponentRequestedNextRound={multiplayer.nextRoundRequests.has(oppId)}
+            opponentName={multiplayer.opponentNickname || 'Opponent'}
+          />
         </DeckProvider>
       );
     }
@@ -1944,92 +2060,22 @@ function App() {
     if (multiplayer.gameEndData) {
       const myId = multiplayer.playerId!;
       const oppId = myId === 'player1' ? 'player2' : 'player1';
-      const iWon = multiplayer.gameEndData.winner === myId;
-      const isTie = multiplayer.gameEndData.winner === 'tie';
 
       return (
         <DeckProvider deck={settings.deck}>
-          <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 'var(--space-4)',
-            background: 'linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%)',
-          }}>
-            <h1 style={{
-              color: isTie ? 'var(--color-text-primary)' : (iWon ? '#4CAF50' : '#f44336'),
-              marginBottom: '16px',
-              fontSize: '2.5rem',
-            }}>
-              {isTie ? "It's a Tie!" : (iWon ? 'You Won!' : 'You Lost')}
-            </h1>
-            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
-                  {multiplayer.nickname} (You)
-                </div>
-                <div style={{ fontSize: '2.5rem', color: iWon ? '#4CAF50' : 'var(--color-text-primary)' }}>
-                  {multiplayer.gameEndData.finalScores[myId]}
-                </div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
-                  {multiplayer.opponentNickname}
-                </div>
-                <div style={{ fontSize: '2.5rem', color: !iWon && !isTie ? '#4CAF50' : 'var(--color-text-primary)' }}>
-                  {multiplayer.gameEndData.finalScores[oppId]}
-                </div>
-              </div>
-            </div>
-
-            {/* Rematch button */}
-            <div style={{ display: 'flex', gap: '16px', flexDirection: 'column', alignItems: 'center' }}>
-              {multiplayer.newGameRequestedBy && multiplayer.newGameRequestedBy !== myId ? (
-                <div style={{ color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
-                  {multiplayer.opponentNickname} wants a rematch!
-                </div>
-              ) : multiplayer.newGameRequestedBy === myId ? (
-                <div style={{ color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
-                  Waiting for opponent to accept rematch...
-                </div>
-              ) : null}
-
-              <button
-                onClick={multiplayer.requestNewGame}
-                disabled={multiplayer.newGameRequestedBy === myId}
-                style={{
-                  padding: '12px 32px',
-                  fontSize: '1.1rem',
-                  background: multiplayer.newGameRequestedBy === myId ? 'rgba(255,255,255,0.1)' : 'var(--color-accent)',
-                  color: multiplayer.newGameRequestedBy === myId ? 'var(--color-text-secondary)' : '#000',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: multiplayer.newGameRequestedBy === myId ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {multiplayer.newGameRequestedBy && multiplayer.newGameRequestedBy !== myId
-                  ? 'Accept Rematch'
-                  : 'Request Rematch'}
-              </button>
-
-              <button
-                onClick={handleLeaveMultiplayer}
-                style={{
-                  padding: '8px 24px',
-                  fontSize: '0.9rem',
-                  background: 'transparent',
-                  color: 'var(--color-text-secondary)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                }}
-              >
-                Leave Game
-              </button>
-            </div>
-          </div>
+          <GameEndScreen
+            humanScore={multiplayer.gameEndData.finalScores[myId]}
+            cpuScore={multiplayer.gameEndData.finalScores[oppId]}
+            roundsPlayed={mpState.roundNumber}
+            onPlayAgain={multiplayer.requestNewGame}
+            player1Name="You"
+            player2Name={multiplayer.opponentNickname || 'Opponent'}
+            roundHistory={multiplayerRoundHistory}
+            rematchRequested={multiplayer.newGameRequestedBy === myId}
+            opponentRequestedRematch={multiplayer.newGameRequestedBy === oppId}
+            opponentName={multiplayer.opponentNickname || 'Opponent'}
+            onLeaveGame={handleLeaveMultiplayer}
+          />
         </DeckProvider>
       );
     }
@@ -2068,16 +2114,23 @@ function App() {
           }
           cpuHand={
             <PlayerHand
-              cards={Array(
-                // Decrease hand count by 1 during opponent's animation (card is in overlay)
-                multiplayerAnimatingCard?.player === 'cpu'
-                  ? Math.max(0, mpState.opponent.handCount - 1)
-                  : mpState.opponent.handCount
-              ).fill(null).map((_, i) => ({
-                id: `opponent-${i}`,
-                suit: 'coins' as const,
-                value: 1 as const,
-              }))}
+              cards={
+                // Hide cards during dealing animation
+                multiplayerIsDealing
+                  ? []
+                  : Array(
+                      // Decrease hand count by 1 during opponent's reveal/moving animation (before state is applied)
+                      // Once we're in 'capturing' phase, applyPendingState has been called so state is already updated
+                      multiplayerAnimatingCard?.player === 'cpu' &&
+                      (multiplayerAnimatingCard.phase === 'reveal' || multiplayerAnimatingCard.phase === 'moving')
+                        ? Math.max(0, mpState.opponent.handCount - 1)
+                        : mpState.opponent.handCount
+                    ).fill(null).map((_, i) => ({
+                      id: `opponent-${i}`,
+                      suit: 'coins' as const,
+                      value: 1 as const,
+                    }))
+              }
               isHuman={false}
               showFaceUp={false}
             />
@@ -2093,15 +2146,28 @@ function App() {
           tableCards={
             <TableCards
               ref={tableRef}
-              cards={mpState.round.table}
-              highlightedCardIds={isMyTurn ? multiplayerValidCaptureTargetIds : []}
-              selectedCardIds={selectedTableCards.map(c => c.id)}
-              capturingCardIds={(multiplayerAnimatingCard?.phase === 'moving' || multiplayerAnimatingCard?.phase === 'capturing') && multiplayerAnimatingCard?.capturedCards.length
-                ? multiplayerAnimatingCard.capturedCards.map(c => c.id)
-                : undefined}
-              captureDirection={multiplayerAnimatingCard?.capturedCards.length ? multiplayerAnimatingCard.player : undefined}
-              onCardClick={isMyTurn ? handleTableCardClick : undefined}
-              selectable={isMyTurn && selectedCard !== null}
+              cards={
+                // Hide cards during 'table' phase of dealing animation
+                multiplayerIsDealing && multiplayerDealMode === 'table'
+                  ? []
+                  : multiplayerRoundEndAnimation ? multiplayerRoundEndAnimation.tableCards : mpState.round.table
+              }
+              highlightedCardIds={isMyTurn && !multiplayerRoundEndAnimation ? multiplayerValidCaptureTargetIds : []}
+              selectedCardIds={multiplayerRoundEndAnimation ? [] : selectedTableCards.map(c => c.id)}
+              capturingCardIds={
+                multiplayerRoundEndAnimation
+                  ? multiplayerRoundEndAnimation.tableCards.map(c => c.id)
+                  : (multiplayerAnimatingCard?.phase === 'moving' || multiplayerAnimatingCard?.phase === 'capturing') && multiplayerAnimatingCard?.capturedCards.length
+                    ? multiplayerAnimatingCard.capturedCards.map(c => c.id)
+                    : undefined
+              }
+              captureDirection={
+                multiplayerRoundEndAnimation
+                  ? multiplayerRoundEndAnimation.lastCapture
+                  : multiplayerAnimatingCard?.capturedCards.length ? multiplayerAnimatingCard.player : undefined
+              }
+              onCardClick={isMyTurn && !multiplayerRoundEndAnimation ? handleTableCardClick : undefined}
+              selectable={isMyTurn && selectedCard !== null && !multiplayerRoundEndAnimation}
               isDragOver={isDragging}
               deckCount={mpState.round.deckCount}
               dealer={mpState.round.dealer === multiplayer.playerId ? 'human' : 'cpu'}
@@ -2117,16 +2183,21 @@ function App() {
           }
           humanHand={
             <PlayerHand
-              cards={multiplayerAnimatingCard?.player === 'human'
-                ? mpState.self.hand.filter(c => c.id !== multiplayerAnimatingCard.card.id)
-                : mpState.self.hand}
+              cards={
+                // Hide cards during dealing animation
+                multiplayerIsDealing
+                  ? []
+                  : multiplayerAnimatingCard?.player === 'human'
+                    ? mpState.self.hand.filter(c => c.id !== multiplayerAnimatingCard.card.id)
+                    : mpState.self.hand
+              }
               isHuman={true}
               onCardClick={handleMultiplayerCardClick}
               onCardDoubleClick={handleMultiplayerCardDoubleClick}
               onCardDragStart={handleCardDragStart}
               onCardDragEnd={handleMultiplayerDragEnd}
               selectedCardId={selectedCard?.id}
-              disabled={!isMyTurn || !!multiplayerAnimatingCard}
+              disabled={!isMyTurn || !!multiplayerAnimatingCard || multiplayerIsDealing}
             />
           }
           controls={
@@ -2234,6 +2305,28 @@ function App() {
           capturedCardIds={multiplayerAnimatingCard?.capturedCards.map(c => c.id) ?? []}
           player={multiplayerAnimatingCard?.player}
           skipFlip={multiplayerAnimatingCard?.player === 'human'}
+        />
+        {/* Dealing animation for multiplayer */}
+        <DealingAnimation
+          isDealing={multiplayerIsDealing}
+          startPlayer={mpState.round.dealer === multiplayer.playerId ? 'cpu' : 'human'}
+          deckPosition={mpState.round.dealer === multiplayer.playerId ? 'right' : 'left'}
+          dealMode={multiplayerDealMode}
+          onComplete={() => {
+            if (multiplayerDealMode === 'table' && multiplayerIsRoundStartDeal) {
+              // Phase 1 complete: enter pause phase (table cards appear, no animation)
+              playSound('deal');
+              setMultiplayerDealMode('pause');
+            } else if (multiplayerDealMode === 'pause' && multiplayerIsRoundStartDeal) {
+              // Pause complete: start dealing hands
+              setMultiplayerDealMode('hands');
+            } else {
+              // Hands phase complete (or mid-round deal): finish dealing
+              playSound('deal');
+              setMultiplayerIsDealing(false);
+              setMultiplayerIsRoundStartDeal(false);
+            }
+          }}
         />
       </DeckProvider>
     );

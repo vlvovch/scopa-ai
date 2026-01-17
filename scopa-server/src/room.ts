@@ -101,6 +101,7 @@ export function createRoom(
     turnTimerSeconds: DEFAULT_TURN_TIMER_SECONDS,
     currentTurnStartedAt: null,
     newGameRequests: new Set(),
+    nextRoundRequests: new Set(),
   };
 
   rooms.set(code, room);

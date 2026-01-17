@@ -242,6 +242,29 @@
   animation: pulse 1s ease-in-out infinite;
 }
 
+.nextButton.buttonDisabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.nextButton.buttonDisabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.waitingSection {
+  margin-bottom: var(--space-2);
+}
+
+.waitingMessage {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.8; }

@@ -46,6 +46,10 @@ export function handleGameMessage(
       handleNewGameRequest(ws);
       break;
 
+    case 'CONTINUE_ROUND':
+      handleContinueRound(ws);
+      break;
+
     case 'FORCE_MOVE':
       handleForceMove(ws);
       break;
@@ -142,6 +146,9 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
         },
       });
     } else {
+      // Clear any previous next round requests
+      room.nextRoundRequests.clear();
+
       broadcastToRoom(room, {
         type: 'ROUND_END',
         payload: {
@@ -153,31 +160,7 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
           },
         },
       });
-
-      // Automatically start next round after a short delay
-      setTimeout(() => {
-        const currentRoom = getRoom(room.code);
-        if (currentRoom && currentRoom.gameState?.status === 'roundEnd') {
-          startNextRound(currentRoom);
-
-          // Send new game state to both players
-          const p1State = getPlayerVisibleState(currentRoom, 'player1');
-          const p2State = getPlayerVisibleState(currentRoom, 'player2');
-
-          if (p1State) {
-            sendToPlayer(currentRoom, 'player1', {
-              type: 'GAME_STATE',
-              payload: { state: p1State },
-            });
-          }
-          if (p2State) {
-            sendToPlayer(currentRoom, 'player2', {
-              type: 'GAME_STATE',
-              payload: { state: p2State },
-            });
-          }
-        }
-      }, 3000); // 3 second delay for round summary
+      // Wait for both players to click "Next Round" before continuing
     }
   } else {
     // Send move update to both players
@@ -267,6 +250,64 @@ function handleNewGameRequest(ws: AuthenticatedWebSocket): void {
 }
 
 /**
+ * Handle CONTINUE_ROUND message (when player clicks "Next Round" after round end)
+ */
+function handleContinueRound(ws: AuthenticatedWebSocket): void {
+  const room = getRoom(ws.roomCode!);
+  if (!room || !room.gameState) {
+    sendError(ws, 'GAME_NOT_STARTED', 'No game in progress');
+    return;
+  }
+
+  const playerId = ws.playerId!;
+
+  // Only allow continue round request when round is over
+  if (room.gameState.status !== 'roundEnd') {
+    sendError(ws, 'INVALID_MOVE', 'Round is not over yet');
+    return;
+  }
+
+  // Track who requested
+  room.nextRoundRequests.add(playerId);
+  console.log(`Player ${playerId} requested next round. Requests: [${[...room.nextRoundRequests].join(', ')}]`);
+
+  // Notify opponent that this player is ready
+  const opponent = getOpponent(room, playerId);
+  if (opponent?.ws?.readyState === 1) {
+    const msg: ServerMessage = {
+      type: 'NEXT_ROUND_REQUESTED',
+      payload: { by: playerId },
+    };
+    opponent.ws.send(JSON.stringify(msg));
+  }
+
+  // If both players requested, start next round
+  if (room.nextRoundRequests.has('player1') && room.nextRoundRequests.has('player2')) {
+    room.nextRoundRequests.clear();
+    startNextRound(room);
+
+    // Send new game state to both players
+    const p1State = getPlayerVisibleState(room, 'player1');
+    const p2State = getPlayerVisibleState(room, 'player2');
+
+    if (p1State) {
+      sendToPlayer(room, 'player1', {
+        type: 'NEXT_ROUND_STARTED',
+        payload: { state: p1State },
+      });
+    }
+    if (p2State) {
+      sendToPlayer(room, 'player2', {
+        type: 'NEXT_ROUND_STARTED',
+        payload: { state: p2State },
+      });
+    }
+
+    console.log(`Next round started in room ${room.code}`);
+  }
+}
+
+/**
  * Handle FORCE_MOVE message (when opponent's timer expired)
  */
 function handleForceMove(ws: AuthenticatedWebSocket): void {
@@ -350,6 +391,9 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
         },
       });
     } else {
+      // Clear any previous next round requests
+      room.nextRoundRequests.clear();
+
       broadcastToRoom(room, {
         type: 'ROUND_END',
         payload: {
@@ -361,29 +405,7 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
           },
         },
       });
-
-      setTimeout(() => {
-        const currentRoom = getRoom(room.code);
-        if (currentRoom && currentRoom.gameState?.status === 'roundEnd') {
-          startNextRound(currentRoom);
-
-          const p1State = getPlayerVisibleState(currentRoom, 'player1');
-          const p2State = getPlayerVisibleState(currentRoom, 'player2');
-
-          if (p1State) {
-            sendToPlayer(currentRoom, 'player1', {
-              type: 'GAME_STATE',
-              payload: { state: p1State },
-            });
-          }
-          if (p2State) {
-            sendToPlayer(currentRoom, 'player2', {
-              type: 'GAME_STATE',
-              payload: { state: p2State },
-            });
-          }
-        }
-      }, 3000);
+      // Wait for both players to click "Next Round" before continuing
     }
   } else {
     // Send move update

@@ -42,6 +42,7 @@ export interface RoomState {
   turnTimerSeconds: number;
   currentTurnStartedAt: number | null;
   newGameRequests: Set<MultiplayerPlayerId>;
+  nextRoundRequests: Set<MultiplayerPlayerId>;
 }
 
 // ============================================================================
@@ -122,6 +123,7 @@ export type ClientMessage =
       };
     }
   | { type: 'START_NEW_GAME' }
+  | { type: 'CONTINUE_ROUND' }
   | { type: 'FORCE_MOVE' }
   | {
       type: 'UPDATE_NICKNAME';
@@ -258,6 +260,18 @@ export type ServerMessage =
     }
   | {
       type: 'NEW_GAME_STARTED';
+      payload: {
+        state: PlayerVisibleGameState;
+      };
+    }
+  | {
+      type: 'NEXT_ROUND_REQUESTED';
+      payload: {
+        by: MultiplayerPlayerId;
+      };
+    }
+  | {
+      type: 'NEXT_ROUND_STARTED';
       payload: {
         state: PlayerVisibleGameState;
       };

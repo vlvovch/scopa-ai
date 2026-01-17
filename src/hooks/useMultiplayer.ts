@@ -59,6 +59,9 @@ export interface UseMultiplayerReturn {
   // Rematch
   newGameRequestedBy: MultiplayerPlayerId | null;
 
+  // Next round
+  nextRoundRequests: Set<MultiplayerPlayerId>;
+
   // Last move (for animations/sounds)
   lastMove: {
     move: MultiplayerMove;
@@ -74,6 +77,7 @@ export interface UseMultiplayerReturn {
   playMove: (move: MultiplayerMove) => void;
   forceMove: () => void;
   requestNewGame: () => void;
+  continueToNextRound: () => void;
   updateNickname: (nickname: string) => void;
   leaveRoom: () => void;
   clearRoundEnd: () => void;
@@ -115,6 +119,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   // Rematch
   const [newGameRequestedBy, setNewGameRequestedBy] = useState<MultiplayerPlayerId | null>(null);
+
+  // Next round
+  const [nextRoundRequests, setNextRoundRequests] = useState<Set<MultiplayerPlayerId>>(new Set());
 
   // Last move (for animations/sounds)
   const [lastMove, setLastMove] = useState<UseMultiplayerReturn['lastMove']>(null);
@@ -273,6 +280,16 @@ export function useMultiplayer(): UseMultiplayerReturn {
         setRoundEndData(null);
         setGameEndData(null);
         setNewGameRequestedBy(null);
+        break;
+
+      case 'NEXT_ROUND_REQUESTED':
+        setNextRoundRequests(prev => new Set([...prev, message.payload.by]));
+        break;
+
+      case 'NEXT_ROUND_STARTED':
+        setGameState(message.payload.state);
+        setRoundEndData(null);
+        setNextRoundRequests(new Set());
         break;
 
       case 'NICKNAME_UPDATED':
@@ -472,6 +489,14 @@ export function useMultiplayer(): UseMultiplayerReturn {
     sendMessage({ type: 'START_NEW_GAME' });
   }, [sendMessage]);
 
+  const continueToNextRound = useCallback(() => {
+    sendMessage({ type: 'CONTINUE_ROUND' });
+    // Optimistically add ourselves to the set (UI feedback while waiting for opponent)
+    if (playerId) {
+      setNextRoundRequests(prev => new Set([...prev, playerId]));
+    }
+  }, [sendMessage, playerId]);
+
   const updateNickname = useCallback((newNickname: string) => {
     setNickname(newNickname);
     sendMessage({
@@ -571,6 +596,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
     // Rematch
     newGameRequestedBy,
 
+    // Next round
+    nextRoundRequests,
+
     // Last move (for animations/sounds)
     lastMove,
     clearLastMove,
@@ -582,6 +610,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     playMove,
     forceMove,
     requestNewGame,
+    continueToNextRound,
     updateNickname,
     leaveRoom,
     clearRoundEnd,
