@@ -1413,9 +1413,6 @@ function App() {
   // MULTIPLAYER SOUNDS & ANIMATIONS EFFECT
   // ============================================================================
 
-  // Track previous scopa counts to detect new scopas
-  const prevMultiplayerScopaCounts = useRef<{ self: number; opponent: number } | null>(null);
-
   // Track which move we've already processed (by card ID) to prevent re-processing
   const lastProcessedMoveRef = useRef<string | null>(null);
 
@@ -1534,6 +1531,12 @@ function App() {
           setSetteBelloCelebration({ show: true, player, playerName: multiplayer.nickname });
           setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
         }
+        // Check for scopa (based on move.isScopa flag from server)
+        if (move.isScopa) {
+          playSound('scopa');
+          setScopaCelebration({ show: true, player, playerName: multiplayer.nickname });
+          setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+        }
         // Set capturing phase AND apply state together - this triggers the table card exit animation
         setMultiplayerAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
         multiplayer.applyPendingState();
@@ -1570,6 +1573,13 @@ function App() {
             setSetteBelloCelebration({ show: true, player, playerName });
             setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
           }
+          // Check for scopa (based on move.isScopa flag from server)
+          if (move.isScopa) {
+            playSound('scopa');
+            const playerName = multiplayer.opponentNickname || 'Opponent';
+            setScopaCelebration({ show: true, player, playerName });
+            setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+          }
           // Set capturing phase AND apply state together - triggers table card exit animation
           setMultiplayerAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
           multiplayer.applyPendingState();
@@ -1604,35 +1614,8 @@ function App() {
     }
   }, [multiplayer.lastMove, multiplayerAnimatingCard]);
 
-  // Detect scopa celebrations in multiplayer
-  useEffect(() => {
-    if (!multiplayer.gameState) {
-      prevMultiplayerScopaCounts.current = null;
-      return;
-    }
-
-    const currentCounts = {
-      self: multiplayer.gameState.self.scopaCount,
-      opponent: multiplayer.gameState.opponent.scopaCount,
-    };
-
-    if (prevMultiplayerScopaCounts.current) {
-      // Check if self scored a scopa
-      if (currentCounts.self > prevMultiplayerScopaCounts.current.self) {
-        playSound('scopa');
-        setScopaCelebration({ show: true, player: 'human', playerName: multiplayer.nickname });
-        setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
-      }
-      // Check if opponent scored a scopa
-      if (currentCounts.opponent > prevMultiplayerScopaCounts.current.opponent) {
-        playSound('scopa');
-        setScopaCelebration({ show: true, player: 'cpu', playerName: multiplayer.opponentNickname || 'Opponent' });
-        setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
-      }
-    }
-
-    prevMultiplayerScopaCounts.current = currentCounts;
-  }, [multiplayer.gameState, multiplayer.nickname, multiplayer.opponentNickname, playSound]);
+  // Note: Scopa celebrations are now triggered in the move animation effect above
+  // based on the move.isScopa flag, not by comparing scopa counts
 
   // Track table state for "last capture takes remaining cards" animation at round end
   const roundEndAnimationTriggeredForRound = useRef<number>(0);
