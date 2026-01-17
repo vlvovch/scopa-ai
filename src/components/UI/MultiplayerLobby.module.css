@@ -1,0 +1,427 @@
+/* MultiplayerLobby Styles */
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.content {
+  background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  padding: var(--space-5) var(--space-6);
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(212, 175, 55, 0.15);
+}
+
+.title {
+  font-size: 2rem;
+  color: var(--color-accent);
+  margin: 0;
+  text-shadow: 0 2px 10px rgba(212, 175, 55, 0.3);
+  letter-spacing: 0.05em;
+}
+
+.subtitle {
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  margin: var(--space-2) 0 var(--space-5);
+}
+
+/* Mode selection buttons */
+.modeButtons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.modeButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-4);
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.modeButton:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.modeButton:active {
+  transform: translateY(0);
+}
+
+.modeIcon {
+  font-size: 2rem;
+  color: var(--color-accent);
+  margin-bottom: var(--space-2);
+  font-weight: bold;
+}
+
+.modeLabel {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.modeDescription {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+/* Form elements */
+.formGroup {
+  margin-bottom: var(--space-4);
+  text-align: left;
+}
+
+.label {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-2);
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-3);
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.input:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.codeInput {
+  font-family: monospace;
+  font-size: 1.25rem;
+  text-align: center;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Score options */
+.scoreOptions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.scoreOption {
+  width: 52px;
+  height: 52px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.scoreOption:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.scoreOption.selected {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #000;
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+.scoreOption:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.customScoreInput {
+  width: 52px;
+  height: 52px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  transition: all 0.15s;
+  -moz-appearance: textfield;
+}
+
+.customScoreInput::-webkit-outer-spin-button,
+.customScoreInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.customScoreInput::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.8rem;
+}
+
+.customScoreInput:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--color-text-primary);
+}
+
+.customScoreInput:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
+}
+
+.customScoreInput.selected {
+  background: var(--color-accent);
+  border-style: solid;
+  border-color: var(--color-accent);
+  color: #000;
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+.customScoreInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Toggle switch */
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.toggleLabel {
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.toggle {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.toggle:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.toggleSlider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.toggle.toggleEnabled {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.toggle.toggleEnabled .toggleSlider {
+  left: 24px;
+  background: #000;
+}
+
+.toggleHint {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-style: italic;
+  margin: var(--space-2) 0 0;
+}
+
+/* Error message */
+.error {
+  background: rgba(220, 53, 69, 0.15);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+  border-radius: 6px;
+  padding: var(--space-2) var(--space-3);
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  margin-bottom: var(--space-4);
+}
+
+/* Buttons */
+.primaryButton {
+  display: block;
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: var(--color-accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-bottom: var(--space-3);
+}
+
+.primaryButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.backButton {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: var(--space-2);
+}
+
+.backButton:hover:not(:disabled) {
+  color: var(--color-accent);
+}
+
+.backButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===========================================
+   MOBILE RESPONSIVE STYLES
+   =========================================== */
+
+@media (max-width: 480px) {
+  .container {
+    padding: var(--space-2);
+  }
+
+  .content {
+    padding: var(--space-4);
+    max-width: 100%;
+    margin: var(--space-2);
+    border-radius: 10px;
+  }
+
+  .title {
+    font-size: 1.75rem;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    margin-bottom: var(--space-4);
+  }
+
+  .modeButton {
+    padding: var(--space-3);
+  }
+
+  .modeIcon {
+    font-size: 1.5rem;
+  }
+
+  .modeLabel {
+    font-size: 1rem;
+  }
+
+  .scoreOptions {
+    flex-wrap: wrap;
+  }
+
+  .scoreOption {
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+  }
+
+  .customScoreInput {
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+  }
+
+  .codeInput {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .scoreOption {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
+  }
+
+  .customScoreInput {
+    width: 40px;
+    height: 40px;
+    font-size: 0.95rem;
+  }
+}

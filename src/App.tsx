@@ -3,6 +3,7 @@ import { useGame } from './hooks/useGame';
 import { useSettings } from './hooks/useSettings';
 import { useSound } from './hooks/useSound';
 import { useStats } from './hooks/useStats';
+import { useMultiplayer } from './hooks/useMultiplayer';
 import { GameLayout } from './components/Layout/GameLayout';
 import { PlayerHand } from './components/Table/PlayerHand';
 import { TableCards } from './components/Table/TableCards';
@@ -21,6 +22,10 @@ import { CpuCardAnimation } from './components/UI/CpuCardAnimation';
 import { DealingAnimation, type DealMode } from './components/UI/DealingAnimation';
 import { CaptureChoiceModal } from './components/UI/CaptureChoiceModal';
 import { CapturedCardsModal } from './components/UI/CapturedCardsModal';
+import { MultiplayerLobby } from './components/UI/MultiplayerLobby';
+import { WaitingForOpponent } from './components/UI/WaitingForOpponent';
+import { OpponentDisconnected } from './components/UI/OpponentDisconnected';
+import { TurnTimer } from './components/UI/TurnTimer';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './ai';
@@ -72,6 +77,18 @@ function loadSpectatorModels(): { player1: string; player2: string } {
   return { player1: 'gemini-2.5-flash', player2: 'gemini-2.5-flash' };
 }
 
+// Check for join code from URL on initial load
+function getInitialJoinCode(): string | undefined {
+  const params = new URLSearchParams(window.location.search);
+  const joinFromParam = params.get('join');
+  if (joinFromParam) return joinFromParam.toUpperCase();
+
+  const pathMatch = window.location.pathname.match(/^\/join\/([A-Z0-9-]+)$/i);
+  if (pathMatch) return pathMatch[1].toUpperCase();
+
+  return undefined;
+}
+
 function App() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -85,6 +102,12 @@ function App() {
     getAllDisplayOpponents,
     clearStats,
   } = useStats();
+
+  // Multiplayer state
+  const multiplayer = useMultiplayer();
+  const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
+  const [initialJoinCode] = useState(getInitialJoinCode);
+
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
   const [scopaCelebration, setScopaCelebration] = useState<{ show: boolean; player: PlayerId; playerName?: string }>({
@@ -1163,6 +1186,375 @@ function App() {
     setPlayer2ApiError(null);
   }, []);
 
+  // Handle starting multiplayer mode
+  const handleStartMultiplayer = useCallback(() => {
+    setIsMultiplayerMode(true);
+    // Clear URL join code after entering multiplayer mode
+    if (window.location.pathname !== '/' || window.location.search) {
+      window.history.replaceState({}, '', '/');
+    }
+  }, []);
+
+  // Handle leaving multiplayer mode
+  const handleLeaveMultiplayer = useCallback(() => {
+    multiplayer.leaveRoom();
+    setIsMultiplayerMode(false);
+  }, [multiplayer]);
+
+  // ============================================================================
+  // MULTIPLAYER COMPUTED VALUES
+  // ============================================================================
+
+  // Calculate valid moves for selected card in multiplayer
+  const multiplayerValidMoves = useMemo(() => {
+    if (!selectedCard || !multiplayer.gameState) {
+      return [];
+    }
+    if (multiplayer.gameState.round.currentPlayer !== multiplayer.playerId) {
+      return [];
+    }
+    return getValidMoves(selectedCard, multiplayer.gameState.round.table, 'human');
+  }, [selectedCard, multiplayer.gameState, multiplayer.playerId]);
+
+  // Check if selected card can only place in multiplayer (no capture possible)
+  const multiplayerCanOnlyPlace = useMemo(() => {
+    return multiplayerValidMoves.length === 1 && multiplayerValidMoves[0].capturedCards.length === 0;
+  }, [multiplayerValidMoves]);
+
+  // Get all valid capture target card IDs for multiplayer
+  const multiplayerValidCaptureTargetIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const move of multiplayerValidMoves) {
+      for (const card of move.capturedCards) {
+        ids.add(card.id);
+      }
+    }
+    return Array.from(ids);
+  }, [multiplayerValidMoves]);
+
+  // Check if current selection forms a valid capture in multiplayer
+  const multiplayerIsValidCapture = useMemo(() => {
+    if (!selectedCard || selectedTableCards.length === 0) {
+      return false;
+    }
+    const selectedIds = new Set(selectedTableCards.map(c => c.id));
+    return multiplayerValidMoves.some(move => {
+      if (move.capturedCards.length !== selectedTableCards.length) {
+        return false;
+      }
+      return move.capturedCards.every(c => selectedIds.has(c.id));
+    });
+  }, [selectedCard, selectedTableCards, multiplayerValidMoves]);
+
+  // ============================================================================
+  // MULTIPLAYER CARD HANDLERS
+  // ============================================================================
+
+  // Handle card click in multiplayer mode
+  const handleMultiplayerCardClick = useCallback((card: Card) => {
+    if (!multiplayer.gameState || multiplayer.gameState.round.currentPlayer !== multiplayer.playerId) {
+      return;
+    }
+
+    const tableCards = multiplayer.gameState.round.table;
+    // Use 'human' as player since getValidMoves needs a PlayerId but we just need the move options
+    const validMoves = getValidMoves(card, tableCards, 'human');
+
+    // If this card is already selected, deselect it
+    if (selectedCard?.id === card.id) {
+      setSelectedCard(null);
+      setSelectedTableCards([]);
+      return;
+    }
+
+    // Select the card
+    setSelectedCard(card);
+    setSelectedTableCards([]);
+
+    // If there's exactly one single-card capture, auto-select it
+    const singleCaptures = validMoves.filter(m => m.capturedCards.length === 1);
+    if (singleCaptures.length === 1) {
+      setSelectedTableCards(singleCaptures[0].capturedCards);
+    }
+  }, [multiplayer.gameState, multiplayer.playerId, selectedCard]);
+
+  // Handle card double-click in multiplayer mode (quick play)
+  const handleMultiplayerCardDoubleClick = useCallback((card: Card) => {
+    if (!multiplayer.gameState || multiplayer.gameState.round.currentPlayer !== multiplayer.playerId) {
+      return;
+    }
+
+    const tableCards = multiplayer.gameState.round.table;
+    const validMoves = getValidMoves(card, tableCards, 'human');
+
+    // If no captures possible (all moves have empty capturedCards), place the card
+    if (validMoves.every(m => m.capturedCards.length === 0)) {
+      multiplayer.playMove({
+        player: multiplayer.playerId!,
+        cardPlayed: card,
+        capturedCards: [],
+        isScopa: false,
+      });
+      setSelectedCard(null);
+      setSelectedTableCards([]);
+      return;
+    }
+
+    // Get capture options (moves with non-empty capturedCards)
+    const captureOptions = validMoves.filter(m => m.capturedCards.length > 0);
+
+    // If there's exactly one capture option, execute it
+    if (captureOptions.length === 1) {
+      const move = captureOptions[0];
+      const isScopa = tableCards.length === move.capturedCards.length && multiplayer.gameState.round.deckCount > 0;
+      multiplayer.playMove({
+        player: multiplayer.playerId!,
+        cardPlayed: card,
+        capturedCards: move.capturedCards,
+        isScopa,
+      });
+      setSelectedCard(null);
+      setSelectedTableCards([]);
+      return;
+    }
+
+    // Multiple capture options - show choice modal
+    if (captureOptions.length > 1) {
+      setCaptureChoiceModal({
+        isOpen: true,
+        playedCard: card,
+        captureOptions: captureOptions,
+      });
+    }
+  }, [multiplayer]);
+
+  // Handle drag end in multiplayer mode
+  const handleMultiplayerDragEnd = useCallback((card: Card, info: { point: { x: number; y: number } }) => {
+    setIsDragging(false);
+
+    if (!multiplayer.gameState || multiplayer.gameState.round.currentPlayer !== multiplayer.playerId) {
+      setSelectedCard(null);
+      setSelectedTableCards([]);
+      return;
+    }
+
+    // Check if dropped on table area (simplified check)
+    const tableElement = tableRef.current;
+    if (tableElement) {
+      const rect = tableElement.getBoundingClientRect();
+      const droppedOnTable = info.point.x >= rect.left && info.point.x <= rect.right &&
+                             info.point.y >= rect.top && info.point.y <= rect.bottom;
+
+      if (droppedOnTable) {
+        handleMultiplayerCardDoubleClick(card);
+        return; // handleMultiplayerCardDoubleClick clears selection after move
+      }
+    }
+
+    // Drag cancelled (not dropped on table) - keep card selected, don't clear!
+  }, [multiplayer, handleMultiplayerCardDoubleClick]);
+
+  // Execute a place move in multiplayer
+  const executeMultiplayerPlace = useCallback(() => {
+    if (!selectedCard || !multiplayer.playerId) return;
+
+    multiplayer.playMove({
+      player: multiplayer.playerId,
+      cardPlayed: selectedCard,
+      capturedCards: [],
+      isScopa: false,
+    });
+    setSelectedCard(null);
+    setSelectedTableCards([]);
+  }, [selectedCard, multiplayer]);
+
+  // Execute a capture move in multiplayer
+  const executeMultiplayerCapture = useCallback(() => {
+    if (!selectedCard || !multiplayer.playerId || !multiplayer.gameState) return;
+
+    const tableCards = multiplayer.gameState.round.table;
+    const isScopa = tableCards.length === selectedTableCards.length && multiplayer.gameState.round.deckCount > 0;
+
+    multiplayer.playMove({
+      player: multiplayer.playerId,
+      cardPlayed: selectedCard,
+      capturedCards: selectedTableCards,
+      isScopa,
+    });
+    setSelectedCard(null);
+    setSelectedTableCards([]);
+  }, [selectedCard, selectedTableCards, multiplayer]);
+
+  // Handle capture choice in multiplayer
+  const handleMultiplayerCaptureChoice = useCallback((move: Move) => {
+    if (!captureChoiceModal.playedCard || !multiplayer.playerId || !multiplayer.gameState) return;
+
+    const tableCards = multiplayer.gameState.round.table;
+    const isScopa = tableCards.length === move.capturedCards.length && multiplayer.gameState.round.deckCount > 0;
+
+    multiplayer.playMove({
+      player: multiplayer.playerId,
+      cardPlayed: captureChoiceModal.playedCard,
+      capturedCards: move.capturedCards,
+      isScopa,
+    });
+
+    setCaptureChoiceModal({ isOpen: false, playedCard: null, captureOptions: [] });
+    setSelectedCard(null);
+    setSelectedTableCards([]);
+  }, [captureChoiceModal.playedCard, multiplayer]);
+
+  // ============================================================================
+  // END MULTIPLAYER CARD HANDLERS
+  // ============================================================================
+
+  // ============================================================================
+  // MULTIPLAYER SOUNDS & ANIMATIONS EFFECT
+  // ============================================================================
+
+  // Track previous scopa counts to detect new scopas
+  const prevMultiplayerScopaCounts = useRef<{ self: number; opponent: number } | null>(null);
+
+  // Track which move we've already processed (by card ID) to prevent re-processing
+  const lastProcessedMoveRef = useRef<string | null>(null);
+
+  // Multiplayer card animation state
+  const [multiplayerAnimatingCard, setMultiplayerAnimatingCard] = useState<{
+    card: Card;
+    phase: 'reveal' | 'moving' | 'capturing' | 'done';
+    capturedCards: Card[];
+    player: PlayerId;
+  } | null>(null);
+
+  // Handle sounds, animations, and sette bello celebration when multiplayer moves are played
+  useEffect(() => {
+    if (!multiplayer.lastMove) return;
+
+    // Skip if we've already processed this exact move (by card ID)
+    if (lastProcessedMoveRef.current === multiplayer.lastMove.move.cardPlayed.id) {
+      return;
+    }
+    lastProcessedMoveRef.current = multiplayer.lastMove.move.cardPlayed.id;
+
+    const { move, byPlayer } = multiplayer.lastMove;
+    const isMyMove = byPlayer === multiplayer.playerId;
+    const player: PlayerId = isMyMove ? 'human' : 'cpu';
+
+    // For your own place moves: instant, no animation (matches single-player)
+    if (isMyMove && move.capturedCards.length === 0) {
+      playSound('play');
+      setMultiplayerAnimatingCard(null);
+      multiplayer.applyPendingState();
+      return;
+    }
+
+    // For your own capture moves: brief animation (matches single-player)
+    if (isMyMove) {
+      setMultiplayerAnimatingCard({
+        card: move.cardPlayed,
+        phase: 'moving',
+        capturedCards: move.capturedCards,
+        player,
+      });
+
+      // Brief delay, then apply state and start capture exit animation
+      setTimeout(() => {
+        playSound('capture');
+        if (move.capturedCards.some(c => c.suit === 'coins')) {
+          playSound('coin');
+        }
+        if (move.capturedCards.some(c => c.suit === 'coins' && c.value === 7)) {
+          playSound('setteBello');
+          setSetteBelloCelebration({ show: true, player, playerName: multiplayer.nickname });
+          setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+        }
+        // Set capturing phase AND apply state together - this triggers the table card exit animation
+        setMultiplayerAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+        multiplayer.applyPendingState();
+        // Wait for exit animation to complete, then clear
+        setTimeout(() => {
+          setMultiplayerAnimatingCard(null);
+        }, 900);
+      }, 400);
+      return;
+    }
+
+    // For opponent moves: full animation with reveal (flip) first
+    setMultiplayerAnimatingCard({
+      card: move.cardPlayed,
+      phase: 'reveal',
+      capturedCards: move.capturedCards,
+      player,
+    });
+
+    // Phase 2: moving to table (after flip completes)
+    setTimeout(() => {
+      setMultiplayerAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
+
+      // Phase 3: apply state and start capture/place exit animation
+      setTimeout(() => {
+        if (move.capturedCards.length > 0) {
+          playSound('capture');
+          if (move.capturedCards.some(c => c.suit === 'coins')) {
+            playSound('coin');
+          }
+          if (move.capturedCards.some(c => c.suit === 'coins' && c.value === 7)) {
+            playSound('setteBello');
+            const playerName = multiplayer.opponentNickname || 'Opponent';
+            setSetteBelloCelebration({ show: true, player, playerName });
+            setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+          }
+          // Set capturing phase AND apply state together - triggers table card exit animation
+          setMultiplayerAnimatingCard(prev => prev ? { ...prev, phase: 'capturing' } : null);
+          multiplayer.applyPendingState();
+          // Wait for exit animation to complete
+          setTimeout(() => {
+            setMultiplayerAnimatingCard(null);
+          }, 900);
+        } else {
+          playSound('play');
+          // For place moves, apply state and clear animation simultaneously
+          // (matches single-player behavior - card appears on table as animation disappears)
+          setMultiplayerAnimatingCard(null);
+          multiplayer.applyPendingState();
+        }
+      }, 500);
+    }, 600);
+
+    // No cleanup - timeouts will run to completion
+    // The ref prevents re-processing the same move
+  }, [multiplayer.lastMove, multiplayer.playerId, multiplayer.nickname, multiplayer.opponentNickname, playSound, multiplayer.applyPendingState]);
+
+  // Detect scopa celebrations in multiplayer
+  useEffect(() => {
+    if (!multiplayer.gameState) {
+      prevMultiplayerScopaCounts.current = null;
+      return;
+    }
+
+    const currentCounts = {
+      self: multiplayer.gameState.self.scopaCount,
+      opponent: multiplayer.gameState.opponent.scopaCount,
+    };
+
+    if (prevMultiplayerScopaCounts.current) {
+      // Check if self scored a scopa
+      if (currentCounts.self > prevMultiplayerScopaCounts.current.self) {
+        playSound('scopa');
+        setScopaCelebration({ show: true, player: 'human', playerName: multiplayer.nickname });
+        setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+      }
+      // Check if opponent scored a scopa
+      if (currentCounts.opponent > prevMultiplayerScopaCounts.current.opponent) {
+        playSound('scopa');
+        setScopaCelebration({ show: true, player: 'cpu', playerName: multiplayer.opponentNickname || 'Opponent' });
+        setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
+      }
+    }
+
+    prevMultiplayerScopaCounts.current = currentCounts;
+  }, [multiplayer.gameState, multiplayer.nickname, multiplayer.opponentNickname, playSound]);
+
   // Handle starting a new game (wraps startGame to reset token stats)
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
     // Reset token stats for all LLM types
@@ -1475,12 +1867,429 @@ function App() {
     };
   }, [isSpectatorMode, isSpectatorPaused, state.round.currentPlayer, state.status, state.players.human.hand, state.round.table, spectatorAIs.player1, playCard, animatingCard, scopaCelebration.show, setteBelloCelebration.show, isDealing, getAnimationDelay, getAIPlayer, buildLLMContext, playSound]);
 
-  // If game hasn't started, show start screen
+  // ============================================================================
+  // MULTIPLAYER GAME RENDERING (must come before idle check)
+  // ============================================================================
+
+  // Multiplayer game is active - render multiplayer UI
+  // This check must come BEFORE the idle check because activeState.status
+  // remains 'idle' during multiplayer (we're not using the local game state)
+  if (multiplayer.gameState) {
+    const mpState = multiplayer.gameState;
+    const isMyTurn = mpState.round.currentPlayer === multiplayer.playerId;
+
+    // Multiplayer round end screen
+    if (multiplayer.roundEndData) {
+      const myId = multiplayer.playerId!;
+      const oppId = myId === 'player1' ? 'player2' : 'player1';
+
+      return (
+        <DeckProvider deck={settings.deck}>
+          <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'var(--space-4)',
+            background: 'linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%)',
+          }}>
+            <h2 style={{ color: 'var(--color-accent)', marginBottom: '24px' }}>
+              Round {mpState.roundNumber} Complete
+            </h2>
+            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
+                  {multiplayer.nickname} (You)
+                </div>
+                <div style={{ fontSize: '2rem', color: 'var(--color-text-primary)' }}>
+                  +{multiplayer.roundEndData.scores[myId].total}
+                </div>
+                <div style={{ color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+                  Total: {multiplayer.roundEndData.cumulativeScores[myId]}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
+                  {multiplayer.opponentNickname}
+                </div>
+                <div style={{ fontSize: '2rem', color: 'var(--color-text-primary)' }}>
+                  +{multiplayer.roundEndData.scores[oppId].total}
+                </div>
+                <div style={{ color: 'var(--color-text-secondary)', marginTop: '8px' }}>
+                  Total: {multiplayer.roundEndData.cumulativeScores[oppId]}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={multiplayer.clearRoundEnd}
+              style={{
+                padding: '12px 32px',
+                fontSize: '1.1rem',
+                background: 'var(--color-accent)',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        </DeckProvider>
+      );
+    }
+
+    // Multiplayer game end screen
+    if (multiplayer.gameEndData) {
+      const myId = multiplayer.playerId!;
+      const oppId = myId === 'player1' ? 'player2' : 'player1';
+      const iWon = multiplayer.gameEndData.winner === myId;
+      const isTie = multiplayer.gameEndData.winner === 'tie';
+
+      return (
+        <DeckProvider deck={settings.deck}>
+          <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'var(--space-4)',
+            background: 'linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%)',
+          }}>
+            <h1 style={{
+              color: isTie ? 'var(--color-text-primary)' : (iWon ? '#4CAF50' : '#f44336'),
+              marginBottom: '16px',
+              fontSize: '2.5rem',
+            }}>
+              {isTie ? "It's a Tie!" : (iWon ? 'You Won!' : 'You Lost')}
+            </h1>
+            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
+                  {multiplayer.nickname} (You)
+                </div>
+                <div style={{ fontSize: '2.5rem', color: iWon ? '#4CAF50' : 'var(--color-text-primary)' }}>
+                  {multiplayer.gameEndData.finalScores[myId]}
+                </div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '8px' }}>
+                  {multiplayer.opponentNickname}
+                </div>
+                <div style={{ fontSize: '2.5rem', color: !iWon && !isTie ? '#4CAF50' : 'var(--color-text-primary)' }}>
+                  {multiplayer.gameEndData.finalScores[oppId]}
+                </div>
+              </div>
+            </div>
+
+            {/* Rematch button */}
+            <div style={{ display: 'flex', gap: '16px', flexDirection: 'column', alignItems: 'center' }}>
+              {multiplayer.newGameRequestedBy && multiplayer.newGameRequestedBy !== myId ? (
+                <div style={{ color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+                  {multiplayer.opponentNickname} wants a rematch!
+                </div>
+              ) : multiplayer.newGameRequestedBy === myId ? (
+                <div style={{ color: 'var(--color-text-secondary)', marginBottom: '8px' }}>
+                  Waiting for opponent to accept rematch...
+                </div>
+              ) : null}
+
+              <button
+                onClick={multiplayer.requestNewGame}
+                disabled={multiplayer.newGameRequestedBy === myId}
+                style={{
+                  padding: '12px 32px',
+                  fontSize: '1.1rem',
+                  background: multiplayer.newGameRequestedBy === myId ? 'rgba(255,255,255,0.1)' : 'var(--color-accent)',
+                  color: multiplayer.newGameRequestedBy === myId ? 'var(--color-text-secondary)' : '#000',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: multiplayer.newGameRequestedBy === myId ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {multiplayer.newGameRequestedBy && multiplayer.newGameRequestedBy !== myId
+                  ? 'Accept Rematch'
+                  : 'Request Rematch'}
+              </button>
+
+              <button
+                onClick={handleLeaveMultiplayer}
+                style={{
+                  padding: '8px 24px',
+                  fontSize: '0.9rem',
+                  background: 'transparent',
+                  color: 'var(--color-text-secondary)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                Leave Game
+              </button>
+            </div>
+          </div>
+        </DeckProvider>
+      );
+    }
+
+    // Multiplayer playing state - render game board
+    return (
+      <DeckProvider deck={settings.deck}>
+        {/* Opponent disconnected overlay */}
+        {!multiplayer.isOpponentConnected && (
+          <OpponentDisconnected
+            opponentNickname={multiplayer.opponentNickname}
+            onLeaveRoom={handleLeaveMultiplayer}
+          />
+        )}
+
+        <GameLayout
+          scoreBoard={
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+              <ScoreBoard
+                humanScore={mpState.scores[multiplayer.playerId!]}
+                cpuScore={mpState.scores[multiplayer.playerId === 'player1' ? 'player2' : 'player1']}
+                roundNumber={mpState.roundNumber}
+                targetScore={mpState.targetScore}
+                currentPlayer={isMyTurn ? 'human' : 'cpu'}
+                isMultiplayer
+                playerNickname={multiplayer.nickname}
+                opponentNickname={multiplayer.opponentNickname || 'Opponent'}
+              />
+              <GameControls
+                onNewGame={handleLeaveMultiplayer}
+                onOpenSettings={handleOpenSettings}
+                onOpenStats={handleOpenStats}
+                onOpenRules={handleOpenRules}
+              />
+            </div>
+          }
+          cpuHand={
+            <PlayerHand
+              cards={Array(
+                // Decrease hand count by 1 during opponent's animation (card is in overlay)
+                multiplayerAnimatingCard?.player === 'cpu'
+                  ? Math.max(0, mpState.opponent.handCount - 1)
+                  : mpState.opponent.handCount
+              ).fill(null).map((_, i) => ({
+                id: `opponent-${i}`,
+                suit: 'coins' as const,
+                value: 1 as const,
+              }))}
+              isHuman={false}
+              showFaceUp={false}
+            />
+          }
+          cpuPile={
+            <CapturedPile
+              cards={[]}
+              scopaCount={mpState.opponent.scopaCount}
+              player="cpu"
+              capturedCount={mpState.opponent.capturedCount}
+            />
+          }
+          tableCards={
+            <TableCards
+              ref={tableRef}
+              cards={mpState.round.table}
+              highlightedCardIds={isMyTurn ? multiplayerValidCaptureTargetIds : []}
+              selectedCardIds={selectedTableCards.map(c => c.id)}
+              capturingCardIds={(multiplayerAnimatingCard?.phase === 'moving' || multiplayerAnimatingCard?.phase === 'capturing') && multiplayerAnimatingCard?.capturedCards.length
+                ? multiplayerAnimatingCard.capturedCards.map(c => c.id)
+                : undefined}
+              captureDirection={multiplayerAnimatingCard?.capturedCards.length ? multiplayerAnimatingCard.player : undefined}
+              onCardClick={isMyTurn ? handleTableCardClick : undefined}
+              selectable={isMyTurn && selectedCard !== null}
+              isDragOver={isDragging}
+              deckCount={mpState.round.deckCount}
+              dealer={mpState.round.dealer === multiplayer.playerId ? 'human' : 'cpu'}
+            />
+          }
+          humanPile={
+            <CapturedPile
+              cards={[]}
+              scopaCount={mpState.self.scopaCount}
+              player="human"
+              capturedCount={mpState.self.capturedCount}
+            />
+          }
+          humanHand={
+            <PlayerHand
+              cards={multiplayerAnimatingCard?.player === 'human'
+                ? mpState.self.hand.filter(c => c.id !== multiplayerAnimatingCard.card.id)
+                : mpState.self.hand}
+              isHuman={true}
+              onCardClick={handleMultiplayerCardClick}
+              onCardDoubleClick={handleMultiplayerCardDoubleClick}
+              onCardDragStart={handleCardDragStart}
+              onCardDragEnd={handleMultiplayerDragEnd}
+              selectedCardId={selectedCard?.id}
+              disabled={!isMyTurn || !!multiplayerAnimatingCard}
+            />
+          }
+          controls={
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
+              {/* Turn timer */}
+              {multiplayer.turnTimerEnabled && multiplayer.turnTimerSeconds !== null && (
+                <TurnTimer
+                  secondsRemaining={multiplayer.turnTimerSeconds}
+                  isMyTurn={isMyTurn}
+                  canForceMove={multiplayer.canForceMove}
+                  onForceMove={multiplayer.forceMove}
+                />
+              )}
+
+              <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+                {isMyTurn ? 'Your turn' : `${multiplayer.opponentNickname}'s turn`}
+              </span>
+
+              {/* Action buttons */}
+              <div style={{ minHeight: '36px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {isMyTurn && selectedCard && multiplayerCanOnlyPlace && (
+                  <button
+                    onClick={executeMultiplayerPlace}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      background: 'var(--color-accent)',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Place Card
+                  </button>
+                )}
+
+                {isMyTurn && selectedTableCards.length > 1 && (
+                  <>
+                    <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                      Sum: {selectedSum}/{selectedCard?.value}
+                    </span>
+                    {multiplayerIsValidCapture && (
+                      <button
+                        onClick={executeMultiplayerCapture}
+                        style={{
+                          padding: '8px 16px',
+                          fontSize: '14px',
+                          background: 'var(--color-accent)',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Capture
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          }
+        />
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          settings={settings}
+          onUpdateSetting={updateSetting}
+          onResetSettings={resetSettings}
+        />
+        <RulesModal
+          isOpen={showRules}
+          onClose={() => setShowRules(false)}
+        />
+        <CaptureChoiceModal
+          isOpen={captureChoiceModal.isOpen}
+          playedCard={captureChoiceModal.playedCard}
+          captureOptions={captureChoiceModal.captureOptions}
+          onSelectCapture={handleMultiplayerCaptureChoice}
+          onCancel={handleCancelCaptureChoice}
+        />
+        {/* Scopa celebration overlay */}
+        <ScopaCelebration
+          show={scopaCelebration.show}
+          player={scopaCelebration.player}
+          playerName={scopaCelebration.playerName}
+          onComplete={() => {
+            setScopaCelebration(prev => ({ ...prev, show: false }));
+          }}
+        />
+        {/* Sette Bello celebration overlay */}
+        <SetteBelloCelebration
+          show={setteBelloCelebration.show}
+          player={setteBelloCelebration.player}
+          playerName={setteBelloCelebration.playerName}
+          onComplete={() => {
+            setSetteBelloCelebration(prev => ({ ...prev, show: false }));
+          }}
+        />
+        {/* Card animation overlay for multiplayer */}
+        <CpuCardAnimation
+          card={multiplayerAnimatingCard?.card ?? null}
+          phase={multiplayerAnimatingCard?.phase ?? null}
+          capturedCardIds={multiplayerAnimatingCard?.capturedCards.map(c => c.id) ?? []}
+          player={multiplayerAnimatingCard?.player}
+          skipFlip={multiplayerAnimatingCard?.player === 'human'}
+        />
+      </DeckProvider>
+    );
+  }
+
+  // ============================================================================
+  // IDLE STATE - START SCREEN / MULTIPLAYER LOBBY
+  // ============================================================================
+
+  // If game hasn't started, show start screen or multiplayer UI
   if (activeState.status === 'idle') {
+    // Multiplayer mode - show lobby or waiting screen
+    if (isMultiplayerMode || initialJoinCode) {
+      // If we have a room and are waiting for opponent (gameState not yet set)
+      if (multiplayer.roomCode && !multiplayer.gameState) {
+        return (
+          <DeckProvider deck={settings.deck}>
+            <WaitingForOpponent
+              roomCode={multiplayer.roomCode}
+              nickname={multiplayer.nickname}
+              targetScore={multiplayer.targetScore}
+              turnTimerEnabled={multiplayer.turnTimerEnabled}
+              onUpdateNickname={multiplayer.updateNickname}
+              onLeaveRoom={handleLeaveMultiplayer}
+            />
+          </DeckProvider>
+        );
+      }
+
+      // Show multiplayer lobby (create/join)
+      return (
+        <DeckProvider deck={settings.deck}>
+          <MultiplayerLobby
+            connectionStatus={multiplayer.connectionStatus}
+            connectionError={multiplayer.connectionError}
+            initialJoinCode={initialJoinCode}
+            onCreateRoom={multiplayer.createRoom}
+            onJoinRoom={multiplayer.joinRoom}
+            onBack={() => {
+              setIsMultiplayerMode(false);
+              // Clear URL if we came from a join link
+              if (window.location.pathname !== '/' || window.location.search) {
+                window.history.replaceState({}, '', '/');
+              }
+            }}
+          />
+        </DeckProvider>
+      );
+    }
+
+    // Normal start screen
     return (
       <DeckProvider deck={settings.deck}>
         <StartScreen
           onStartGame={handleStartGame}
+          onStartMultiplayer={handleStartMultiplayer}
           selectedAI={settings.cpuAI}
           onSelectAI={handleSelectAI}
           spectatorAIs={spectatorAIs}
@@ -1518,6 +2327,10 @@ function App() {
       </DeckProvider>
     );
   }
+
+  // ============================================================================
+  // SINGLE PLAYER / SPECTATOR GAME RENDERING
+  // ============================================================================
 
   // Round end screen (wait for scores to be calculated)
   if (activeState.status === 'roundEnd' && activeState.lastRoundScores) {

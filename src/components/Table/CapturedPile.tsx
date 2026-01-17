@@ -49,13 +49,18 @@ interface CapturedPileProps {
   aiModel?: string;
   /** Optional click handler (for viewing captured cards) */
   onClick?: () => void;
+  /** Override card count for multiplayer (when actual cards aren't available) */
+  capturedCount?: number;
 }
 
-export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel, onClick }: CapturedPileProps) {
+export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel, onClick, capturedCount }: CapturedPileProps) {
+  // Use capturedCount if provided (multiplayer mode), otherwise use cards.length
+  const cardCount = capturedCount ?? cards.length;
+
   // Calculate visual stack depth based on card count (max 6 layers)
   // More cards = thicker stack appearance
-  const stackLayers = Math.min(6, Math.max(1, Math.ceil(cards.length / 4)));
-  const isClickable = !!onClick && cards.length > 0;
+  const stackLayers = Math.min(6, Math.max(1, Math.ceil(cardCount / 4)));
+  const isClickable = !!onClick && cardCount > 0;
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -83,7 +88,7 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
       <span className={styles.playerLabel}>{renderLabel()}</span>
 
       <div className={styles.pileStack}>
-        {cards.length === 0 ? (
+        {cardCount === 0 ? (
           <div className={styles.emptyPile}>
             <span>Empty</span>
           </div>
@@ -105,7 +110,7 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
       </div>
 
       <div className={styles.pileInfo}>
-        <span className={styles.cardCount}>{cards.length} cards</span>
+        <span className={styles.cardCount}>{cardCount} cards</span>
 
         <div className={styles.statsRow}>
           {/* Denari (coins) count */}

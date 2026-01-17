@@ -32,6 +32,12 @@ interface ScoreBoardProps {
   player2AIType?: ExtendedAIType;
   /** Player 2 (CPU) model (for LLM AIs) */
   player2Model?: string;
+  /** Whether in multiplayer mode */
+  isMultiplayer?: boolean;
+  /** Player's nickname in multiplayer */
+  playerNickname?: string;
+  /** Opponent's nickname in multiplayer */
+  opponentNickname?: string;
 }
 
 export function ScoreBoard({
@@ -46,9 +52,21 @@ export function ScoreBoard({
   player1Model,
   player2AIType,
   player2Model,
+  isMultiplayer,
+  playerNickname,
+  opponentNickname,
 }: ScoreBoardProps) {
   // Render player names with proper icons
   const renderPlayer1Name = (): ReactNode => {
+    // Multiplayer mode - show nickname with person icon
+    if (isMultiplayer) {
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+          <PersonIcon size="1em" />
+          <span>{playerNickname || 'You'}</span>
+        </span>
+      );
+    }
     if (player1AIType) {
       return <AIPlayerLabel aiType={player1AIType} model={player1Model} />;
     }
@@ -62,6 +80,15 @@ export function ScoreBoard({
   };
 
   const renderPlayer2Name = (): ReactNode => {
+    // Multiplayer mode - show opponent nickname with person icon
+    if (isMultiplayer) {
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+          <PersonIcon size="1em" />
+          <span>{opponentNickname || 'Opponent'}</span>
+        </span>
+      );
+    }
     if (player2AIType) {
       return <AIPlayerLabel aiType={player2AIType} model={player2Model} />;
     }

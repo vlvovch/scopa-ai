@@ -1,0 +1,135 @@
+/* TurnTimer Styles */
+
+.container {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+}
+
+.timerWrapper {
+  position: relative;
+  flex: 1;
+  height: 32px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.timerBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(40, 167, 69, 0.6) 0%, rgba(40, 167, 69, 0.4) 100%);
+  transition: width 0.5s linear;
+  border-radius: 16px;
+}
+
+.timerBar.urgent {
+  background: linear-gradient(90deg, rgba(255, 193, 7, 0.6) 0%, rgba(255, 193, 7, 0.4) 100%);
+}
+
+.timerBar.critical {
+  background: linear-gradient(90deg, rgba(220, 53, 69, 0.6) 0%, rgba(220, 53, 69, 0.4) 100%);
+  animation: pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.timerContent {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--space-3);
+}
+
+.timerLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.timerValue {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.timerValue.critical {
+  color: #ff6b6b;
+}
+
+.forceButton {
+  background: rgba(220, 53, 69, 0.2);
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  color: #ff6b6b;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.forceButton:hover {
+  background: rgba(220, 53, 69, 0.3);
+  border-color: rgba(220, 53, 69, 0.7);
+  transform: translateY(-1px);
+}
+
+.forceButton:active {
+  transform: translateY(0);
+}
+
+/* ===========================================
+   MOBILE RESPONSIVE STYLES
+   =========================================== */
+
+@media (max-width: 600px) {
+  .container {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .timerWrapper {
+    width: 100%;
+  }
+
+  .forceButton {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .timerWrapper {
+    height: 28px;
+  }
+
+  .timerLabel {
+    font-size: 0.7rem;
+  }
+
+  .timerValue {
+    font-size: 0.85rem;
+  }
+
+  .forceButton {
+    font-size: 0.75rem;
+    padding: 6px var(--space-2);
+  }
+}

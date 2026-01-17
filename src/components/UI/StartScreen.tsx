@@ -9,7 +9,7 @@ import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import styles from './StartScreen.module.css';
 
-type GameModeOption = 'play' | 'watch';
+type GameModeOption = 'play' | 'watch' | 'multiplayer';
 type OpponentCategory = 'cpu' | 'ai';
 type CPUType = 'random' | 'heuristic' | 'expert';
 // AI provider (base type without mode suffix)
@@ -19,6 +19,7 @@ type ConversationMode = 'conversation' | 'singleturn';
 
 interface StartScreenProps {
   onStartGame: (targetScore: number, gameMode: GameMode) => void;
+  onStartMultiplayer: () => void;
   selectedAI: ExtendedAIType;
   onSelectAI: (ai: ExtendedAIType) => void;
   spectatorAIs: { player1: ExtendedAIType; player2: ExtendedAIType };
@@ -84,6 +85,7 @@ function getExtendedAIType(provider: AIProvider, mode: ConversationMode): Extend
 
 export function StartScreen({
   onStartGame,
+  onStartMultiplayer,
   selectedAI,
   onSelectAI,
   spectatorAIs,
@@ -251,6 +253,10 @@ export function StartScreen({
   };
 
   const handleStartGame = () => {
+    if (gameMode === 'multiplayer') {
+      onStartMultiplayer();
+      return;
+    }
     const mode: GameMode = gameMode === 'play' ? 'pvsCPU' : 'cpuVsCPU';
     onStartGame(selectedScore, mode);
   };
@@ -421,43 +427,55 @@ export function StartScreen({
             >
               Watch
             </button>
+            <button
+              className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'multiplayer' ? styles.selected : ''}`}
+              onClick={() => setGameMode('multiplayer')}
+            >
+              Multiplayer
+            </button>
           </div>
           <p className={styles.aiDescription}>
-            {gameMode === 'play' ? 'Play against the CPU' : 'Watch two CPUs play against each other'}
+            {gameMode === 'play'
+              ? 'Play against the CPU'
+              : gameMode === 'watch'
+                ? 'Watch two CPUs play against each other'
+                : 'Play against a friend online'}
           </p>
         </div>
 
-        <div className={styles.scoreSelection}>
-          <label className={styles.label}>Target Score</label>
-          <div className={styles.scoreOptions}>
-            {PRESET_SCORES.map((score) => (
-              <button
-                key={score}
-                className={`${styles.scoreOption} ${selectedScore === score ? styles.selected : ''}`}
-                onClick={() => setSelectedScore(score)}
-              >
-                {score}
-              </button>
-            ))}
-            <input
-              type="number"
-              min="1"
-              max="999"
-              className={`${styles.customScoreInput} ${!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? styles.selected : ''}`}
-              value={!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? selectedScore : ''}
-              placeholder="..."
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 1) {
-                  setSelectedScore(val);
-                }
-              }}
-              title="Enter custom target score"
-            />
+        {gameMode !== 'multiplayer' && (
+          <div className={styles.scoreSelection}>
+            <label className={styles.label}>Target Score</label>
+            <div className={styles.scoreOptions}>
+              {PRESET_SCORES.map((score) => (
+                <button
+                  key={score}
+                  className={`${styles.scoreOption} ${selectedScore === score ? styles.selected : ''}`}
+                  onClick={() => setSelectedScore(score)}
+                >
+                  {score}
+                </button>
+              ))}
+              <input
+                type="number"
+                min="1"
+                max="999"
+                className={`${styles.customScoreInput} ${!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? styles.selected : ''}`}
+                value={!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? selectedScore : ''}
+                placeholder="..."
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1) {
+                    setSelectedScore(val);
+                  }
+                }}
+                title="Enter custom target score"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
-        {gameMode === 'play' ? (
+        {gameMode === 'play' && (
           <>
             {renderOpponentSelector(
               selectedAI,
@@ -476,7 +494,9 @@ export function StartScreen({
               </div>
             )}
           </>
-        ) : (
+        )}
+
+        {gameMode === 'watch' && (
           <>
             <div className={styles.spectatorSetup}>
               <div className={styles.spectatorPlayer}>
@@ -518,7 +538,11 @@ export function StartScreen({
           className={styles.startButton}
           onClick={handleStartGame}
         >
-          {gameMode === 'play' ? 'Start Game' : 'Start Watching'}
+          {gameMode === 'play'
+            ? 'Start Game'
+            : gameMode === 'watch'
+              ? 'Start Watching'
+              : 'Find Opponent'}
         </button>
 
         <div className={styles.rulesHint}>

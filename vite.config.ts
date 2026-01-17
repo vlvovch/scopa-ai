@@ -5,6 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: './',  // Relative paths for easy subdirectory hosting
+  server: {
+    hmr: {
+      // Use default WebSocket connection settings
+      protocol: 'ws',
+      host: 'localhost',
+    },
+  },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
