@@ -1152,6 +1152,8 @@ function App() {
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
+    // Clear any previous reasoning
+    setAiReasoning({ cpu: null, human: null });
 
     // Use worker mode ONLY for instant mode with sync AIs (no animations needed)
     // For other speeds, use main thread to preserve animations and UI
@@ -1235,6 +1237,8 @@ function App() {
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
+    // Clear reasoning from previous round
+    setAiReasoning({ cpu: null, human: null });
     nextRound();
   }, [nextRound]);
 
@@ -1707,26 +1711,19 @@ function App() {
           </div>
         }
         cpuHand={
-          <>
-            <PlayerHand
-              cards={
-                // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
-                !useWorkerMode && isDealing
-                  ? []
-                  : animatingCard?.player === 'cpu'
-                    ? activeState.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
-                    : activeState.players.cpu.hand
-              }
-              isHuman={false}
-              showFaceUp={isSpectatorMode && spectatorHandsVisible.cpu}
-              onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, cpu: !prev.cpu })) : undefined}
-            />
-            <ReasoningBubble
-              reasoning={aiReasoning.cpu}
-              player="cpu"
-              show={isSpectatorMode && spectatorHandsVisible.cpu && !!aiReasoning.cpu}
-            />
-          </>
+          <PlayerHand
+            cards={
+              // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
+              !useWorkerMode && isDealing
+                ? []
+                : animatingCard?.player === 'cpu'
+                  ? activeState.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
+                  : activeState.players.cpu.hand
+            }
+            isHuman={false}
+            showFaceUp={isSpectatorMode && spectatorHandsVisible.cpu}
+            onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, cpu: !prev.cpu })) : undefined}
+          />
         }
         cpuPile={
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -1738,16 +1735,24 @@ function App() {
               aiModel={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
             />
             {((isSpectatorMode && isLLMAI(spectatorAIs.player2)) || (!isSpectatorMode && isLLMAI(settings.cpuAI))) && (
-              <TokenStatsDisplay
-                stats={isSpectatorMode ? player2TokenStats : tokenStats}
-                delta={isSpectatorMode ? player2TokenDelta : tokenDelta}
-                show
-                mode="game"
-                position="bottom"
-                modelName={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
-                error={player2ApiError}
-                onDismissError={() => setPlayer2ApiError(null)}
-              />
+              <div style={{ position: 'relative' }}>
+                <TokenStatsDisplay
+                  stats={isSpectatorMode ? player2TokenStats : tokenStats}
+                  delta={isSpectatorMode ? player2TokenDelta : tokenDelta}
+                  show
+                  mode="game"
+                  position="bottom"
+                  modelName={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
+                  error={player2ApiError}
+                  onDismissError={() => setPlayer2ApiError(null)}
+                />
+                <ReasoningBubble
+                  reasoning={aiReasoning.cpu}
+                  player="cpu"
+                  show={isSpectatorMode && spectatorHandsVisible.cpu && !!aiReasoning.cpu}
+                  onExpandedChange={(expanded) => setIsSpectatorPaused(expanded)}
+                />
+              </div>
             )}
           </div>
         }
@@ -1771,16 +1776,24 @@ function App() {
         humanPile={
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
             {isSpectatorMode && isLLMAI(spectatorAIs.player1) && (
-              <TokenStatsDisplay
-                stats={player1TokenStats}
-                delta={player1TokenDelta}
-                show
-                mode="game"
-                position="top"
-                modelName={spectatorModels.player1}
-                error={player1ApiError}
-                onDismissError={() => setPlayer1ApiError(null)}
-              />
+              <div style={{ position: 'relative' }}>
+                <TokenStatsDisplay
+                  stats={player1TokenStats}
+                  delta={player1TokenDelta}
+                  show
+                  mode="game"
+                  position="top"
+                  modelName={spectatorModels.player1}
+                  error={player1ApiError}
+                  onDismissError={() => setPlayer1ApiError(null)}
+                />
+                <ReasoningBubble
+                  reasoning={aiReasoning.human}
+                  player="human"
+                  show={spectatorHandsVisible.human && !!aiReasoning.human}
+                  onExpandedChange={(expanded) => setIsSpectatorPaused(expanded)}
+                />
+              </div>
             )}
             <CapturedPile
               cards={activeState.players.human.captured}
@@ -1793,32 +1806,25 @@ function App() {
           </div>
         }
         humanHand={
-          <>
-            <ReasoningBubble
-              reasoning={aiReasoning.human}
-              player="human"
-              show={isSpectatorMode && spectatorHandsVisible.human && !!aiReasoning.human}
-            />
-            <PlayerHand
-              cards={
-                // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
-                !useWorkerMode && isDealing
-                  ? []
-                  : animatingCard?.player === 'human'
-                    ? activeState.players.human.hand.filter(c => c.id !== animatingCard.card.id)
-                    : activeState.players.human.hand
-              }
-              isHuman={!isSpectatorMode}
-              onCardClick={isSpectatorMode ? undefined : handleHandCardClick}
-              onCardDoubleClick={isSpectatorMode ? undefined : handleHandCardDoubleClick}
-              onCardDragStart={isSpectatorMode ? undefined : handleCardDragStart}
-              onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
-              selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
-              disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
-              showFaceUp={isSpectatorMode && spectatorHandsVisible.human}
-              onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, human: !prev.human })) : undefined}
-            />
-          </>
+          <PlayerHand
+            cards={
+              // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
+              !useWorkerMode && isDealing
+                ? []
+                : animatingCard?.player === 'human'
+                  ? activeState.players.human.hand.filter(c => c.id !== animatingCard.card.id)
+                  : activeState.players.human.hand
+            }
+            isHuman={!isSpectatorMode}
+            onCardClick={isSpectatorMode ? undefined : handleHandCardClick}
+            onCardDoubleClick={isSpectatorMode ? undefined : handleHandCardDoubleClick}
+            onCardDragStart={isSpectatorMode ? undefined : handleCardDragStart}
+            onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
+            selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
+            disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
+            showFaceUp={isSpectatorMode && spectatorHandsVisible.human}
+            onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, human: !prev.human })) : undefined}
+          />
         }
         controls={
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
