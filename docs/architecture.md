@@ -910,10 +910,14 @@ const response = await client.beta.messages.create({
 
 **Spectator Mode (Watch Mode - Phase 14):**
 - Both players are AI-controlled
-- Both hands displayed face-down for suspense
+- Both hands displayed face-down by default for suspense
+- **Clickable hands to toggle visibility**: Click on either player's hand area to show/hide their cards
+  - State tracked in `spectatorHandsVisible: { cpu: boolean; human: boolean }`
+  - Hover effect on hand area indicates clickability
+  - When cards are visible, play animation skips the flip (shows card face-up immediately)
 - ScoreBoard shows AI names with "(CPU)" suffix, ordered to match board (top player first)
 - Card animation for both players:
-  - Card flips near player's hand position
+  - Card flips near player's hand position (skipped if cards already visible)
   - Moves to table center
   - If capturing, animates toward capture pile
 - Pause/Resume controls during spectator mode

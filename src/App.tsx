@@ -102,6 +102,12 @@ function App() {
   const [showCapturedCards, setShowCapturedCards] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
+  // Spectator mode: track which hands are shown face-up (toggled by clicking)
+  const [spectatorHandsVisible, setSpectatorHandsVisible] = useState<{ cpu: boolean; human: boolean }>({
+    cpu: false,
+    human: false,
+  });
+
   // Capture choice modal state (shown when multiple capture options exist)
   const [captureChoiceModal, setCaptureChoiceModal] = useState<{
     isOpen: boolean;
@@ -1536,6 +1542,7 @@ function App() {
         phase={animatingCard?.phase ?? null}
         capturedCardIds={animatingCard?.capturedCards.map(c => c.id) ?? []}
         player={animatingCard?.player}
+        skipFlip={isSpectatorMode && animatingCard?.player ? spectatorHandsVisible[animatingCard.player] : false}
       />
       <DealingAnimation
         isDealing={isDealing}
@@ -1687,6 +1694,8 @@ function App() {
                   : activeState.players.cpu.hand
             }
             isHuman={false}
+            showFaceUp={isSpectatorMode && spectatorHandsVisible.cpu}
+            onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, cpu: !prev.cpu })) : undefined}
           />
         }
         cpuPile={
@@ -1770,6 +1779,8 @@ function App() {
             onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
             selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
             disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
+            showFaceUp={isSpectatorMode && spectatorHandsVisible.human}
+            onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, human: !prev.human })) : undefined}
           />
         }
         controls={

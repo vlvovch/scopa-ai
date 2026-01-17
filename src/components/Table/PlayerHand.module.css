@@ -23,6 +23,17 @@
   /* CPU hand at top */
 }
 
+/* Clickable hand (spectator mode toggle) */
+.hand.clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color var(--duration-fast);
+}
+
+.hand.clickable:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
 .handCard {
   transition: transform var(--duration-fast);
   /* Ensure cards are positioned for z-index to work */

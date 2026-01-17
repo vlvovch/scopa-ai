@@ -26,6 +26,8 @@ interface PlayerHandProps {
   showFaceUp?: boolean;
   /** ID of card that was just played (to skip snap-back animation) */
   playedCardId?: string | null;
+  /** Called when the hand area is clicked (for spectator mode toggle) */
+  onHandClick?: () => void;
 }
 
 export function PlayerHand({
@@ -38,14 +40,16 @@ export function PlayerHand({
   selectedCardId,
   disabled = false,
   showFaceUp = false,
+  onHandClick,
 }: PlayerHandProps) {
   const handClasses = [
     styles.hand,
     isHuman ? styles.human : styles.cpu,
-  ].join(' ');
+    onHandClick ? styles.clickable : '',
+  ].filter(Boolean).join(' ');
 
   return (
-    <div className={handClasses}>
+    <div className={handClasses} onClick={onHandClick}>
       <AnimatePresence mode="popLayout">
         {cards.map((card) => (
           <motion.div

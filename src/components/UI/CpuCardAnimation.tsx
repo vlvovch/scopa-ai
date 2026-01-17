@@ -14,9 +14,11 @@ interface CpuCardAnimationProps {
   capturedCardIds: string[];
   /** Which player is playing - determines animation direction */
   player?: PlayerId;
+  /** Skip the flip animation (when cards are already visible in spectator mode) */
+  skipFlip?: boolean;
 }
 
-export function CpuCardAnimation({ card, phase, capturedCardIds, player = 'cpu' }: CpuCardAnimationProps) {
+export function CpuCardAnimation({ card, phase, capturedCardIds, player = 'cpu', skipFlip = false }: CpuCardAnimationProps) {
   if (!card || !phase || phase === 'done') {
     return null;
   }
@@ -68,18 +70,18 @@ export function CpuCardAnimation({ card, phase, capturedCardIds, player = 'cpu' 
           {/* 3D flip container */}
           <motion.div
             className={styles.flipContainer}
-            initial={{ rotateY: 0 }}
-            animate={{ rotateY: phase === 'reveal' ? 0 : 180 }}
+            initial={{ rotateY: skipFlip ? 180 : 0 }}
+            animate={{ rotateY: (skipFlip || phase !== 'reveal') ? 180 : 0 }}
             transition={{
-              duration: 0.5,
+              duration: skipFlip ? 0 : 0.5,
               ease: [0.4, 0, 0.2, 1],
             }}
           >
-            {/* Card back (visible initially) */}
+            {/* Card back (visible initially, hidden when skipFlip) */}
             <div className={styles.cardFace}>
               <CardBack />
             </div>
-            {/* Card front (revealed after flip) */}
+            {/* Card front (revealed after flip, or immediately if skipFlip) */}
             <div className={`${styles.cardFace} ${styles.cardFront}`}>
               <CardImage card={card} />
             </div>
