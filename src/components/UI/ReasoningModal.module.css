@@ -1,0 +1,282 @@
+/* ReasoningModal - Shows AI's last move with cards and reasoning */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+}
+
+.modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100vw - 24px);
+  max-width: 500px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  background: var(--color-surface, #1a1a1a);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 1001;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #fff);
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary, #999);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.closeButton:hover {
+  color: var(--color-text-primary, #fff);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Scrollable content wrapper */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Main game row: AI → Table ← Opponent */
+.gameRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  overflow-x: auto;
+}
+
+/* Shared section label */
+.sectionLabel {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary, #999);
+  margin-bottom: 4px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Side sections (AI hand, Opponent hand) */
+.sideSection {
+  flex-shrink: 0;
+}
+
+/* AI's hand cards */
+.handCards {
+  display: flex;
+  gap: 3px;
+}
+
+.handCard {
+  width: 32px;
+  height: auto;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #fff;
+  opacity: 0.5;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+
+.handCard > * {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Played card is highlighted */
+.handCard.played {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--color-accent, #f0c040), 0 2px 8px rgba(240, 192, 64, 0.4);
+}
+
+/* Arrows */
+.arrow {
+  font-size: 1.2rem;
+  color: var(--color-accent, #f0c040);
+  padding-top: 16px;
+  flex-shrink: 0;
+}
+
+/* Table section (center) */
+.tableSection {
+  flex-shrink: 0;
+}
+
+.tableCards {
+  display: flex;
+  gap: 3px;
+}
+
+.tableCard {
+  width: 32px;
+  height: auto;
+  border-radius: 3px;
+  overflow: hidden;
+  opacity: 0.5;
+  background: #fff;
+  transition: opacity 0.2s, box-shadow 0.2s;
+}
+
+.tableCard > * {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.tableCard.captured {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--color-accent, #f0c040), 0 2px 8px rgba(240, 192, 64, 0.4);
+}
+
+.emptyTable {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #999);
+  font-style: italic;
+  padding: 8px 4px;
+}
+
+/* Opponent's hand */
+.opponentHand {
+  display: flex;
+  gap: 3px;
+}
+
+.opponentCard {
+  width: 28px;
+  height: auto;
+  border-radius: 3px;
+  overflow: hidden;
+  opacity: 0.6;
+}
+
+.opponentCard > * {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Reasoning section */
+.reasoningSection {
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.reasoningLabel {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary, #999);
+  margin-bottom: 6px;
+}
+
+.reasoningText {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--color-text-primary, #fff);
+}
+
+/* Close button */
+.closeButtonBottom {
+  margin: 12px 16px;
+  padding: 10px 20px;
+  background: var(--color-accent, #f0c040);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.closeButtonBottom:hover {
+  background: #f5d060;
+}
+
+.closeButtonBottom:active {
+  transform: scale(0.98);
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .modal {
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .header {
+    padding: 10px 14px;
+  }
+
+  .gameRow {
+    padding: 12px 8px;
+    gap: 6px;
+  }
+
+  .handCard {
+    width: 28px;
+  }
+
+  .tableCard {
+    width: 28px;
+  }
+
+  .opponentCard {
+    width: 24px;
+  }
+
+  .arrow {
+    font-size: 1rem;
+    padding-top: 14px;
+  }
+
+  .sectionLabel {
+    font-size: 0.6rem;
+  }
+
+  .reasoningSection {
+    padding: 10px 14px;
+  }
+
+  .reasoningText {
+    font-size: 0.8rem;
+  }
+
+  .closeButtonBottom {
+    margin: 10px 14px;
+    padding: 10px 16px;
+  }
+}

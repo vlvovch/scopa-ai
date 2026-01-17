@@ -1,0 +1,48 @@
+/* ThinkingBubble - Small clickable thought bubble icon */
+
+.bubble {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 100;
+}
+
+.bubble:hover {
+  transform: translateX(-50%) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.bubble:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.icon {
+  width: 100%;
+  height: 100%;
+  color: #555;
+}
+
+/* Bottom player - position bubble above */
+.bubbleBottom {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+  .bubble {
+    width: 32px;
+    height: 32px;
+    padding: 5px;
+  }
+}

@@ -26,7 +26,8 @@ import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
-import { ReasoningBubble } from './components/UI/ReasoningBubble';
+import { ThinkingBubble } from './components/UI/ThinkingBubble';
+import { ReasoningModal, type LastMoveData } from './components/UI/ReasoningModal';
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId, GameState } from './game/types';
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
@@ -109,10 +110,16 @@ function App() {
     human: false,
   });
 
-  // AI reasoning bubbles (shown when cards are visible in spectator mode)
-  const [aiReasoning, setAiReasoning] = useState<{ cpu: string | null; human: string | null }>({
+  // AI last move data (for reasoning modal)
+  const [lastMoveData, setLastMoveData] = useState<{ cpu: LastMoveData | null; human: LastMoveData | null }>({
     cpu: null,
     human: null,
+  });
+
+  // Reasoning modal state
+  const [reasoningModal, setReasoningModal] = useState<{ isOpen: boolean; player: PlayerId | null }>({
+    isOpen: false,
+    player: null,
   });
 
   // Capture choice modal state (shown when multiple capture options exist)
@@ -925,8 +932,22 @@ function App() {
         reasoning = null; // Non-LLM AIs don't provide reasoning
       }
 
-      // Update reasoning state for display
-      setAiReasoning(prev => ({ ...prev, cpu: reasoning }));
+      // Update last move data for reasoning modal (capture table state BEFORE move)
+      if (reasoning) {
+        setLastMoveData(prev => ({
+          ...prev,
+          cpu: {
+            cardPlayed: moveToExecute.cardPlayed,
+            tableCards: [...state.round.table], // Snapshot of table before move
+            capturedCards: moveToExecute.capturedCards,
+            reasoning,
+            player: 'cpu',
+            aiName: isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name,
+            opponentHandCount: state.players.human.hand.length,
+            otherHandCards: cpuHand.filter(c => c.id !== moveToExecute.cardPlayed.id),
+          },
+        }));
+      }
 
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
@@ -1152,8 +1173,8 @@ function App() {
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
-    // Clear any previous reasoning
-    setAiReasoning({ cpu: null, human: null });
+    // Clear any previous reasoning/move data
+    setLastMoveData({ cpu: null, human: null });
 
     // Use worker mode ONLY for instant mode with sync AIs (no animations needed)
     // For other speeds, use main thread to preserve animations and UI
@@ -1237,8 +1258,8 @@ function App() {
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
-    // Clear reasoning from previous round
-    setAiReasoning({ cpu: null, human: null });
+    // Clear reasoning/move data from previous round
+    setLastMoveData({ cpu: null, human: null });
     nextRound();
   }, [nextRound]);
 
@@ -1388,8 +1409,22 @@ function App() {
         reasoning = null; // Non-LLM AIs don't provide reasoning
       }
 
-      // Update reasoning state for display
-      setAiReasoning(prev => ({ ...prev, human: reasoning }));
+      // Update last move data for reasoning modal (capture table state BEFORE move)
+      if (reasoning) {
+        setLastMoveData(prev => ({
+          ...prev,
+          human: {
+            cardPlayed: moveToExecute.cardPlayed,
+            tableCards: [...state.round.table], // Snapshot of table before move
+            capturedCards: moveToExecute.capturedCards,
+            reasoning,
+            player: 'human',
+            aiName: AI_INFO[spectatorAIs.player1].name,
+            opponentHandCount: state.players.cpu.hand.length,
+            otherHandCards: humanHand.filter(c => c.id !== moveToExecute.cardPlayed.id),
+          },
+        }));
+      }
 
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
@@ -1625,6 +1660,14 @@ function App() {
         cards={activeState.players.human.captured}
         playerName="Your"
       />
+      <ReasoningModal
+        isOpen={reasoningModal.isOpen}
+        lastMove={reasoningModal.player ? lastMoveData[reasoningModal.player] : null}
+        onClose={() => {
+          setReasoningModal({ isOpen: false, player: null });
+          setIsSpectatorPaused(false); // Unpause when closing modal
+        }}
+      />
       {/* New Game Confirmation Dialog */}
       {confirmNewGame && (
         <div
@@ -1746,11 +1789,15 @@ function App() {
                   error={player2ApiError}
                   onDismissError={() => setPlayer2ApiError(null)}
                 />
-                <ReasoningBubble
-                  reasoning={aiReasoning.cpu}
-                  player="cpu"
-                  show={isSpectatorMode && spectatorHandsVisible.cpu && !!aiReasoning.cpu}
-                  onExpandedChange={(expanded) => setIsSpectatorPaused(expanded)}
+                <ThinkingBubble
+                  show={isSpectatorMode && spectatorHandsVisible.cpu}
+                  hasReasoning={!!lastMoveData.cpu}
+                  onClick={() => {
+                    if (lastMoveData.cpu) {
+                      setReasoningModal({ isOpen: true, player: 'cpu' });
+                      setIsSpectatorPaused(true);
+                    }
+                  }}
                 />
               </div>
             )}
@@ -1787,11 +1834,16 @@ function App() {
                   error={player1ApiError}
                   onDismissError={() => setPlayer1ApiError(null)}
                 />
-                <ReasoningBubble
-                  reasoning={aiReasoning.human}
-                  player="human"
-                  show={spectatorHandsVisible.human && !!aiReasoning.human}
-                  onExpandedChange={(expanded) => setIsSpectatorPaused(expanded)}
+                <ThinkingBubble
+                  show={spectatorHandsVisible.human}
+                  hasReasoning={!!lastMoveData.human}
+                  position="bottom"
+                  onClick={() => {
+                    if (lastMoveData.human) {
+                      setReasoningModal({ isOpen: true, player: 'human' });
+                      setIsSpectatorPaused(true);
+                    }
+                  }}
                 />
               </div>
             )}

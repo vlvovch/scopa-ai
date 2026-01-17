@@ -1,6 +1,6 @@
 # Scopa WebApp - Architecture
 
-**Last Updated:** 2026-01-07 (Phase 38: Browser Zoom Tolerance)
+**Last Updated:** 2026-01-17 (Phase 39: AI Reasoning Modal)
 
 ---
 
@@ -915,10 +915,17 @@ const response = await client.beta.messages.create({
   - State tracked in `spectatorHandsVisible: { cpu: boolean; human: boolean }`
   - Hover effect on hand area indicates clickability
   - When cards are visible, play animation skips the flip (shows card face-up immediately)
-- **AI Reasoning Bubbles**: When LLM AI cards are visible, a comic-style speech bubble shows AI's reasoning
-  - State tracked in `aiReasoning: { cpu: string | null; human: string | null }`
-  - Captured from `lastReasoning` property on LLM AI instances after each move
-  - ReasoningBubble component renders above/below the hand with tail pointing toward cards
+- **AI Reasoning Modal**: When LLM AI cards are visible, a thought bubble icon appears near token stats
+  - Click the bubble to pause the game and open a modal showing the AI's last move
+  - Modal displays a horizontal game state visualization:
+    - Left: AI's hand cards (other cards dimmed, played card highlighted with gold border)
+    - Center: Table cards (captured cards highlighted on left side)
+    - Right: Opponent's face-down cards
+  - Arrow indicators show the flow: AI hand → Table ← Opponent
+  - Reasoning text explains the AI's decision
+  - Components: ThinkingBubble (clickable icon), ReasoningModal (detailed view)
+  - State tracked in `lastMoveData: { cpu: LastMoveData | null; human: LastMoveData | null }`
+  - LastMoveData includes: cardPlayed, tableCards, capturedCards, reasoning, otherHandCards, opponentHandCount
   - Non-LLM AIs (random, heuristic, expert) don't provide reasoning
 - ScoreBoard shows AI names with "(CPU)" suffix, ordered to match board (top player first)
 - Card animation for both players:
