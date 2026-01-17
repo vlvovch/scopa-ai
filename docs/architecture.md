@@ -915,6 +915,11 @@ const response = await client.beta.messages.create({
   - State tracked in `spectatorHandsVisible: { cpu: boolean; human: boolean }`
   - Hover effect on hand area indicates clickability
   - When cards are visible, play animation skips the flip (shows card face-up immediately)
+- **AI Reasoning Bubbles**: When LLM AI cards are visible, a comic-style speech bubble shows AI's reasoning
+  - State tracked in `aiReasoning: { cpu: string | null; human: string | null }`
+  - Captured from `lastReasoning` property on LLM AI instances after each move
+  - ReasoningBubble component renders above/below the hand with tail pointing toward cards
+  - Non-LLM AIs (random, heuristic, expert) don't provide reasoning
 - ScoreBoard shows AI names with "(CPU)" suffix, ordered to match board (top player first)
 - Card animation for both players:
   - Card flips near player's hand position (skipped if cards already visible)

@@ -26,6 +26,7 @@ import { getValidMoves } from './game/rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
+import { ReasoningBubble } from './components/UI/ReasoningBubble';
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId, GameState } from './game/types';
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
@@ -106,6 +107,12 @@ function App() {
   const [spectatorHandsVisible, setSpectatorHandsVisible] = useState<{ cpu: boolean; human: boolean }>({
     cpu: false,
     human: false,
+  });
+
+  // AI reasoning bubbles (shown when cards are visible in spectator mode)
+  const [aiReasoning, setAiReasoning] = useState<{ cpu: string | null; human: string | null }>({
+    cpu: null,
+    human: null,
   });
 
   // Capture choice modal state (shown when multiple capture options exist)
@@ -874,6 +881,7 @@ function App() {
       const ai = getAIPlayer(aiType, model);
 
       let moveToExecute: Move;
+      let reasoning: string | null = null;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
         aiRequestInFlight.current = true;
@@ -881,6 +889,8 @@ function App() {
           // Async AI (e.g., Gemini) - build extended context and await
           const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
           moveToExecute = await ai.selectMove(context);
+          // Capture reasoning from LLM AI (they all have lastReasoning property)
+          reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
           // Clear any previous error on success
           setPlayer2ApiError(null);
           // Update token stats after async AI move
@@ -901,6 +911,7 @@ function App() {
             table: state.round.table,
             player: 'cpu',
           });
+          reasoning = null;
         } finally {
           aiRequestInFlight.current = false;
         }
@@ -911,7 +922,11 @@ function App() {
           table: state.round.table,
           player: 'cpu',
         });
+        reasoning = null; // Non-LLM AIs don't provide reasoning
       }
+
+      // Update reasoning state for display
+      setAiReasoning(prev => ({ ...prev, cpu: reasoning }));
 
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
@@ -1329,6 +1344,7 @@ function App() {
       const ai = getAIPlayer(spectatorAIs.player1, spectatorModels.player1);
 
       let moveToExecute: Move;
+      let reasoning: string | null = null;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
         aiRequestInFlight.current = true;
@@ -1336,6 +1352,8 @@ function App() {
           // Async AI (e.g., Gemini) - build extended context and await
           const context = buildLLMContext(humanHand, state.round.table, 'human');
           moveToExecute = await ai.selectMove(context);
+          // Capture reasoning from LLM AI (they all have lastReasoning property)
+          reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
           // Clear any previous error on success
           setPlayer1ApiError(null);
           // Update token stats after async AI move (player1 in spectator mode)
@@ -1352,6 +1370,7 @@ function App() {
             table: state.round.table,
             player: 'human',
           });
+          reasoning = null;
         } finally {
           aiRequestInFlight.current = false;
         }
@@ -1362,7 +1381,11 @@ function App() {
           table: state.round.table,
           player: 'human',
         });
+        reasoning = null; // Non-LLM AIs don't provide reasoning
       }
+
+      // Update reasoning state for display
+      setAiReasoning(prev => ({ ...prev, human: reasoning }));
 
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
@@ -1684,19 +1707,26 @@ function App() {
           </div>
         }
         cpuHand={
-          <PlayerHand
-            cards={
-              // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
-              !useWorkerMode && isDealing
-                ? []
-                : animatingCard?.player === 'cpu'
-                  ? activeState.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
-                  : activeState.players.cpu.hand
-            }
-            isHuman={false}
-            showFaceUp={isSpectatorMode && spectatorHandsVisible.cpu}
-            onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, cpu: !prev.cpu })) : undefined}
-          />
+          <>
+            <PlayerHand
+              cards={
+                // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
+                !useWorkerMode && isDealing
+                  ? []
+                  : animatingCard?.player === 'cpu'
+                    ? activeState.players.cpu.hand.filter(c => c.id !== animatingCard.card.id)
+                    : activeState.players.cpu.hand
+              }
+              isHuman={false}
+              showFaceUp={isSpectatorMode && spectatorHandsVisible.cpu}
+              onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, cpu: !prev.cpu })) : undefined}
+            />
+            <ReasoningBubble
+              reasoning={aiReasoning.cpu}
+              player="cpu"
+              show={isSpectatorMode && spectatorHandsVisible.cpu && !!aiReasoning.cpu}
+            />
+          </>
         }
         cpuPile={
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -1763,25 +1793,32 @@ function App() {
           </div>
         }
         humanHand={
-          <PlayerHand
-            cards={
-              // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
-              !useWorkerMode && isDealing
-                ? []
-                : animatingCard?.player === 'human'
-                  ? activeState.players.human.hand.filter(c => c.id !== animatingCard.card.id)
-                  : activeState.players.human.hand
-            }
-            isHuman={!isSpectatorMode}
-            onCardClick={isSpectatorMode ? undefined : handleHandCardClick}
-            onCardDoubleClick={isSpectatorMode ? undefined : handleHandCardDoubleClick}
-            onCardDragStart={isSpectatorMode ? undefined : handleCardDragStart}
-            onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
-            selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
-            disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
-            showFaceUp={isSpectatorMode && spectatorHandsVisible.human}
-            onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, human: !prev.human })) : undefined}
-          />
+          <>
+            <ReasoningBubble
+              reasoning={aiReasoning.human}
+              player="human"
+              show={isSpectatorMode && spectatorHandsVisible.human && !!aiReasoning.human}
+            />
+            <PlayerHand
+              cards={
+                // Hide cards during dealing animation (only for non-worker mode), otherwise filter out animating card
+                !useWorkerMode && isDealing
+                  ? []
+                  : animatingCard?.player === 'human'
+                    ? activeState.players.human.hand.filter(c => c.id !== animatingCard.card.id)
+                    : activeState.players.human.hand
+              }
+              isHuman={!isSpectatorMode}
+              onCardClick={isSpectatorMode ? undefined : handleHandCardClick}
+              onCardDoubleClick={isSpectatorMode ? undefined : handleHandCardDoubleClick}
+              onCardDragStart={isSpectatorMode ? undefined : handleCardDragStart}
+              onCardDragEnd={isSpectatorMode ? undefined : handleCardDragEnd}
+              selectedCardId={isSpectatorMode ? undefined : selectedCard?.id}
+              disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
+              showFaceUp={isSpectatorMode && spectatorHandsVisible.human}
+              onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, human: !prev.human })) : undefined}
+            />
+          </>
         }
         controls={
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
