@@ -32,43 +32,55 @@ interface ReasoningModalProps {
   lastMove: LastMoveData | null;
   /** Close handler */
   onClose: () => void;
+  /** Whether the modal is locked (clicked) vs preview (hover) */
+  locked?: boolean;
+  /** Position of modal - 'top' for upper player, 'bottom' for lower player */
+  position?: 'top' | 'bottom' | 'center';
 }
 
-export function ReasoningModal({ isOpen, lastMove, onClose }: ReasoningModalProps) {
+export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, position = 'center' }: ReasoningModalProps) {
   if (!lastMove) return null;
 
   const { cardPlayed, tableCards, capturedCards, reasoning, aiName, opponentHandCount, otherHandCards } = lastMove;
   const capturedIds = new Set(capturedCards.map(c => c.id));
 
+  // Determine modal class based on position (apply position for both hover and locked states)
+  const modalClass = `${styles.modal} ${position === 'top' ? styles.modalTop : ''} ${position === 'bottom' ? styles.modalBottom : ''}`;
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
-          <motion.div
-            className={styles.backdrop}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
+          {/* Backdrop - only show when locked */}
+          {locked && (
+            <motion.div
+              className={styles.backdrop}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onClose}
+            />
+          )}
 
           {/* Modal */}
           <motion.div
-            className={styles.modal}
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className={modalClass}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
             {/* Header */}
             <div className={styles.header}>
               <h3 className={styles.title}>
                 {aiName ? `${aiName}'s` : "AI's"} Move
+                {!locked && <span className={styles.previewHint}> (click to lock)</span>}
               </h3>
-              <button className={styles.closeButton} onClick={onClose} aria-label="Close">
-                &times;
-              </button>
+              {locked && (
+                <button className={styles.closeButton} onClick={onClose} aria-label="Close">
+                  &times;
+                </button>
+              )}
             </div>
 
             {/* Scrollable content */}
@@ -149,10 +161,12 @@ export function ReasoningModal({ isOpen, lastMove, onClose }: ReasoningModalProp
               </div>
             </div>
 
-            {/* Close button at bottom */}
-            <button className={styles.closeButtonBottom} onClick={onClose}>
-              Close
-            </button>
+            {/* Close button at bottom - only when locked */}
+            {locked && (
+              <button className={styles.closeButtonBottom} onClick={onClose}>
+                Close
+              </button>
+            )}
           </motion.div>
         </>
       )}

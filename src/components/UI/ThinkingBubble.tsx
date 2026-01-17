@@ -9,13 +9,17 @@ interface ThinkingBubbleProps {
   show: boolean;
   /** Whether reasoning is available */
   hasReasoning: boolean;
-  /** Click handler to open modal */
+  /** Click handler to lock modal open and pause */
   onClick: () => void;
+  /** Hover start handler to preview modal */
+  onHoverStart?: () => void;
+  /** Hover end handler to close preview */
+  onHoverEnd?: () => void;
   /** Position relative to token stats - 'top' for CPU, 'bottom' for human */
   position?: 'top' | 'bottom';
 }
 
-export function ThinkingBubble({ show, hasReasoning, onClick, position = 'top' }: ThinkingBubbleProps) {
+export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHoverEnd, position = 'top' }: ThinkingBubbleProps) {
   if (!show || !hasReasoning) return null;
 
   const isBottom = position === 'bottom';
@@ -29,6 +33,8 @@ export function ThinkingBubble({ show, hasReasoning, onClick, position = 'top' }
         exit={{ opacity: 0, scale: 0.5 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={onClick}
+        onMouseEnter={onHoverStart}
+        onMouseLeave={onHoverEnd}
         aria-label="Show AI reasoning"
       >
         <svg

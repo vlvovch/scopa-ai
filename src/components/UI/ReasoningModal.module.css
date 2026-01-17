@@ -25,6 +25,23 @@
   z-index: 1001;
 }
 
+/* Position modal near top (below upper player's bubble) - right aligned */
+.modalTop {
+  top: 100px;
+  left: auto;
+  right: 16px;
+  transform: none;
+}
+
+/* Position modal near bottom (above lower player's bubble) - left aligned */
+.modalBottom {
+  top: auto;
+  bottom: 120px;
+  left: 16px;
+  right: auto;
+  transform: none;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -39,6 +56,12 @@
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text-primary, #fff);
+}
+
+.previewHint {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--color-text-secondary, #999);
 }
 
 .closeButton {

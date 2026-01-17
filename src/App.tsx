@@ -116,10 +116,11 @@ function App() {
     human: null,
   });
 
-  // Reasoning modal state
-  const [reasoningModal, setReasoningModal] = useState<{ isOpen: boolean; player: PlayerId | null }>({
+  // Reasoning modal state (locked = clicked/paused, preview = hover)
+  const [reasoningModal, setReasoningModal] = useState<{ isOpen: boolean; player: PlayerId | null; locked: boolean }>({
     isOpen: false,
     player: null,
+    locked: false,
   });
 
   // Capture choice modal state (shown when multiple capture options exist)
@@ -1663,9 +1664,13 @@ function App() {
       <ReasoningModal
         isOpen={reasoningModal.isOpen}
         lastMove={reasoningModal.player ? lastMoveData[reasoningModal.player] : null}
+        locked={reasoningModal.locked}
+        position={reasoningModal.player === 'cpu' ? 'top' : reasoningModal.player === 'human' ? 'bottom' : 'center'}
         onClose={() => {
-          setReasoningModal({ isOpen: false, player: null });
-          setIsSpectatorPaused(false); // Unpause when closing modal
+          setReasoningModal({ isOpen: false, player: null, locked: false });
+          if (reasoningModal.locked) {
+            setIsSpectatorPaused(false); // Only unpause when closing locked modal
+          }
         }}
       />
       {/* New Game Confirmation Dialog */}
@@ -1794,8 +1799,18 @@ function App() {
                   hasReasoning={!!lastMoveData.cpu}
                   onClick={() => {
                     if (lastMoveData.cpu) {
-                      setReasoningModal({ isOpen: true, player: 'cpu' });
+                      setReasoningModal({ isOpen: true, player: 'cpu', locked: true });
                       setIsSpectatorPaused(true);
+                    }
+                  }}
+                  onHoverStart={() => {
+                    if (lastMoveData.cpu && !reasoningModal.locked) {
+                      setReasoningModal({ isOpen: true, player: 'cpu', locked: false });
+                    }
+                  }}
+                  onHoverEnd={() => {
+                    if (!reasoningModal.locked) {
+                      setReasoningModal({ isOpen: false, player: null, locked: false });
                     }
                   }}
                 />
@@ -1840,8 +1855,18 @@ function App() {
                   position="bottom"
                   onClick={() => {
                     if (lastMoveData.human) {
-                      setReasoningModal({ isOpen: true, player: 'human' });
+                      setReasoningModal({ isOpen: true, player: 'human', locked: true });
                       setIsSpectatorPaused(true);
+                    }
+                  }}
+                  onHoverStart={() => {
+                    if (lastMoveData.human && !reasoningModal.locked) {
+                      setReasoningModal({ isOpen: true, player: 'human', locked: false });
+                    }
+                  }}
+                  onHoverEnd={() => {
+                    if (!reasoningModal.locked) {
+                      setReasoningModal({ isOpen: false, player: null, locked: false });
                     }
                   }}
                 />
