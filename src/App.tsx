@@ -1795,24 +1795,26 @@ function App() {
                   onDismissError={() => setPlayer2ApiError(null)}
                 />
                 <ThinkingBubble
-                  show={isSpectatorMode && spectatorHandsVisible.cpu}
+                  show
                   hasReasoning={!!lastMoveData.cpu}
                   onClick={() => {
                     if (lastMoveData.cpu) {
                       setReasoningModal({ isOpen: true, player: 'cpu', locked: true });
-                      setIsSpectatorPaused(true);
+                      if (isSpectatorMode) {
+                        setIsSpectatorPaused(true);
+                      }
                     }
                   }}
-                  onHoverStart={() => {
+                  onHoverStart={(isSpectatorMode && spectatorHandsVisible.cpu) ? () => {
                     if (lastMoveData.cpu && !reasoningModal.locked) {
                       setReasoningModal({ isOpen: true, player: 'cpu', locked: false });
                     }
-                  }}
-                  onHoverEnd={() => {
+                  } : undefined}
+                  onHoverEnd={(isSpectatorMode && spectatorHandsVisible.cpu) ? () => {
                     if (!reasoningModal.locked) {
                       setReasoningModal({ isOpen: false, player: null, locked: false });
                     }
-                  }}
+                  } : undefined}
                 />
               </div>
             )}
@@ -1850,7 +1852,7 @@ function App() {
                   onDismissError={() => setPlayer1ApiError(null)}
                 />
                 <ThinkingBubble
-                  show={spectatorHandsVisible.human}
+                  show
                   hasReasoning={!!lastMoveData.human}
                   position="bottom"
                   onClick={() => {
@@ -1859,16 +1861,16 @@ function App() {
                       setIsSpectatorPaused(true);
                     }
                   }}
-                  onHoverStart={() => {
+                  onHoverStart={spectatorHandsVisible.human ? () => {
                     if (lastMoveData.human && !reasoningModal.locked) {
                       setReasoningModal({ isOpen: true, player: 'human', locked: false });
                     }
-                  }}
-                  onHoverEnd={() => {
+                  } : undefined}
+                  onHoverEnd={spectatorHandsVisible.human ? () => {
                     if (!reasoningModal.locked) {
                       setReasoningModal({ isOpen: false, player: null, locked: false });
                     }
-                  }}
+                  } : undefined}
                 />
               </div>
             )}
