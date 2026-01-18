@@ -251,9 +251,9 @@ export type ServerMessage =
       };
     }
   | {
-      type: 'TIMER_UPDATE';
+      type: 'TIMER_START';
       payload: {
-        secondsRemaining: number;
+        seconds: number;
         player: MultiplayerPlayerId;
       };
     }

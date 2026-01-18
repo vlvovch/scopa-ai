@@ -35,7 +35,7 @@ export function TurnTimer({
             {isMyTurn ? 'Your Turn' : "Opponent's Turn"}
           </span>
           <span className={`${styles.timerValue} ${isCritical ? styles.critical : ''}`}>
-            {secondsRemaining}s
+            {secondsRemaining <= 0 ? 'Expired' : `${secondsRemaining}s`}
           </span>
         </div>
       </div>

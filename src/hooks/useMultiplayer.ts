@@ -121,6 +121,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
   // Timer state
   const [turnTimerSeconds, setTurnTimerSeconds] = useState<number | null>(null);
   const [canForceMove, setCanForceMove] = useState(false);
+  const timerIntervalRef = useRef<number | null>(null);
 
   // Round/Game end
   const [roundEndData, setRoundEndData] = useState<UseMultiplayerReturn['roundEndData']>(null);
@@ -140,6 +141,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   // Session ref for reconnection
   const sessionRef = useRef<MultiplayerSession | null>(null);
+
+  // Ref to always have the latest handleServerMessage (avoids stale closure in WebSocket onmessage)
+  const handleServerMessageRef = useRef<(message: ServerMessage) => void>(() => {});
 
   // ============================================================================
   // Session Persistence
@@ -226,6 +230,11 @@ export function useMultiplayer(): UseMultiplayerReturn {
       case 'MOVE_PLAYED':
         // Don't update game state immediately - store it for after animation
         // The animation effect in App.tsx will apply the pending state after animation completes
+        // Stop local timer countdown (server will send TIMER_START for next turn)
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
         setCanForceMove(false);
         setTurnTimerSeconds(null);
         // Track last move with pending state for animations
@@ -276,11 +285,35 @@ export function useMultiplayer(): UseMultiplayerReturn {
         }
         break;
 
-      case 'TIMER_UPDATE':
-        setTurnTimerSeconds(message.payload.secondsRemaining);
+      case 'TIMER_START':
+        // Clear any existing timer interval
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+        }
+        setCanForceMove(false);
+        setTurnTimerSeconds(message.payload.seconds);
+        // Start local countdown
+        timerIntervalRef.current = window.setInterval(() => {
+          setTurnTimerSeconds(prev => {
+            if (prev === null || prev <= 1) {
+              if (timerIntervalRef.current) {
+                clearInterval(timerIntervalRef.current);
+                timerIntervalRef.current = null;
+              }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
         break;
 
       case 'TIMER_EXPIRED':
+        // Stop local countdown
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        setTurnTimerSeconds(0);
         if (playerId && message.payload.player !== playerId) {
           setCanForceMove(true);
         }
@@ -333,6 +366,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
         break;
     }
   }, [nickname, playerId, saveSession]);
+
+  // Keep the ref updated with the latest callback
+  handleServerMessageRef.current = handleServerMessage;
 
   // ============================================================================
   // WebSocket Connection
@@ -387,7 +423,8 @@ export function useMultiplayer(): UseMultiplayerReturn {
     ws.onmessage = (event) => {
       try {
         const message: ServerMessage = JSON.parse(event.data);
-        handleServerMessage(message);
+        // Use ref to always call the latest callback (avoids stale closure)
+        handleServerMessageRef.current(message);
       } catch {
         console.error('Failed to parse server message');
       }
@@ -418,7 +455,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     ws.onerror = () => {
       setConnectionError('Failed to connect to server');
     };
-  }, [handleServerMessage, sendMessage, loadSession, clearSession]);
+  }, [sendMessage, loadSession, clearSession]);
 
   const disconnect = useCallback(() => {
     // Clear reconnect timeout
@@ -554,6 +591,12 @@ export function useMultiplayer(): UseMultiplayerReturn {
     disconnect();
     clearSession();
 
+    // Clear timer interval
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
     // Reset all state
     setRoomCode(null);
     setPlayerId(null);
@@ -599,6 +642,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
   useEffect(() => {
     return () => {
       disconnect();
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
     };
   }, [disconnect]);
 

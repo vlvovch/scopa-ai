@@ -27,7 +27,6 @@ import {
 
 const rooms = new Map<string, RoomState>();
 const turnTimers = new Map<string, NodeJS.Timeout>();
-const timerIntervals = new Map<string, NodeJS.Timeout>();
 
 // ============================================================================
 // Room Code Generation
@@ -439,34 +438,18 @@ export function startTurnTimer(room: RoomState): void {
 
   room.currentTurnStartedAt = Date.now();
 
-  // Send updates every 10 seconds
-  const interval = setInterval(() => {
-    if (!room.currentTurnStartedAt || !room.gameState) {
-      clearInterval(interval);
-      return;
-    }
+  // Send TIMER_START message - client handles countdown locally
+  broadcastToRoom(room, {
+    type: 'TIMER_START',
+    payload: {
+      seconds: room.turnTimerSeconds,
+      player: room.gameState.round.currentPlayer,
+    },
+  });
 
-    const elapsed = (Date.now() - room.currentTurnStartedAt) / 1000;
-    const remaining = Math.max(0, room.turnTimerSeconds - elapsed);
-
-    broadcastToRoom(room, {
-      type: 'TIMER_UPDATE',
-      payload: {
-        secondsRemaining: Math.ceil(remaining),
-        player: room.gameState.round.currentPlayer,
-      },
-    });
-  }, 10000);
-
-  timerIntervals.set(room.code, interval);
-
-  // Set expiry timer
+  // Set expiry timer - server only sends TIMER_EXPIRED when time is up
   const timer = setTimeout(() => {
-    clearInterval(interval);
-    timerIntervals.delete(room.code);
-
     if (room.gameState && room.gameState.status === 'playing') {
-      // Notify opponent they can force a move
       const currentPlayer = room.gameState.round.currentPlayer;
 
       broadcastToRoom(room, {
@@ -487,12 +470,6 @@ export function clearTurnTimer(roomCode: string): void {
   if (timer) {
     clearTimeout(timer);
     turnTimers.delete(roomCode);
-  }
-
-  const interval = timerIntervals.get(roomCode);
-  if (interval) {
-    clearInterval(interval);
-    timerIntervals.delete(roomCode);
   }
 }
 

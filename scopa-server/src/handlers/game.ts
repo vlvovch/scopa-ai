@@ -138,9 +138,6 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
   state.round = newTempState.round as any;
   state.players = newTempState.players as any;
 
-  // Reset turn timer
-  resetTurnTimer(room);
-
   // Check if we need to deal new hands
   dealNewHands(room);
 
@@ -214,6 +211,9 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
         payload: { move: serverMove, state: p2State },
       });
     }
+
+    // Reset turn timer AFTER sending MOVE_PLAYED so client processes them in correct order
+    resetTurnTimer(room);
   }
 
   console.log(
@@ -486,9 +486,6 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
   state.round = newTempState.round as any;
   state.players = newTempState.players as any;
 
-  // Reset turn timer
-  resetTurnTimer(room);
-
   // Check for new hands or round end (same logic as regular move)
   dealNewHands(room);
 
@@ -560,6 +557,9 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
         payload: { move: multiplayerMove, state: p2State },
       });
     }
+
+    // Reset turn timer AFTER sending MOVE_PLAYED so client processes them in correct order
+    resetTurnTimer(room);
   }
 
   console.log(`Forced random move in room ${room.code} for ${currentPlayer}`);

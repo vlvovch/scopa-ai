@@ -42,20 +42,19 @@ setInterval(() => {
 }, STATS_INTERVAL_MS);
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\nShutting down server...');
-  wss.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
-});
+let isShuttingDown = false;
 
-process.on('SIGTERM', () => {
-  console.log('Received SIGTERM, shutting down...');
+function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`\n${signal} received, shutting down server...`);
   wss.close(() => {
     console.log('Server closed');
     process.exit(0);
   });
-});
+}
+
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
 
 console.log(`Scopa Multiplayer Server running on ws://localhost:${PORT}`);
