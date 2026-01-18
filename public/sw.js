@@ -115,10 +115,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip analytics
-  if (url.hostname.includes('googletagmanager.com') ||
-    url.hostname.includes('google-analytics.com') ||
-    url.pathname.includes('analytics')) {
+  // Skip analytics (Umami)
+  if (url.pathname.includes('analytics')) {
     return;
   }
 
