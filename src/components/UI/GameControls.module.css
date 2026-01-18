@@ -59,7 +59,7 @@
   /* Stack rows vertically on mobile for multiplayer */
   .multiplayerControls {
     flex-direction: column;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: var(--space-1);
   }
 }
