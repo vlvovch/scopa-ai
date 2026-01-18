@@ -1297,6 +1297,32 @@ The Scopa game is now fully playable with:
 - [x] Step 40.3: Integrate modal state in App.tsx - Completed 2026-01-07
 - [x] Step 40.4: Fix z-index layering for pile clickability - Completed 2026-01-07
 
+---
+
+## Phase 41: Card Image Quality Improvements
+
+- [x] Step 41.1: Use native resolution for card images (no upscaling) - Completed 2026-01-18
+- [x] Step 41.2: Optimize crop and aspect ratio adjustment with Lanczos filter - Completed 2026-01-18
+
+**Notes:**
+
+**Image Quality Improvements:**
+- Reconverted all 4 new card decks (Sarde, Piacentine, Bergamasche, Romagnole) with improved quality
+- Used Lanczos filter (`-filter Lanczos`) for all resize operations - produces sharpest results
+- No upscaling - cards maintain native resolution, only cropped and aspect-ratio adjusted
+- Target aspect ratio: 0.6087 (matching Napoletane/Siciliane decks)
+- Slight horizontal stretch to match aspect ratio (no blur from upscaling)
+
+**Deck-Specific Crop Settings:**
+- Piacentine: 6px shave all sides → 149x244
+- Bergamasche: 6px shave all sides → 149x244
+- Sarde: Asymmetric crop (left 6, top 8, right 10, bottom 8) → 143x235
+- Romagnole: 8px shave all sides → 141x232
+
+- 135 tests passing
+
+---
+
 **Notes:**
 
 **View Captured Cards Modal:**
