@@ -74,7 +74,7 @@ WorkingDirectory=/opt/scopa-server
 ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
 RestartSec=10
-Environment=PORT=8080
+Environment=PORT=3100
 
 [Install]
 WantedBy=multi-user.target
@@ -97,7 +97,7 @@ Add to your `/etc/caddy/Caddyfile`:
 your-domain.com {
     # WebSocket proxy for /ws path
     handle /ws {
-        reverse_proxy localhost:8080
+        reverse_proxy localhost:3100
     }
 
     # Static files for the SPA
@@ -202,4 +202,4 @@ sudo systemctl restart caddy
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PORT` | WebSocket server port | `8080` |
+| `PORT` | WebSocket server port | `3100` |

@@ -137,7 +137,7 @@ function App() {
   // Multiplayer state
   const multiplayer = useMultiplayer();
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
-  const [initialJoinCode] = useState(getInitialJoinCode);
+  const [initialJoinCode, setInitialJoinCode] = useState(getInitialJoinCode);
   const [multiplayerRoundHistory, setMultiplayerRoundHistory] = useState<RoundHistoryEntry[]>([]);
 
   // Keep URL in sync with multiplayer room state
@@ -2542,6 +2542,8 @@ function App() {
               // Clean up any pending connection/room state
               multiplayer.leaveRoom();
               setIsMultiplayerMode(false);
+              // Clear initial join code so we can return to main menu
+              setInitialJoinCode(undefined);
               // Clear URL if we came from a join link
               if (window.location.pathname !== '/' || window.location.search) {
                 window.history.replaceState({}, '', '/');
