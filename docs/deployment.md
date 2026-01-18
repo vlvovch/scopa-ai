@@ -15,7 +15,7 @@ This guide covers deploying the Scopa app to a VPS with Caddy reverse proxy.
                     ┌─────────────────────────────────────┐
                     │           Caddy Server              │
                     │                                     │
-  HTTPS :443        │   /ws  ──────► localhost:8080      │
+  HTTPS :443        │   /ws  ──────► localhost:3100      │
   ──────────────────►                (WebSocket server)   │
                     │                                     │
                     │   /*   ──────► /var/www/scopa-ai   │
