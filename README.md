@@ -2,7 +2,9 @@
 
 A web-based implementation of the classic Italian card game **Scopa**, featuring CPU opponents of varying difficulty and AI opponents powered by LLMs (Gemini, GPT, Claude), real-time multiplayer, and spectator mode to watch CPU/AI vs CPU/AI battles.
 
-**[Play Now](https://scopa-ai.vovchenko.net)**
+![Scopa AI gameplay](screenshots/gameplay.png)
+
+<p align="center"><b><a href="https://scopa-ai.vovchenko.net">Play Now</a></b></p>
 
 ---
 
@@ -25,10 +27,14 @@ As such I am not an expert in any of the technologies used in this project, but 
 
 ### Game Modes
 
+<img align="right" src="screenshots/gamemodes.png" width="180">
+
 - **Player vs CPU** - Play against built-in CPU opponents (no setup required)
 - **Player vs AI** - Play against LLM-powered AIs (requires API keys)
 - **Watch Mode** - Spectate AI vs AI, AI vs CPU, or CPU vs CPU battles
 - **Multiplayer** - Play against friends online with real-time WebSocket connections
+
+<br clear="right"/>
 
 ### CPU Opponents
 
@@ -39,6 +45,8 @@ As such I am not an expert in any of the technologies used in this project, but 
 | Esperto | Expert ISMCTS (Monte Carlo Tree Search) |
 
 ### LLM AI Opponents
+
+<img align="right" src="screenshots/token-usage.png" width="140">
 
 | AI | Description |
 |----|-------------|
@@ -51,7 +59,13 @@ The app shows token usage accumulated during the game.
 
 One can pick a model for each AI independently based on API support and cost considerations.
 Advanced models with thinking modes can be significantly slower and more expensive than simpler models, with limited gain, so it's worth experimenting to find the right balance.
-In pratice, gemini-3-flash-preview shows good balance of speed (few secs per move) and performance (plays at Furbo level). 
+In pratice, gemini-3-flash-preview shows good balance of speed (few secs per move) and performance (plays at Furbo level).
+
+<br clear="right"/>
+
+In Watch Mode, you can view the AI's reasoning for each move:
+
+![AI reasoning modal](screenshots/AI-watch-reason.png)
 
 ### Gameplay Features
 
@@ -149,9 +163,13 @@ VITE_WS_URL=ws://localhost:8080
 
 ### Multiplayer Features
 
+<img align="right" src="screenshots/multiplayer.png" width="160">
+
 - Matchmaking through a shareable game code
 - Session persistence (reconnect after page refresh)
 <!-- - Turn timer with configurable duration -->
+
+<br clear="right"/>
 
 ---
 
