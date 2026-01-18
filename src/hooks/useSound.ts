@@ -127,6 +127,8 @@ export interface UseSoundReturn {
   playDeal: (cardCount: number, staggerMs?: number) => void;
   /** Stop all sounds (immediate) */
   stopAll: () => void;
+  /** Resume AudioContext (call after user interaction if sounds aren't playing) */
+  resume: () => Promise<void>;
 }
 
 /**
@@ -222,6 +224,13 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
     activeSources.current.clear();
   }, []);
 
+  /**
+   * Manually resume AudioContext (useful when game starts after inactivity)
+   */
+  const resume = useCallback(async () => {
+    await resumeContext();
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -236,5 +245,5 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
     };
   }, []);
 
-  return { play, playDeal, stopAll };
+  return { play, playDeal, stopAll, resume };
 }

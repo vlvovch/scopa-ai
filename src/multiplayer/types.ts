@@ -165,6 +165,7 @@ export type ServerMessage =
         scores: Record<MultiplayerPlayerId, GameRoundScore>;
         cumulativeScores: Record<MultiplayerPlayerId, number>;
         capturedCards: Record<MultiplayerPlayerId, Card[]>;
+        lastCapture: MultiplayerPlayerId;
       };
     }
   | {

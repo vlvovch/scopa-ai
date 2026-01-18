@@ -158,6 +158,7 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
             player1: state.players.player1.captured,
             player2: state.players.player2.captured,
           },
+          lastCapture: state.round.lastCapture!,
         },
       });
       // Wait for both players to click "Next Round" before continuing
@@ -403,6 +404,7 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
             player1: state.players.player1.captured,
             player2: state.players.player2.captured,
           },
+          lastCapture: state.round.lastCapture!,
         },
       });
       // Wait for both players to click "Next Round" before continuing

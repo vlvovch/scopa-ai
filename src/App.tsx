@@ -92,7 +92,7 @@ function getInitialJoinCode(): string | undefined {
 function App() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
-  const { play: playSound } = useSound({
+  const { play: playSound, resume: resumeAudio } = useSound({
     enabled: settings.soundEnabled,
   });
   const {
@@ -1433,12 +1433,22 @@ function App() {
   const prevMpDealRoundNumber = useRef<number | null>(null);
 
   // Track table state for "last capture takes remaining cards" animation
+  // Phase: 'highlight' shows cards with golden glow, 'exit' removes them to trigger fly animation
   const [multiplayerRoundEndAnimation, setMultiplayerRoundEndAnimation] = useState<{
     tableCards: Card[];
     lastCapture: PlayerId;
+    phase: 'highlight' | 'exit';
   } | null>(null);
   // Track previous table state to detect when cards were cleared at round end
   const prevMultiplayerTableCards = useRef<Card[]>([]);
+
+  // Resume AudioContext when multiplayer game starts (Chrome autoplay policy workaround)
+  // The game may start after a period of inactivity while waiting for opponent
+  useEffect(() => {
+    if (multiplayer.gameState?.status === 'playing') {
+      resumeAudio();
+    }
+  }, [multiplayer.gameState?.status, resumeAudio]);
 
   // Trigger multiplayer dealing animation by tracking deck count changes (like single-player)
   useLayoutEffect(() => {
@@ -1628,23 +1638,41 @@ function App() {
 
     // Store current table cards for reference when round ends
     const currentTable = multiplayer.gameState.round.table;
-    const lastCapture = multiplayer.gameState.round.lastCapture;
     const currentRound = multiplayer.gameState.roundNumber;
 
     // When roundEndData appears and we had cards on the table, trigger animation (once per round)
+    // Use lastCapture from roundEndData (not gameState) because gameState isn't updated for the final move
     if (
       multiplayer.roundEndData &&
       prevMultiplayerTableCards.current.length > 0 &&
-      lastCapture &&
       roundEndAnimationTriggeredForRound.current !== currentRound
     ) {
       roundEndAnimationTriggeredForRound.current = currentRound;
+      const lastCapture = multiplayer.roundEndData.lastCapture;
       const capturePlayer: PlayerId = lastCapture === multiplayer.playerId ? 'human' : 'cpu';
+      const remainingCards = prevMultiplayerTableCards.current;
+
+      // Check if 7 of coins (sette bello) is being captured with the remaining cards
+      if (remainingCards.some(c => c.suit === 'coins' && c.value === 7)) {
+        playSound('setteBello');
+        const playerName = capturePlayer === 'human' ? multiplayer.nickname : (multiplayer.opponentNickname || 'Opponent');
+        setSetteBelloCelebration({ show: true, player: capturePlayer, playerName });
+        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+      }
+
+      // Phase 1: highlight cards briefly
       setMultiplayerRoundEndAnimation({
-        tableCards: prevMultiplayerTableCards.current,
+        tableCards: remainingCards,
         lastCapture: capturePlayer,
+        phase: 'highlight',
       });
-      // Clear after animation duration
+
+      // Phase 2: after brief highlight, trigger exit animation by switching phase
+      setTimeout(() => {
+        setMultiplayerRoundEndAnimation(prev => prev ? { ...prev, phase: 'exit' } : null);
+      }, 300);
+
+      // Clear after exit animation completes
       setTimeout(() => {
         setMultiplayerRoundEndAnimation(null);
       }, 1200);
@@ -1654,7 +1682,7 @@ function App() {
     if (!multiplayer.roundEndData) {
       prevMultiplayerTableCards.current = currentTable;
     }
-  }, [multiplayer.gameState, multiplayer.roundEndData, multiplayer.playerId]);
+  }, [multiplayer.gameState, multiplayer.roundEndData, multiplayer.playerId, multiplayer.nickname, multiplayer.opponentNickname, playSound]);
 
   // Track multiplayer round history for game end screen
   const prevMultiplayerRoundNumber = useRef<number>(0);
@@ -2133,7 +2161,10 @@ function App() {
                 // Hide cards during 'table' phase of dealing animation
                 multiplayerIsDealing && multiplayerDealMode === 'table'
                   ? []
-                  : multiplayerRoundEndAnimation ? multiplayerRoundEndAnimation.tableCards : mpState.round.table
+                  // Round-end animation: show cards during 'highlight', remove during 'exit' to trigger fly animation
+                  : multiplayerRoundEndAnimation
+                    ? (multiplayerRoundEndAnimation.phase === 'highlight' ? multiplayerRoundEndAnimation.tableCards : [])
+                    : mpState.round.table
               }
               highlightedCardIds={isMyTurn && !multiplayerRoundEndAnimation ? multiplayerValidCaptureTargetIds : []}
               selectedCardIds={multiplayerRoundEndAnimation ? [] : selectedTableCards.map(c => c.id)}
