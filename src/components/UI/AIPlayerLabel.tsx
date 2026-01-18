@@ -37,6 +37,8 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
       return <span style={{ fontSize: '1em' }}>🦊</span>;
     case 'expert':
       return <span style={{ fontSize: '1em' }}>🐍</span>;
+    case 'multiplayer':
+      return <span style={{ fontSize: '1em' }}>👤</span>;
     default:
       return null;
   }
@@ -93,6 +95,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
   if (aiType === 'random') return 'Scimmietta';
   if (aiType === 'heuristic') return 'Furbo';
   if (aiType === 'expert') return 'Esperto';
+  if (aiType === 'multiplayer') return model || 'Player';
 
   return aiType;
 }
