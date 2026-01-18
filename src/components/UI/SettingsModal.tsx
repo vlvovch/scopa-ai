@@ -11,6 +11,7 @@ const DECK_OPTIONS: { value: DeckType; label: string }[] = [
   { value: 'napoletane', label: 'Napoletane' },
   { value: 'siciliane', label: 'Siciliane' },
   { value: 'sarde', label: 'Sarde' },
+  { value: 'piacentine', label: 'Piacentine' },
 ];
 
 const PRESET_SCORES = [11, 16, 21] as const;
