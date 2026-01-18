@@ -206,7 +206,6 @@ sudo systemctl restart caddy
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `VITE_WS_URL` | WebSocket server URL | `wss://your-domain.com/ws` |
-| `VITE_GA_ID` | Google Analytics ID (optional) | `G-XXXXXXXXXX` |
 | `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.example.com/script.js` |
 | `VITE_UMAMI_WEBSITE_ID` | Umami website ID (optional) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 
