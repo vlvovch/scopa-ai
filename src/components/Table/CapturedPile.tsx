@@ -128,7 +128,9 @@ export function CapturedPile({
       </div>
 
       <div className={styles.pileInfo}>
-        <span className={styles.cardCount}>{cardCount} cards</span>
+        {showStats && (
+          <span className={styles.cardCount}>{cardCount} cards</span>
+        )}
 
         {showStats && (
           <div className={styles.statsRow}>
