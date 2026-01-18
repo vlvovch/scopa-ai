@@ -33,15 +33,7 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
     return { denariCount, hasSetteBello };
   }, [cards]);
 
-  // Sort cards by suit then value for better display
-  const sortedCards = useMemo(() => {
-    const suitOrder = ['coins', 'cups', 'swords', 'clubs'] as const;
-    return [...cards].sort((a, b) => {
-      const suitDiff = suitOrder.indexOf(a.suit) - suitOrder.indexOf(b.suit);
-      if (suitDiff !== 0) return suitDiff;
-      return a.value - b.value;
-    });
-  }, [cards]);
+  // Cards are displayed in collection order (no sorting)
 
   return (
     <AnimatePresence>
@@ -78,11 +70,11 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
             </div>
 
             <div className={styles.cardsContainer}>
-              {sortedCards.length === 0 ? (
+              {cards.length === 0 ? (
                 <p className={styles.empty}>No cards captured yet</p>
               ) : (
                 <div className={styles.cardsGrid}>
-                  {sortedCards.map((card) => (
+                  {cards.map((card) => (
                     <div
                       key={card.id}
                       className={`${styles.cardWrapper} ${
