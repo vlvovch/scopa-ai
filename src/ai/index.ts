@@ -39,10 +39,10 @@ export const AI_PLAYERS = {
 // All AI types (sync only - async AIs handled separately)
 export type AIType = keyof typeof AI_PLAYERS;
 
-// Extended AI type including async AIs
-export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'openai' | 'openai-singleturn' | 'claude' | 'claude-singleturn';
+// Extended AI type including async AIs and multiplayer
+export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'openai' | 'openai-singleturn' | 'claude' | 'claude-singleturn' | 'multiplayer';
 
-// Display info for each AI (including async)
+// Display info for each AI (including async and multiplayer)
 export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean; icon: string }> = {
   random: { name: 'Scimmietta', description: 'Plays randomly like a little monkey', icon: '🐒' },
   heuristic: { name: 'Furbo', description: 'Greedy strategy, prioritizes valuable captures', icon: '🦊' },
@@ -53,6 +53,7 @@ export const AI_INFO: Record<ExtendedAIType, { name: string; description: string
   'openai-singleturn': { name: 'GPT 1️⃣', description: 'OpenAI GPT with single requests (full history each turn)', isAsync: true, icon: '⬡' },
   claude: { name: 'Claude 💬', description: 'Anthropic Claude with multi-turn conversation (remembers context)', isAsync: true, icon: '🔮' },
   'claude-singleturn': { name: 'Claude 1️⃣', description: 'Anthropic Claude with single requests (full history each turn)', isAsync: true, icon: '🔮' },
+  multiplayer: { name: 'Human', description: 'Online multiplayer opponent', icon: '👤' },
 };
 
 /**

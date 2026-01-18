@@ -142,6 +142,7 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
     'openai-singleturn': '⬡',
     claude: '◐',
     'claude-singleturn': '◐',
+    multiplayer: '👤',
   };
 
   const icon = textIcons[aiType] || '';

@@ -98,6 +98,11 @@ export function isCpuAIType(aiType: ExtendedAIType): boolean {
   return CPU_AI_TYPES.includes(aiType);
 }
 
+/** Check if an AI type is multiplayer */
+export function isMultiplayerType(aiType: ExtendedAIType): boolean {
+  return aiType === 'multiplayer';
+}
+
 /**
  * Hook for managing game statistics
  */

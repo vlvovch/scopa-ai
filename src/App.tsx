@@ -83,6 +83,7 @@ const MP_SESSION_KEY = 'scopa-mp-session';
 
 // Check for join code from URL on initial load
 // Only clear session if joining a DIFFERENT room than the stored session
+// Note: URL cleanup is done via useEffect to avoid side effects in useState initializer
 function getInitialJoinCode(): string | undefined {
   let joinCode: string | undefined;
 
@@ -98,9 +99,6 @@ function getInitialJoinCode(): string | undefined {
   }
 
   if (joinCode) {
-    // Clean up URL to remove join code (keeps history clean, prevents stale codes)
-    window.history.replaceState({}, '', '/');
-
     // Check if we have a stored session for this room - if so, let auto-reconnect work
     try {
       const stored = localStorage.getItem(MP_SESSION_KEY);
@@ -141,6 +139,23 @@ function App() {
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
   const [initialJoinCode] = useState(getInitialJoinCode);
   const [multiplayerRoundHistory, setMultiplayerRoundHistory] = useState<RoundHistoryEntry[]>([]);
+
+  // Keep URL in sync with multiplayer room state
+  // Show /join/CODE when in a room, clear when leaving
+  useEffect(() => {
+    if (multiplayer.roomCode) {
+      // In a room - show the join URL so it can be shared
+      const joinPath = `/join/${multiplayer.roomCode}`;
+      if (window.location.pathname !== joinPath) {
+        window.history.replaceState({}, '', joinPath);
+      }
+    } else {
+      // Not in a room - clear the join URL if present
+      if (window.location.pathname.startsWith('/join/') || window.location.search.includes('join=')) {
+        window.history.replaceState({}, '', '/');
+      }
+    }
+  }, [multiplayer.roomCode]);
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -481,6 +496,10 @@ function App() {
       if (claude) return claude;
       // Fallback to heuristic if Claude not available
       return AI_PLAYERS.heuristic;
+    }
+    // 'multiplayer' is not a real AI type - it's only used for stats tracking
+    if (aiType === 'multiplayer') {
+      return AI_PLAYERS.heuristic; // Fallback (should never be called)
     }
     return AI_PLAYERS[aiType];
   }, [settings.geminiModel, settings.openaiModel, settings.claudeModel, settings.useThinking]);
@@ -1783,6 +1802,36 @@ function App() {
     }
   }, [multiplayer.gameState, multiplayerRoundHistory.length]);
 
+  // Record multiplayer game to stats when game ends
+  const multiplayerGameRecorded = useRef(false);
+  useEffect(() => {
+    // Record game when gameEndData appears (game is over)
+    if (multiplayer.gameEndData && multiplayer.playerId && multiplayer.opponentNickname && multiplayer.targetScore && !multiplayerGameRecorded.current) {
+      const myId = multiplayer.playerId;
+      const oppId = myId === 'player1' ? 'player2' : 'player1';
+
+      recordGame(
+        'multiplayer',
+        multiplayer.gameEndData.finalScores[myId],
+        multiplayer.gameEndData.finalScores[oppId],
+        multiplayer.gameState?.roundNumber ?? 1,
+        multiplayer.targetScore,
+        multiplayer.opponentNickname // Use opponent nickname as "model" for accumulation
+      );
+      multiplayerGameRecorded.current = true;
+
+      // Play victory sound (only if we won)
+      if (multiplayer.gameEndData.finalScores[myId] > multiplayer.gameEndData.finalScores[oppId]) {
+        playSound('victory');
+      }
+    }
+
+    // Reset flag when gameEndData is cleared (new game started)
+    if (!multiplayer.gameEndData) {
+      multiplayerGameRecorded.current = false;
+    }
+  }, [multiplayer.gameEndData, multiplayer.playerId, multiplayer.opponentNickname, multiplayer.targetScore, multiplayer.gameState?.roundNumber, recordGame, playSound]);
+
   // Handle starting a new game (wraps startGame to reset token stats)
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
     // Reset token stats for all LLM types
@@ -2106,8 +2155,9 @@ function App() {
     const mpState = multiplayer.gameState;
     const isMyTurn = mpState.round.currentPlayer === multiplayer.playerId;
 
-    // Multiplayer round end screen (delay while last-capture animation plays and pause completes)
-    if (multiplayer.roundEndData && !multiplayerRoundEndAnimation && !multiplayerRoundSummaryDelay) {
+    // Multiplayer round end screen (delay while card animation and last-capture animation play)
+    // Also wait for card animation to complete before showing round summary
+    if (multiplayer.roundEndData && !multiplayerAnimatingCard && !multiplayerRoundEndAnimation && !multiplayerRoundSummaryDelay) {
       const myId = multiplayer.playerId!;
       const oppId = myId === 'player1' ? 'player2' : 'player1';
       // Check if this is the final round (game is over after this round)
@@ -2138,8 +2188,9 @@ function App() {
       );
     }
 
-    // Multiplayer game end screen
-    if (multiplayer.gameEndData) {
+    // Multiplayer game end screen (only show if round summary has been dismissed)
+    // Wait for all animations and round summary to complete first
+    if (multiplayer.gameEndData && !multiplayer.roundEndData && !multiplayerAnimatingCard && !multiplayerRoundEndAnimation && !multiplayerRoundSummaryDelay) {
       const myId = multiplayer.playerId!;
       const oppId = myId === 'player1' ? 'player2' : 'player1';
 
@@ -2429,6 +2480,26 @@ function App() {
               setMultiplayerIsRoundStartDeal(false);
             }
           }}
+        />
+        {/* Modals available in multiplayer */}
+        <SettingsModal
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          settings={settings}
+          onUpdateSetting={updateSetting}
+          onResetSettings={resetSettings}
+        />
+        <StatsModal
+          isOpen={showStats}
+          onClose={() => setShowStats(false)}
+          opponents={getAllDisplayOpponents()}
+          getOpponentStats={getOpponentStats}
+          getGamesAgainst={getGamesAgainst}
+          onClearStats={clearStats}
+        />
+        <RulesModal
+          isOpen={showRules}
+          onClose={() => setShowRules(false)}
         />
       </DeckProvider>
     );
