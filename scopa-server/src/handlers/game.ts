@@ -150,8 +150,28 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
     const remainingTableCards = [...state.round.table];
     const { scores, gameOver, winner } = endRound(room);
 
-    // Send round end (or game end) to both players
+    // Always send ROUND_END first so clients can show round summary
+    // (even on the final round before GAME_END)
+    broadcastToRoom(room, {
+      type: 'ROUND_END',
+      payload: {
+        scores,
+        cumulativeScores: state.scores,
+        capturedCards: {
+          player1: state.players.player1.captured,
+          player2: state.players.player2.captured,
+        },
+        scopaCaptures: {
+          player1: state.players.player1.scopaCaptures,
+          player2: state.players.player2.scopaCaptures,
+        },
+        lastCapture: state.round.lastCapture!,
+        remainingTableCards,
+      },
+    });
+
     if (gameOver) {
+      // Also send GAME_END after ROUND_END so clients know the game is over
       broadcastToRoom(room, {
         type: 'GAME_END',
         payload: {
@@ -167,24 +187,6 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
     } else {
       // Clear any previous next round requests
       room.nextRoundRequests.clear();
-
-      broadcastToRoom(room, {
-        type: 'ROUND_END',
-        payload: {
-          scores,
-          cumulativeScores: state.scores,
-          capturedCards: {
-            player1: state.players.player1.captured,
-            player2: state.players.player2.captured,
-          },
-          scopaCaptures: {
-            player1: state.players.player1.scopaCaptures,
-            player2: state.players.player2.scopaCaptures,
-          },
-          lastCapture: state.round.lastCapture!,
-          remainingTableCards,
-        },
-      });
       // Wait for both players to click "Next Round" before continuing
     }
   } else {
@@ -495,7 +497,28 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
     const remainingTableCards = [...state.round.table];
     const { scores, gameOver, winner } = endRound(room);
 
+    // Always send ROUND_END first so clients can show round summary
+    // (even on the final round before GAME_END)
+    broadcastToRoom(room, {
+      type: 'ROUND_END',
+      payload: {
+        scores,
+        cumulativeScores: state.scores,
+        capturedCards: {
+          player1: state.players.player1.captured,
+          player2: state.players.player2.captured,
+        },
+        scopaCaptures: {
+          player1: state.players.player1.scopaCaptures,
+          player2: state.players.player2.scopaCaptures,
+        },
+        lastCapture: state.round.lastCapture!,
+        remainingTableCards,
+      },
+    });
+
     if (gameOver) {
+      // Also send GAME_END after ROUND_END so clients know the game is over
       broadcastToRoom(room, {
         type: 'GAME_END',
         payload: {
@@ -511,24 +534,6 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
     } else {
       // Clear any previous next round requests
       room.nextRoundRequests.clear();
-
-      broadcastToRoom(room, {
-        type: 'ROUND_END',
-        payload: {
-          scores,
-          cumulativeScores: state.scores,
-          capturedCards: {
-            player1: state.players.player1.captured,
-            player2: state.players.player2.captured,
-          },
-          scopaCaptures: {
-            player1: state.players.player1.scopaCaptures,
-            player2: state.players.player2.scopaCaptures,
-          },
-          lastCapture: state.round.lastCapture!,
-          remainingTableCards,
-        },
-      });
       // Wait for both players to click "Next Round" before continuing
     }
   } else {

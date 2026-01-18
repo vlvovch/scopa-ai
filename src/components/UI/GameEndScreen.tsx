@@ -174,7 +174,7 @@ export function GameEndScreen({
     { key: 'coins', label: 'Denari', icon: '🪙' },
     { key: 'setteBello', label: 'Sette Bello', icon: '7️⃣' },
     { key: 'prime', label: 'Primiera', icon: '⭐' },
-    { key: 'scopas', label: 'Scope', icon: '🧹' },
+    { key: 'scopas', label: 'Scopas', icon: '🧹' },
   ] as const;
 
   return (

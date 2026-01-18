@@ -82,21 +82,41 @@ function loadSpectatorModels(): { player1: string; player2: string } {
 const MP_SESSION_KEY = 'scopa-mp-session';
 
 // Check for join code from URL on initial load
-// If a join code is found, clear any existing session to prevent auto-reconnect to old game
+// Only clear session if joining a DIFFERENT room than the stored session
 function getInitialJoinCode(): string | undefined {
+  let joinCode: string | undefined;
+
   const params = new URLSearchParams(window.location.search);
   const joinFromParam = params.get('join');
   if (joinFromParam) {
-    // Clear existing session when joining via URL
-    try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
-    return joinFromParam.toUpperCase();
+    joinCode = joinFromParam.toUpperCase();
+  } else {
+    const pathMatch = window.location.pathname.match(/^\/join\/([A-Z0-9-]+)$/i);
+    if (pathMatch) {
+      joinCode = pathMatch[1].toUpperCase();
+    }
   }
 
-  const pathMatch = window.location.pathname.match(/^\/join\/([A-Z0-9-]+)$/i);
-  if (pathMatch) {
-    // Clear existing session when joining via URL
-    try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
-    return pathMatch[1].toUpperCase();
+  if (joinCode) {
+    // Clean up URL to remove join code (keeps history clean, prevents stale codes)
+    window.history.replaceState({}, '', '/');
+
+    // Check if we have a stored session for this room - if so, let auto-reconnect work
+    try {
+      const stored = localStorage.getItem(MP_SESSION_KEY);
+      if (stored) {
+        const session = JSON.parse(stored);
+        // Only clear if it's a DIFFERENT room
+        if (session.roomCode !== joinCode) {
+          localStorage.removeItem(MP_SESSION_KEY);
+        }
+        // If same room, keep session for reconnect
+      }
+    } catch {
+      // localStorage error - clear to be safe
+      try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
+    }
+    return joinCode;
   }
 
   return undefined;
@@ -1664,8 +1684,9 @@ function App() {
 
   // Handle "last capture takes remaining cards" animation at round end
   // Uses remainingTableCards from server (not local tracking) to ensure both clients see the same cards
+  // IMPORTANT: Must use useLayoutEffect to set delay BEFORE render, preventing round summary flash
   const roundEndAnimationTriggeredForRound = useRef<number>(0);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!multiplayer.gameState) {
       roundEndAnimationTriggeredForRound.current = 0;
       return;
@@ -1682,6 +1703,7 @@ function App() {
       const remainingCards = multiplayer.roundEndData.remainingTableCards;
 
       // Start delay immediately to prevent showing round summary too soon
+      // This runs synchronously before paint (useLayoutEffect) to avoid flash
       setMultiplayerRoundSummaryDelay(true);
 
       if (remainingCards.length > 0) {
@@ -2088,6 +2110,8 @@ function App() {
     if (multiplayer.roundEndData && !multiplayerRoundEndAnimation && !multiplayerRoundSummaryDelay) {
       const myId = multiplayer.playerId!;
       const oppId = myId === 'player1' ? 'player2' : 'player1';
+      // Check if this is the final round (game is over after this round)
+      const isFinalRound = !!multiplayer.gameEndData;
 
       return (
         <DeckProvider deck={settings.deck}>
@@ -2107,6 +2131,8 @@ function App() {
             nextRoundRequested={multiplayer.nextRoundRequests.has(myId)}
             opponentRequestedNextRound={multiplayer.nextRoundRequests.has(oppId)}
             opponentName={multiplayer.opponentNickname || 'Opponent'}
+            isGameOver={isFinalRound}
+            onShowGameEnd={multiplayer.clearRoundEnd}
           />
         </DeckProvider>
       );
