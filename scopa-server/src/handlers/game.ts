@@ -5,6 +5,7 @@ import type {
   ServerMessage,
   AuthenticatedWebSocket,
   MultiplayerMove,
+  MultiplayerPlayerId,
 } from '../types.js';
 import {
   getRoom,
@@ -92,12 +93,23 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
   // Validate the move
   const playerHand = state.players[playerId].hand;
   const tableCards = state.round.table;
+  const otherPlayerId: MultiplayerPlayerId = playerId === 'player1' ? 'player2' : 'player1';
+  const otherHand = state.players[otherPlayerId].hand;
+
+  // Calculate server-authoritative isScopa:
+  // 1. Must be a capture that clears the table
+  // 2. Must NOT be the last play of the round (no scopa on final card)
+  const clearsTable = move.capturedCards.length > 0 && move.capturedCards.length === tableCards.length;
+  // Last play = after this move, both players have 0 cards and deck is empty
+  // playerHand.length is BEFORE the move, so after playing it becomes playerHand.length - 1
+  const isLastPlay = (playerHand.length - 1) === 0 && otherHand.length === 0 && state.round.deck.length === 0;
+  const serverIsScopa = clearsTable && !isLastPlay;
 
   const gameMove: Move = {
     player: playerId,
     cardPlayed: move.cardPlayed,
     capturedCards: move.capturedCards,
-    isScopa: move.isScopa,
+    isScopa: serverIsScopa,
   };
 
   if (!isValidMove(gameMove, playerHand, tableCards)) {
@@ -168,19 +180,27 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
     }
   } else {
     // Send move update to both players
+    // Use server-computed isScopa (gameMove) instead of client-provided value (move)
+    const serverMove: MultiplayerMove = {
+      player: playerId,
+      cardPlayed: gameMove.cardPlayed,
+      capturedCards: gameMove.capturedCards,
+      isScopa: gameMove.isScopa,
+    };
+
     const p1State = getPlayerVisibleState(room, 'player1');
     const p2State = getPlayerVisibleState(room, 'player2');
 
     if (p1State) {
       sendToPlayer(room, 'player1', {
         type: 'MOVE_PLAYED',
-        payload: { move, state: p1State },
+        payload: { move: serverMove, state: p1State },
       });
     }
     if (p2State) {
       sendToPlayer(room, 'player2', {
         type: 'MOVE_PLAYED',
-        payload: { move, state: p2State },
+        payload: { move: serverMove, state: p2State },
       });
     }
   }
