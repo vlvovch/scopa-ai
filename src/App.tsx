@@ -1439,8 +1439,6 @@ function App() {
     lastCapture: PlayerId;
     phase: 'highlight' | 'exit';
   } | null>(null);
-  // Track previous table state to detect when cards were cleared at round end
-  const prevMultiplayerTableCards = useRef<Card[]>([]);
 
   // Resume AudioContext when multiplayer game starts (Chrome autoplay policy workaround)
   // The game may start after a period of inactivity while waiting for opponent
@@ -1533,10 +1531,15 @@ function App() {
       // Brief delay, then apply state and start capture exit animation
       setTimeout(() => {
         playSound('capture');
-        if (move.capturedCards.some(c => c.suit === 'coins')) {
+        // Check for coins in captured cards OR if the played card is a coin (it goes to capture pile too)
+        const hasCoins = move.capturedCards.some(c => c.suit === 'coins') || move.cardPlayed.suit === 'coins';
+        if (hasCoins) {
           playSound('coin');
         }
-        if (move.capturedCards.some(c => c.suit === 'coins' && c.value === 7)) {
+        // Check for sette bello in captured cards OR if the played card is sette bello
+        const hasSetteBello = move.capturedCards.some(c => c.suit === 'coins' && c.value === 7) ||
+          (move.cardPlayed.suit === 'coins' && move.cardPlayed.value === 7);
+        if (hasSetteBello) {
           playSound('setteBello');
           setSetteBelloCelebration({ show: true, player, playerName: multiplayer.nickname });
           setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
@@ -1574,10 +1577,15 @@ function App() {
       setTimeout(() => {
         if (move.capturedCards.length > 0) {
           playSound('capture');
-          if (move.capturedCards.some(c => c.suit === 'coins')) {
+          // Check for coins in captured cards OR if the played card is a coin (it goes to capture pile too)
+          const hasCoins = move.capturedCards.some(c => c.suit === 'coins') || move.cardPlayed.suit === 'coins';
+          if (hasCoins) {
             playSound('coin');
           }
-          if (move.capturedCards.some(c => c.suit === 'coins' && c.value === 7)) {
+          // Check for sette bello in captured cards OR if the played card is sette bello
+          const hasSetteBello = move.capturedCards.some(c => c.suit === 'coins' && c.value === 7) ||
+            (move.cardPlayed.suit === 'coins' && move.cardPlayed.value === 7);
+          if (hasSetteBello) {
             playSound('setteBello');
             const playerName = multiplayer.opponentNickname || 'Opponent';
             setSetteBelloCelebration({ show: true, player, playerName });
@@ -1627,30 +1635,33 @@ function App() {
   // Note: Scopa celebrations are now triggered in the move animation effect above
   // based on the move.isScopa flag, not by comparing scopa counts
 
-  // Track table state for "last capture takes remaining cards" animation at round end
+  // Handle "last capture takes remaining cards" animation at round end
+  // Uses remainingTableCards from server (not local tracking) to ensure both clients see the same cards
   const roundEndAnimationTriggeredForRound = useRef<number>(0);
   useEffect(() => {
     if (!multiplayer.gameState) {
-      prevMultiplayerTableCards.current = [];
       roundEndAnimationTriggeredForRound.current = 0;
       return;
     }
 
-    // Store current table cards for reference when round ends
-    const currentTable = multiplayer.gameState.round.table;
     const currentRound = multiplayer.gameState.roundNumber;
 
-    // When roundEndData appears and we had cards on the table, trigger animation (once per round)
-    // Use lastCapture from roundEndData (not gameState) because gameState isn't updated for the final move
+    // When roundEndData appears with remaining cards, trigger animation (once per round)
     if (
       multiplayer.roundEndData &&
-      prevMultiplayerTableCards.current.length > 0 &&
+      multiplayer.roundEndData.remainingTableCards.length > 0 &&
       roundEndAnimationTriggeredForRound.current !== currentRound
     ) {
       roundEndAnimationTriggeredForRound.current = currentRound;
       const lastCapture = multiplayer.roundEndData.lastCapture;
       const capturePlayer: PlayerId = lastCapture === multiplayer.playerId ? 'human' : 'cpu';
-      const remainingCards = prevMultiplayerTableCards.current;
+      const remainingCards = multiplayer.roundEndData.remainingTableCards;
+
+      // Play capture sound for the remaining cards being collected
+      playSound('capture');
+      if (remainingCards.some(c => c.suit === 'coins')) {
+        playSound('coin');
+      }
 
       // Check if 7 of coins (sette bello) is being captured with the remaining cards
       if (remainingCards.some(c => c.suit === 'coins' && c.value === 7)) {
@@ -1676,11 +1687,6 @@ function App() {
       setTimeout(() => {
         setMultiplayerRoundEndAnimation(null);
       }, 1200);
-    }
-
-    // Update previous table cards (but not when roundEndData is showing, to preserve the captured state)
-    if (!multiplayer.roundEndData) {
-      prevMultiplayerTableCards.current = currentTable;
     }
   }, [multiplayer.gameState, multiplayer.roundEndData, multiplayer.playerId, multiplayer.nickname, multiplayer.opponentNickname, playSound]);
 

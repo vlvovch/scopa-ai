@@ -129,6 +129,8 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
 
   // Check if round should end
   if (shouldEndRound(room)) {
+    // Capture remaining table cards BEFORE endRound gives them to last capturer
+    const remainingTableCards = [...state.round.table];
     const { scores, gameOver, winner } = endRound(room);
 
     // Send round end (or game end) to both players
@@ -159,6 +161,7 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
             player2: state.players.player2.captured,
           },
           lastCapture: state.round.lastCapture!,
+          remainingTableCards,
         },
       });
       // Wait for both players to click "Next Round" before continuing
@@ -376,6 +379,8 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
   dealNewHands(room);
 
   if (shouldEndRound(room)) {
+    // Capture remaining table cards BEFORE endRound gives them to last capturer
+    const remainingTableCards = [...state.round.table];
     const { scores, gameOver, winner } = endRound(room);
 
     if (gameOver) {
@@ -405,6 +410,7 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
             player2: state.players.player2.captured,
           },
           lastCapture: state.round.lastCapture!,
+          remainingTableCards,
         },
       });
       // Wait for both players to click "Next Round" before continuing

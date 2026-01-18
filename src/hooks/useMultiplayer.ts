@@ -49,6 +49,8 @@ export interface UseMultiplayerReturn {
     cumulativeScores: Record<MultiplayerPlayerId, number>;
     capturedCards: Record<MultiplayerPlayerId, Card[]>;
     lastCapture: MultiplayerPlayerId;
+    /** Cards remaining on table that go to lastCapture player (for animation) */
+    remainingTableCards: Card[];
   } | null;
   gameEndData: {
     winner: MultiplayerPlayerId | 'tie';
@@ -231,6 +233,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
           cumulativeScores: message.payload.cumulativeScores,
           capturedCards: message.payload.capturedCards,
           lastCapture: message.payload.lastCapture,
+          remainingTableCards: message.payload.remainingTableCards,
         });
         break;
 
