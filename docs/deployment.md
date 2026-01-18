@@ -45,17 +45,24 @@ VITE_WS_URL=wss://your-domain.com/ws npm run build
 rsync -avz dist/ user@YOUR_SERVER_IP:/var/www/scopa-ai/
 ```
 
-## Step 3: Upload and setup the WebSocket server
+## Step 3: Build and upload the WebSocket server
+
+Build locally (TypeScript compiler required), then upload compiled files:
 
 ```bash
-# Upload server files
-rsync -avz scopa-server/ user@YOUR_SERVER_IP:/opt/scopa-server/
+# Build locally
+cd scopa-server
+npm install
+npm run build
 
-# SSH to server and install dependencies
+# Upload only what's needed for production
+rsync -avz dist/ user@YOUR_SERVER_IP:/opt/scopa-server/dist/
+rsync -avz package.json package-lock.json user@YOUR_SERVER_IP:/opt/scopa-server/
+
+# SSH to server and install production dependencies only
 ssh user@YOUR_SERVER_IP
 cd /opt/scopa-server
 npm install --production
-npm run build
 ```
 
 ## Step 4: Create systemd service for the WebSocket server
@@ -143,8 +150,13 @@ rsync -avz dist/ user@YOUR_SERVER_IP:/var/www/scopa-ai/
 ### WebSocket server
 
 ```bash
-rsync -avz scopa-server/ user@YOUR_SERVER_IP:/opt/scopa-server/
-ssh user@YOUR_SERVER_IP "cd /opt/scopa-server && npm run build && sudo systemctl restart scopa-server"
+# Build locally
+cd scopa-server
+npm run build
+
+# Upload and restart
+rsync -avz dist/ user@YOUR_SERVER_IP:/opt/scopa-server/dist/
+ssh user@YOUR_SERVER_IP "sudo systemctl restart scopa-server"
 ```
 
 ## Troubleshooting
