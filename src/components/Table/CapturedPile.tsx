@@ -51,9 +51,24 @@ interface CapturedPileProps {
   onClick?: () => void;
   /** Override card count for multiplayer (when actual cards aren't available) */
   capturedCount?: number;
+  /** Override coins count for multiplayer */
+  coinsCount?: number;
+  /** Override hasSetteBello for multiplayer */
+  hasSetteBello?: boolean;
 }
 
-export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, aiModel, onClick, capturedCount }: CapturedPileProps) {
+export function CapturedPile({
+  cards,
+  scopaCount,
+  player,
+  playerLabel,
+  aiType,
+  aiModel,
+  onClick,
+  capturedCount,
+  coinsCount: coinsCountOverride,
+  hasSetteBello: hasSetteBelloOverride,
+}: CapturedPileProps) {
   // Use capturedCount if provided (multiplayer mode), otherwise use cards.length
   const cardCount = capturedCount ?? cards.length;
 
@@ -62,12 +77,12 @@ export function CapturedPile({ cards, scopaCount, player, playerLabel, aiType, a
   const stackLayers = Math.min(6, Math.max(1, Math.ceil(cardCount / 4)));
   const isClickable = !!onClick && cardCount > 0;
 
-  // Calculate stats
+  // Calculate stats (use overrides for multiplayer mode, otherwise calculate from cards)
   const stats = useMemo(() => {
-    const denariCount = cards.filter(c => c.suit === 'coins').length;
-    const hasSetteBello = cards.some(c => c.suit === 'coins' && c.value === 7);
+    const denariCount = coinsCountOverride ?? cards.filter(c => c.suit === 'coins').length;
+    const hasSetteBello = hasSetteBelloOverride ?? cards.some(c => c.suit === 'coins' && c.value === 7);
     return { denariCount, hasSetteBello };
-  }, [cards]);
+  }, [cards, coinsCountOverride, hasSetteBelloOverride]);
 
   // Render player label with proper AI icon if available
   const renderLabel = (): ReactNode => {

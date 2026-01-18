@@ -2158,6 +2158,8 @@ function App() {
               scopaCount={mpState.opponent.scopaCount}
               player="cpu"
               capturedCount={mpState.opponent.capturedCount}
+              coinsCount={mpState.opponent.coinsCount}
+              hasSetteBello={mpState.opponent.hasSetteBello}
             />
           }
           tableCards={
@@ -2199,6 +2201,8 @@ function App() {
               scopaCount={mpState.self.scopaCount}
               player="human"
               capturedCount={mpState.self.capturedCount}
+              coinsCount={mpState.self.coinsCount}
+              hasSetteBello={mpState.self.hasSetteBello}
             />
           }
           humanHand={

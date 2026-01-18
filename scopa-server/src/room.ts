@@ -521,6 +521,10 @@ export function getPlayerVisibleState(
 
   const opponentId: MultiplayerPlayerId = playerId === 'player1' ? 'player2' : 'player1';
 
+  // Calculate coins stats for both players
+  const selfCaptured = state.players[playerId].captured;
+  const opponentCaptured = state.players[opponentId].captured;
+
   return {
     status: state.status,
     round: {
@@ -532,13 +536,17 @@ export function getPlayerVisibleState(
     },
     self: {
       hand: state.players[playerId].hand,
-      capturedCount: state.players[playerId].captured.length,
+      capturedCount: selfCaptured.length,
       scopaCount: state.players[playerId].scopaCount,
+      coinsCount: selfCaptured.filter(c => c.suit === 'coins').length,
+      hasSetteBello: selfCaptured.some(c => c.suit === 'coins' && c.value === 7),
     },
     opponent: {
       handCount: state.players[opponentId].hand.length,
-      capturedCount: state.players[opponentId].captured.length,
+      capturedCount: opponentCaptured.length,
       scopaCount: state.players[opponentId].scopaCount,
+      coinsCount: opponentCaptured.filter(c => c.suit === 'coins').length,
+      hasSetteBello: opponentCaptured.some(c => c.suit === 'coins' && c.value === 7),
     },
     scores: state.scores,
     roundNumber: state.roundNumber,

@@ -152,11 +152,15 @@ export interface PlayerVisibleGameState {
     hand: Card[];
     capturedCount: number;
     scopaCount: number;
+    coinsCount: number; // Number of coins (denari) captured
+    hasSetteBello: boolean; // Whether player has the 7 of coins
   };
   opponent: {
     handCount: number; // Only count, not actual cards
     capturedCount: number;
     scopaCount: number;
+    coinsCount: number; // Number of coins (denari) captured
+    hasSetteBello: boolean; // Whether opponent has the 7 of coins
   };
   scores: Record<MultiplayerPlayerId, number>;
   roundNumber: number;
