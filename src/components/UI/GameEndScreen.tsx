@@ -6,7 +6,75 @@ import type { RoundHistoryEntry } from '../../game/types';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';
+import { useDeck } from '../../contexts/DeckContext';
+import type { DeckType } from '../../hooks/useSettings';
 import styles from './GameEndScreen.module.css';
+
+// Custom SVG icons for score categories (matching RoundEndScreen)
+function CardsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      {/* Stack of cards - 3 cards fanned */}
+      <rect x="1" y="5" width="12" height="16" rx="1.5" fill="#f5f5dc" stroke="#666" strokeWidth="0.8" transform="rotate(-10 7 13)"/>
+      <rect x="6" y="4" width="12" height="16" rx="1.5" fill="#f5f5dc" stroke="#666" strokeWidth="0.8"/>
+      <rect x="11" y="5" width="12" height="16" rx="1.5" fill="#f5f5dc" stroke="#666" strokeWidth="0.8" transform="rotate(10 17 13)"/>
+    </svg>
+  );
+}
+
+function CoinIcon({ deckType }: { deckType: DeckType }) {
+  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      <image href={coinPath} x="2" y="2" width="20" height="20" />
+    </svg>
+  );
+}
+
+function SetteBelloIcon({ deckType }: { deckType: DeckType }) {
+  const coinSize = 4.5;
+  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      {/* Card background */}
+      <rect x="3" y="1" width="18" height="22" rx="2" fill="#f5f5dc" stroke="#333" strokeWidth="1"/>
+      {/* Row 1 - 2 coins */}
+      <image href={coinPath} x={9 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={15 - coinSize/2} y={4.5 - coinSize/2} width={coinSize} height={coinSize} />
+      {/* Row 2 - 1 coin */}
+      <image href={coinPath} x={12 - coinSize/2} y={9 - coinSize/2} width={coinSize} height={coinSize} />
+      {/* Row 3 - 2 coins */}
+      <image href={coinPath} x={9 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={15 - coinSize/2} y={14 - coinSize/2} width={coinSize} height={coinSize} />
+      {/* Row 4 - 2 coins */}
+      <image href={coinPath} x={9 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+      <image href={coinPath} x={15 - coinSize/2} y={19 - coinSize/2} width={coinSize} height={coinSize} />
+    </svg>
+  );
+}
+
+function PrimieraIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
+      <polygon
+        points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9"
+        fill="url(#starGradientGame)"
+        stroke="#8B6914"
+        strokeWidth="1"
+      />
+      <defs>
+        <linearGradient id="starGradientGame" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#FFD700"/>
+          <stop offset="100%" stopColor="#DAA520"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function ScopaIcon() {
+  return <span className={styles.emojiIcon}>🧹</span>;
+}
 
 interface GameEndScreenProps {
   humanScore: number;
@@ -76,6 +144,7 @@ export function GameEndScreen({
   opponentName,
   onLeaveGame,
 }: GameEndScreenProps) {
+  const deckType = useDeck();
   const isMultiplayer = onLeaveGame !== undefined;
   const humanWins = humanScore > cpuScore;
   const isTie = humanScore === cpuScore;
@@ -168,13 +237,13 @@ export function GameEndScreen({
     resultClass = styles.lose;
   }
 
-  // Category labels with Italian names
+  // Category labels with Italian names and SVG icons (matching RoundEndScreen)
   const categories = [
-    { key: 'cards', label: 'Carte', icon: '🃏' },
-    { key: 'coins', label: 'Denari', icon: '🪙' },
-    { key: 'setteBello', label: 'Sette Bello', icon: '7️⃣' },
-    { key: 'prime', label: 'Primiera', icon: '⭐' },
-    { key: 'scopas', label: 'Scopas', icon: '🧹' },
+    { key: 'cards', label: 'Carte', icon: <CardsIcon /> },
+    { key: 'coins', label: 'Denari', icon: <CoinIcon deckType={deckType} /> },
+    { key: 'setteBello', label: 'Sette Bello', icon: <SetteBelloIcon deckType={deckType} /> },
+    { key: 'prime', label: 'Primiera', icon: <PrimieraIcon /> },
+    { key: 'scopas', label: 'Scopas', icon: <ScopaIcon /> },
   ] as const;
 
   return (

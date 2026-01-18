@@ -175,6 +175,19 @@
   font-size: 1rem;
   width: 1.5em;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.categoryIconSvg {
+  display: block;
+}
+
+.emojiIcon {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .valueCell {
