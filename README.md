@@ -59,7 +59,7 @@ The app shows token usage accumulated during the game.
 
 One can pick a model for each AI independently based on API support and cost considerations.
 Advanced models with thinking modes can be significantly slower and more expensive than simpler models, with limited gain, so it's worth experimenting to find the right balance.
-In pratice, gemini-3-flash-preview shows good balance of speed (few secs per move) and performance (plays at Furbo level).
+In pratice, gemini-3-flash-preview shows good balance of speed (few secs per move) and performance (plays roughly at a Furbo level, feels human-like).
 
 <br clear="right"/>
 
