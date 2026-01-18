@@ -567,6 +567,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setTurnTimerSeconds(null);
     setCanForceMove(false);
     setLastMove(null);
+    setConnectionError(null);
   }, [sendMessage, disconnect, clearSession]);
 
   const clearRoundEnd = useCallback(() => {

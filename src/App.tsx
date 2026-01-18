@@ -78,14 +78,26 @@ function loadSpectatorModels(): { player1: string; player2: string } {
   return { player1: 'gemini-2.5-flash', player2: 'gemini-2.5-flash' };
 }
 
+// Session storage key (must match useMultiplayer.ts)
+const MP_SESSION_KEY = 'scopa-mp-session';
+
 // Check for join code from URL on initial load
+// If a join code is found, clear any existing session to prevent auto-reconnect to old game
 function getInitialJoinCode(): string | undefined {
   const params = new URLSearchParams(window.location.search);
   const joinFromParam = params.get('join');
-  if (joinFromParam) return joinFromParam.toUpperCase();
+  if (joinFromParam) {
+    // Clear existing session when joining via URL
+    try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
+    return joinFromParam.toUpperCase();
+  }
 
   const pathMatch = window.location.pathname.match(/^\/join\/([A-Z0-9-]+)$/i);
-  if (pathMatch) return pathMatch[1].toUpperCase();
+  if (pathMatch) {
+    // Clear existing session when joining via URL
+    try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
+    return pathMatch[1].toUpperCase();
+  }
 
   return undefined;
 }
@@ -2430,6 +2442,8 @@ function App() {
             onCreateRoom={multiplayer.createRoom}
             onJoinRoom={multiplayer.joinRoom}
             onBack={() => {
+              // Clean up any pending connection/room state
+              multiplayer.leaveRoom();
               setIsMultiplayerMode(false);
               // Clear URL if we came from a join link
               if (window.location.pathname !== '/' || window.location.search) {
