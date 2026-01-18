@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ExtendedAIType } from '../ai';
 
-export type DeckType = 'napoletane' | 'siciliane';
+export type DeckType = 'napoletane' | 'siciliane' | 'sarde';
 
 export interface GameSettings {
   /** Default target score for new games (minimum 1) */
