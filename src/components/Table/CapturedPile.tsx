@@ -55,6 +55,8 @@ interface CapturedPileProps {
   coinsCount?: number;
   /** Override hasSetteBello for multiplayer */
   hasSetteBello?: boolean;
+  /** Whether to show stats (coins, sette bello, scopas) - defaults to true */
+  showStats?: boolean;
 }
 
 export function CapturedPile({
@@ -68,6 +70,7 @@ export function CapturedPile({
   capturedCount,
   coinsCount: coinsCountOverride,
   hasSetteBello: hasSetteBelloOverride,
+  showStats = true,
 }: CapturedPileProps) {
   // Use capturedCount if provided (multiplayer mode), otherwise use cards.length
   const cardCount = capturedCount ?? cards.length;
@@ -127,28 +130,30 @@ export function CapturedPile({
       <div className={styles.pileInfo}>
         <span className={styles.cardCount}>{cardCount} cards</span>
 
-        <div className={styles.statsRow}>
-          {/* Denari (coins) count */}
-          <div className={styles.stat} title="Denari (Coins)">
-            <DenariIcon />
-            <span>{stats.denariCount}</span>
+        {showStats && (
+          <div className={styles.statsRow}>
+            {/* Denari (coins) count */}
+            <div className={styles.stat} title="Denari (Coins)">
+              <DenariIcon />
+              <span>{stats.denariCount}</span>
+            </div>
+
+            {/* Scopa count */}
+            {scopaCount > 0 && (
+              <div className={styles.stat} title={`${scopaCount} Scopa${scopaCount > 1 ? 's' : ''}`}>
+                <span className={styles.scopaIcon}>🧹</span>
+                <span>{scopaCount}</span>
+              </div>
+            )}
+
+            {/* Sette Bello indicator */}
+            {stats.hasSetteBello && (
+              <div className={styles.setteBello} title="Sette Bello (7 of Coins)">
+                <SetteBelloIndicator />
+              </div>
+            )}
           </div>
-
-          {/* Scopa count */}
-          {scopaCount > 0 && (
-            <div className={styles.stat} title={`${scopaCount} Scopa${scopaCount > 1 ? 's' : ''}`}>
-              <span className={styles.scopaIcon}>🧹</span>
-              <span>{scopaCount}</span>
-            </div>
-          )}
-
-          {/* Sette Bello indicator */}
-          {stats.hasSetteBello && (
-            <div className={styles.setteBello} title="Sette Bello (7 of Coins)">
-              <SetteBelloIndicator />
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

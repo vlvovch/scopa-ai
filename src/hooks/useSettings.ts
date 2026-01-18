@@ -40,6 +40,8 @@ export interface GameSettings {
   openaiKeyValid: boolean;
   /** Whether the Claude API key has been validated as working */
   claudeKeyValid: boolean;
+  /** Whether to show pile stats (coins count, sette bello, scopas) */
+  showPileStats: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -62,6 +64,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   geminiKeyValid: false,
   openaiKeyValid: false,
   claudeKeyValid: false,
+  showPileStats: true,
 };
 
 function loadSettings(): GameSettings {

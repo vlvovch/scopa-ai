@@ -2289,6 +2289,7 @@ function App() {
               capturedCount={mpState.opponent.capturedCount}
               coinsCount={mpState.opponent.coinsCount}
               hasSetteBello={mpState.opponent.hasSetteBello}
+              showStats={settings.showPileStats}
             />
           }
           tableCards={
@@ -2332,6 +2333,7 @@ function App() {
               capturedCount={mpState.self.capturedCount}
               coinsCount={mpState.self.coinsCount}
               hasSetteBello={mpState.self.hasSetteBello}
+              showStats={settings.showPileStats}
             />
           }
           humanHand={
@@ -2864,6 +2866,7 @@ function App() {
               player="cpu"
               aiType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
               aiModel={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
+              showStats={settings.showPileStats}
             />
             {((isSpectatorMode && isLLMAI(spectatorAIs.player2)) || (!isSpectatorMode && isLLMAI(settings.cpuAI))) && (
               <div style={{ position: 'relative' }}>
@@ -2964,6 +2967,7 @@ function App() {
               aiType={isSpectatorMode ? spectatorAIs.player1 : undefined}
               aiModel={isSpectatorMode ? spectatorModels.player1 : undefined}
               onClick={!isSpectatorMode ? () => setShowCapturedCards(true) : undefined}
+              showStats={settings.showPileStats}
             />
           </div>
         }

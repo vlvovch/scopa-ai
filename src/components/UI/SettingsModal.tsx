@@ -290,6 +290,25 @@ export function SettingsModal({
               </div>
             </div>
 
+            <div className={styles.setting}>
+              <label className={styles.label}>Display</label>
+              <div className={styles.toggleRow}>
+                <span className={styles.toggleLabel}>Show pile stats</span>
+                <button
+                  className={`${styles.toggle} ${settings.showPileStats ? styles.on : ''}`}
+                  onClick={() => onUpdateSetting('showPileStats', !settings.showPileStats)}
+                  title={settings.showPileStats ? 'Pile stats visible' : 'Pile stats hidden'}
+                >
+                  <span className={styles.toggleKnob} />
+                </button>
+              </div>
+              <p className={styles.settingHint}>
+                {settings.showPileStats
+                  ? 'Show coins count, sette bello, and scopas near piles'
+                  : 'Hide pile statistics for a cleaner view'}
+              </p>
+            </div>
+
             {/* API Keys Section */}
             <h3 className={styles.sectionTitle}>API Keys (to play against AI)</h3>
 
