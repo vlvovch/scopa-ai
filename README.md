@@ -67,6 +67,16 @@ In Watch Mode, you can view the AI's reasoning for each move:
 
 ![AI reasoning modal](screenshots/AI-watch-reason.png)
 
+### Multiplayer
+
+<img align="right" src="screenshots/multiplayer.png" width="160">
+
+Play against friends online via WebSocket server:
+- Matchmaking through a shareable game code
+- Session persistence (reconnect after page refresh)
+
+<br clear="right"/>
+
 ### Gameplay Features
 
 - Default Scopa rules implementation (mandatory capture, single-card priority, scopa scoring)
@@ -135,11 +145,9 @@ VITE_CLAUDE_API_KEY=your-claude-api-key
 
 ---
 
-## Multiplayer
+## Running the Multiplayer Server
 
 The multiplayer mode uses a lightweight WebSocket server for real-time gameplay.
-
-### Running the Multiplayer Server
 
 ```bash
 cd scopa-server
@@ -160,16 +168,6 @@ The server runs on port 8080 by default. Configure the client to connect via:
 ```bash
 VITE_WS_URL=ws://localhost:8080
 ```
-
-### Multiplayer Features
-
-<img align="right" src="screenshots/multiplayer.png" width="160">
-
-- Matchmaking through a shareable game code
-- Session persistence (reconnect after page refresh)
-<!-- - Turn timer with configurable duration -->
-
-<br clear="right"/>
 
 ---
 
