@@ -22,7 +22,7 @@ export async function validateGeminiKey(apiKey: string): Promise<{ valid: boolea
     }
 
     return { valid: false, error: `API error: ${response.status}` };
-  } catch (err) {
+  } catch {
     return { valid: false, error: 'Network error' };
   }
 }
@@ -51,7 +51,7 @@ export async function validateOpenAIKey(apiKey: string): Promise<{ valid: boolea
     }
 
     return { valid: false, error: `API error: ${response.status}` };
-  } catch (err) {
+  } catch {
     return { valid: false, error: 'Network error' };
   }
 }

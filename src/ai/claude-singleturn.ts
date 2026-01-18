@@ -324,9 +324,8 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       this.updateTimingStats(turnTime);
 
       // Extract text block with JSON response
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const textBlock = response.content.find(
-        (block: any): block is Anthropic.TextBlock => block.type === 'text'
+        (block): block is Anthropic.TextBlock => block.type === 'text'
       );
 
       if (!textBlock) {

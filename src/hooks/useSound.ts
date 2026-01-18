@@ -43,7 +43,7 @@ const loadingPromises: Map<string, Promise<AudioBuffer>> = new Map();
 function getAudioContext(): AudioContext {
   if (!audioContext) {
     // Standard AudioContext with fallback for older browsers
-    // @ts-ignore - for vendor prefix fallback
+    // @ts-expect-error - webkitAudioContext is a vendor prefix for older Safari
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     audioContext = new AudioCtx();
   }
@@ -217,7 +217,7 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
     activeSources.current.forEach(source => {
       try {
         source.stop();
-      } catch (e) {
+      } catch {
         // Source might already have stopped
       }
     });
@@ -237,7 +237,7 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
       activeSources.current.forEach(source => {
         try {
           source.stop();
-        } catch (e) {
+        } catch {
           // Ignore errors
         }
       });
