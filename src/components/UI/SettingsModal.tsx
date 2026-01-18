@@ -37,6 +37,8 @@ export function SettingsModal({
 }: SettingsModalProps) {
   // Track if warning popup should be shown
   const [showApiKeyWarning, setShowApiKeyWarning] = useState(false);
+  // Track if deck selector modal should be shown
+  const [showDeckSelector, setShowDeckSelector] = useState(false);
   const [pendingKeyUpdate, setPendingKeyUpdate] = useState<{
     key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey';
     value: string;
@@ -247,17 +249,17 @@ export function SettingsModal({
 
             <div className={styles.setting}>
               <label className={styles.label}>Card Deck</label>
-              <div className={styles.options}>
-                {DECK_OPTIONS.map((deck) => (
-                  <button
-                    key={deck.value}
-                    className={`${styles.option} ${settings.deck === deck.value ? styles.selected : ''}`}
-                    onClick={() => onUpdateSetting('deck', deck.value)}
-                  >
-                    {deck.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                className={styles.deckSelectorButton}
+                onClick={() => setShowDeckSelector(true)}
+              >
+                <img
+                  src={`./cards/${settings.deck}/coins-1.webp`}
+                  alt={settings.deck}
+                  className={styles.deckPreviewThumb}
+                />
+                <span>{DECK_OPTIONS.find(d => d.value === settings.deck)?.label}</span>
+              </button>
             </div>
 
             <div className={styles.setting}>
@@ -408,6 +410,45 @@ export function SettingsModal({
               <button className={styles.warningConfirm} onClick={handleWarningConfirm}>
                 I Understand
               </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {showDeckSelector && (
+        <motion.div
+          className={styles.deckSelectorOverlay}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={() => setShowDeckSelector(false)}
+        >
+          <motion.div
+            className={styles.deckSelectorModal}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className={styles.deckSelectorTitle}>Select Card Deck</h3>
+            <div className={styles.deckGrid}>
+              {DECK_OPTIONS.map((deck) => (
+                <button
+                  key={deck.value}
+                  className={`${styles.deckOption} ${settings.deck === deck.value ? styles.deckSelected : ''}`}
+                  onClick={() => {
+                    onUpdateSetting('deck', deck.value);
+                    setShowDeckSelector(false);
+                  }}
+                >
+                  <img
+                    src={`./cards/${deck.value}/coins-1.webp`}
+                    alt={deck.label}
+                    className={styles.deckPreview}
+                  />
+                  <span className={styles.deckLabel}>{deck.label}</span>
+                </button>
+              ))}
             </div>
           </motion.div>
         </motion.div>
