@@ -16,6 +16,8 @@
   will-change: transform;
   background-color: #ffffff;
   overflow: hidden;
+  /* Optional outline for visibility on light backgrounds (e.g., tablecloth) */
+  outline: var(--card-outline, none);
 }
 
 /* Scale img to clip SVG's built-in border */

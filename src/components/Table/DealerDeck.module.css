@@ -38,7 +38,7 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text-secondary);
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--control-bg, rgba(0, 0, 0, 0.4));
   padding: 2px 10px;
   border-radius: 10px;
 }
@@ -46,16 +46,17 @@
 .emptyDeck {
   width: var(--card-width);
   height: var(--card-height);
-  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border: 2px dashed var(--dashed-border-color, rgba(255, 255, 255, 0.2));
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--empty-area-bg, transparent);
 }
 
 .emptyLabel {
   font-size: 10px;
-  color: var(--color-text-secondary);
+  color: var(--empty-label-color, var(--color-text-secondary));
   opacity: 0.5;
   text-align: center;
 }

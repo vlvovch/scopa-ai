@@ -123,6 +123,18 @@ function getInitialJoinCode(): string | undefined {
 function App() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
+
+  // Apply table style class to body element
+  useEffect(() => {
+    const body = document.body;
+    // Remove any existing table style classes
+    body.classList.remove('table-green', 'table-tablecloth');
+    // Add the current table style class
+    if (settings.tableStyle !== 'green') {
+      body.classList.add(`table-${settings.tableStyle}`);
+    }
+  }, [settings.tableStyle]);
+
   const { play: playSound, resume: resumeAudio } = useSound({
     enabled: settings.soundEnabled,
   });
@@ -2356,7 +2368,7 @@ function App() {
             />
           }
           controls={
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
+            <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
               {/* Turn timer */}
               {multiplayer.turnTimerEnabled && multiplayer.turnTimerSeconds !== null && (
                 <TurnTimer
@@ -2367,7 +2379,7 @@ function App() {
                 />
               )}
 
-              <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+              <span style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
                 {isMyTurn ? 'Your turn' : `${multiplayer.opponentNickname}'s turn`}
               </span>
 
@@ -2993,15 +3005,15 @@ function App() {
           />
         }
         controls={
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
-            <span style={{ fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+          <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
+            <span style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
               {isSpectatorMode
                 ? `${AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name}'s turn${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? ' (Paused)' : ''}`
                 : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} is thinking...`}
             </span>
 
-            {/* Action buttons container - always takes up space */}
-            <div style={{ minHeight: '36px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Action buttons container */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {/* Spectator mode pause/play controls */}
               {isSpectatorMode && (
                 <button

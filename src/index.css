@@ -89,6 +89,60 @@ body {
   overflow-y: auto;
 }
 
+/* Tablecloth Pattern - Classic Gingham (softened/pastel) */
+body.table-tablecloth {
+  /* Tie size to card width for consistent proportions */
+  --tablecloth-size: var(--card-width);
+  /* Solid background color - pattern is in ::before */
+  background-color: #faf8f5;
+  /* Keep dark controls (same as green table) */
+  --control-bg: rgba(0, 0, 0, 0.75);
+  --control-bg-light: rgba(0, 0, 0, 0.6);
+  /* Warm ivory overlay for empty pile and play area (darker for less contrast) */
+  --dashed-border-color: rgba(139, 90, 43, 0.4);
+  --empty-area-bg: rgba(235, 225, 200, 0.85);
+  --table-area-bg: rgba(230, 220, 195, 0.8);
+  /* Card outline for visibility on tablecloth */
+  --card-outline: 1px solid rgba(0, 0, 0, 0.2);
+  /* Dark text for empty labels on light backgrounds */
+  --empty-label-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Tablecloth pattern layer with blur - only affects the pattern, not content */
+body.table-tablecloth::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    /* Horizontal pastel red stripes */
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 50%,
+      rgba(200, 70, 85, 0.42) 50%,
+      rgba(200, 70, 85, 0.42) 100%
+    ),
+    /* Vertical pastel red stripes */
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 50%,
+      rgba(200, 70, 85, 0.42) 50%,
+      rgba(200, 70, 85, 0.42) 100%
+    );
+  background-size: var(--tablecloth-size) var(--tablecloth-size);
+  filter: blur(0.5px);
+}
+
+/* Global control panel class for tablecloth mode */
+.control-panel {
+  background: var(--control-bg, transparent);
+  padding: var(--space-3);
+  border-radius: 8px;
+}
+
 #root {
   min-height: 100vh;
   display: flex;

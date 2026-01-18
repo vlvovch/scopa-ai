@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ExtendedAIType } from '../ai';
 
 export type DeckType = 'napoletane' | 'siciliane' | 'sarde' | 'piacentine' | 'bergamasche' | 'romagnole';
+export type TableStyle = 'green' | 'tablecloth';
 
 export interface GameSettings {
   /** Default target score for new games (minimum 1) */
@@ -16,6 +17,8 @@ export interface GameSettings {
   cpuAI: ExtendedAIType;
   /** Card deck style */
   deck: DeckType;
+  /** Table background style */
+  tableStyle: TableStyle;
   /** Gemini model to use (when cpuAI is 'gemini' or 'gemini-singleturn') */
   geminiModel: string;
   /** OpenAI model to use (when cpuAI is 'openai' or 'openai-singleturn') */
@@ -52,6 +55,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   showCardValues: true,
   cpuAI: 'heuristic',
   deck: 'napoletane',
+  tableStyle: 'green',
   geminiModel: 'gemini-2.5-flash',
   openaiModel: 'gpt-4o-mini',
   claudeModel: 'claude-sonnet-4-5-20250929',

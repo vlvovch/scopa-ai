@@ -54,7 +54,7 @@
 }
 
 .cardCount {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--control-bg-light, rgba(0, 0, 0, 0.3));
   color: var(--color-text-primary);
   padding: 2px 8px;
   border-radius: 10px;
@@ -74,7 +74,7 @@
   gap: 2px;
   font-size: 11px;
   color: var(--color-text-secondary);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--control-bg-light, rgba(0, 0, 0, 0.2));
   padding: 2px 6px;
   border-radius: 8px;
 }
@@ -133,16 +133,17 @@
 .emptyPile {
   width: var(--card-width);
   height: var(--card-height);
-  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border: 2px dashed var(--dashed-border-color, rgba(255, 255, 255, 0.2));
   border-radius: var(--card-border-radius);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--empty-area-bg, transparent);
 }
 
 .emptyPile span {
   font-size: 10px;
-  color: var(--color-text-secondary);
+  color: var(--empty-label-color, var(--color-text-secondary));
 }
 
 /* Mobile responsive styles */

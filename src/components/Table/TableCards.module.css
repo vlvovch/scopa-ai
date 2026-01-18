@@ -26,9 +26,9 @@
   /* Max 8 cards per row */
   max-width: calc(8 * var(--card-width) + 7 * var(--space-3) + 16px);
   flex: 1;
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--table-area-bg, rgba(0, 0, 0, 0.1));
   border-radius: 12px;
-  border: 2px dashed rgba(255, 255, 255, 0.1);
+  border: 2px dashed var(--dashed-border-color, rgba(255, 255, 255, 0.1));
 }
 
 .tableCard {
@@ -42,7 +42,7 @@
 }
 
 .emptyMessage {
-  color: var(--color-text-secondary);
+  color: var(--empty-label-color, var(--color-text-secondary));
   font-style: italic;
   font-size: 14px;
   white-space: nowrap;
@@ -71,7 +71,7 @@
     max-width: calc(4 * var(--card-width) + 3 * var(--space-1) + 2 * var(--space-2));
     flex: 1;
     border-width: 1px;
-    background: rgba(0, 0, 0, 0.08);
+    background: var(--table-area-bg, rgba(0, 0, 0, 0.08));
   }
 
   .deckArea {

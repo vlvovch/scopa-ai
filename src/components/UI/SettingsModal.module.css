@@ -61,9 +61,10 @@
   border-bottom: none;
 }
 
-/* Inline layout for label + options or deck selector */
+/* Inline layout for label + options or deck selector or table style */
 .setting:has(.options),
-.setting:has(.deckSelectorButton) {
+.setting:has(.deckSelectorButton),
+.setting:has(.tableStyleOptions) {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
@@ -573,6 +574,57 @@
 .deckOption.deckSelected .deckLabel {
   color: var(--color-accent);
   font-weight: 600;
+}
+
+/* Table Style Selector */
+.tableStyleOptions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.tableStyleOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+}
+
+.tableStyleOption:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.tableStyleOption.tableStyleSelected {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.tableStylePreview {
+  width: 48px;
+  height: 32px;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.tablePreviewGreen {
+  background-color: #1B5E20;
+}
+
+.tablePreviewTablecloth {
+  --tc-size: 12px;
+  background-color: #faf8f5;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 50%, rgba(200, 70, 85, 0.42) 50%, rgba(200, 70, 85, 0.42) 100%),
+    repeating-linear-gradient(90deg, transparent, transparent 50%, rgba(200, 70, 85, 0.42) 50%, rgba(200, 70, 85, 0.42) 100%);
+  background-size: var(--tc-size) var(--tc-size);
 }
 
 /* Mobile responsive styles */

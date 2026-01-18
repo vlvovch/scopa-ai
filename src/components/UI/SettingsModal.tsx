@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { GameSettings, DeckType } from '../../hooks/useSettings';
+import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
 import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../ai/validateApiKey';
 import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../ai';
 import styles from './SettingsModal.module.css';
@@ -14,6 +14,11 @@ const DECK_OPTIONS: { value: DeckType; label: string }[] = [
   { value: 'piacentine', label: 'Piacentine' },
   { value: 'bergamasche', label: 'Bergamasche' },
   { value: 'romagnole', label: 'Romagnole' },
+];
+
+const TABLE_STYLE_OPTIONS: { value: TableStyle; label: string }[] = [
+  { value: 'green', label: 'Green Felt' },
+  { value: 'tablecloth', label: 'Tablecloth' },
 ];
 
 const PRESET_SCORES = [11, 16, 21] as const;
@@ -261,6 +266,22 @@ export function SettingsModal({
                 />
                 <span>{DECK_OPTIONS.find(d => d.value === settings.deck)?.label}</span>
               </button>
+            </div>
+
+            <div className={styles.setting}>
+              <label className={styles.label}>Table Style</label>
+              <div className={styles.tableStyleOptions}>
+                {TABLE_STYLE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className={`${styles.tableStyleOption} ${settings.tableStyle === option.value ? styles.tableStyleSelected : ''}`}
+                    onClick={() => onUpdateSetting('tableStyle', option.value)}
+                  >
+                    <div className={`${styles.tableStylePreview} ${styles[`tablePreview${option.value.charAt(0).toUpperCase() + option.value.slice(1)}`]}`} />
+                    <span>{option.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className={styles.setting}>
