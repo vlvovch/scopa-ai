@@ -67,6 +67,7 @@ function handleMessage(ws: AuthenticatedWebSocket, message: ClientMessage): void
     // Game-related messages require authentication
     case 'PLAY_MOVE':
     case 'START_NEW_GAME':
+    case 'RESTART_GAME':
     case 'CONTINUE_ROUND':
     case 'FORCE_MOVE':
     case 'UPDATE_NICKNAME':

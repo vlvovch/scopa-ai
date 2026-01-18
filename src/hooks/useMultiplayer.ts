@@ -48,6 +48,8 @@ export interface UseMultiplayerReturn {
     scores: Record<MultiplayerPlayerId, RoundScore>;
     cumulativeScores: Record<MultiplayerPlayerId, number>;
     capturedCards: Record<MultiplayerPlayerId, Card[]>;
+    /** Cards captured during each scopa (for highlighting in round summary) */
+    scopaCaptures: Record<MultiplayerPlayerId, Card[][]>;
     lastCapture: MultiplayerPlayerId;
     /** Cards remaining on table that go to lastCapture player (for animation) */
     remainingTableCards: Card[];
@@ -61,6 +63,9 @@ export interface UseMultiplayerReturn {
 
   // Rematch
   newGameRequestedBy: MultiplayerPlayerId | null;
+
+  // Mid-game restart
+  restartRequestedBy: MultiplayerPlayerId | null;
 
   // Next round
   nextRoundRequests: Set<MultiplayerPlayerId>;
@@ -80,6 +85,7 @@ export interface UseMultiplayerReturn {
   playMove: (move: MultiplayerMove) => void;
   forceMove: () => void;
   requestNewGame: () => void;
+  requestRestart: () => void;
   continueToNextRound: () => void;
   updateNickname: (nickname: string) => void;
   leaveRoom: () => void;
@@ -122,6 +128,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   // Rematch
   const [newGameRequestedBy, setNewGameRequestedBy] = useState<MultiplayerPlayerId | null>(null);
+
+  // Mid-game restart
+  const [restartRequestedBy, setRestartRequestedBy] = useState<MultiplayerPlayerId | null>(null);
 
   // Next round
   const [nextRoundRequests, setNextRoundRequests] = useState<Set<MultiplayerPlayerId>>(new Set());
@@ -232,6 +241,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
           scores: message.payload.scores,
           cumulativeScores: message.payload.cumulativeScores,
           capturedCards: message.payload.capturedCards,
+          scopaCaptures: message.payload.scopaCaptures,
           lastCapture: message.payload.lastCapture,
           remainingTableCards: message.payload.remainingTableCards,
         });
@@ -285,6 +295,15 @@ export function useMultiplayer(): UseMultiplayerReturn {
         setRoundEndData(null);
         setGameEndData(null);
         setNewGameRequestedBy(null);
+        setRestartRequestedBy(null);
+        break;
+
+      case 'RESTART_REQUESTED':
+        setRestartRequestedBy(message.payload.by);
+        break;
+
+      case 'RESTART_CANCELLED':
+        setRestartRequestedBy(null);
         break;
 
       case 'NEXT_ROUND_REQUESTED':
@@ -434,6 +453,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
     score: number,
     timerEnabled: boolean
   ) => {
+    // Clear any existing session when creating a new game
+    clearSession();
+
     setNickname(playerNickname);
     setTargetScore(score);
     setTurnTimerEnabled(timerEnabled);
@@ -456,9 +478,12 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
     // Timeout after 10 seconds
     setTimeout(() => clearInterval(checkConnection), 10000);
-  }, [connect, sendMessage]);
+  }, [clearSession, connect, sendMessage]);
 
   const joinRoom = useCallback((code: string, playerNickname: string) => {
+    // Clear any existing session when joining a game
+    clearSession();
+
     setNickname(playerNickname);
     connect();
 
@@ -477,7 +502,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     }, 100);
 
     setTimeout(() => clearInterval(checkConnection), 10000);
-  }, [connect, sendMessage]);
+  }, [clearSession, connect, sendMessage]);
 
   const playMove = useCallback((move: MultiplayerMove) => {
     sendMessage({
@@ -493,6 +518,15 @@ export function useMultiplayer(): UseMultiplayerReturn {
   const requestNewGame = useCallback(() => {
     sendMessage({ type: 'START_NEW_GAME' });
   }, [sendMessage]);
+
+  const requestRestart = useCallback(() => {
+    sendMessage({ type: 'RESTART_GAME' });
+    // Optimistically set ourselves as requester (UI feedback)
+    // If already requested, this will cancel (server handles toggle)
+    if (playerId) {
+      setRestartRequestedBy(prev => prev === playerId ? null : playerId);
+    }
+  }, [sendMessage, playerId]);
 
   const continueToNextRound = useCallback(() => {
     sendMessage({ type: 'CONTINUE_ROUND' });
@@ -511,7 +545,12 @@ export function useMultiplayer(): UseMultiplayerReturn {
   }, [sendMessage]);
 
   const leaveRoom = useCallback(() => {
-    sendMessage({ type: 'LEAVE_ROOM' });
+    // Try to notify server, but don't block on it
+    try {
+      sendMessage({ type: 'LEAVE_ROOM' });
+    } catch {
+      // Ignore errors - we're leaving anyway
+    }
     disconnect();
     clearSession();
 
@@ -524,8 +563,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setRoundEndData(null);
     setGameEndData(null);
     setNewGameRequestedBy(null);
+    setRestartRequestedBy(null);
     setTurnTimerSeconds(null);
     setCanForceMove(false);
+    setLastMove(null);
   }, [sendMessage, disconnect, clearSession]);
 
   const clearRoundEnd = useCallback(() => {
@@ -601,6 +642,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
     // Rematch
     newGameRequestedBy,
 
+    // Mid-game restart
+    restartRequestedBy,
+
     // Next round
     nextRoundRequests,
 
@@ -615,6 +659,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     playMove,
     forceMove,
     requestNewGame,
+    requestRestart,
     continueToNextRound,
     updateNickname,
     leaveRoom,

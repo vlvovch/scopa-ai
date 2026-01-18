@@ -7,21 +7,62 @@ interface GameControlsProps {
   onOpenSettings: () => void;
   onOpenStats: () => void;
   onOpenRules: () => void;
+  /** For multiplayer: request restart instead of new game */
+  onRequestRestart?: () => void;
+  /** For multiplayer: quit and leave the game */
+  onQuitGame?: () => void;
+  /** Whether in multiplayer mode */
+  isMultiplayer?: boolean;
 }
 
-export function GameControls({ onNewGame, onOpenSettings, onOpenStats, onOpenRules }: GameControlsProps) {
+export function GameControls({
+  onNewGame,
+  onOpenSettings,
+  onOpenStats,
+  onOpenRules,
+  onRequestRestart,
+  onQuitGame,
+  isMultiplayer = false,
+}: GameControlsProps) {
   return (
     <div className={styles.controls}>
-      <button
-        className={styles.button}
-        onClick={onNewGame}
-        title="Start New Game"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-          <path d="M3 3v5h5" />
-        </svg>
-      </button>
+      {/* In multiplayer: show both restart and quit buttons */}
+      {isMultiplayer ? (
+        <>
+          <button
+            className={styles.button}
+            onClick={onRequestRestart}
+            title="Restart Game"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+          </button>
+          <button
+            className={`${styles.button} ${styles.quitButton}`}
+            onClick={onQuitGame}
+            title="Quit Game"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+          </button>
+        </>
+      ) : (
+        <button
+          className={styles.button}
+          onClick={onNewGame}
+          title="Start New Game"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+        </button>
+      )}
       <button
         className={styles.button}
         onClick={onOpenRules}

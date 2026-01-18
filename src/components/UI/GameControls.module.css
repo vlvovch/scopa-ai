@@ -63,6 +63,18 @@
   }
 }
 
+/* Quit button styling - slightly different to indicate leaving */
+.quitButton {
+  color: #e57373;
+  border-color: rgba(229, 115, 115, 0.3);
+}
+
+.quitButton:hover {
+  background: rgba(229, 115, 115, 0.15);
+  color: #ef5350;
+  border-color: rgba(229, 115, 115, 0.5);
+}
+
 /* Landscape mobile - compact controls (phones only - requires small width too) */
 @media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .controls {

@@ -25,6 +25,7 @@ import { CapturedCardsModal } from './components/UI/CapturedCardsModal';
 import { MultiplayerLobby } from './components/UI/MultiplayerLobby';
 import { WaitingForOpponent } from './components/UI/WaitingForOpponent';
 import { OpponentDisconnected } from './components/UI/OpponentDisconnected';
+import { RestartOverlay } from './components/UI/RestartOverlay';
 import { TurnTimer } from './components/UI/TurnTimer';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
@@ -1439,6 +1440,8 @@ function App() {
     lastCapture: PlayerId;
     phase: 'highlight' | 'exit';
   } | null>(null);
+  // Delay showing round summary to allow animation to complete and add a pause
+  const [multiplayerRoundSummaryDelay, setMultiplayerRoundSummaryDelay] = useState(false);
 
   // Resume AudioContext when multiplayer game starts (Chrome autoplay policy workaround)
   // The game may start after a period of inactivity while waiting for opponent
@@ -1470,6 +1473,18 @@ function App() {
         setMultiplayerDealMode('table');
         setMultiplayerIsRoundStartDeal(true);
       }
+      return;
+    }
+
+    // Check for game restart: roundNumber decreased (went from e.g. round 2 to round 1)
+    // This happens when both players accept a restart mid-game
+    const isGameRestart = currentRoundNumber < (prevMpDealRoundNumber.current ?? 0);
+    if (isGameRestart && currentDeckCount === 30) {
+      prevMpDealRoundNumber.current = currentRoundNumber;
+      prevMultiplayerDeckCount.current = currentDeckCount;
+      setMultiplayerIsDealing(true);
+      setMultiplayerDealMode('table');
+      setMultiplayerIsRoundStartDeal(true);
       return;
     }
 
@@ -1646,47 +1661,59 @@ function App() {
 
     const currentRound = multiplayer.gameState.roundNumber;
 
-    // When roundEndData appears with remaining cards, trigger animation (once per round)
+    // When roundEndData appears, trigger delay and animation (once per round)
     if (
       multiplayer.roundEndData &&
-      multiplayer.roundEndData.remainingTableCards.length > 0 &&
       roundEndAnimationTriggeredForRound.current !== currentRound
     ) {
       roundEndAnimationTriggeredForRound.current = currentRound;
-      const lastCapture = multiplayer.roundEndData.lastCapture;
-      const capturePlayer: PlayerId = lastCapture === multiplayer.playerId ? 'human' : 'cpu';
       const remainingCards = multiplayer.roundEndData.remainingTableCards;
 
-      // Play capture sound for the remaining cards being collected
-      playSound('capture');
-      if (remainingCards.some(c => c.suit === 'coins')) {
-        playSound('coin');
+      // Start delay immediately to prevent showing round summary too soon
+      setMultiplayerRoundSummaryDelay(true);
+
+      if (remainingCards.length > 0) {
+        // There are cards to animate
+        const lastCapture = multiplayer.roundEndData.lastCapture;
+        const capturePlayer: PlayerId = lastCapture === multiplayer.playerId ? 'human' : 'cpu';
+
+        // Play capture sound for the remaining cards being collected
+        playSound('capture');
+        if (remainingCards.some(c => c.suit === 'coins')) {
+          playSound('coin');
+        }
+
+        // Check if 7 of coins (sette bello) is being captured with the remaining cards
+        if (remainingCards.some(c => c.suit === 'coins' && c.value === 7)) {
+          playSound('setteBello');
+          const playerName = capturePlayer === 'human' ? multiplayer.nickname : (multiplayer.opponentNickname || 'Opponent');
+          setSetteBelloCelebration({ show: true, player: capturePlayer, playerName });
+          setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
+        }
+
+        // Phase 1: highlight cards briefly
+        setMultiplayerRoundEndAnimation({
+          tableCards: remainingCards,
+          lastCapture: capturePlayer,
+          phase: 'highlight',
+        });
+
+        // Phase 2: after brief highlight, trigger exit animation by switching phase
+        setTimeout(() => {
+          setMultiplayerRoundEndAnimation(prev => prev ? { ...prev, phase: 'exit' } : null);
+        }, 300);
+
+        // Clear animation and delay after exit animation completes + pause
+        setTimeout(() => {
+          setMultiplayerRoundEndAnimation(null);
+          setMultiplayerRoundSummaryDelay(false);
+        }, 2000); // Increased from 1200ms to add ~800ms pause before summary
+      } else {
+        // No remaining cards, just pause briefly before showing round summary
+        setTimeout(() => {
+          setMultiplayerRoundSummaryDelay(false);
+        }, 1200); // ~1 second pause before showing round summary
       }
-
-      // Check if 7 of coins (sette bello) is being captured with the remaining cards
-      if (remainingCards.some(c => c.suit === 'coins' && c.value === 7)) {
-        playSound('setteBello');
-        const playerName = capturePlayer === 'human' ? multiplayer.nickname : (multiplayer.opponentNickname || 'Opponent');
-        setSetteBelloCelebration({ show: true, player: capturePlayer, playerName });
-        setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
-      }
-
-      // Phase 1: highlight cards briefly
-      setMultiplayerRoundEndAnimation({
-        tableCards: remainingCards,
-        lastCapture: capturePlayer,
-        phase: 'highlight',
-      });
-
-      // Phase 2: after brief highlight, trigger exit animation by switching phase
-      setTimeout(() => {
-        setMultiplayerRoundEndAnimation(prev => prev ? { ...prev, phase: 'exit' } : null);
-      }, 300);
-
-      // Clear after exit animation completes
-      setTimeout(() => {
-        setMultiplayerRoundEndAnimation(null);
-      }, 1200);
     }
   }, [multiplayer.gameState, multiplayer.roundEndData, multiplayer.playerId, multiplayer.nickname, multiplayer.opponentNickname, playSound]);
 
@@ -2045,8 +2072,8 @@ function App() {
     const mpState = multiplayer.gameState;
     const isMyTurn = mpState.round.currentPlayer === multiplayer.playerId;
 
-    // Multiplayer round end screen (delay while last-capture animation plays)
-    if (multiplayer.roundEndData && !multiplayerRoundEndAnimation) {
+    // Multiplayer round end screen (delay while last-capture animation plays and pause completes)
+    if (multiplayer.roundEndData && !multiplayerRoundEndAnimation && !multiplayerRoundSummaryDelay) {
       const myId = multiplayer.playerId!;
       const oppId = myId === 'player1' ? 'player2' : 'player1';
 
@@ -2060,8 +2087,8 @@ function App() {
             cumulativeCpu={multiplayer.roundEndData.cumulativeScores[oppId]}
             humanCaptured={multiplayer.roundEndData.capturedCards[myId]}
             cpuCaptured={multiplayer.roundEndData.capturedCards[oppId]}
-            humanScopaCaptures={[]}
-            cpuScopaCaptures={[]}
+            humanScopaCaptures={multiplayer.roundEndData.scopaCaptures[myId]}
+            cpuScopaCaptures={multiplayer.roundEndData.scopaCaptures[oppId]}
             onNextRound={multiplayer.continueToNextRound}
             player1Name="You"
             player2Name={multiplayer.opponentNickname || 'Opponent'}
@@ -2108,6 +2135,16 @@ function App() {
           />
         )}
 
+        {/* Restart request overlay */}
+        {multiplayer.restartRequestedBy && (
+          <RestartOverlay
+            requestedBy={multiplayer.restartRequestedBy === multiplayer.playerId ? 'self' : 'opponent'}
+            opponentNickname={multiplayer.opponentNickname || 'Opponent'}
+            onRequestRestart={multiplayer.requestRestart}
+            onCancel={multiplayer.requestRestart}
+          />
+        )}
+
         <GameLayout
           scoreBoard={
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
@@ -2126,6 +2163,9 @@ function App() {
                 onOpenSettings={handleOpenSettings}
                 onOpenStats={handleOpenStats}
                 onOpenRules={handleOpenRules}
+                onRequestRestart={multiplayer.requestRestart}
+                onQuitGame={handleLeaveMultiplayer}
+                isMultiplayer
               />
             </div>
           }

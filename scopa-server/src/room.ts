@@ -102,6 +102,7 @@ export function createRoom(
     currentTurnStartedAt: null,
     newGameRequests: new Set(),
     nextRoundRequests: new Set(),
+    restartRequests: new Set(),
   };
 
   rooms.set(code, room);

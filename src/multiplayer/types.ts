@@ -102,6 +102,7 @@ export type ClientMessage =
       };
     }
   | { type: 'START_NEW_GAME' }
+  | { type: 'RESTART_GAME' }
   | { type: 'CONTINUE_ROUND' }
   | { type: 'FORCE_MOVE' }
   | {
@@ -169,6 +170,8 @@ export type ServerMessage =
         scores: Record<MultiplayerPlayerId, GameRoundScore>;
         cumulativeScores: Record<MultiplayerPlayerId, number>;
         capturedCards: Record<MultiplayerPlayerId, Card[]>;
+        /** Cards captured during each scopa (for highlighting in round summary) */
+        scopaCaptures: Record<MultiplayerPlayerId, Card[][]>;
         lastCapture: MultiplayerPlayerId;
         /** Cards remaining on table that go to lastCapture player (for animation) */
         remainingTableCards: Card[];
@@ -220,6 +223,15 @@ export type ServerMessage =
       payload: {
         state: PlayerVisibleGameState;
       };
+    }
+  | {
+      type: 'RESTART_REQUESTED';
+      payload: {
+        by: MultiplayerPlayerId;
+      };
+    }
+  | {
+      type: 'RESTART_CANCELLED';
     }
   | {
       type: 'NEXT_ROUND_REQUESTED';

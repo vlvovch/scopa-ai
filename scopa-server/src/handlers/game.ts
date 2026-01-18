@@ -20,6 +20,7 @@ import {
   endRound,
   startNextRound,
   resetTurnTimer,
+  clearTurnTimer,
   deleteRoom,
 } from '../room.js';
 import { isValidMove, executeMove, getRandomMove } from '../game/rules.js';
@@ -45,6 +46,10 @@ export function handleGameMessage(
 
     case 'START_NEW_GAME':
       handleNewGameRequest(ws);
+      break;
+
+    case 'RESTART_GAME':
+      handleRestartGame(ws);
       break;
 
     case 'CONTINUE_ROUND':
@@ -172,6 +177,10 @@ function handlePlayMove(ws: AuthenticatedWebSocket, move: MultiplayerMove): void
             player1: state.players.player1.captured,
             player2: state.players.player2.captured,
           },
+          scopaCaptures: {
+            player1: state.players.player1.scopaCaptures,
+            player2: state.players.player2.scopaCaptures,
+          },
           lastCapture: state.round.lastCapture!,
           remainingTableCards,
         },
@@ -270,6 +279,89 @@ function handleNewGameRequest(ws: AuthenticatedWebSocket): void {
     }
 
     console.log(`New game started in room ${room.code}`);
+  }
+}
+
+/**
+ * Handle RESTART_GAME message (mid-game restart request)
+ * Works during playing or roundEnd status - requires both players to accept
+ */
+function handleRestartGame(ws: AuthenticatedWebSocket): void {
+  const room = getRoom(ws.roomCode!);
+  if (!room || !room.gameState) {
+    sendError(ws, 'GAME_NOT_STARTED', 'No game in progress');
+    return;
+  }
+
+  const playerId = ws.playerId!;
+  const state = room.gameState;
+
+  // Only allow during playing or roundEnd status (not gameEnd - use START_NEW_GAME for that)
+  if (state.status !== 'playing' && state.status !== 'roundEnd') {
+    sendError(ws, 'INVALID_MOVE', 'Cannot restart game at this time');
+    return;
+  }
+
+  // If this player already requested, this is a cancel
+  if (room.restartRequests.has(playerId)) {
+    room.restartRequests.delete(playerId);
+    // Notify opponent that restart was cancelled
+    broadcastToRoom(room, {
+      type: 'RESTART_CANCELLED',
+    });
+    console.log(`Player ${playerId} cancelled restart request in room ${room.code}`);
+    return;
+  }
+
+  // Track who requested
+  room.restartRequests.add(playerId);
+
+  // Notify opponent
+  const opponent = getOpponent(room, playerId);
+  if (opponent?.ws?.readyState === 1) {
+    const msg: ServerMessage = {
+      type: 'RESTART_REQUESTED',
+      payload: { by: playerId },
+    };
+    opponent.ws.send(JSON.stringify(msg));
+  }
+
+  console.log(`Player ${playerId} requested restart. Requests: [${[...room.restartRequests].join(', ')}]`);
+
+  // If both players requested, restart the game
+  if (room.restartRequests.has('player1') && room.restartRequests.has('player2')) {
+    room.restartRequests.clear();
+
+    // Reset scores for new game
+    state.scores = { player1: 0, player2: 0 };
+    state.roundNumber = 0;
+
+    // Clear any pending requests
+    room.nextRoundRequests.clear();
+
+    // Clear turn timer
+    clearTurnTimer(room.code);
+
+    startGame(room);
+
+    // Send new game state to both players (reuse NEW_GAME_STARTED message)
+    const p1State = getPlayerVisibleState(room, 'player1');
+    const p2State = getPlayerVisibleState(room, 'player2');
+
+    if (p1State) {
+      sendToPlayer(room, 'player1', {
+        type: 'NEW_GAME_STARTED',
+        payload: { state: p1State },
+      });
+    }
+    if (p2State) {
+      sendToPlayer(room, 'player2', {
+        type: 'NEW_GAME_STARTED',
+        payload: { state: p2State },
+      });
+    }
+
+    console.log(`Game restarted in room ${room.code}`);
   }
 }
 
@@ -428,6 +520,10 @@ function handleForceMove(ws: AuthenticatedWebSocket): void {
           capturedCards: {
             player1: state.players.player1.captured,
             player2: state.players.player2.captured,
+          },
+          scopaCaptures: {
+            player1: state.players.player1.scopaCaptures,
+            player2: state.players.player2.scopaCaptures,
           },
           lastCapture: state.round.lastCapture!,
           remainingTableCards,
