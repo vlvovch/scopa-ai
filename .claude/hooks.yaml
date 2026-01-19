@@ -1,6 +1,0 @@
-version: 1
-hooks:
-  - event: Notification
-    handler:
-      type: bash
-      script: afplay /System/Library/Sounds/Glass.aiff
