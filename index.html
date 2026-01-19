@@ -13,13 +13,30 @@
   <link rel="manifest" href="/manifest.json" />
   <title>Scopa AI</title>
 
-  <!-- Umami Analytics -->
+  <!-- Umami, Plausible -->
   <script defer src="%VITE_UMAMI_SCRIPT_URL%" data-website-id="%VITE_UMAMI_WEBSITE_ID%"></script>
+  <script async src="%VITE_PLAUSIBLE_SCRIPT_URL%"></script>
+  <script>
+    window.plausible = window.plausible || function () { (plausible.q = plausible.q || []).push(arguments) }, plausible.init = plausible.init || function (i) { plausible.o = i || {} };
+    plausible.init()
+  </script>
+
 </head>
 
 <body>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Swetrix -->
+  <script src="%VITE_SWETRIX_SCRIPT_URL%" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      swetrix.init('%VITE_SWETRIX_PROJECT_ID%', {
+        apiURL: '%VITE_SWETRIX_API_URL%',
+      })
+      swetrix.trackViews()
+    })
+  </script>
 
   <!-- Register Service Worker for offline support -->
   <script>
@@ -31,11 +48,19 @@
       });
     }
 
-    // PWA installation tracking
+    // PWA installation counter
     window.addEventListener('appinstalled', () => {
       if (window.umami?.track) window.umami.track('pwa_install');
+      if (window.plausible) window.plausible('pwa_install');
+      if (window.swetrix?.track) window.swetrix.track({ ev: 'pwa_install' });
     });
   </script>
+
+  <!-- Swetrix noscript fallback -->
+  <noscript>
+    <img src="%VITE_SWETRIX_API_URL%/noscript?pid=%VITE_SWETRIX_PROJECT_ID%" alt=""
+      referrerpolicy="no-referrer-when-downgrade" />
+  </noscript>
 </body>
 
 </html>
