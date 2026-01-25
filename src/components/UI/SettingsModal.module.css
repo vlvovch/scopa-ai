@@ -368,6 +368,45 @@
   margin-top: var(--space-1);
 }
 
+/* Itch.io mode notice */
+.itchModeNotice {
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.itchModeNotice p {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.itchModeNotice p:first-child {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.itchModeLink {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  color: #000;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.itchModeLink:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
+}
+
 /* API Key Warning Popup */
 .warningOverlay {
   position: fixed;

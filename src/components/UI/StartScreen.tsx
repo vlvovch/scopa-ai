@@ -9,6 +9,10 @@ import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import styles from './StartScreen.module.css';
 
+// Check if running in itch.io mode (API keys disabled)
+const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
+const MAIN_SITE_URL = 'https://scopa-ai.vovchenko.net';
+
 type GameModeOption = 'play' | 'watch' | 'multiplayer';
 type OpponentCategory = 'cpu' | 'ai';
 type CPUType = 'random' | 'heuristic' | 'expert';
@@ -487,10 +491,16 @@ export function StartScreen({
               isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
               'Opponent'
             )}
-            {!aiAvailable && onOpenSettings && (
+            {!aiAvailable && (
               <div className={styles.aiHint}>
                 <span>Want to play against AI?</span>
-                <a onClick={onOpenSettings}>Add API keys in Settings</a>
+                {ITCH_MODE ? (
+                  <a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">
+                    Visit main site (BYOK)
+                  </a>
+                ) : (
+                  onOpenSettings && <a onClick={onOpenSettings}>Add API keys in Settings</a>
+                )}
               </div>
             )}
           </>
@@ -534,16 +544,31 @@ export function StartScreen({
           </>
         )}
 
-        <button
-          className={styles.startButton}
-          onClick={handleStartGame}
-        >
-          {gameMode === 'play'
-            ? 'Start Game'
-            : gameMode === 'watch'
-              ? 'Start Watching'
-              : 'Find Opponent'}
-        </button>
+        {ITCH_MODE && gameMode === 'multiplayer' ? (
+          <div className={styles.itchModeNotice}>
+            <p>Multiplayer is not available in this version.</p>
+            <p>Play online with friends on the main site:</p>
+            <a
+              href={MAIN_SITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.itchModeLink}
+            >
+              {MAIN_SITE_URL}
+            </a>
+          </div>
+        ) : (
+          <button
+            className={styles.startButton}
+            onClick={handleStartGame}
+          >
+            {gameMode === 'play'
+              ? 'Start Game'
+              : gameMode === 'watch'
+                ? 'Start Watching'
+                : 'Find Opponent'}
+          </button>
+        )}
 
         <div className={styles.rulesHint}>
           <h3>Quick Rules</h3>

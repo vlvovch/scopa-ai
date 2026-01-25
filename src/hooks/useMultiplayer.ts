@@ -400,7 +400,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
       reconnectAttemptsRef.current = 0;
 
       // Start ping interval
-      pingIntervalRef.current = setInterval(() => {
+      pingIntervalRef.current = window.setInterval(() => {
         sendMessage({ type: 'PING' });
       }, PING_INTERVAL_MS);
 
@@ -443,7 +443,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
       const session = loadSession();
       if (session && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttemptsRef.current++;
-        reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = window.setTimeout(() => {
           connect(true);
         }, RECONNECT_DELAY_MS);
       } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {

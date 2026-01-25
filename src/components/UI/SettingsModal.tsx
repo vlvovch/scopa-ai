@@ -34,6 +34,10 @@ interface SettingsModalProps {
 // Session storage key for API key warning dismissal
 const API_KEY_WARNING_KEY = 'scopa-api-key-warning-shown';
 
+// Check if running in itch.io mode (API keys disabled)
+const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
+const MAIN_SITE_URL = 'https://scopa-ai.vovchenko.net';
+
 export function SettingsModal({
   isOpen,
   onClose,
@@ -339,52 +343,71 @@ export function SettingsModal({
             {/* API Keys Section */}
             <h3 className={styles.sectionTitle}>API Keys (to play against AI)</h3>
 
-            <div className={styles.apiKeyGroup}>
-              <label className={styles.apiKeyLabel}>
-                Gemini
-                {renderValidationStatus(geminiStatus, !!settings.geminiApiKey)}
-              </label>
-              <input
-                type="password"
-                className={`${styles.apiKeyInput} ${geminiStatus === 'invalid' ? styles.inputInvalid : ''}`}
-                placeholder="Enter your Gemini API key"
-                value={settings.geminiApiKey}
-                onChange={(e) => handleApiKeyChange('geminiApiKey', e.target.value)}
-              />
-            </div>
+            {ITCH_MODE ? (
+              <div className={styles.itchModeNotice}>
+                <p>API key entry is disabled in this version.</p>
+                <p>
+                  To play against AI opponents (Claude, GPT, Gemini), visit the main site with BYOK (Bring Your Own Key):
+                </p>
+                <a
+                  href={MAIN_SITE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.itchModeLink}
+                >
+                  {MAIN_SITE_URL}
+                </a>
+              </div>
+            ) : (
+              <>
+                <div className={styles.apiKeyGroup}>
+                  <label className={styles.apiKeyLabel}>
+                    Gemini
+                    {renderValidationStatus(geminiStatus, !!settings.geminiApiKey)}
+                  </label>
+                  <input
+                    type="password"
+                    className={`${styles.apiKeyInput} ${geminiStatus === 'invalid' ? styles.inputInvalid : ''}`}
+                    placeholder="Enter your Gemini API key"
+                    value={settings.geminiApiKey}
+                    onChange={(e) => handleApiKeyChange('geminiApiKey', e.target.value)}
+                  />
+                </div>
 
-            <div className={styles.apiKeyGroup}>
-              <label className={styles.apiKeyLabel}>
-                OpenAI
-                {renderValidationStatus(openaiStatus, !!settings.openaiApiKey)}
-              </label>
-              <input
-                type="password"
-                className={`${styles.apiKeyInput} ${openaiStatus === 'invalid' ? styles.inputInvalid : ''}`}
-                placeholder="Enter your OpenAI API key"
-                value={settings.openaiApiKey}
-                onChange={(e) => handleApiKeyChange('openaiApiKey', e.target.value)}
-              />
-            </div>
+                <div className={styles.apiKeyGroup}>
+                  <label className={styles.apiKeyLabel}>
+                    OpenAI
+                    {renderValidationStatus(openaiStatus, !!settings.openaiApiKey)}
+                  </label>
+                  <input
+                    type="password"
+                    className={`${styles.apiKeyInput} ${openaiStatus === 'invalid' ? styles.inputInvalid : ''}`}
+                    placeholder="Enter your OpenAI API key"
+                    value={settings.openaiApiKey}
+                    onChange={(e) => handleApiKeyChange('openaiApiKey', e.target.value)}
+                  />
+                </div>
 
-            <div className={styles.apiKeyGroup}>
-              <label className={styles.apiKeyLabel}>
-                Claude
-                {renderValidationStatus(claudeStatus, !!settings.claudeApiKey)}
-              </label>
-              <input
-                type="password"
-                className={`${styles.apiKeyInput} ${claudeStatus === 'invalid' ? styles.inputInvalid : ''}`}
-                placeholder="Enter your Claude API key"
-                value={settings.claudeApiKey}
-                onChange={(e) => handleApiKeyChange('claudeApiKey', e.target.value)}
-              />
-            </div>
+                <div className={styles.apiKeyGroup}>
+                  <label className={styles.apiKeyLabel}>
+                    Claude
+                    {renderValidationStatus(claudeStatus, !!settings.claudeApiKey)}
+                  </label>
+                  <input
+                    type="password"
+                    className={`${styles.apiKeyInput} ${claudeStatus === 'invalid' ? styles.inputInvalid : ''}`}
+                    placeholder="Enter your Claude API key"
+                    value={settings.claudeApiKey}
+                    onChange={(e) => handleApiKeyChange('claudeApiKey', e.target.value)}
+                  />
+                </div>
 
-            <p className={styles.apiKeyHint}>
-              Keys are stored locally in your browser only. We do not have access to your keys.
-              Always exercise caution when entering API keys on any website.
-            </p>
+                <p className={styles.apiKeyHint}>
+                  Keys are stored locally in your browser only. We do not have access to your keys.
+                  Always exercise caution when entering API keys on any website.
+                </p>
+              </>
+            )}
 
             <div className={styles.actions}>
               <button className={styles.resetButton} onClick={onResetSettings}>

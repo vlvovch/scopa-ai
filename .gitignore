@@ -3,6 +3,7 @@ node_modules
 
 # Build output
 dist
+dist-itch
 dist-ssr
 
 # TypeScript build info
