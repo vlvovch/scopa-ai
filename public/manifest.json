@@ -3,8 +3,8 @@
   "name": "Scopa AI",
   "short_name": "Scopa AI",
   "description": "Play the classic Italian card game Scopa against AI opponents",
-  "start_url": ".",
-  "scope": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#1B5E20",
   "theme_color": "#1B5E20",
@@ -13,12 +13,14 @@
     {
       "src": "pwa-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "pwa-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "pwa-192.png",

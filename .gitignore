@@ -39,3 +39,6 @@ Thumbs.db
 
 # Local development files (SVG sources, etc)
 local/
+
+# Android build
+android-twa/
