@@ -1,5 +1,5 @@
 // Service Worker for Scopa PWA
-const CACHE_NAME = 'scopa-v14';
+const CACHE_NAME = 'scopa-v15';
 
 // Assets to cache on install - essential for offline play
 // Using absolute paths for SPA routing compatibility with /join/CODE paths
