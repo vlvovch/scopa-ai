@@ -17,7 +17,7 @@ interface CapturedCardsModalProps {
 // Denari (Coins) icon using authentic SVG from deck
 function DenariIcon({ size = 16 }: { size?: number }) {
   const deckType = useDeck();
-  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  const coinPath = `/cards/${deckType}/suits/coins.svg`;
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} style={{ verticalAlign: 'middle' }}>
       <image href={coinPath} x="2" y="2" width="20" height="20" />

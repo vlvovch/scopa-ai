@@ -264,7 +264,7 @@ export function SettingsModal({
                 onClick={() => setShowDeckSelector(true)}
               >
                 <img
-                  src={`./cards/${settings.deck}/coins-1.webp`}
+                  src={`/cards/${settings.deck}/coins-1.webp`}
                   alt={settings.deck}
                   className={styles.deckPreviewThumb}
                 />
@@ -487,7 +487,7 @@ export function SettingsModal({
                   }}
                 >
                   <img
-                    src={`./cards/${deck.value}/coins-1.webp`}
+                    src={`/cards/${deck.value}/coins-1.webp`}
                     alt={deck.label}
                     className={styles.deckPreview}
                   />

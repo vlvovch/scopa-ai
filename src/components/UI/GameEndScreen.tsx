@@ -23,7 +23,7 @@ function CardsIcon() {
 }
 
 function CoinIcon({ deckType }: { deckType: DeckType }) {
-  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  const coinPath = `/cards/${deckType}/suits/coins.svg`;
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       <image href={coinPath} x="2" y="2" width="20" height="20" />
@@ -33,7 +33,7 @@ function CoinIcon({ deckType }: { deckType: DeckType }) {
 
 function SetteBelloIcon({ deckType }: { deckType: DeckType }) {
   const coinSize = 4.5;
-  const coinPath = `./cards/${deckType}/suits/coins.svg`;
+  const coinPath = `/cards/${deckType}/suits/coins.svg`;
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       {/* Card background */}

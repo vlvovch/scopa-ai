@@ -11,10 +11,9 @@ interface CardImageProps {
 }
 
 // Get the path to the individual card WebP file
-// Use import.meta.env.BASE_URL for correct path resolution across all browsers
+// Use absolute paths to work correctly with SPA routing (e.g., /join/CODE paths)
 function getCardImagePath(deck: DeckType, suit: Card['suit'], value: number): string {
-  const base = import.meta.env.BASE_URL || './';
-  return `${base}cards/${deck}/${suit}-${value}.webp`;
+  return `/cards/${deck}/${suit}-${value}.webp`;
 }
 
 export function CardImage({ card }: CardImageProps) {
@@ -60,7 +59,6 @@ export function CardImage({ card }: CardImageProps) {
 // Card back - uses selected deck style
 export function CardBack() {
   const deck = useDeck();
-  const base = import.meta.env.BASE_URL || './';
   const [imageError, setImageError] = useState(false);
 
   // Fallback display if image fails to load
@@ -90,7 +88,7 @@ export function CardBack() {
 
   return (
     <img
-      src={`${base}cards/${deck}/back.webp`}
+      src={`/cards/${deck}/back.webp`}
       alt="Card back"
       style={{
         display: 'block',
