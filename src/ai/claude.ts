@@ -9,7 +9,14 @@ import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
 import { getClaudeApiKey, isClaudeKeyValid } from '../hooks/useSettings';
 
 // Extended thinking configuration
-const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking
+const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking (legacy, pre-Opus 4.6)
+
+/**
+ * Check if model is Claude Opus 4.6 or later (uses adaptive thinking)
+ */
+export function isAdaptiveThinkingModel(model: string): boolean {
+  return model.includes('opus-4-6');
+}
 
 // Model info returned from API
 export interface ClaudeModelInfo {
@@ -140,16 +147,17 @@ export async function fetchClaudeModels(): Promise<ClaudeModelInfo[]> {
       models.sort((a, b) => {
         // Extract version info for sorting
         const getOrder = (id: string): number => {
-          if (id.includes('opus-4-5')) return 0;
-          if (id.includes('sonnet-4-5')) return 1;
-          if (id.includes('haiku-4-5')) return 2;
-          if (id.includes('opus-4')) return 3;
-          if (id.includes('sonnet-4')) return 4;
-          if (id.includes('haiku-4')) return 5;
-          if (id.includes('opus-3')) return 6;
-          if (id.includes('sonnet-3')) return 7;
-          if (id.includes('haiku-3')) return 8;
-          return 9;
+          if (id.includes('opus-4-6')) return 0;
+          if (id.includes('opus-4-5')) return 1;
+          if (id.includes('sonnet-4-5')) return 2;
+          if (id.includes('haiku-4-5')) return 3;
+          if (id.includes('opus-4')) return 4;
+          if (id.includes('sonnet-4')) return 5;
+          if (id.includes('haiku-4')) return 6;
+          if (id.includes('opus-3')) return 7;
+          if (id.includes('sonnet-3')) return 8;
+          if (id.includes('haiku-3')) return 9;
+          return 10;
         };
         return getOrder(a.id) - getOrder(b.id);
       });
@@ -160,6 +168,7 @@ export async function fetchClaudeModels(): Promise<ClaudeModelInfo[]> {
       console.error('Failed to fetch Claude models:', error);
       // Return fallback models on error
       return [
+        { id: 'claude-opus-4-6-20260205', displayName: 'Claude Opus 4.6' },
         { id: 'claude-sonnet-4-5-20250929', displayName: 'Claude Sonnet 4.5' },
         { id: 'claude-haiku-4-5-20251001', displayName: 'Claude Haiku 4.5' },
         { id: 'claude-opus-4-5-20251101', displayName: 'Claude Opus 4.5' },
@@ -391,10 +400,17 @@ class ClaudeAI implements AsyncAIPlayer {
 
       // Add extended thinking if enabled and there's a decision to make
       if (shouldThink) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: EXTENDED_THINKING_BUDGET
-        };
+        if (isAdaptiveThinkingModel(this.model)) {
+          // Opus 4.6+: Use adaptive thinking with effort parameter
+          requestParams.thinking = { type: 'adaptive' };
+          requestParams.output_config = { effort: 'high' };
+        } else {
+          // Older models: Use manual thinking with budget_tokens
+          requestParams.thinking = {
+            type: 'enabled',
+            budget_tokens: EXTENDED_THINKING_BUDGET
+          };
+        }
       }
 
       // Call Claude API with beta endpoint for structured outputs

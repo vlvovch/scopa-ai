@@ -8,6 +8,7 @@ import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
   getClaudeApiKey,
   isClaudeAvailable,
+  isAdaptiveThinkingModel,
   type ClaudeTokenStats,
   type ClaudeTokenDelta,
 } from './claude';
@@ -311,10 +312,17 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
 
       // Add extended thinking if enabled and there's a decision to make
       if (shouldThink) {
-        requestParams.thinking = {
-          type: 'enabled',
-          budget_tokens: 10000,
-        };
+        if (isAdaptiveThinkingModel(this.model)) {
+          // Opus 4.6+: Use adaptive thinking with effort parameter
+          requestParams.thinking = { type: 'adaptive' };
+          requestParams.output_config = { effort: 'high' };
+        } else {
+          // Older models: Use manual thinking with budget_tokens
+          requestParams.thinking = {
+            type: 'enabled',
+            budget_tokens: 10000,
+          };
+        }
       }
 
       const response = await this.client.beta.messages.create(requestParams);

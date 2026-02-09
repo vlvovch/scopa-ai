@@ -1,0 +1,19 @@
+{
+  "name": "scopa-proxy",
+  "version": "1.0.0",
+  "description": "Gemini API proxy with rate limiting for free AI games",
+  "type": "module",
+  "main": "dist/index.js",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.2"
+  }
+}

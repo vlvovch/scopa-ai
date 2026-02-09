@@ -27,6 +27,7 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
       return <OpenAIIcon size="1em" className={className} />;
     case 'gemini':
     case 'gemini-singleturn':
+    case 'gemini-free':
       return <GeminiIcon size="1em" className={className} />;
     case 'claude':
     case 'claude-singleturn':
@@ -92,6 +93,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
       .replace(/(\d) (\d)/g, '$1.$2'); // "4 5" -> "4.5"
   }
 
+  if (aiType === 'gemini-free') return 'Gemini 3 Flash Preview';
   if (aiType === 'random') return 'Scimmietta';
   if (aiType === 'heuristic') return 'Furbo';
   if (aiType === 'expert') return 'Esperto';
@@ -145,6 +147,7 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
     'openai-singleturn': '⬡',
     claude: '◐',
     'claude-singleturn': '◐',
+    'gemini-free': '✦',
     multiplayer: '👤',
   };
 

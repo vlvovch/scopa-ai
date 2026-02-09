@@ -29,7 +29,7 @@ import { RestartOverlay } from './components/UI/RestartOverlay';
 import { TurnTimer } from './components/UI/TurnTimer';
 import { DeckProvider } from './contexts/DeckContext';
 import { getValidMoves } from './game/rules';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import { ThinkingBubble } from './components/UI/ThinkingBubble';
@@ -286,10 +286,12 @@ function App() {
   // Helper to check if an AI type is a Claude variant (use exported function)
   const isClaudeAI = isClaudeAIType;
   // Helper to check if an AI type is any LLM (Gemini, OpenAI, or Claude)
-  const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType), []);
+  const isGeminiFree = isGeminiFreeAIType;
+  const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType) || isGeminiFree(aiType), []);
 
   // Helper to get the model for a given AI type from settings
   const getModelForAI = useCallback((aiType: ExtendedAIType): string => {
+    if (isGeminiFree(aiType)) return 'gemini-3-flash-preview';
     if (isOpenAIAI(aiType)) return settings.openaiModel;
     if (isClaudeAI(aiType)) return settings.claudeModel;
     return settings.geminiModel;
@@ -299,7 +301,9 @@ function App() {
   // Returns a unified delta type (Gemini, OpenAI, and Claude deltas are structurally compatible)
   const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenDelta | OpenAITokenDelta | ClaudeTokenDelta | null => {
     const useThinking = settings.useThinking;
-    if (aiType === 'gemini-singleturn') {
+    if (aiType === 'gemini-free') {
+      return getGeminiFreeTokenDelta();
+    } else if (aiType === 'gemini-singleturn') {
       return getGeminiSingleTurnTokenDelta(model, useThinking);
     } else if (aiType === 'gemini') {
       return getGeminiTokenDelta(model, useThinking);
@@ -319,7 +323,9 @@ function App() {
   // Returns a unified stats type (Gemini, OpenAI, and Claude stats are structurally compatible)
   const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenStats | OpenAITokenStats | ClaudeTokenStats | null => {
     const useThinking = settings.useThinking;
-    if (aiType === 'gemini-singleturn') {
+    if (aiType === 'gemini-free') {
+      return getGeminiFreeTokenStats();
+    } else if (aiType === 'gemini-singleturn') {
       return getGeminiSingleTurnTokenStats(model, useThinking);
     } else if (aiType === 'gemini') {
       return getGeminiTokenStats(model, useThinking);
@@ -467,6 +473,11 @@ function App() {
   // Get AI player instance for a given AI type and model
   const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string): AnyAIPlayer => {
     const useThinking = settings.useThinking;
+    if (aiType === 'gemini-free') {
+      const geminiFree = getGeminiFreeAI();
+      if (geminiFree) return geminiFree;
+      return AI_PLAYERS.heuristic;
+    }
     if (aiType === 'gemini') {
       const geminiModel = model || settings.geminiModel;
       const gemini = getGeminiAI(geminiModel, useThinking);
@@ -996,6 +1007,14 @@ function App() {
             updateTokenStats();
           }
         } catch (err) {
+          if (err instanceof RateLimitError) {
+            // Rate limit hit — stop the game and return to start screen
+            console.warn('Free AI rate limit reached:', err.message);
+            setPlayer2ApiError(err.message);
+            aiRequestInFlight.current = false;
+            resetGame();
+            return;
+          }
           // Set error state for display
           const errorMessage = err instanceof Error ? err.message : 'API call failed';
           setPlayer2ApiError(errorMessage);
@@ -1139,6 +1158,7 @@ function App() {
       // Clear sessions for all LLM types (no-op if not active)
       endGeminiRound();
       endGeminiSingleTurnRound();
+      endGeminiFreeRound();
       endOpenAIRound();
       endOpenAISingleTurnRound();
       endClaudeRound();
@@ -1236,6 +1256,7 @@ function App() {
   const resetAllTokenStats = useCallback(() => {
     resetGeminiTokenStats();
     resetGeminiSingleTurnTokenStats();
+    resetGeminiFreeTokenStats();
     resetOpenAITokenStats();
     resetOpenAISingleTurnTokenStats();
     resetClaudeTokenStats();
@@ -1846,11 +1867,16 @@ function App() {
 
   // Handle starting a new game (wraps startGame to reset token stats)
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
+    // Enforce 11-point limit for free AI games
+    const effectiveScore = isGeminiFree(settings.cpuAI) ? Math.min(targetScore, 11) : targetScore;
+
     // Reset token stats for all LLM types
     resetAllTokenStats();
     // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
+    startGeminiFreeRound();
+    newGeminiFreeGame(); // New game = new gameId for rate limiting
     startOpenAIRound();
     startOpenAISingleTurnRound();
     startClaudeRound();
@@ -1867,15 +1893,15 @@ function App() {
       startSimulation({
         player1AI: spectatorAIs.player1 as CPUType,
         player2AI: spectatorAIs.player2 as CPUType,
-        targetScore,
+        targetScore: effectiveScore,
         delayMs: 0,
       });
     } else {
       // Use main thread for animations, LLM AIs, or player vs CPU
       setUseWorkerMode(false);
-      startGame(targetScore, gameMode);
+      startGame(effectiveScore, gameMode);
     }
-  }, [startGame, resetAllTokenStats, canUseWorker, startSimulation, spectatorAIs, settings.animationSpeed]);
+  }, [startGame, resetAllTokenStats, canUseWorker, startSimulation, spectatorAIs, settings.animationSpeed, settings.cpuAI, isGeminiFree]);
 
   // Handle new game request
   const handleNewGame = useCallback(() => {
@@ -1936,6 +1962,7 @@ function App() {
     // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
+    startGeminiFreeRound();
     startOpenAIRound();
     startOpenAISingleTurnRound();
     startClaudeRound();
@@ -1989,14 +2016,18 @@ function App() {
           ? settings.claudeModel
           : isGeminiAI(settings.cpuAI)
             ? settings.geminiModel
-            : undefined;
+            : isGeminiFree(settings.cpuAI)
+              ? 'gemini-3-flash-preview'
+              : undefined;
 
       // Determine AI mode for LLM opponents
       const isLLMOpponent = isLLMAI(settings.cpuAI);
       const isMultiTurn = isLLMOpponent
         ? !settings.cpuAI.includes('singleturn')
         : undefined;
-      const useThinking = isLLMOpponent ? settings.useThinking : undefined;
+      const useThinking = isLLMOpponent
+        ? (isGeminiFree(settings.cpuAI) ? true : settings.useThinking)
+        : undefined;
 
       recordGame(
         settings.cpuAI,
@@ -2592,6 +2623,7 @@ function App() {
           onOpenSettings={() => setShowSettings(true)}
           onOpenRules={() => setShowRules(true)}
           aiAvailability={{
+            geminiFree: !!import.meta.env.VITE_PROXY_URL,
             gemini: (!!settings.geminiApiKey && settings.geminiKeyValid) || !!import.meta.env.VITE_GEMINI_API_KEY,
             openai: (!!settings.openaiApiKey && settings.openaiKeyValid) || !!import.meta.env.VITE_OPENAI_API_KEY,
             claude: (!!settings.claudeApiKey && settings.claudeKeyValid) || !!import.meta.env.VITE_CLAUDE_API_KEY,

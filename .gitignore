@@ -16,6 +16,7 @@ vite.config.d.ts
 .env.local
 .env.*.local
 .env.production
+.dev.vars
 
 # Logs
 logs

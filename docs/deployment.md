@@ -15,10 +15,13 @@ This guide covers deploying the Scopa app to a VPS with Caddy reverse proxy.
                     ┌─────────────────────────────────────┐
                     │           Caddy Server              │
                     │                                     │
-  HTTPS :443        │   /ws  ──────► localhost:3100      │
+  HTTPS :443        │   /ws      ──► localhost:3100      │
   ──────────────────►                (WebSocket server)   │
                     │                                     │
-                    │   /*   ──────► /var/www/scopa-ai   │
+                    │   /api/*   ──► localhost:3101      │
+                    │                (AI proxy server)    │
+                    │                                     │
+                    │   /*       ──► /var/www/scopa-ai   │
                     │                (Static files)       │
                     └─────────────────────────────────────┘
 ```
@@ -30,7 +33,8 @@ SSH into your VPS and run:
 ```bash
 sudo mkdir -p /var/www/scopa-ai
 sudo mkdir -p /opt/scopa-server
-sudo chown $USER:$USER /var/www/scopa-ai /opt/scopa-server
+sudo mkdir -p /opt/scopa-proxy
+sudo chown $USER:$USER /var/www/scopa-ai /opt/scopa-server /opt/scopa-proxy
 ```
 
 ## Step 2: Build and upload the frontend
@@ -38,8 +42,8 @@ sudo chown $USER:$USER /var/www/scopa-ai /opt/scopa-server
 On your local machine:
 
 ```bash
-# Build with production WebSocket URL
-VITE_WS_URL=wss://your-domain.com/ws npm run build
+# Build with production URLs
+VITE_WS_URL=wss://your-domain.com/ws VITE_PROXY_URL=https://your-domain.com npm run build
 
 # Upload (replace YOUR_SERVER_IP)
 rsync -avz dist/ user@YOUR_SERVER_IP:/var/www/scopa-ai/
@@ -65,7 +69,26 @@ cd /opt/scopa-server
 npm install --production
 ```
 
-## Step 4: Create systemd service for the WebSocket server
+## Step 4: Build and upload the AI proxy server
+
+Build locally, then upload compiled files:
+
+```bash
+# Build locally
+cd scopa-proxy
+npm install
+npm run build
+
+# Upload only what's needed for production
+rsync -avz dist/ user@YOUR_SERVER_IP:/opt/scopa-proxy/dist/
+rsync -avz package.json package-lock.json user@YOUR_SERVER_IP:/opt/scopa-proxy/
+
+# No production dependencies to install (zero runtime deps)
+```
+
+## Step 5: Create systemd services
+
+### WebSocket server
 
 Create `/etc/systemd/system/scopa-server.service`:
 
@@ -87,16 +110,40 @@ Environment=PORT=3100
 WantedBy=multi-user.target
 ```
 
-Enable and start the service:
+### AI proxy server
+
+Create `/etc/systemd/system/scopa-proxy.service`:
+
+```ini
+[Unit]
+Description=Scopa AI Proxy Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/scopa-proxy
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=10
+Environment=PORT=3101
+Environment=GEMINI_API_KEY=your-gemini-api-key-here
+Environment=ALLOWED_ORIGIN=https://your-domain.com
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start both services:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable scopa-server
-sudo systemctl start scopa-server
-sudo systemctl status scopa-server
+sudo systemctl enable scopa-server scopa-proxy
+sudo systemctl start scopa-server scopa-proxy
+sudo systemctl status scopa-server scopa-proxy
 ```
 
-## Step 5: Configure Caddy
+## Step 6: Configure Caddy
 
 Add to your `/etc/caddy/Caddyfile`:
 
@@ -105,6 +152,11 @@ your-domain.com {
     # WebSocket proxy for /ws path
     handle /ws {
         reverse_proxy localhost:3100
+    }
+
+    # AI proxy for /api/* paths
+    handle /api/* {
+        reverse_proxy localhost:3101
     }
 
     # Static files for the SPA
@@ -122,7 +174,7 @@ Reload Caddy:
 sudo systemctl reload caddy
 ```
 
-## Step 6: DNS Setup
+## Step 7: DNS Setup
 
 Add an A record in your DNS provider:
 - **Name**: `@` (or subdomain like `scopa-ai`)
@@ -135,7 +187,8 @@ Caddy will automatically provision an SSL certificate from Let's Encrypt.
 
 1. Visit `https://your-domain.com` - should load the game
 2. Create a multiplayer room - should connect via WebSocket
-3. Check server logs: `sudo journalctl -u scopa-server -f`
+3. Select "Free AI" opponent and start a game - should play against Gemini
+4. Check server logs: `sudo journalctl -u scopa-server -f` / `sudo journalctl -u scopa-proxy -f`
 
 ## Updating the App
 
@@ -143,7 +196,7 @@ Caddy will automatically provision an SSL certificate from Let's Encrypt.
 
 ```bash
 # Local: rebuild and upload
-VITE_WS_URL=wss://your-domain.com/ws npm run build
+VITE_WS_URL=wss://your-domain.com/ws VITE_PROXY_URL=https://your-domain.com npm run build
 rsync -avz dist/ user@YOUR_SERVER_IP:/var/www/scopa-ai/
 ```
 
@@ -157,6 +210,18 @@ npm run build
 # Upload and restart
 rsync -avz dist/ user@YOUR_SERVER_IP:/opt/scopa-server/dist/
 ssh user@YOUR_SERVER_IP "sudo systemctl restart scopa-server"
+```
+
+### AI proxy server
+
+```bash
+# Build locally
+cd scopa-proxy
+npm run build
+
+# Upload and restart
+rsync -avz dist/ user@YOUR_SERVER_IP:/opt/scopa-proxy/dist/
+ssh user@YOUR_SERVER_IP "sudo systemctl restart scopa-proxy"
 ```
 
 ## Troubleshooting
@@ -206,6 +271,7 @@ sudo systemctl restart caddy
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `VITE_WS_URL` | WebSocket server URL | `wss://your-domain.com/ws` |
+| `VITE_PROXY_URL` | AI proxy server URL | `https://your-domain.com` |
 | `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.example.com/script.js` |
 | `VITE_UMAMI_WEBSITE_ID` | Umami website ID (optional) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 
@@ -214,3 +280,11 @@ sudo systemctl restart caddy
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | WebSocket server port | `3100` |
+
+### AI Proxy Server (runtime)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | AI proxy server port | `3101` |
+| `GEMINI_API_KEY` | Google Gemini API key | (required) |
+| `ALLOWED_ORIGIN` | CORS allowed origin | `*` |

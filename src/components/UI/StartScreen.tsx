@@ -1,7 +1,7 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useEffect } from 'react';
-import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isOpenAIAIType, isClaudeAIType, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
+import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiFreeRateLimitInfo, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
 import type { GameMode } from '../../game/types';
 import { CustomDropdown } from './CustomDropdown';
 import { GeminiIcon } from './GeminiIcon';
@@ -14,7 +14,7 @@ const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
 const MAIN_SITE_URL = 'https://scopa-ai.vovchenko.net';
 
 type GameModeOption = 'play' | 'watch' | 'multiplayer';
-type OpponentCategory = 'cpu' | 'ai';
+type OpponentCategory = 'cpu' | 'free-ai' | 'ai';
 type CPUType = 'random' | 'heuristic' | 'expert';
 // AI provider (base type without mode suffix)
 type AIProvider = 'gemini' | 'openai' | 'claude';
@@ -43,6 +43,7 @@ interface StartScreenProps {
   onOpenRules?: () => void;
   /** AI provider availability (computed from React state, not localStorage) */
   aiAvailability: {
+    geminiFree: boolean;
     gemini: boolean;
     openai: boolean;
     claude: boolean;
@@ -53,7 +54,9 @@ const PRESET_SCORES = [11, 16, 21] as const;
 
 // Helper to determine opponent category from AI type
 function getOpponentCategory(aiType: ExtendedAIType): OpponentCategory {
-  return (aiType === 'random' || aiType === 'heuristic' || aiType === 'expert') ? 'cpu' : 'ai';
+  if (aiType === 'random' || aiType === 'heuristic' || aiType === 'expert') return 'cpu';
+  if (aiType === 'gemini-free') return 'free-ai';
+  return 'ai';
 }
 
 // Helper to get CPU type from AI type
@@ -119,6 +122,7 @@ export function StartScreen({
   const [loadingClaudeModels, setLoadingClaudeModels] = useState(false);
 
   // Use availability from props (computed from React state in App.tsx)
+  const geminiFreeAvailable = aiAvailability.geminiFree;
   const geminiAvailable = aiAvailability.gemini;
   const openaiAvailable = aiAvailability.openai;
   const claudeAvailable = aiAvailability.claude;
@@ -189,6 +193,9 @@ export function StartScreen({
   const handleCategoryChange = (category: OpponentCategory) => {
     if (category === 'cpu') {
       onSelectAI('heuristic'); // Default to Furbo
+    } else if (category === 'free-ai') {
+      onSelectAI('gemini-free');
+      setSelectedScore(11); // Free AI limited to 11 points
     } else {
       // Default to first available AI provider
       onSelectAI(defaultAIProvider);
@@ -215,6 +222,8 @@ export function StartScreen({
   const handleSpectatorCategoryChange = (player: 'player1' | 'player2', category: OpponentCategory) => {
     if (category === 'cpu') {
       onSelectSpectatorAI(player, 'heuristic');
+    } else if (category === 'free-ai') {
+      onSelectSpectatorAI(player, 'gemini-free');
     } else {
       // Use default provider with conversation mode
       const newAI = getExtendedAIType(defaultAIProvider, 'conversation');
@@ -281,6 +290,7 @@ export function StartScreen({
     const provider = getAIProvider(currentAI);
     const convMode = getConversationMode(currentAI);
     const isGemini = isGeminiAIType(currentAI);
+    const isFreeAI = isGeminiFreeAIType(currentAI);
     const isOpenAI = isOpenAIAIType(currentAI);
     const isClaude = isClaudeAIType(currentAI);
 
@@ -295,11 +305,16 @@ export function StartScreen({
             onChange={(e) => onCategoryChange(e.target.value as OpponentCategory)}
           >
             <option value="cpu">CPU</option>
-            {aiAvailable && <option value="ai">AI</option>}
+            {geminiFreeAvailable && <option value="free-ai">Free AI</option>}
+            {aiAvailable && <option value="ai">AI (BYOK)</option>}
           </select>
 
           {/* CPU type or AI provider dropdown */}
-          {cat === 'cpu' ? (
+          {cat === 'free-ai' ? (
+            <span className={styles.freeAILabel}>
+              <GeminiIcon size="1.1em" /> Gemini 3 Flash Preview
+            </span>
+          ) : cat === 'cpu' ? (
             <select
               className={styles.dropdown}
               value={cpu}
@@ -406,6 +421,28 @@ export function StartScreen({
             useThinking ? ' + extended thinking' : ' (fast mode)'
           )}
         </p>
+        {isFreeAI && (() => {
+          const rateLimitInfo = getGeminiFreeRateLimitInfo();
+          const gamesRemaining = rateLimitInfo
+            ? Math.max(0, rateLimitInfo.gamesLimit - rateLimitInfo.gamesUsed)
+            : null;
+          const isExhausted = gamesRemaining === 0;
+          return (
+            <>
+              <p className={styles.aiDescription} style={{ opacity: 0.7, fontSize: '0.85em' }}>
+                No API key needed. Multi-turn + thinking.
+                {gamesRemaining !== null
+                  ? ` ${gamesRemaining}/${rateLimitInfo!.gamesLimit} games remaining today.`
+                  : ' Limited to 3 games/day.'}
+              </p>
+              {isExhausted && (
+                <p className={styles.aiDescription} style={{ color: '#e57373', fontSize: '0.85em' }}>
+                  Daily limit reached. Add your own API key in Settings for unlimited games.
+                </p>
+              )}
+            </>
+          );
+        })()}
       </div>
     );
   };
@@ -447,37 +484,45 @@ export function StartScreen({
           </p>
         </div>
 
-        {gameMode !== 'multiplayer' && (
-          <div className={styles.scoreSelection}>
-            <label className={styles.label}>Target Score</label>
-            <div className={styles.scoreOptions}>
-              {PRESET_SCORES.map((score) => (
-                <button
-                  key={score}
-                  className={`${styles.scoreOption} ${selectedScore === score ? styles.selected : ''}`}
-                  onClick={() => setSelectedScore(score)}
-                >
-                  {score}
-                </button>
-              ))}
-              <input
-                type="number"
-                min="1"
-                max="999"
-                className={`${styles.customScoreInput} ${!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? styles.selected : ''}`}
-                value={!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? selectedScore : ''}
-                placeholder="..."
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && val >= 1) {
-                    setSelectedScore(val);
-                  }
-                }}
-                title="Enter custom target score"
-              />
+        {gameMode !== 'multiplayer' && (() => {
+          const freeAILocked = gameMode === 'play' && isGeminiFreeAIType(selectedAI);
+          return (
+            <div className={styles.scoreSelection}>
+              <label className={styles.label}>
+                Target Score{freeAILocked ? ' (fixed at 11 for Free AI)' : ''}
+              </label>
+              <div className={styles.scoreOptions}>
+                {PRESET_SCORES.map((score) => (
+                  <button
+                    key={score}
+                    className={`${styles.scoreOption} ${selectedScore === score ? styles.selected : ''}`}
+                    onClick={() => !freeAILocked && setSelectedScore(score)}
+                    disabled={freeAILocked}
+                  >
+                    {score}
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  className={`${styles.customScoreInput} ${!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? styles.selected : ''}`}
+                  value={!PRESET_SCORES.includes(selectedScore as 11 | 16 | 21) ? selectedScore : ''}
+                  placeholder="..."
+                  onChange={(e) => {
+                    if (freeAILocked) return;
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1) {
+                      setSelectedScore(val);
+                    }
+                  }}
+                  disabled={freeAILocked}
+                  title={freeAILocked ? 'Free AI games are limited to 11 points' : 'Enter custom target score'}
+                />
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {gameMode === 'play' && (
           <>
@@ -491,7 +536,7 @@ export function StartScreen({
               isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
               'Opponent'
             )}
-            {!aiAvailable && (
+            {!aiAvailable && !geminiFreeAvailable && (
               <div className={styles.aiHint}>
                 <span>Want to play against AI?</span>
                 {ITCH_MODE ? (
@@ -561,6 +606,11 @@ export function StartScreen({
           <button
             className={styles.startButton}
             onClick={handleStartGame}
+            disabled={(() => {
+              if (gameMode !== 'play' || !isGeminiFreeAIType(selectedAI)) return false;
+              const info = getGeminiFreeRateLimitInfo();
+              return info !== null && info.gamesUsed >= info.gamesLimit;
+            })()}
           >
             {gameMode === 'play'
               ? 'Start Game'
