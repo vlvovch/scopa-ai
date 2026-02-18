@@ -53,7 +53,7 @@ export function MultiplayerLobby({
   // If there's an initial join code, go straight to join mode
   const [mode, setMode] = useState<LobbyMode>(initialJoinCode ? 'join' : 'select');
   const [nickname, setNickname] = useState(loadSavedNickname);
-  const [joinCode, setJoinCode] = useState(initialJoinCode || '');
+  const [joinCode, setJoinCode] = useState(initialJoinCode || 'SCOPA-');
   const [targetScore, setTargetScore] = useState(11);
   const [turnTimerEnabled, setTurnTimerEnabled] = useState(false);
 
@@ -80,8 +80,16 @@ export function MultiplayerLobby({
   };
 
   const handleJoinCodeChange = (value: string) => {
-    // Convert to uppercase and limit length
-    setJoinCode(value.toUpperCase().slice(0, 10));
+    const upper = value.toUpperCase();
+    // Ensure the SCOPA- prefix is always present
+    if (!upper.startsWith('SCOPA-')) {
+      setJoinCode('SCOPA-');
+      return;
+    }
+    // Strip non-alphanumeric characters from the suffix
+    const suffix = upper.slice(6).replace(/[^A-Z0-9]/g, '');
+    // Limit to SCOPA- plus 4 character code
+    setJoinCode('SCOPA-' + suffix.slice(0, 4));
   };
 
   // Selection screen

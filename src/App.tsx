@@ -1285,6 +1285,7 @@ function App() {
   const handleLeaveMultiplayer = useCallback(() => {
     multiplayer.leaveRoom();
     setIsMultiplayerMode(false);
+    setInitialJoinCode(undefined);
   }, [multiplayer]);
 
   // ============================================================================
@@ -1375,6 +1376,7 @@ function App() {
 
     // If no captures possible (all moves have empty capturedCards), place the card
     if (validMoves.every(m => m.capturedCards.length === 0)) {
+      setMultiplayerPlayedCardId(card.id);
       multiplayer.playMove({
         player: multiplayer.playerId!,
         cardPlayed: card,
@@ -1393,6 +1395,7 @@ function App() {
     if (captureOptions.length === 1) {
       const move = captureOptions[0];
       const isScopa = tableCards.length === move.capturedCards.length && multiplayer.gameState.round.deckCount > 0;
+      setMultiplayerPlayedCardId(card.id);
       multiplayer.playMove({
         player: multiplayer.playerId!,
         cardPlayed: card,
@@ -1444,6 +1447,7 @@ function App() {
   const executeMultiplayerPlace = useCallback(() => {
     if (!selectedCard || !multiplayer.playerId) return;
 
+    setMultiplayerPlayedCardId(selectedCard.id);
     multiplayer.playMove({
       player: multiplayer.playerId,
       cardPlayed: selectedCard,
@@ -1461,6 +1465,7 @@ function App() {
     const tableCards = multiplayer.gameState.round.table;
     const isScopa = tableCards.length === selectedTableCards.length && multiplayer.gameState.round.deckCount > 0;
 
+    setMultiplayerPlayedCardId(selectedCard.id);
     multiplayer.playMove({
       player: multiplayer.playerId,
       cardPlayed: selectedCard,
@@ -1478,6 +1483,7 @@ function App() {
     const tableCards = multiplayer.gameState.round.table;
     const isScopa = tableCards.length === move.capturedCards.length && multiplayer.gameState.round.deckCount > 0;
 
+    setMultiplayerPlayedCardId(captureChoiceModal.playedCard.id);
     multiplayer.playMove({
       player: multiplayer.playerId,
       cardPlayed: captureChoiceModal.playedCard,
@@ -1500,6 +1506,9 @@ function App() {
 
   // Track which move we've already processed (by card ID) to prevent re-processing
   const lastProcessedMoveRef = useRef<string | null>(null);
+
+  // Track card ID played optimistically (hide from hand before server confirms)
+  const [multiplayerPlayedCardId, setMultiplayerPlayedCardId] = useState<string | null>(null);
 
   // Multiplayer card animation state
   const [multiplayerAnimatingCard, setMultiplayerAnimatingCard] = useState<{
@@ -1609,6 +1618,11 @@ function App() {
     const { move, byPlayer } = multiplayer.lastMove;
     const isMyMove = byPlayer === multiplayer.playerId;
     const player: PlayerId = isMyMove ? 'human' : 'cpu';
+
+    // Clear optimistic card hiding - animation system takes over from here
+    if (isMyMove) {
+      setMultiplayerPlayedCardId(null);
+    }
 
     // For your own place moves: instant, no animation (matches single-player)
     if (isMyMove && move.capturedCards.length === 0) {
@@ -1730,6 +1744,16 @@ function App() {
       return () => clearTimeout(safetyTimeout);
     }
   }, [multiplayer.lastMove, multiplayerAnimatingCard]);
+
+  // Safety: clear optimistic card hiding if server doesn't respond in time
+  useEffect(() => {
+    if (multiplayerPlayedCardId) {
+      const timeout = setTimeout(() => {
+        setMultiplayerPlayedCardId(null);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
+  }, [multiplayerPlayedCardId]);
 
   // Note: Scopa celebrations are now triggered in the move animation effect above
   // based on the move.isScopa flag, not by comparing scopa counts
@@ -2385,8 +2409,11 @@ function App() {
                 // Hide cards during dealing animation
                 multiplayerIsDealing
                   ? []
-                  : multiplayerAnimatingCard?.player === 'human'
-                    ? mpState.self.hand.filter(c => c.id !== multiplayerAnimatingCard.card.id)
+                  : multiplayerAnimatingCard?.player === 'human' || multiplayerPlayedCardId
+                    ? mpState.self.hand.filter(c =>
+                        c.id !== (multiplayerAnimatingCard?.player === 'human' ? multiplayerAnimatingCard.card.id : null) &&
+                        c.id !== multiplayerPlayedCardId
+                      )
                     : mpState.self.hand
               }
               isHuman={true}

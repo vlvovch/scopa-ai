@@ -1,6 +1,8 @@
 // Room Management for Scopa Multiplayer
 
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
+
+const nanoidAlphanumeric = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 4);
 import { v4 as uuidv4 } from 'uuid';
 import type WebSocket from 'ws';
 import type {
@@ -38,7 +40,7 @@ const turnTimers = new Map<string, NodeJS.Timeout>();
 export function generateRoomCode(): string {
   let code: string;
   do {
-    const suffix = nanoid(4).toUpperCase();
+    const suffix = nanoidAlphanumeric();
     code = `SCOPA-${suffix}`;
   } while (rooms.has(code)); // Ensure uniqueness
   return code;
