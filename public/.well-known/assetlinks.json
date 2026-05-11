@@ -1,0 +1,11 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "net.vovchenko.scopaai",
+      "sha256_cert_fingerprints":
+        ["DC:37:4D:99:FA:B9:45:2D:7E:85:CB:CE:E0:2E:09:CE:31:AF:33:7C:E4:B8:D1:EE:01:65:EF:54:A4:BC:EF:B5"]
+    }
+  }
+]
