@@ -47,6 +47,16 @@
       });
     }
 
+    // Request persistent storage so the SW cache and localStorage aren't
+    // evicted when the device is low on disk or the app hasn't been opened
+    // for weeks (Android: ~60 days, iOS Safari: ~7 days). Granted silently
+    // for installed PWAs/TWAs.
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persisted().then(isPersisted => {
+        if (!isPersisted) navigator.storage.persist();
+      });
+    }
+
     // PWA installation counter
     window.addEventListener('appinstalled', () => {
       if (window.umami?.track) window.umami.track('pwa_install');
