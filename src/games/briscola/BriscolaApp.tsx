@@ -18,7 +18,7 @@ import { PlayerHand } from '../../components/Table/PlayerHand';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
 import { DeckProvider } from '../../contexts/DeckContext';
 import { applyMove, trickWinner } from './rules';
-import { calculateRoundScore } from './scoring';
+import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { heuristicAI } from './ai/heuristic';
 import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
@@ -303,14 +303,8 @@ function BriscolaBoard({
 
   return (
     <div style={styles.board}>
-      {/* Top: score + captured counts */}
-      <div style={styles.scoreRow}>
-        <div style={styles.scoreCell}>
-          CPU · {g.players.cpu.captured.length} cards
-          {state.status === 'roundEnd' && (
-            <> · <strong>{state.finalPoints.cpu} pts</strong></>
-          )}
-        </div>
+      {/* Top row: turn indicator on the left, CPU pile in the top-right */}
+      <div style={styles.topRow}>
         <div style={styles.turnIndicator}>
           {state.status === 'playing' && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
           {state.status === 'cpuAnimating' && 'CPU plays…'}
@@ -318,12 +312,10 @@ function BriscolaBoard({
             winner === 'human' ? 'You take it' : 'CPU takes it'
           )}
         </div>
-        <div style={styles.scoreCell}>
-          You · {g.players.human.captured.length} cards
-          {state.status === 'roundEnd' && (
-            <> · <strong>{state.finalPoints.human} pts</strong></>
-          )}
-        </div>
+        <CapturedPile
+          captured={g.players.cpu.captured}
+          label="CPU"
+        />
       </div>
 
       {/* CPU hand */}
@@ -359,6 +351,15 @@ function BriscolaBoard({
         />
       </div>
 
+      {/* Bottom row: human pile on the left */}
+      <div style={styles.bottomRow}>
+        <CapturedPile
+          captured={g.players.human.captured}
+          label="You"
+        />
+        <div />
+      </div>
+
       {/* CPU reveal/move overlay (same component Scopa uses) */}
       <CpuCardAnimation
         card={cpuAnim?.cpuMove.cardPlayed ?? null}
@@ -379,6 +380,48 @@ function BriscolaBoard({
   );
 }
 
+function CapturedPile({
+  captured,
+  label,
+}: {
+  captured: BriscolaCard[];
+  label: string;
+}) {
+  const count = captured.length;
+  const points = sumPoints(captured);
+  // Visual stack depth grows with pile size (max 5 layers, like Scopa)
+  const stackLayers = Math.min(5, Math.max(1, Math.ceil(count / 6)));
+
+  return (
+    <div style={styles.pile}>
+      <span style={styles.pileLabel}>{label}</span>
+      <div style={styles.pileStack}>
+        {count === 0 ? (
+          <div style={styles.emptyDeck}><span style={styles.emptyLabel}>Empty</span></div>
+        ) : (
+          Array.from({ length: stackLayers }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute' as const,
+                top: 0,
+                left: 0,
+                transform: `translate(${i}px, ${i}px)`,
+                zIndex: stackLayers - i,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                borderRadius: '6px',
+              }}
+            >
+              <Card card={null} faceDown />
+            </div>
+          ))
+        )}
+      </div>
+      <span style={styles.pileCount}>{count} · {points} pts</span>
+    </div>
+  );
+}
+
 function TrickCard({
   card,
   exitToward,
@@ -386,14 +429,16 @@ function TrickCard({
   card: BriscolaCard;
   exitToward: PlayerId | null;
 }) {
-  // Match Scopa's capture animation: ±220px translation + fade + scale down,
-  // over CAPTURE_DURATION_MS, with a slight ease-in feel.
+  // Cards fly toward the corner pile of the winning player.
+  // CPU pile: top-right.    Human pile: bottom-left.
   const exitY = exitToward === 'human' ? 220 : exitToward === 'cpu' ? -220 : 0;
+  const exitX = exitToward === 'human' ? -240 : exitToward === 'cpu' ? 240 : 0;
 
   return (
     <motion.div
       layoutId={`hand-${card.id}`}
       exit={{
+        x: exitX,
         y: exitY,
         opacity: 0,
         scale: 0.7,
@@ -522,17 +567,57 @@ const styles = {
     padding: '1rem',
     position: 'relative',
   },
-  scoreRow: {
+  topRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    padding: '0.25rem 0.5rem',
+    marginBottom: '0.25rem',
+    minHeight: 'calc(var(--card-height, 180px) * 0.7)',
+  },
+  bottomRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    padding: '0.25rem 0.5rem',
+    marginTop: '0.25rem',
+    minHeight: 'calc(var(--card-height, 180px) * 0.7)',
+  },
+  turnIndicator: {
+    fontSize: '0.95rem',
+    opacity: 0.8,
+    fontStyle: 'italic',
+    alignSelf: 'center',
     padding: '0.5rem 1rem',
     background: 'rgba(0,0,0,0.2)',
     borderRadius: '8px',
-    marginBottom: '0.5rem',
   },
-  scoreCell: { fontSize: '1rem' },
-  turnIndicator: { fontSize: '0.95rem', opacity: 0.8, fontStyle: 'italic' },
+  // ---- Captured pile ----
+  pile: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '4px',
+    padding: '4px',
+  },
+  pileLabel: {
+    fontSize: '10px',
+    opacity: 0.7,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.3px',
+  },
+  pileStack: {
+    position: 'relative' as const,
+    width: 'var(--card-width, 120px)',
+    height: 'calc(var(--card-height, 180px) * 1.08)',
+  },
+  pileCount: {
+    fontSize: '12px',
+    fontWeight: 'bold' as const,
+    background: 'rgba(0, 0, 0, 0.3)',
+    padding: '2px 8px',
+    borderRadius: '10px',
+  },
   handRow: {
     display: 'flex',
     justifyContent: 'center',
