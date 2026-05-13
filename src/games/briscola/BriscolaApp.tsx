@@ -1,14 +1,18 @@
-// Briscola AI — slice 7a skeleton
+// Briscola AI — slice 7c
 //
-// Minimal playable single-player Briscola: human vs heuristicAI, one round,
-// click to play, simple round-end overlay. No animations, no LLM bots,
-// no multiplayer, no settings — those come in 7b/7c.
+// Single-player Briscola: human vs heuristicAI, one round.
+// - Card flies from hand to play area via shared layoutId animation
+// - Trick visible for ~1.2s after the follow card lands
+// - Both trick cards then fly toward the winning player's side
+// - Deck stack on the right with horizontal trump beneath it
+// - No verbose labels
 
 import { useReducer, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../../components/Card/Card';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { DeckProvider } from '../../contexts/DeckContext';
-import { applyMove } from './rules';
+import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { heuristicAI } from './ai/heuristic';
@@ -18,19 +22,30 @@ import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
 // State
 // ---------------------------------------------------------------------------
 
-interface AppState {
-  status: 'idle' | 'playing' | 'roundEnd';
-  game: GameState | null;
-  finalPoints: { human: number; cpu: number } | null;
+interface AnimatingTrick {
+  /** The card that was led (still in game.round.trick.leadCard until resolve) */
+  leadCard: BriscolaCard;
+  leader: PlayerId;
+  /** The follow card that was just played (removed from hand in `game`) */
+  followCard: BriscolaCard;
+  follower: PlayerId;
+  winner: PlayerId;
+  /** The post-resolution game state to apply once the animation finishes */
+  resolved: GameState;
 }
+
+type AppState =
+  | { status: 'idle' }
+  | { status: 'playing'; game: GameState }
+  | { status: 'animatingTrick'; game: GameState; trick: AnimatingTrick }
+  | { status: 'roundEnd'; game: GameState; finalPoints: { human: number; cpu: number } };
 
 type Action =
   | { type: 'START' }
-  | { type: 'PLAY'; move: Move };
+  | { type: 'PLAY'; move: Move }
+  | { type: 'RESOLVE_TRICK' };
 
-function initialAppState(): AppState {
-  return { status: 'idle', game: null, finalPoints: null };
-}
+const TRICK_VISIBLE_MS = 1200;
 
 function newRound(): GameState {
   const deck = shuffleDeck(createDeck());
@@ -42,7 +57,7 @@ function newRound(): GameState {
       trump: init.trump,
       trumpSuit: init.trump.suit,
       trick: { leadCard: null, leader: 'human' },
-      currentPlayer: 'human', // non-dealer leads
+      currentPlayer: 'human',
       dealer: 'cpu',
     },
     players: {
@@ -58,27 +73,66 @@ function newRound(): GameState {
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'START':
-      return { status: 'playing', game: newRound(), finalPoints: null };
+      return { status: 'playing', game: newRound() };
 
     case 'PLAY': {
-      if (state.status !== 'playing' || !state.game) return state;
-      const next = applyMove(state.game, action.move);
-      if (next.status === 'roundEnd') {
-        const human = calculateRoundScore(
-          next.players.human.captured,
-          next.players.cpu.captured
-        );
-        const cpu = calculateRoundScore(
-          next.players.cpu.captured,
-          next.players.human.captured
-        );
+      if (state.status !== 'playing') return state;
+      const { game } = state;
+      const { move } = action;
+
+      // Leading the trick (no card on table yet) — apply directly.
+      if (game.round.trick.leadCard === null) {
+        const next = applyMove(game, move);
+        return { status: 'playing', game: next };
+      }
+
+      // Following — defer the trick resolution behind an animation.
+      // Compute the "visualization" game (follow card removed from follower's
+      // hand but trick not yet captured/drawn) and the resolved game.
+      const leadCard = game.round.trick.leadCard;
+      const leader = game.round.trick.leader;
+      const follower = move.player;
+      const winner = trickWinner(leadCard, leader, move.cardPlayed, follower, game.round.trumpSuit);
+
+      const visualGame: GameState = {
+        ...game,
+        players: {
+          ...game.players,
+          [follower]: {
+            ...game.players[follower],
+            hand: game.players[follower].hand.filter(c => c.id !== move.cardPlayed.id),
+          },
+        } as GameState['players'],
+      };
+      const resolved = applyMove(game, move);
+
+      return {
+        status: 'animatingTrick',
+        game: visualGame,
+        trick: {
+          leadCard,
+          leader,
+          followCard: move.cardPlayed,
+          follower,
+          winner,
+          resolved,
+        },
+      };
+    }
+
+    case 'RESOLVE_TRICK': {
+      if (state.status !== 'animatingTrick') return state;
+      const resolved = state.trick.resolved;
+      if (resolved.status === 'roundEnd') {
+        const human = calculateRoundScore(resolved.players.human.captured, resolved.players.cpu.captured);
+        const cpu = calculateRoundScore(resolved.players.cpu.captured, resolved.players.human.captured);
         return {
           status: 'roundEnd',
-          game: next,
+          game: resolved,
           finalPoints: { human: human.points, cpu: cpu.points },
         };
       }
-      return { ...state, game: next };
+      return { status: 'playing', game: resolved };
     }
   }
 }
@@ -88,16 +142,16 @@ function reducer(state: AppState, action: Action): AppState {
 // ---------------------------------------------------------------------------
 
 function BriscolaApp() {
-  const [state, dispatch] = useReducer(reducer, undefined, initialAppState);
+  const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
 
-  // CPU auto-play loop — runs whenever it's the CPU's turn during play
+  // CPU auto-play
   useEffect(() => {
-    if (state.status !== 'playing' || !state.game) return;
-    if (state.game.round.currentPlayer !== 'cpu') return;
-    if (state.game.players.cpu.hand.length === 0) return;
+    if (state.status !== 'playing') return;
+    const g = state.game;
+    if (g.round.currentPlayer !== 'cpu') return;
+    if (g.players.cpu.hand.length === 0) return;
 
     const timer = setTimeout(() => {
-      const g = state.game!;
       const move = heuristicAI.selectMove({
         hand: g.players.cpu.hand,
         player: 'cpu',
@@ -112,16 +166,23 @@ function BriscolaApp() {
     return () => clearTimeout(timer);
   }, [state]);
 
+  // Trick visualization timer
+  useEffect(() => {
+    if (state.status !== 'animatingTrick') return;
+    const timer = setTimeout(() => dispatch({ type: 'RESOLVE_TRICK' }), TRICK_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
+
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
-      if (state.status !== 'playing' || !state.game) return;
+      if (state.status !== 'playing') return;
       if (state.game.round.currentPlayer !== 'human') return;
       dispatch({ type: 'PLAY', move: { player: 'human', cardPlayed: card } });
     },
     [state]
   );
 
-  if (state.status === 'idle' || !state.game) {
+  if (state.status === 'idle') {
     return <StartScreen onStart={() => dispatch({ type: 'START' })} />;
   }
 
@@ -139,7 +200,7 @@ function BriscolaApp() {
 export default BriscolaApp;
 
 // ---------------------------------------------------------------------------
-// Subcomponents
+// Screens
 // ---------------------------------------------------------------------------
 
 function StartScreen({ onStart }: { onStart: () => void }) {
@@ -161,59 +222,87 @@ function BriscolaBoard({
   onCardClick,
   onRestart,
 }: {
-  state: AppState;
+  state: Exclude<AppState, { status: 'idle' }>;
   onCardClick: (card: BriscolaCard) => void;
   onRestart: () => void;
 }) {
-  const g = state.game!;
-  const { trump, trick, deck, currentPlayer } = g.round;
-  const humanCaptured = g.players.human.captured.length;
-  const cpuCaptured = g.players.cpu.captured.length;
-  const isHumanTurn = currentPlayer === 'human';
-  const isPlaying = state.status === 'playing';
+  const g = state.game;
+  const isHumanTurn = state.status === 'playing' && g.round.currentPlayer === 'human';
+  const animTrick = state.status === 'animatingTrick' ? state.trick : null;
+
+  // Determine what's in the play area
+  const leadCard = animTrick ? animTrick.leadCard : g.round.trick.leadCard;
+  const followCard = animTrick ? animTrick.followCard : null;
+  const winner = animTrick ? animTrick.winner : null;
 
   return (
     <div style={styles.board}>
-      {/* Top: scoreboard */}
+      {/* Top: score + captured counts */}
       <div style={styles.scoreRow}>
         <div style={styles.scoreCell}>
-          <strong>CPU</strong> · {cpuCaptured} captured
-          {state.finalPoints && <> · <strong>{state.finalPoints.cpu} pts</strong></>}
+          CPU · {g.players.cpu.captured.length} cards
+          {state.status === 'roundEnd' && (
+            <> · <strong>{state.finalPoints.cpu} pts</strong></>
+          )}
         </div>
         <div style={styles.turnIndicator}>
-          {isPlaying && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
-          {state.status === 'roundEnd' && 'Round over'}
+          {state.status === 'playing' && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
+          {state.status === 'animatingTrick' && (
+            animTrick!.winner === 'human' ? 'You take it' : 'CPU takes it'
+          )}
         </div>
         <div style={styles.scoreCell}>
-          <strong>You</strong> · {humanCaptured} captured
-          {state.finalPoints && <> · <strong>{state.finalPoints.human} pts</strong></>}
+          You · {g.players.human.captured.length} cards
+          {state.status === 'roundEnd' && (
+            <> · <strong>{state.finalPoints.human} pts</strong></>
+          )}
         </div>
       </div>
 
-      {/* CPU hand (face down) */}
+      {/* CPU hand */}
       <div style={styles.handRow}>
         <PlayerHand cards={g.players.cpu.hand} isHuman={false} />
       </div>
 
-      {/* Middle: trump on the left, trick area center, deck count right */}
+      {/* Middle row: play area in the center, deck+trump on the right */}
       <div style={styles.middleRow}>
-        <TrumpDisplay trump={trump} deckEmpty={deck.length === 0} />
-        <TrickArea trick={trick} />
-        <DeckCount count={deck.length} />
+        <div style={styles.middleSpacer} />
+        <div style={styles.playArea}>
+          <AnimatePresence>
+            {leadCard && (
+              <TrickCard
+                key={leadCard.id}
+                card={leadCard}
+                exitToward={winner}
+              />
+            )}
+            {followCard && (
+              <TrickCard
+                key={followCard.id}
+                card={followCard}
+                exitToward={winner}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+        <DeckAndTrump
+          deckCount={g.round.deck.length}
+          trump={g.round.trump}
+        />
       </div>
 
-      {/* Player hand (clickable) */}
+      {/* Human hand */}
       <div style={styles.handRow}>
         <PlayerHand
           cards={g.players.human.hand}
           isHuman={true}
           onCardClick={onCardClick}
-          disabled={!isHumanTurn || !isPlaying}
+          disabled={!isHumanTurn}
         />
       </div>
 
       {/* Round-end overlay */}
-      {state.status === 'roundEnd' && state.finalPoints && (
+      {state.status === 'roundEnd' && (
         <RoundEndOverlay
           humanPts={state.finalPoints.human}
           cpuPts={state.finalPoints.cpu}
@@ -224,34 +313,62 @@ function BriscolaBoard({
   );
 }
 
-function TrumpDisplay({ trump, deckEmpty }: { trump: BriscolaCard; deckEmpty: boolean }) {
+// A card in the play area. Uses `layoutId={hand-${card.id}}` so framer-motion
+// animates its arrival from the player's hand automatically. On exit, slides
+// toward the winning player's side and fades.
+function TrickCard({
+  card,
+  exitToward,
+}: {
+  card: BriscolaCard;
+  exitToward: PlayerId | null;
+}) {
+  // Vertical direction: up for cpu, down for human, no movement if no winner yet
+  const exitY = exitToward === 'human' ? 220 : exitToward === 'cpu' ? -220 : 0;
+
   return (
-    <div style={styles.trumpArea}>
-      <div style={styles.label}>Briscola</div>
-      <Card card={trump} />
-      {deckEmpty && <div style={styles.lastCardNote}>(last card drawn)</div>}
-    </div>
+    <motion.div
+      style={styles.trickCardWrap}
+      layoutId={`hand-${card.id}`}
+      exit={{
+        y: exitY,
+        opacity: 0,
+        scale: 0.7,
+        transition: { duration: 0.5, ease: 'easeIn' },
+      }}
+      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+    >
+      <Card card={card} />
+    </motion.div>
   );
 }
 
-function TrickArea({ trick }: { trick: { leadCard: BriscolaCard | null; leader: PlayerId } }) {
-  return (
-    <div style={styles.trickArea}>
-      <div style={styles.label}>{trick.leadCard ? `${trick.leader === 'human' ? 'You' : 'CPU'} led` : 'Trick'}</div>
-      {trick.leadCard ? (
-        <Card card={trick.leadCard} />
-      ) : (
-        <div style={styles.placeholderCard}>empty</div>
-      )}
-    </div>
-  );
-}
+function DeckAndTrump({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
+  // The trump is only visible while there's still at least one card to draw
+  // (when deckCount === 0 it's been drawn into someone's hand).
+  const showTrump = deckCount > 0;
+  // The deck stack visually pretends to have multiple cards if deckCount > 1
+  const showDeck = deckCount > 1;
 
-function DeckCount({ count }: { count: number }) {
   return (
-    <div style={styles.deckCountArea}>
-      <div style={styles.label}>Deck</div>
-      <div style={styles.deckBadge}>{count}</div>
+    <div style={styles.deckArea}>
+      <div style={styles.deckTrumpStack}>
+        {showTrump && (
+          <div style={styles.trumpHorizontal}>
+            <Card card={trump} />
+          </div>
+        )}
+        {showDeck && (
+          <div style={styles.deckStack}>
+            <Card card={null} faceDown />
+            <div style={styles.deckCountBadge}>{deckCount - (showTrump ? 1 : 0)}</div>
+          </div>
+        )}
+        {!showDeck && showTrump && (
+          // Only the trump remains — about to be drawn
+          <div style={styles.deckCountBadgeAlone}>1 left</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -289,7 +406,7 @@ function RoundEndOverlay({
 }
 
 // ---------------------------------------------------------------------------
-// Inline styles (skeleton — proper CSS modules in 7c)
+// Inline styles (proper CSS modules in a future slice)
 // ---------------------------------------------------------------------------
 
 const styles = {
@@ -322,7 +439,7 @@ const styles = {
     padding: '0.5rem 1rem',
     background: 'rgba(0,0,0,0.2)',
     borderRadius: '8px',
-    marginBottom: '1rem',
+    marginBottom: '0.5rem',
   },
   scoreCell: { fontSize: '1rem' },
   turnIndicator: { fontSize: '0.95rem', opacity: 0.8, fontStyle: 'italic' },
@@ -330,59 +447,71 @@ const styles = {
     display: 'flex',
     justifyContent: 'center',
     minHeight: 'var(--card-height, 180px)',
-    margin: '0.5rem 0',
+    margin: '0.25rem 0',
   },
   middleRow: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto 1fr',
+    alignItems: 'center',
+    flex: 1,
+    gap: '1rem',
+    padding: '0 1rem',
+  },
+  middleSpacer: {},
+  playArea: {
     display: 'flex',
+    gap: '0.5rem',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: '3rem',
-    flex: 1,
+    minWidth: 'var(--card-width, 120px)',
     minHeight: 'var(--card-height, 180px)',
   },
-  trumpArea: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.5rem',
+  trickCardWrap: {
+    // Inherit card size via the Card component's own CSS
   },
-  trickArea: {
+  deckArea: {
     display: 'flex',
-    flexDirection: 'column',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    gap: '0.5rem',
-    minWidth: 'var(--card-width, 120px)',
   },
-  deckCountArea: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '0.5rem',
+  deckTrumpStack: {
+    position: 'relative' as const,
+    display: 'inline-block',
+    paddingLeft: '60px', // leave room for the horizontal trump on the left side of the deck
   },
-  label: { fontSize: '0.85rem', opacity: 0.7, textTransform: 'uppercase' as const, letterSpacing: '0.05em' },
-  lastCardNote: { fontSize: '0.75rem', opacity: 0.6 },
-  placeholderCard: {
-    width: 'var(--card-width, 120px)',
-    height: 'var(--card-height, 180px)',
-    border: '2px dashed rgba(255,255,255,0.2)',
-    borderRadius: '8px',
+  deckStack: {
+    position: 'relative' as const,
+  },
+  trumpHorizontal: {
+    position: 'absolute' as const,
+    left: '-30px',
+    top: '50%',
+    transform: 'translateY(-50%) rotate(90deg)',
+    transformOrigin: 'center',
+    zIndex: 1,
+  },
+  deckCountBadge: {
+    position: 'absolute' as const,
+    top: '-8px',
+    right: '-8px',
+    background: '#FFD600',
+    color: '#1A237E',
+    borderRadius: '999px',
+    minWidth: '28px',
+    height: '28px',
+    padding: '0 8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.5,
+    fontWeight: 'bold' as const,
     fontSize: '0.9rem',
+    zIndex: 2,
   },
-  deckBadge: {
-    width: 'var(--card-width, 120px)',
-    height: 'var(--card-height, 180px)',
-    background: 'rgba(0,0,0,0.3)',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '2.5rem',
-    fontWeight: 'bold',
-    border: '2px solid rgba(255,255,255,0.2)',
+  deckCountBadgeAlone: {
+    background: 'rgba(255,255,255,0.15)',
+    padding: '0.25rem 0.75rem',
+    borderRadius: '4px',
+    fontSize: '0.85rem',
   },
   primaryButton: {
     background: '#FFD600',
