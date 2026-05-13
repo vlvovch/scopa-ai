@@ -387,7 +387,7 @@ function BriscolaTable({
 }) {
   return (
     <div className={tableStyles.tableContainer}>
-      <div className={tableStyles.tableArea} style={trickAreaSize}>
+      <div style={trickArea}>
         <AnimatePresence>
           {leadCard && <TrickCard key={leadCard.id} card={leadCard} exitToward={winner} />}
           {followCard && <TrickCard key={followCard.id} card={followCard} exitToward={winner} />}
@@ -430,10 +430,11 @@ function TrickCard({
   );
 }
 
-// Deck stack with the trump card laid perpendicular beneath it — the classic
-// Briscola "cross" arrangement. The trump is rotated 90° and sits centered
-// behind the deck, so its two long ends stick out left and right of the
-// deck stack while the center of the trump is hidden behind the deck.
+// Deck stack with the trump card rotated 90° sticking out beneath it.
+// The trump's top edge is tucked behind the deck's bottom edge by ~30%,
+// so the trump appears to be slid out from under the deck — most of it
+// visible horizontally below, with a small portion hidden behind the
+// deck's bottom edge.
 function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
   if (deckCount === 0) {
     return (
@@ -450,42 +451,39 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
 
   return (
     <div style={deckContainer}>
-      {/* Cross of deck-on-trump.
-          Outer wrapper is sized to the rotated trump's bounding box
-          (card-height wide × card-height tall — enough to contain both
-          the rotated trump horizontally and the deck stack vertically). */}
-      <div style={deckCrossWrap}>
-        {/* Trump rotated 90°, centered, BEHIND the deck */}
-        <div style={trumpRotated}>
-          <Card card={trump} />
-        </div>
-
-        {/* Deck stack, centered, IN FRONT */}
+      {/* Deck stack on top */}
+      <div style={deckStack}>
         {showStack ? (
-          <div style={deckStack}>
-            {Array.from({ length: stackLayers }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  transform: `translate(${i * -1}px, ${i * -1}px)`,
-                  zIndex: stackLayers - i,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                  borderRadius: '6px',
-                }}
-              >
-                <CardBack />
-              </div>
-            ))}
-          </div>
+          Array.from({ length: stackLayers }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                transform: `translate(${i * -1}px, ${i * -1}px)`,
+                zIndex: stackLayers - i,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                borderRadius: '6px',
+              }}
+            >
+              <CardBack />
+            </div>
+          ))
         ) : (
-          // Only the trump remains in the draw pile — no face-down stack.
-          // Render an invisible spacer so the count pill stays positioned correctly.
-          <div style={deckStack} />
+          // Only the trump remains — no face-down stack to render
+          null
         )}
       </div>
+
+      {/* Trump rotated 90°, sticking out beneath the deck.
+          Negative marginTop tucks its top edge behind the deck's bottom. */}
+      <div style={trumpRotatedWrap}>
+        <div style={trumpRotatedInner}>
+          <Card card={trump} />
+        </div>
+      </div>
+
       <span style={deckCountPill}>{deckCount}</span>
     </div>
   );
@@ -589,54 +587,64 @@ const turnLabelStyle: React.CSSProperties = {
   fontStyle: 'italic',
 };
 
-// Briscola only ever has 0, 1, or 2 cards in the trick area, so cap the
-// dashed-rectangle width to fit exactly 2 cards (overrides Scopa's
-// 8-card-wide default in TableCards.module.css).
-const trickAreaSize: React.CSSProperties = {
-  minWidth: 'calc(2 * var(--card-width) + var(--space-3) + 16px)',
-  maxWidth: 'calc(2 * var(--card-width) + var(--space-3) + 16px)',
+// Briscola only ever has 0, 1, or 2 cards in the trick area. Custom
+// flex container (instead of Scopa's tableArea CSS class which is sized
+// for up to 8 cards and uses flex-wrap: wrap) — sized to fit exactly
+// 2 cards side-by-side, never wraps to a second row.
+const trickArea: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'nowrap',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 'var(--space-3)',
+  padding: '12px',
+  minWidth: 'calc(2 * var(--card-width) + var(--space-3) + 24px)',
+  minHeight: 'calc(var(--card-height) + 24px)',
+  background: 'rgba(0, 0, 0, 0.1)',
+  borderRadius: '12px',
+  border: '2px dashed rgba(255, 255, 255, 0.15)',
+  boxSizing: 'border-box',
+  flexShrink: 0,
 };
 
-// ---- Briscola deck + trump (the "cross") ----
+// ---- Briscola deck + trump (trump sticks out beneath deck) ----
 const deckContainer: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '8px',
+  gap: '6px',
 };
 
-// Sized to fit the rotated trump's horizontal extent (= card-height after
-// rotation) and the deck's vertical extent (= card-height).
-const deckCrossWrap: React.CSSProperties = {
-  position: 'relative',
-  width: 'var(--card-height)',
-  height: 'var(--card-height)',
-};
-
-// Deck stack: centered in the cross-wrap, on top.
+// Deck stack: ordinary card-sized box. Layered on top of the trump
+// wrapper that follows it (z-index).
 const deckStack: React.CSSProperties = {
-  position: 'absolute',
-  left: '50%',
-  top: '50%',
+  position: 'relative',
   width: 'var(--card-width)',
   height: 'var(--card-height)',
-  transform: 'translate(-50%, -50%)',
   zIndex: 2,
 };
 
-// Trump card rotated 90°, centered in the cross-wrap, behind the deck.
-// Its two long ends stick out beyond the deck horizontally; its narrower
-// vertical extent (=card-width) fits inside the deck height, so most of the
-// trump's center is hidden behind the deck and the two ends remain visible.
-const trumpRotated: React.CSSProperties = {
+// Trump's outer wrapper: sized to the rotated card's visual dimensions
+// (wide × short). marginTop negative pulls the trump up so its top edge
+// is tucked behind the deck's bottom — most of the rotated card is
+// visible beneath, the rest hides behind the deck.
+const trumpRotatedWrap: React.CSSProperties = {
+  width: 'var(--card-height)',
+  height: 'var(--card-width)',
+  position: 'relative',
+  // Overlap the deck by ~30% of the trump's visual height
+  marginTop: 'calc(var(--card-width) * -0.3)',
+  zIndex: 1,
+};
+
+// Inner: the card itself, rotated 90° and centered within the wrapper.
+const trumpRotatedInner: React.CSSProperties = {
+  width: 'var(--card-width)',
+  height: 'var(--card-height)',
   position: 'absolute',
   left: '50%',
   top: '50%',
-  width: 'var(--card-width)',
-  height: 'var(--card-height)',
   transform: 'translate(-50%, -50%) rotate(90deg)',
-  transformOrigin: 'center',
-  zIndex: 1,
 };
 
 const deckCountPill: React.CSSProperties = {
