@@ -2,7 +2,7 @@
 
 import { forwardRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { Card as CardType } from '../../game/types';
+import type { Card as CardType } from '../../games/scopa/types';
 import { Card } from '../Card/Card';
 import { DealerDeck } from './DealerDeck';
 import styles from './TableCards.module.css';

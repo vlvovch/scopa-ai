@@ -1,8 +1,8 @@
 // Random AI Player - Selects moves completely at random
 
-import type { Move } from '../game/types';
+import type { Move } from '../games/scopa/types';
 import type { AIPlayer, AIContext } from './types';
-import { getValidMoves } from '../game/rules';
+import { getValidMoves } from '../games/scopa/rules';
 
 /**
  * Random AI that picks a random card and random valid move.

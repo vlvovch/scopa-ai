@@ -1,9 +1,9 @@
 // Step 6.8: useGame Hook
 
 import { useReducer, useCallback, useEffect } from 'react';
-import type { Move, GameMode, GameState } from '../game/types';
-import { gameReducer, createInitialState } from '../game/reducer';
-import { DEFAULT_TARGET_SCORE } from '../game/constants';
+import type { Move, GameMode, GameState } from '../games/scopa/types';
+import { gameReducer, createInitialState } from '../games/scopa/reducer';
+import { DEFAULT_TARGET_SCORE } from '../games/scopa/constants';
 
 const STORAGE_KEY = 'scopa-game-state';
 

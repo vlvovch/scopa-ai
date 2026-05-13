@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { Card, RoundScore } from '../../game/types';
+import type { Card, RoundScore } from '../../games/scopa/types';
 import type { GeminiTokenStats, ExtendedAIType } from '../../ai';
-import { PRIME_VALUES, SUITS } from '../../game/constants';
+import { PRIME_VALUES, SUITS } from '../../games/scopa/constants';
 import { CardImage } from '../Card/CardImage';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';

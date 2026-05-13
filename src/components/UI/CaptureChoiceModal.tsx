@@ -1,7 +1,7 @@
 // CaptureChoiceModal - Shows capture options when multiple captures are possible
 
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Card, Move } from '../../game/types';
+import type { Card, Move } from '../../games/scopa/types';
 import { CardImage } from '../Card/CardImage';
 import styles from './CaptureChoiceModal.module.css';
 

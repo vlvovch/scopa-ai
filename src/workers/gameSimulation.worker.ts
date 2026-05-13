@@ -1,9 +1,9 @@
 // Web Worker for running game simulations in background
 // This worker runs CPU vs CPU games without being throttled when tab is hidden
 
-import type { GameState, Move, PlayerId } from '../game/types';
-import { gameReducer } from '../game/reducer';
-import { getValidMoves } from '../game/rules';
+import type { GameState, Move, PlayerId } from '../games/scopa/types';
+import { gameReducer } from '../games/scopa/reducer';
+import { getValidMoves } from '../games/scopa/rules';
 import { randomAI } from '../ai/random';
 import { heuristicAI } from '../ai/heuristic';
 import { selectExpertMoveWithState } from '../ai/expert';

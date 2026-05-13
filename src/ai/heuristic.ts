@@ -1,9 +1,9 @@
 // Heuristic AI Player - Uses greedy strategy with priority-based move selection
 
-import type { Card, Move } from '../game/types';
+import type { Card, Move } from '../games/scopa/types';
 import type { AIPlayer, AIContext } from './types';
-import { getValidMoves } from '../game/rules';
-import { PRIME_VALUES } from '../game/constants';
+import { getValidMoves } from '../games/scopa/rules';
+import { PRIME_VALUES } from '../games/scopa/constants';
 
 /**
  * Score a move based on strategic value.

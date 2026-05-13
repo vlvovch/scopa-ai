@@ -3,7 +3,7 @@
 // the complete round history in the prompt.
 
 import Anthropic from '@anthropic-ai/sdk';
-import type { Card, Move } from '../game/types';
+import type { Card, Move } from '../games/scopa/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
   getClaudeApiKey,

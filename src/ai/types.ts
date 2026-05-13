@@ -1,6 +1,6 @@
 // AI Player Types and Interface
 
-import type { Card, Move, PlayerId } from '../game/types';
+import type { Card, Move, PlayerId } from '../games/scopa/types';
 
 /**
  * Context provided to AI for decision making

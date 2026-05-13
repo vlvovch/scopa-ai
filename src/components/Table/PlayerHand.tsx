@@ -1,7 +1,7 @@
 // Step 7.4: PlayerHand Component with animations
 
 import { AnimatePresence, motion, PanInfo } from 'framer-motion';
-import type { Card as CardType } from '../../game/types';
+import type { Card as CardType } from '../../games/scopa/types';
 import { Card } from '../Card/Card';
 import styles from './PlayerHand.module.css';
 

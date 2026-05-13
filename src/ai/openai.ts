@@ -1,7 +1,7 @@
 // OpenAI GPT AI Player - Uses OpenAI's Responses API with conversation state
 
 import OpenAI from 'openai';
-import type { Move } from '../game/types';
+import type { Move } from '../games/scopa/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
 import { getOpenAIApiKey, isOpenAIKeyValid } from '../hooks/useSettings';

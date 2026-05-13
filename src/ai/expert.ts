@@ -1,12 +1,12 @@
 // Expert AI Player - Uses Information Set Monte Carlo Tree Search (ISMCTS)
 // with alpha-beta pruning and determinization for hidden information
 
-import type { Card, GameState, Move, PlayerId } from '../game/types';
+import type { Card, GameState, Move, PlayerId } from '../games/scopa/types';
 import type { AIPlayer, AIContext } from './types';
-import { getValidMoves } from '../game/rules';
-import { executeMove } from '../game/rules';
-import { PRIME_VALUES, SUITS } from '../game/constants';
-import { createDeck } from '../game/deck';
+import { getValidMoves } from '../games/scopa/rules';
+import { executeMove } from '../games/scopa/rules';
+import { PRIME_VALUES, SUITS } from '../games/scopa/constants';
+import { createDeck } from '../games/scopa/deck';
 
 // ============================================================================
 // Configuration

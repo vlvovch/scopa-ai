@@ -1,6 +1,6 @@
 // Shared AI prompts and formatting utilities for LLM-based AI players
 
-import type { Card, Move } from '../game/types';
+import type { Card, Move } from '../games/scopa/types';
 import type { LLMAIContext } from './types';
 
 /**

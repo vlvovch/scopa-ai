@@ -1,7 +1,7 @@
 // Card Component with Neapolitan-style SVG graphics and animations
 
 import { motion, PanInfo } from 'framer-motion';
-import type { Card as CardType } from '../../game/types';
+import type { Card as CardType } from '../../games/scopa/types';
 import { CardImage, CardBack } from './CardImage';
 import styles from './Card.module.css';
 

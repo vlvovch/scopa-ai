@@ -2,7 +2,7 @@
 // Uses authentic Italian card graphics converted to WebP for fast loading
 
 import { useState } from 'react';
-import type { Card } from '../../game/types';
+import type { Card } from '../../games/scopa/types';
 import { useDeck } from '../../contexts/DeckContext';
 import type { DeckType } from '../../hooks/useSettings';
 

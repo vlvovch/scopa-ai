@@ -28,14 +28,14 @@ import { OpponentDisconnected } from './components/UI/OpponentDisconnected';
 import { RestartOverlay } from './components/UI/RestartOverlay';
 import { TurnTimer } from './components/UI/TurnTimer';
 import { DeckProvider } from './contexts/DeckContext';
-import { getValidMoves } from './game/rules';
+import { getValidMoves } from './games/scopa/rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from './components/UI/TokenStatsDisplay';
 import { ThinkingBubble } from './components/UI/ThinkingBubble';
 import { ReasoningModal, type LastMoveData } from './components/UI/ReasoningModal';
 import type { PanInfo } from 'framer-motion';
-import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './game/types';
+import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './games/scopa/types';
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
 
 // Storage keys for persistence

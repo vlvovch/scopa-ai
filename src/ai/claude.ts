@@ -3,7 +3,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import type { Move } from '../game/types';
+import type { Move } from '../games/scopa/types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
 import { getClaudeApiKey, isClaudeKeyValid } from '../hooks/useSettings';

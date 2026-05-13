@@ -50,12 +50,12 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 
 // Import game logic and AI from src/
-import type { Card, GameState, Move, PlayerId } from '../src/game/types.js';
-import { dealCards } from '../src/game/deck.js';
-import { getValidMoves, isValidMove, executeMove } from '../src/game/rules.js';
-import { calculateRoundScore } from '../src/game/scoring.js';
-import { DEFAULT_TARGET_SCORE, CARDS_PER_HAND } from '../src/game/constants.js';
-import { createInitialState, dealInitialCards } from '../src/game/reducer.js';
+import type { Card, GameState, Move, PlayerId } from '../src/games/scopa/types.js';
+import { dealCards } from '../src/games/scopa/deck.js';
+import { getValidMoves, isValidMove, executeMove } from '../src/games/scopa/rules.js';
+import { calculateRoundScore } from '../src/games/scopa/scoring.js';
+import { DEFAULT_TARGET_SCORE, CARDS_PER_HAND } from '../src/games/scopa/constants.js';
+import { createInitialState, dealInitialCards } from '../src/games/scopa/reducer.js';
 import { randomAI as randomAIBase } from '../src/ai/random.js';
 import { heuristicAI as heuristicAIBase } from '../src/ai/heuristic.js';
 import { selectExpertMoveWithState } from '../src/ai/expert.js';

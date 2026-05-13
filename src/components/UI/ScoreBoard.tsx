@@ -1,7 +1,7 @@
 // Step 7.7: ScoreBoard Component
 
 import type { ReactNode } from 'react';
-import type { PlayerId } from '../../game/types';
+import type { PlayerId } from '../../games/scopa/types';
 import type { ExtendedAIType } from '../../ai';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';

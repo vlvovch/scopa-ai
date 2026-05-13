@@ -4,7 +4,7 @@
 // Works for both CPU and human players in spectator mode
 
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Card as CardType, PlayerId } from '../../game/types';
+import type { Card as CardType, PlayerId } from '../../games/scopa/types';
 import { CardImage, CardBack } from '../Card/CardImage';
 import styles from './CpuCardAnimation.module.css';
 

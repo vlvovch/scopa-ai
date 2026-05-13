@@ -2,7 +2,7 @@
 // Allows CPU vs CPU games to run in background tabs without throttling
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { GameState } from '../game/types';
+import type { GameState } from '../games/scopa/types';
 import type { CPUType, SimulationConfig, WorkerMessage, WorkerResponse } from '../workers/gameSimulation.worker';
 
 export type { CPUType };

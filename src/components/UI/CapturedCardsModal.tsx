@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Card } from '../../game/types';
+import type { Card } from '../../games/scopa/types';
 import { CardImage } from '../Card/CardImage';
 import { useDeck } from '../../contexts/DeckContext';
 import styles from './CapturedCardsModal.module.css';

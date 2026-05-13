@@ -2,7 +2,7 @@
 
 import { useMemo, type ReactNode } from 'react';
 import type { GeminiTokenStats, ExtendedAIType } from '../../ai';
-import type { RoundHistoryEntry } from '../../game/types';
+import type { RoundHistoryEntry } from '../../games/scopa/types';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';

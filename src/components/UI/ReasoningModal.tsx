@@ -4,7 +4,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardImage, CardBack } from '../Card/CardImage';
 import styles from './ReasoningModal.module.css';
-import type { Card, PlayerId } from '../../game/types';
+import type { Card, PlayerId } from '../../games/scopa/types';
 
 interface LastMoveData {
   /** The card the AI played */
