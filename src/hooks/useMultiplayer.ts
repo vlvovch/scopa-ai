@@ -11,7 +11,7 @@ import type {
   MultiplayerSession,
   ConnectionStatus,
   RoundScore,
-} from '../multiplayer/types';
+} from '../games/scopa/multiplayer/types';
 
 // Configuration
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';

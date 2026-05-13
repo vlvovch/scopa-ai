@@ -1,7 +1,7 @@
 // Multiplayer Types for Scopa Client
 // These types mirror the server types for WebSocket communication
 
-import type { Card, RoundScore as GameRoundScore } from '../games/scopa/types';
+import type { Card, RoundScore as GameRoundScore } from '../types';
 
 // Re-export RoundScore for use in useMultiplayer hook
 export type RoundScore = GameRoundScore;

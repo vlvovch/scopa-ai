@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { useGame } from './hooks/useGame';
+import { useGame } from './games/scopa/hooks/useGame';
 import { useSettings } from './hooks/useSettings';
 import { useSound } from './hooks/useSound';
 import { useStats } from './hooks/useStats';
@@ -36,7 +36,7 @@ import { ThinkingBubble } from './components/UI/ThinkingBubble';
 import { ReasoningModal, type LastMoveData } from './components/UI/ReasoningModal';
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './games/scopa/types';
-import { useGameWorker, type CPUType } from './hooks/useGameWorker';
+import { useGameWorker, type CPUType } from './games/scopa/hooks/useGameWorker';
 
 // Storage keys for persistence
 const SPECTATOR_AIS_KEY = 'scopa-spectator-ais';

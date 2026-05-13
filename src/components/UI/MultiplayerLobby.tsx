@@ -1,7 +1,7 @@
 // MultiplayerLobby Component - Create or Join multiplayer games
 
 import { useState, useEffect } from 'react';
-import type { ConnectionStatus } from '../../multiplayer/types';
+import type { ConnectionStatus } from '../../games/scopa/multiplayer/types';
 import styles from './MultiplayerLobby.module.css';
 
 type LobbyMode = 'select' | 'create' | 'join';
