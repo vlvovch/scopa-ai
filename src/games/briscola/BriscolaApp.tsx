@@ -27,8 +27,10 @@ import { CardBack } from '../../components/Card/CardImage';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
 import { GameLayout } from '../../components/Layout/GameLayout';
+import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
 import pileStyles from '../../components/Table/CapturedPile.module.css';
+import tableStyles from '../../components/Table/TableCards.module.css';
 import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
@@ -296,18 +298,20 @@ function BriscolaBoard({
     <>
       <GameLayout
         scoreBoard={
-          <div style={turnLabelStyle}>
-            {state.status === 'playing' && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
-            {state.status === 'cpuAnimating' && 'CPU plays…'}
-            {state.status === 'animatingTrick' &&
-              (winner === 'human' ? 'You take it' : 'CPU takes it')}
-            {state.status === 'roundEnd' && 'Round over'}
-          </div>
+          <ScoreBoard
+            humanScore={g.scores.human}
+            cpuScore={g.scores.cpu}
+            roundNumber={g.roundNumber}
+            targetScore={g.targetScore}
+            currentPlayer={g.round.currentPlayer}
+            cpuName="Heuristic"
+            humanName="You"
+          />
         }
         cpuPile={
           <BriscolaPile
             captured={g.players.cpu.captured}
-            label="CPU"
+            label="Heuristic"
           />
         }
         cpuHand={<PlayerHand cards={cpuHand} isHuman={false} />}
@@ -333,6 +337,15 @@ function BriscolaBoard({
             captured={g.players.human.captured}
             label="You"
           />
+        }
+        controls={
+          <div style={turnLabelStyle}>
+            {state.status === 'playing' && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
+            {state.status === 'cpuAnimating' && 'CPU plays…'}
+            {state.status === 'animatingTrick' &&
+              (winner === 'human' ? 'You take it' : 'CPU takes it')}
+            {state.status === 'roundEnd' && 'Round over'}
+          </div>
         }
       />
 
@@ -373,13 +386,15 @@ function BriscolaTable({
   winner: PlayerId | null;
 }) {
   return (
-    <div style={tableContainer}>
-      <BriscolaDeck deckCount={deckCount} trump={trump} />
-      <div style={trickArea}>
+    <div className={tableStyles.tableContainer}>
+      <div className={tableStyles.tableArea}>
         <AnimatePresence>
           {leadCard && <TrickCard key={leadCard.id} card={leadCard} exitToward={winner} />}
           {followCard && <TrickCard key={followCard.id} card={followCard} exitToward={winner} />}
         </AnimatePresence>
+      </div>
+      <div className={tableStyles.deckArea}>
+        <BriscolaDeck deckCount={deckCount} trump={trump} />
       </div>
     </div>
   );
@@ -415,11 +430,10 @@ function TrickCard({
   );
 }
 
-// Deck stack with the trump card rotated 90° beneath it.
-// The trump's pre-rotation vertical center sits at the deck's bottom edge,
-// so after rotate(90deg) its visual extends ±card-width/2 vertically: the
-// upper half is hidden behind the deck stack (z-index), the lower half
-// sticks out below.
+// Deck stack with the trump card laid perpendicular beneath it — the classic
+// Briscola "cross" arrangement. The trump is rotated 90° and sits centered
+// behind the deck, so its two long ends stick out left and right of the
+// deck stack while the center of the trump is hidden behind the deck.
 function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
   if (deckCount === 0) {
     return (
@@ -432,19 +446,22 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
   }
 
   const stackLayers = Math.min(5, Math.max(1, Math.ceil((deckCount - 1) / 8)));
-  // Only render the face-down deck stack when there's more than just the trump
   const showStack = deckCount > 1;
 
   return (
     <div style={deckContainer}>
-      <div style={deckStackWrap}>
-        {/* Trump rotated 90°, half tucked behind the deck */}
+      {/* Cross of deck-on-trump.
+          Outer wrapper is sized to the rotated trump's bounding box
+          (card-height wide × card-height tall — enough to contain both
+          the rotated trump horizontally and the deck stack vertically). */}
+      <div style={deckCrossWrap}>
+        {/* Trump rotated 90°, centered, BEHIND the deck */}
         <div style={trumpRotated}>
           <Card card={trump} />
         </div>
 
-        {/* Deck stack on top */}
-        {showStack && (
+        {/* Deck stack, centered, IN FRONT */}
+        {showStack ? (
           <div style={deckStack}>
             {Array.from({ length: stackLayers }).map((_, i) => (
               <div
@@ -463,6 +480,10 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
               </div>
             ))}
           </div>
+        ) : (
+          // Only the trump remains in the draw pile — no face-down stack.
+          // Render an invisible spacer so the count pill stays positioned correctly.
+          <div style={deckStack} />
         )}
       </div>
       <span style={deckCountPill}>{deckCount}</span>
@@ -568,28 +589,7 @@ const turnLabelStyle: React.CSSProperties = {
   fontStyle: 'italic',
 };
 
-// ---- Briscola table (center area) ----
-const tableContainer: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 'var(--space-4)',
-};
-
-const trickArea: React.CSSProperties = {
-  display: 'flex',
-  gap: '0.5rem',
-  justifyContent: 'center',
-  alignItems: 'center',
-  minWidth: 'var(--card-width, 120px)',
-  minHeight: 'var(--card-height, 180px)',
-  padding: '8px',
-  background: 'var(--table-area-bg, rgba(0, 0, 0, 0.1))',
-  borderRadius: '12px',
-  border: '2px dashed var(--dashed-border-color, rgba(255, 255, 255, 0.1))',
-};
-
-// ---- Briscola deck + trump ----
+// ---- Briscola deck + trump (the "cross") ----
 const deckContainer: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -597,30 +597,36 @@ const deckContainer: React.CSSProperties = {
   gap: '8px',
 };
 
-const deckStackWrap: React.CSSProperties = {
+// Sized to fit the rotated trump's horizontal extent (= card-height after
+// rotation) and the deck's vertical extent (= card-height).
+const deckCrossWrap: React.CSSProperties = {
   position: 'relative',
-  width: 'var(--card-width)',
-  // Reserve extra space below for the trump's visible half
-  marginBottom: 'calc(var(--card-width) / 2)',
+  width: 'var(--card-height)',
+  height: 'var(--card-height)',
 };
 
+// Deck stack: centered in the cross-wrap, on top.
 const deckStack: React.CSSProperties = {
-  position: 'relative',
+  position: 'absolute',
+  left: '50%',
+  top: '50%',
   width: 'var(--card-width)',
   height: 'var(--card-height)',
+  transform: 'translate(-50%, -50%)',
   zIndex: 2,
 };
 
+// Trump card rotated 90°, centered in the cross-wrap, behind the deck.
+// Its two long ends stick out beyond the deck horizontally; its narrower
+// vertical extent (=card-width) fits inside the deck height, so most of the
+// trump's center is hidden behind the deck and the two ends remain visible.
 const trumpRotated: React.CSSProperties = {
-  // Trump's pre-rotation center sits at the deck's bottom edge.
-  // After rotate(90deg) around center, the trump's visual extends
-  // ±card-width/2 vertically — half hidden behind the deck, half visible.
   position: 'absolute',
-  top: 'calc(var(--card-height) / 2)',
-  left: 0,
+  left: '50%',
+  top: '50%',
   width: 'var(--card-width)',
   height: 'var(--card-height)',
-  transform: 'rotate(90deg)',
+  transform: 'translate(-50%, -50%) rotate(90deg)',
   transformOrigin: 'center',
   zIndex: 1,
 };
