@@ -3,10 +3,10 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import type { Move } from '../games/scopa/types';
+import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { getClaudeApiKey, isClaudeKeyValid } from '../hooks/useSettings';
+import { getClaudeApiKey, isClaudeKeyValid } from '../../../hooks/useSettings';
 
 // Extended thinking configuration
 const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking (legacy, pre-Opus 4.6)

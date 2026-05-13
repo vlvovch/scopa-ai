@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
-import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../ai/validateApiKey';
-import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../ai';
+import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
+import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../games/scopa/ai';
 import styles from './SettingsModal.module.css';
 
 const DECK_OPTIONS: { value: DeckType; label: string }[] = [

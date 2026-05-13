@@ -1,7 +1,7 @@
 // Step 8.5: GameEndScreen Component - Enhanced with round history and category breakdown
 
 import { useMemo, type ReactNode } from 'react';
-import type { GeminiTokenStats, ExtendedAIType } from '../../ai';
+import type { GeminiTokenStats, ExtendedAIType } from '../../games/scopa/ai';
 import type { RoundHistoryEntry } from '../../games/scopa/types';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';

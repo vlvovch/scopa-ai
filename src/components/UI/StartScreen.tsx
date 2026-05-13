@@ -1,7 +1,7 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useEffect } from 'react';
-import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiFreeRateLimitInfo, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../ai';
+import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiFreeRateLimitInfo, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../games/scopa/ai';
 import type { GameMode } from '../../games/scopa/types';
 import { CustomDropdown } from './CustomDropdown';
 import { GeminiIcon } from './GeminiIcon';

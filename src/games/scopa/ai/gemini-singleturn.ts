@@ -3,7 +3,7 @@
 // the complete round history in the prompt.
 
 import { GoogleGenAI } from '@google/genai';
-import type { Card, Move } from '../games/scopa/types';
+import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
   getGeminiApiKey,

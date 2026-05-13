@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Card as CardType, PlayerId } from '../../games/scopa/types';
-import type { ExtendedAIType } from '../../ai';
+import type { ExtendedAIType } from '../../games/scopa/ai';
 import { CardBack } from '../Card/CardImage';
 import { AIPlayerLabel } from '../UI/AIPlayerLabel';
 import { useDeck } from '../../contexts/DeckContext';

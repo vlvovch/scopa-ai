@@ -1,7 +1,7 @@
 // Game statistics tracking with localStorage persistence
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ExtendedAIType } from '../ai';
+import type { ExtendedAIType } from '../games/scopa/ai';
 
 /** Record of a single game played */
 export interface GameRecord {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ExtendedAIType } from '../../ai';
+import type { ExtendedAIType } from '../../games/scopa/ai';
 import type { GameRecord, OpponentStats } from '../../hooks/useStats';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import styles from './StatsModal.module.css';

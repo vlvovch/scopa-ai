@@ -1,7 +1,7 @@
 // AI Player Label component with proper icons for each AI type
 
 import type { ReactNode } from 'react';
-import type { ExtendedAIType } from '../../ai';
+import type { ExtendedAIType } from '../../games/scopa/ai';
 import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import { GeminiIcon } from './GeminiIcon';

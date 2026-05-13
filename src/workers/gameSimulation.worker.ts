@@ -4,10 +4,10 @@
 import type { GameState, Move, PlayerId } from '../games/scopa/types';
 import { gameReducer } from '../games/scopa/reducer';
 import { getValidMoves } from '../games/scopa/rules';
-import { randomAI } from '../ai/random';
-import { heuristicAI } from '../ai/heuristic';
-import { selectExpertMoveWithState } from '../ai/expert';
-import type { AIContext } from '../ai/types';
+import { randomAI } from '../games/scopa/ai/random';
+import { heuristicAI } from '../games/scopa/ai/heuristic';
+import { selectExpertMoveWithState } from '../games/scopa/ai/expert';
+import type { AIContext } from '../games/scopa/ai/types';
 
 export type CPUType = 'random' | 'heuristic' | 'expert';
 

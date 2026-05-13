@@ -1,6 +1,6 @@
 // Token Stats Display Component for LLM AIs (Gemini, OpenAI)
 
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../ai';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../games/scopa/ai';
 import styles from './TokenStatsDisplay.module.css';
 
 interface TokenStatsDisplayProps {

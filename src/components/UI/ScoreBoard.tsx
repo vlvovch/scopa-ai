@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { PlayerId } from '../../games/scopa/types';
-import type { ExtendedAIType } from '../../ai';
+import type { ExtendedAIType } from '../../games/scopa/ai';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';
 import styles from './ScoreBoard.module.css';

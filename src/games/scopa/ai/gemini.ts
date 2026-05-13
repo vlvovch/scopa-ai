@@ -1,10 +1,10 @@
 // Gemini AI Player - Uses Google's Gemini API for intelligent play
 
 import { GoogleGenAI, Chat } from '@google/genai';
-import type { Move } from '../games/scopa/types';
+import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { getGeminiApiKey, isGeminiKeyValid } from '../hooks/useSettings';
+import { getGeminiApiKey, isGeminiKeyValid } from '../../../hooks/useSettings';
 
 // Model info returned from API
 export interface GeminiModelInfo {

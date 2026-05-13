@@ -1,7 +1,7 @@
 // Gemini Free AI Player - Uses Cloudflare Worker proxy with rate limiting
 // No API key required. Multi-turn with thinking, hardcoded model.
 
-import type { Move } from '../games/scopa/types';
+import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import type { GeminiTokenStats, GeminiTokenDelta } from './gemini';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';

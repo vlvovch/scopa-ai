@@ -1,7 +1,7 @@
 // Step 10.1: Settings Hook with localStorage persistence
 
 import { useState, useEffect, useCallback } from 'react';
-import type { ExtendedAIType } from '../ai';
+import type { ExtendedAIType } from '../games/scopa/ai';
 
 export type DeckType = 'napoletane' | 'siciliane' | 'sarde' | 'piacentine' | 'bergamasche' | 'romagnole';
 export type TableStyle = 'green' | 'tablecloth';
