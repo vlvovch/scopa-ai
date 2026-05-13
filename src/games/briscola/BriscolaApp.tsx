@@ -387,7 +387,7 @@ function BriscolaTable({
 }) {
   return (
     <div className={tableStyles.tableContainer}>
-      <div className={tableStyles.tableArea}>
+      <div className={tableStyles.tableArea} style={trickAreaSize}>
         <AnimatePresence>
           {leadCard && <TrickCard key={leadCard.id} card={leadCard} exitToward={winner} />}
           {followCard && <TrickCard key={followCard.id} card={followCard} exitToward={winner} />}
@@ -587,6 +587,14 @@ const turnLabelStyle: React.CSSProperties = {
   padding: '0.5rem 1rem',
   borderRadius: '8px',
   fontStyle: 'italic',
+};
+
+// Briscola only ever has 0, 1, or 2 cards in the trick area, so cap the
+// dashed-rectangle width to fit exactly 2 cards (overrides Scopa's
+// 8-card-wide default in TableCards.module.css).
+const trickAreaSize: React.CSSProperties = {
+  minWidth: 'calc(2 * var(--card-width) + var(--space-3) + 16px)',
+  maxWidth: 'calc(2 * var(--card-width) + var(--space-3) + 16px)',
 };
 
 // ---- Briscola deck + trump (the "cross") ----
