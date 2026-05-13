@@ -4,6 +4,7 @@ node_modules
 # Build output
 dist
 dist-itch
+dist-briscola
 dist-ssr
 
 # TypeScript build info
