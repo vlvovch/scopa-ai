@@ -1,16 +1,21 @@
-// Briscola AI — slice 7c
+// Briscola AI — slice 7c (revised)
 //
 // Single-player Briscola: human vs heuristicAI, one round.
-// - Card flies from hand to play area via shared layoutId animation
-// - Trick visible for ~1.2s after the follow card lands
-// - Both trick cards then fly toward the winning player's side
-// - Deck stack on the right with horizontal trump beneath it
-// - No verbose labels
+// Animation flow mirrors Scopa's:
+//   - CPU plays via CpuCardAnimation: reveal (600ms flip in place) →
+//     moving (500ms slide to play area)
+//   - Human plays: card flies from hand to play area via shared layoutId
+//   - Trick resolves: both cards exit toward the winner's side (900ms),
+//     after a 1200ms hold so the player can see what happened
+//
+// Layout: deck stack centered-right, trump card rotated 90° beneath the
+// deck with the lower half visible (classic Briscola table setup).
 
 import { useReducer, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../../components/Card/Card';
 import { PlayerHand } from '../../components/Table/PlayerHand';
+import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
 import { DeckProvider } from '../../contexts/DeckContext';
 import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore } from './scoring';
@@ -19,33 +24,47 @@ import { heuristicAI } from './ai/heuristic';
 import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
 
 // ---------------------------------------------------------------------------
+// Timing constants — matched to Scopa's CpuCardAnimation phases
+// ---------------------------------------------------------------------------
+
+const CPU_REVEAL_MS = 600;
+const CPU_MOVE_MS = 500;
+const CPU_DECISION_DELAY_MS = 600;
+const TRICK_VISIBLE_MS = 1200;
+const CAPTURE_DURATION_MS = 900;
+
+// ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
 interface AnimatingTrick {
-  /** The card that was led (still in game.round.trick.leadCard until resolve) */
   leadCard: BriscolaCard;
   leader: PlayerId;
-  /** The follow card that was just played (removed from hand in `game`) */
   followCard: BriscolaCard;
   follower: PlayerId;
   winner: PlayerId;
-  /** The post-resolution game state to apply once the animation finishes */
   resolved: GameState;
 }
 
 type AppState =
   | { status: 'idle' }
   | { status: 'playing'; game: GameState }
+  | {
+      status: 'cpuAnimating';
+      game: GameState; // unchanged from before the move
+      cpuMove: Move;
+      phase: 'reveal' | 'moving';
+    }
   | { status: 'animatingTrick'; game: GameState; trick: AnimatingTrick }
   | { status: 'roundEnd'; game: GameState; finalPoints: { human: number; cpu: number } };
 
 type Action =
   | { type: 'START' }
-  | { type: 'PLAY'; move: Move }
+  | { type: 'HUMAN_PLAY'; move: Move }
+  | { type: 'CPU_START'; move: Move }
+  | { type: 'CPU_PHASE_MOVING' }
+  | { type: 'CPU_APPLY' }
   | { type: 'RESOLVE_TRICK' };
-
-const TRICK_VISIBLE_MS = 1200;
 
 function newRound(): GameState {
   const deck = shuffleDeck(createDeck());
@@ -70,54 +89,75 @@ function newRound(): GameState {
   };
 }
 
+/**
+ * Apply the move logically. If it completes a trick, return a synthetic
+ * "midway" game (follow card removed from hand, but trick not yet captured)
+ * along with the fully-resolved game to apply after the animation.
+ */
+function applyOrDeferTrick(game: GameState, move: Move):
+  | { kind: 'direct'; next: GameState }
+  | { kind: 'trick'; visualGame: GameState; pending: AnimatingTrick } {
+  if (game.round.trick.leadCard === null) {
+    return { kind: 'direct', next: applyMove(game, move) };
+  }
+  const leadCard = game.round.trick.leadCard;
+  const leader = game.round.trick.leader;
+  const follower = move.player;
+  const winner = trickWinner(leadCard, leader, move.cardPlayed, follower, game.round.trumpSuit);
+  const visualGame: GameState = {
+    ...game,
+    players: {
+      ...game.players,
+      [follower]: {
+        ...game.players[follower],
+        hand: game.players[follower].hand.filter(c => c.id !== move.cardPlayed.id),
+      },
+    } as GameState['players'],
+  };
+  const resolved = applyMove(game, move);
+  return {
+    kind: 'trick',
+    visualGame,
+    pending: {
+      leadCard,
+      leader,
+      followCard: move.cardPlayed,
+      follower,
+      winner,
+      resolved,
+    },
+  };
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'START':
       return { status: 'playing', game: newRound() };
 
-    case 'PLAY': {
+    case 'HUMAN_PLAY': {
       if (state.status !== 'playing') return state;
-      const { game } = state;
-      const { move } = action;
+      const r = applyOrDeferTrick(state.game, action.move);
+      return r.kind === 'direct'
+        ? { status: 'playing', game: r.next }
+        : { status: 'animatingTrick', game: r.visualGame, trick: r.pending };
+    }
 
-      // Leading the trick (no card on table yet) — apply directly.
-      if (game.round.trick.leadCard === null) {
-        const next = applyMove(game, move);
-        return { status: 'playing', game: next };
-      }
+    case 'CPU_START': {
+      if (state.status !== 'playing') return state;
+      return { status: 'cpuAnimating', game: state.game, cpuMove: action.move, phase: 'reveal' };
+    }
 
-      // Following — defer the trick resolution behind an animation.
-      // Compute the "visualization" game (follow card removed from follower's
-      // hand but trick not yet captured/drawn) and the resolved game.
-      const leadCard = game.round.trick.leadCard;
-      const leader = game.round.trick.leader;
-      const follower = move.player;
-      const winner = trickWinner(leadCard, leader, move.cardPlayed, follower, game.round.trumpSuit);
+    case 'CPU_PHASE_MOVING': {
+      if (state.status !== 'cpuAnimating') return state;
+      return { ...state, phase: 'moving' };
+    }
 
-      const visualGame: GameState = {
-        ...game,
-        players: {
-          ...game.players,
-          [follower]: {
-            ...game.players[follower],
-            hand: game.players[follower].hand.filter(c => c.id !== move.cardPlayed.id),
-          },
-        } as GameState['players'],
-      };
-      const resolved = applyMove(game, move);
-
-      return {
-        status: 'animatingTrick',
-        game: visualGame,
-        trick: {
-          leadCard,
-          leader,
-          followCard: move.cardPlayed,
-          follower,
-          winner,
-          resolved,
-        },
-      };
+    case 'CPU_APPLY': {
+      if (state.status !== 'cpuAnimating') return state;
+      const r = applyOrDeferTrick(state.game, state.cpuMove);
+      return r.kind === 'direct'
+        ? { status: 'playing', game: r.next }
+        : { status: 'animatingTrick', game: r.visualGame, trick: r.pending };
     }
 
     case 'RESOLVE_TRICK': {
@@ -144,13 +184,13 @@ function reducer(state: AppState, action: Action): AppState {
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
 
-  // CPU auto-play
+  // CPU decision + animation orchestration
   useEffect(() => {
     if (state.status !== 'playing') return;
-    const g = state.game;
-    if (g.round.currentPlayer !== 'cpu') return;
-    if (g.players.cpu.hand.length === 0) return;
+    if (state.game.round.currentPlayer !== 'cpu') return;
+    if (state.game.players.cpu.hand.length === 0) return;
 
+    const g = state.game;
     const timer = setTimeout(() => {
       const move = heuristicAI.selectMove({
         hand: g.players.cpu.hand,
@@ -160,24 +200,37 @@ function BriscolaApp() {
         leadCard: g.round.trick.leadCard,
         deckCount: g.round.deck.length,
       });
-      dispatch({ type: 'PLAY', move });
-    }, 800);
-
+      dispatch({ type: 'CPU_START', move });
+    }, CPU_DECISION_DELAY_MS);
     return () => clearTimeout(timer);
   }, [state]);
 
-  // Trick visualization timer
+  // cpuAnimating: reveal (600ms) → moving (500ms) → apply
+  useEffect(() => {
+    if (state.status !== 'cpuAnimating') return;
+    if (state.phase === 'reveal') {
+      const t = setTimeout(() => dispatch({ type: 'CPU_PHASE_MOVING' }), CPU_REVEAL_MS);
+      return () => clearTimeout(t);
+    }
+    if (state.phase === 'moving') {
+      const t = setTimeout(() => dispatch({ type: 'CPU_APPLY' }), CPU_MOVE_MS);
+      return () => clearTimeout(t);
+    }
+  }, [state]);
+
+  // animatingTrick: hold for 1200ms, then resolve (exit animations run during
+  // the resolve transition over CAPTURE_DURATION_MS)
   useEffect(() => {
     if (state.status !== 'animatingTrick') return;
-    const timer = setTimeout(() => dispatch({ type: 'RESOLVE_TRICK' }), TRICK_VISIBLE_MS);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => dispatch({ type: 'RESOLVE_TRICK' }), TRICK_VISIBLE_MS);
+    return () => clearTimeout(t);
   }, [state]);
 
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
       if (state.game.round.currentPlayer !== 'human') return;
-      dispatch({ type: 'PLAY', move: { player: 'human', cardPlayed: card } });
+      dispatch({ type: 'HUMAN_PLAY', move: { player: 'human', cardPlayed: card } });
     },
     [state]
   );
@@ -229,9 +282,22 @@ function BriscolaBoard({
   const g = state.game;
   const isHumanTurn = state.status === 'playing' && g.round.currentPlayer === 'human';
   const animTrick = state.status === 'animatingTrick' ? state.trick : null;
+  const cpuAnim = state.status === 'cpuAnimating' ? state : null;
+
+  // Hide the CPU's animating card from the visible hand
+  const cpuHand =
+    cpuAnim
+      ? g.players.cpu.hand.filter(c => c.id !== cpuAnim.cpuMove.cardPlayed.id)
+      : g.players.cpu.hand;
+  // Same for human if they're following (already removed by applyOrDeferTrick
+  // into visualGame.hand, so this is a no-op there).
+  const humanHand = g.players.human.hand;
 
   // Determine what's in the play area
-  const leadCard = animTrick ? animTrick.leadCard : g.round.trick.leadCard;
+  // - playing: just the lead card (if any) of the in-progress trick
+  // - cpuAnimating: lead card if CPU is following (their card is on the overlay)
+  // - animatingTrick: both lead and follow visible
+  const leadCard = g.round.trick.leadCard;
   const followCard = animTrick ? animTrick.followCard : null;
   const winner = animTrick ? animTrick.winner : null;
 
@@ -247,8 +313,9 @@ function BriscolaBoard({
         </div>
         <div style={styles.turnIndicator}>
           {state.status === 'playing' && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
+          {state.status === 'cpuAnimating' && 'CPU plays…'}
           {state.status === 'animatingTrick' && (
-            animTrick!.winner === 'human' ? 'You take it' : 'CPU takes it'
+            winner === 'human' ? 'You take it' : 'CPU takes it'
           )}
         </div>
         <div style={styles.scoreCell}>
@@ -261,27 +328,18 @@ function BriscolaBoard({
 
       {/* CPU hand */}
       <div style={styles.handRow}>
-        <PlayerHand cards={g.players.cpu.hand} isHuman={false} />
+        <PlayerHand cards={cpuHand} isHuman={false} />
       </div>
 
-      {/* Middle row: play area in the center, deck+trump on the right */}
+      {/* Middle row: play area centered with deck just to its right */}
       <div style={styles.middleRow}>
-        <div style={styles.middleSpacer} />
         <div style={styles.playArea}>
           <AnimatePresence>
             {leadCard && (
-              <TrickCard
-                key={leadCard.id}
-                card={leadCard}
-                exitToward={winner}
-              />
+              <TrickCard key={leadCard.id} card={leadCard} exitToward={winner} />
             )}
             {followCard && (
-              <TrickCard
-                key={followCard.id}
-                card={followCard}
-                exitToward={winner}
-              />
+              <TrickCard key={followCard.id} card={followCard} exitToward={winner} />
             )}
           </AnimatePresence>
         </div>
@@ -294,12 +352,20 @@ function BriscolaBoard({
       {/* Human hand */}
       <div style={styles.handRow}>
         <PlayerHand
-          cards={g.players.human.hand}
+          cards={humanHand}
           isHuman={true}
           onCardClick={onCardClick}
           disabled={!isHumanTurn}
         />
       </div>
+
+      {/* CPU reveal/move overlay (same component Scopa uses) */}
+      <CpuCardAnimation
+        card={cpuAnim?.cpuMove.cardPlayed ?? null}
+        phase={cpuAnim?.phase ?? null}
+        capturedCardIds={[]}
+        player={cpuAnim ? 'cpu' : undefined}
+      />
 
       {/* Round-end overlay */}
       {state.status === 'roundEnd' && (
@@ -313,9 +379,6 @@ function BriscolaBoard({
   );
 }
 
-// A card in the play area. Uses `layoutId={hand-${card.id}}` so framer-motion
-// animates its arrival from the player's hand automatically. On exit, slides
-// toward the winning player's side and fades.
 function TrickCard({
   card,
   exitToward,
@@ -323,18 +386,18 @@ function TrickCard({
   card: BriscolaCard;
   exitToward: PlayerId | null;
 }) {
-  // Vertical direction: up for cpu, down for human, no movement if no winner yet
+  // Match Scopa's capture animation: ±220px translation + fade + scale down,
+  // over CAPTURE_DURATION_MS, with a slight ease-in feel.
   const exitY = exitToward === 'human' ? 220 : exitToward === 'cpu' ? -220 : 0;
 
   return (
     <motion.div
-      style={styles.trickCardWrap}
       layoutId={`hand-${card.id}`}
       exit={{
         y: exitY,
         opacity: 0,
         scale: 0.7,
-        transition: { duration: 0.5, ease: 'easeIn' },
+        transition: { duration: CAPTURE_DURATION_MS / 1000, ease: 'easeIn' },
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
     >
@@ -344,31 +407,58 @@ function TrickCard({
 }
 
 function DeckAndTrump({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
-  // The trump is only visible while there's still at least one card to draw
-  // (when deckCount === 0 it's been drawn into someone's hand).
+  // deckCount includes the trump at the bottom. When deckCount > 0 there's a
+  // physical trump card on the table (face-up beneath the stack). When the
+  // stack is exhausted to 1 card it IS the trump — show it on its own.
   const showTrump = deckCount > 0;
-  // The deck stack visually pretends to have multiple cards if deckCount > 1
-  const showDeck = deckCount > 1;
+  const showStack = deckCount > 1;
+  const stackLayers = Math.max(1, Math.min(5, Math.ceil((deckCount - 1) / 8)));
+
+  if (!showTrump) {
+    return (
+      <div style={styles.deckContainer}>
+        <div style={styles.emptyDeck}>
+          <span style={styles.emptyLabel}>Empty</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={styles.deckArea}>
-      <div style={styles.deckTrumpStack}>
-        {showTrump && (
-          <div style={styles.trumpHorizontal}>
-            <Card card={trump} />
-          </div>
-        )}
-        {showDeck && (
+    <div style={styles.deckContainer}>
+      <div style={styles.deckStackWrap}>
+        {/* Trump card, rotated 90°, behind and below the deck stack */}
+        <div style={styles.trumpRotated}>
+          <Card card={trump} />
+        </div>
+
+        {/* Deck stack on top of the trump */}
+        {showStack ? (
           <div style={styles.deckStack}>
-            <Card card={null} faceDown />
-            <div style={styles.deckCountBadge}>{deckCount - (showTrump ? 1 : 0)}</div>
+            {Array.from({ length: stackLayers }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute' as const,
+                  top: 0,
+                  left: 0,
+                  transform: `translate(${i * -1}px, ${i * -1}px)`,
+                  zIndex: stackLayers - i,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  borderRadius: '6px',
+                }}
+              >
+                <Card card={null} faceDown />
+              </div>
+            ))}
           </div>
-        )}
-        {!showDeck && showTrump && (
-          // Only the trump remains — about to be drawn
-          <div style={styles.deckCountBadgeAlone}>1 left</div>
+        ) : (
+          // Only the trump remains — render a transparent spacer so the count
+          // pill sits in the right place below where the deck normally is.
+          <div style={styles.deckStack} />
         )}
       </div>
+      <span style={styles.cardCount}>{deckCount}</span>
     </div>
   );
 }
@@ -406,7 +496,7 @@ function RoundEndOverlay({
 }
 
 // ---------------------------------------------------------------------------
-// Inline styles (proper CSS modules in a future slice)
+// Inline styles
 // ---------------------------------------------------------------------------
 
 const styles = {
@@ -450,14 +540,13 @@ const styles = {
     margin: '0.25rem 0',
   },
   middleRow: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto 1fr',
+    display: 'flex',
+    justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
-    gap: '1rem',
+    gap: '3rem',
     padding: '0 1rem',
   },
-  middleSpacer: {},
   playArea: {
     display: 'flex',
     gap: '0.5rem',
@@ -466,53 +555,58 @@ const styles = {
     minWidth: 'var(--card-width, 120px)',
     minHeight: 'var(--card-height, 180px)',
   },
-  trickCardWrap: {
-    // Inherit card size via the Card component's own CSS
-  },
-  deckArea: {
+  // ---- Deck + trump ----
+  deckContainer: {
     display: 'flex',
-    justifyContent: 'flex-end',
+    flexDirection: 'column' as const,
     alignItems: 'center',
+    gap: '6px',
   },
-  deckTrumpStack: {
+  deckStackWrap: {
     position: 'relative' as const,
-    display: 'inline-block',
-    paddingLeft: '60px', // leave room for the horizontal trump on the left side of the deck
+    width: 'var(--card-width, 120px)',
+    height: 'var(--card-height, 180px)',
+    // Reserve room below the stack for the trump's exposed half.
+    // The trump (rotated 90°) has a visual half-height of card-width / 2.
+    marginBottom: 'calc(var(--card-width, 120px) / 2)',
   },
   deckStack: {
     position: 'relative' as const,
+    width: 'var(--card-width, 120px)',
+    height: 'var(--card-height, 180px)',
+    zIndex: 2,
   },
-  trumpHorizontal: {
+  trumpRotated: {
+    // Position the trump card so its CENTER sits at the BOTTOM edge of the
+    // deck stack. After rotate(90deg), its visual extends ±(card-width / 2)
+    // vertically from that center, so the upper half is hidden behind the
+    // deck stack (z-index 1 < 2) and the lower half is visible below.
     position: 'absolute' as const,
-    left: '-30px',
-    top: '50%',
-    transform: 'translateY(-50%) rotate(90deg)',
-    transformOrigin: 'center',
+    left: '50%',
+    top: '100%',
+    width: 'var(--card-width, 120px)',
+    height: 'var(--card-height, 180px)',
+    transform: 'translate(-50%, -50%) rotate(90deg)',
     zIndex: 1,
   },
-  deckCountBadge: {
-    position: 'absolute' as const,
-    top: '-8px',
-    right: '-8px',
-    background: '#FFD600',
-    color: '#1A237E',
-    borderRadius: '999px',
-    minWidth: '28px',
-    height: '28px',
-    padding: '0 8px',
+  emptyDeck: {
+    width: 'var(--card-width, 120px)',
+    height: 'var(--card-height, 180px)',
+    border: '2px dashed rgba(255,255,255,0.2)',
+    borderRadius: '6px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontWeight: 'bold' as const,
-    fontSize: '0.9rem',
-    zIndex: 2,
   },
-  deckCountBadgeAlone: {
-    background: 'rgba(255,255,255,0.15)',
-    padding: '0.25rem 0.75rem',
-    borderRadius: '4px',
-    fontSize: '0.85rem',
+  emptyLabel: { fontSize: '10px', opacity: 0.5 },
+  cardCount: {
+    fontSize: '14px',
+    fontWeight: 600,
+    background: 'rgba(0, 0, 0, 0.4)',
+    padding: '2px 10px',
+    borderRadius: '10px',
   },
+  // ---- Modals + buttons ----
   primaryButton: {
     background: '#FFD600',
     color: '#1A237E',
