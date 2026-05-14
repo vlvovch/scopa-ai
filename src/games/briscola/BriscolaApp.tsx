@@ -623,17 +623,17 @@ const trickArea: React.CSSProperties = {
   flexShrink: 0,
 };
 
-// ---- Briscola deck + trump (trump sticks out to the right) ----
+// ---- Briscola deck + trump (─| form: trump sticks out to the LEFT of deck) ----
 const deckContainer: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  // Align count below the deck stack (which is at the left of the arrangement)
-  alignItems: 'flex-start',
+  // Align count below the deck stack (which is on the RIGHT of the arrangement)
+  alignItems: 'flex-end',
   gap: '6px',
 };
 
-// Outer wrapper for the deck-on-trump arrangement.
-// Width: deck-width + ~85% of trump's rotated width (the visible-to-right portion).
+// Outer wrapper for the trump+deck arrangement (trump on left, deck on right).
+// Width: ~85% of trump's rotated width (visible portion) + full deck-width.
 // Height: card-height (same as deck).
 const deckTrumpArrangement: React.CSSProperties = {
   position: 'relative',
@@ -641,27 +641,30 @@ const deckTrumpArrangement: React.CSSProperties = {
   height: 'var(--card-height)',
 };
 
-// Deck stack: anchored to the LEFT of the arrangement, on top.
+// Deck stack: anchored to the RIGHT of the arrangement, on top.
 const deckStack: React.CSSProperties = {
   position: 'absolute',
-  left: 0,
+  right: 0,
   top: 0,
   width: 'var(--card-width)',
   height: 'var(--card-height)',
   zIndex: 2,
 };
 
-// Trump card rotated 90°, positioned so its left edge is tucked behind
-// the right edge of the deck.
+// Trump card rotated 90°, positioned so its RIGHT edge is tucked behind
+// the LEFT edge of the deck.
 //   - Pre-rotation wrapper is card-width × card-height
 //   - After rotate(90deg) around center, visual extends ±card-height/2
 //     horizontally and ±card-width/2 vertically from the center
-//   - We want trump's visual center at (card-width + 0.35 × card-height,
-//     card-height/2) so that ~15% of its width hides behind the deck and
-//     ~85% extends to the right.
+//   - The deck stack sits at right: 0 in a container that is
+//     (card-width + 0.85 × card-height) wide, so the deck's left edge is at
+//     x = 0.85 × card-height.
+//   - We want trump's visual center at x = 0.85 × card-height − 0.35 × card-height
+//     = 0.5 × card-height, so ~15% of trump's rotated width hides behind the
+//     deck's left edge and ~85% extends clearly to the left.
 const trumpStickOut: React.CSSProperties = {
   position: 'absolute',
-  left: 'calc(var(--card-width) / 2 + var(--card-height) * 0.35)',
+  left: 'calc(var(--card-height) * 0.5 - var(--card-width) / 2)',
   top: 0,
   width: 'var(--card-width)',
   height: 'var(--card-height)',
