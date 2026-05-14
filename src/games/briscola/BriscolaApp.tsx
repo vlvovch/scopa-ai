@@ -30,7 +30,6 @@ import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
 import pileStyles from '../../components/Table/CapturedPile.module.css';
-import tableStyles from '../../components/Table/TableCards.module.css';
 import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
@@ -386,14 +385,18 @@ function BriscolaTable({
   winner: PlayerId | null;
 }) {
   return (
-    <div className={tableStyles.tableContainer}>
+    <div style={tableGrid}>
+      {/* Left spacer keeps the play area visually centered */}
+      <div />
       <div style={trickArea}>
         <AnimatePresence>
           {leadCard && <TrickCard key={leadCard.id} card={leadCard} exitToward={winner} />}
           {followCard && <TrickCard key={followCard.id} card={followCard} exitToward={winner} />}
         </AnimatePresence>
       </div>
-      <div className={tableStyles.deckArea}>
+      {/* Deck sits in the right column, anchored to the left of that column
+          so it's adjacent to the centered play area */}
+      <div style={deckSlot}>
         <BriscolaDeck deckCount={deckCount} trump={trump} />
       </div>
     </div>
@@ -430,11 +433,11 @@ function TrickCard({
   );
 }
 
-// Deck stack with the trump card rotated 90° sticking out beneath it.
-// The trump's top edge is tucked behind the deck's bottom edge by ~30%,
-// so the trump appears to be slid out from under the deck — most of it
-// visible horizontally below, with a small portion hidden behind the
-// deck's bottom edge.
+// Deck stack with the trump card rotated 90° sticking out to its right.
+// The trump's left end is tucked under the deck stack's right edge by
+// ~15% of its rotated width, so most of the trump is clearly visible
+// extending to the right and the deck stack appears to be sitting on top
+// of one corner of the trump.
 function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
   if (deckCount === 0) {
     return (
@@ -451,39 +454,35 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
 
   return (
     <div style={deckContainer}>
-      {/* Deck stack on top */}
-      <div style={deckStack}>
-        {showStack ? (
-          Array.from({ length: stackLayers }).map((_, i) => (
-            <div
-              key={i}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                transform: `translate(${i * -1}px, ${i * -1}px)`,
-                zIndex: stackLayers - i,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                borderRadius: '6px',
-              }}
-            >
-              <CardBack />
-            </div>
-          ))
-        ) : (
-          // Only the trump remains — no face-down stack to render
-          null
-        )}
-      </div>
-
-      {/* Trump rotated 90°, sticking out beneath the deck.
-          Negative marginTop tucks its top edge behind the deck's bottom. */}
-      <div style={trumpRotatedWrap}>
-        <div style={trumpRotatedInner}>
+      <div style={deckTrumpArrangement}>
+        {/* Trump card rotated 90°, sticking out to the right of the deck.
+            Rendered first (below in z-order) so the deck overlaps its left edge. */}
+        <div style={trumpStickOut}>
           <Card card={trump} />
         </div>
-      </div>
 
+        {/* Deck stack on top of the trump's left edge */}
+        {showStack && (
+          <div style={deckStack}>
+            {Array.from({ length: stackLayers }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  transform: `translate(${i * -1}px, ${i * -1}px)`,
+                  zIndex: stackLayers - i,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  borderRadius: '6px',
+                }}
+              >
+                <CardBack />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       <span style={deckCountPill}>{deckCount}</span>
     </div>
   );
@@ -587,6 +586,23 @@ const turnLabelStyle: React.CSSProperties = {
   fontStyle: 'italic',
 };
 
+// 3-column grid: spacer | play area (centered) | deck slot.
+// The 1fr columns on either side are equal, so the auto-sized middle column
+// (the play area) ends up centered in the available width. The deck sits
+// inside the right column, justified to the left of that column so it
+// remains visually adjacent to the play area.
+const tableGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: '1fr auto 1fr',
+  alignItems: 'center',
+  width: '100%',
+  gap: 'var(--space-4)',
+};
+
+const deckSlot: React.CSSProperties = {
+  justifySelf: 'start',
+};
+
 // Briscola only ever has 0, 1, or 2 cards in the trick area. Custom
 // flex container (instead of Scopa's tableArea CSS class which is sized
 // for up to 8 cards and uses flex-wrap: wrap) — sized to fit exactly
@@ -607,44 +623,51 @@ const trickArea: React.CSSProperties = {
   flexShrink: 0,
 };
 
-// ---- Briscola deck + trump (trump sticks out beneath deck) ----
+// ---- Briscola deck + trump (trump sticks out to the right) ----
 const deckContainer: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  alignItems: 'center',
+  // Align count below the deck stack (which is at the left of the arrangement)
+  alignItems: 'flex-start',
   gap: '6px',
 };
 
-// Deck stack: ordinary card-sized box. Layered on top of the trump
-// wrapper that follows it (z-index).
-const deckStack: React.CSSProperties = {
+// Outer wrapper for the deck-on-trump arrangement.
+// Width: deck-width + ~85% of trump's rotated width (the visible-to-right portion).
+// Height: card-height (same as deck).
+const deckTrumpArrangement: React.CSSProperties = {
   position: 'relative',
+  width: 'calc(var(--card-width) + var(--card-height) * 0.85)',
+  height: 'var(--card-height)',
+};
+
+// Deck stack: anchored to the LEFT of the arrangement, on top.
+const deckStack: React.CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  top: 0,
   width: 'var(--card-width)',
   height: 'var(--card-height)',
   zIndex: 2,
 };
 
-// Trump's outer wrapper: sized to the rotated card's visual dimensions
-// (wide × short). marginTop negative pulls the trump up so its top edge
-// is tucked behind the deck's bottom — most of the rotated card is
-// visible beneath, the rest hides behind the deck.
-const trumpRotatedWrap: React.CSSProperties = {
-  width: 'var(--card-height)',
-  height: 'var(--card-width)',
-  position: 'relative',
-  // Overlap the deck by ~30% of the trump's visual height
-  marginTop: 'calc(var(--card-width) * -0.3)',
-  zIndex: 1,
-};
-
-// Inner: the card itself, rotated 90° and centered within the wrapper.
-const trumpRotatedInner: React.CSSProperties = {
+// Trump card rotated 90°, positioned so its left edge is tucked behind
+// the right edge of the deck.
+//   - Pre-rotation wrapper is card-width × card-height
+//   - After rotate(90deg) around center, visual extends ±card-height/2
+//     horizontally and ±card-width/2 vertically from the center
+//   - We want trump's visual center at (card-width + 0.35 × card-height,
+//     card-height/2) so that ~15% of its width hides behind the deck and
+//     ~85% extends to the right.
+const trumpStickOut: React.CSSProperties = {
+  position: 'absolute',
+  left: 'calc(var(--card-width) / 2 + var(--card-height) * 0.35)',
+  top: 0,
   width: 'var(--card-width)',
   height: 'var(--card-height)',
-  position: 'absolute',
-  left: '50%',
-  top: '50%',
-  transform: 'translate(-50%, -50%) rotate(90deg)',
+  transform: 'rotate(90deg)',
+  transformOrigin: 'center',
+  zIndex: 1,
 };
 
 const deckCountPill: React.CSSProperties = {
