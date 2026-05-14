@@ -644,6 +644,15 @@ const deckSlot: React.CSSProperties = {
 // flex container (instead of Scopa's tableArea CSS class which is sized
 // for up to 8 cards and uses flex-wrap: wrap) — sized to fit exactly
 // 2 cards side-by-side, never wraps to a second row.
+//
+// IMPORTANT: width is pinned to a fixed value (not min/max) so the
+// container never resizes when the trick goes 0 → 1 → 2 → 0 cards.
+// With box-sizing: border-box, the width includes the 24px of padding
+// and 4px of border, so the content area is exactly enough for two
+// card-widths + the gap between them.
+const TRICK_AREA_WIDTH = 'calc(2 * var(--card-width) + var(--space-3) + 28px)';
+const TRICK_AREA_HEIGHT = 'calc(var(--card-height) + 28px)';
+
 const trickArea: React.CSSProperties = {
   display: 'flex',
   flexWrap: 'nowrap',
@@ -651,8 +660,8 @@ const trickArea: React.CSSProperties = {
   justifyContent: 'center',
   gap: 'var(--space-3)',
   padding: '12px',
-  minWidth: 'calc(2 * var(--card-width) + var(--space-3) + 24px)',
-  minHeight: 'calc(var(--card-height) + 24px)',
+  width: TRICK_AREA_WIDTH,
+  height: TRICK_AREA_HEIGHT,
   background: 'rgba(0, 0, 0, 0.1)',
   borderRadius: '12px',
   border: '2px dashed rgba(255, 255, 255, 0.15)',
