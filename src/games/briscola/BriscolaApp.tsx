@@ -26,6 +26,7 @@ import { Card } from '../../components/Card/Card';
 import { CardBack } from '../../components/Card/CardImage';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
+import { DealingAnimation, DEALING_HANDS_DURATION } from '../../components/UI/DealingAnimation';
 import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
@@ -61,6 +62,7 @@ interface AnimatingTrick {
 
 type AppState =
   | { status: 'idle' }
+  | { status: 'dealing'; game: GameState }
   | { status: 'playing'; game: GameState }
   | {
       status: 'cpuAnimating';
@@ -73,6 +75,7 @@ type AppState =
 
 type Action =
   | { type: 'START' }
+  | { type: 'DEAL_COMPLETE' }
   | { type: 'HUMAN_PLAY'; move: Move }
   | { type: 'CPU_START'; move: Move }
   | { type: 'CPU_PHASE_MOVING' }
@@ -136,7 +139,11 @@ function applyOrDeferTrick(
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'START':
-      return { status: 'playing', game: newRound() };
+      return { status: 'dealing', game: newRound() };
+
+    case 'DEAL_COMPLETE':
+      if (state.status !== 'dealing') return state;
+      return { status: 'playing', game: state.game };
 
     case 'HUMAN_PLAY': {
       if (state.status !== 'playing') return state;
@@ -227,6 +234,14 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state]);
 
+  // dealing: hold for the duration of the deal animation, then start playing
+  useEffect(() => {
+    if (state.status !== 'dealing') return;
+    // Slight buffer beyond the animation duration so cards fully settle
+    const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), DEALING_HANDS_DURATION + 100);
+    return () => clearTimeout(t);
+  }, [state]);
+
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
@@ -282,12 +297,18 @@ function BriscolaBoard({
   const isHumanTurn = state.status === 'playing' && g.round.currentPlayer === 'human';
   const animTrick = state.status === 'animatingTrick' ? state.trick : null;
   const cpuAnim = state.status === 'cpuAnimating' ? state : null;
+  const isDealing = state.status === 'dealing';
 
-  // Hide the CPU's animating card from the visible hand (it's on the overlay)
-  const cpuHand = cpuAnim
-    ? g.players.cpu.hand.filter(c => c.id !== cpuAnim.cpuMove.cardPlayed.id)
-    : g.players.cpu.hand;
-  const humanHand = g.players.human.hand;
+  // During the deal animation, hands are visually empty — the flying cards
+  // in the DealingAnimation overlay represent them landing in the hands.
+  // After deal completes, the real hand cards appear (PlayerHand's
+  // AnimatePresence handles the entry).
+  const cpuHand = isDealing
+    ? []
+    : cpuAnim
+      ? g.players.cpu.hand.filter(c => c.id !== cpuAnim.cpuMove.cardPlayed.id)
+      : g.players.cpu.hand;
+  const humanHand = isDealing ? [] : g.players.human.hand;
 
   const leadCard = g.round.trick.leadCard;
   const followCard = animTrick ? animTrick.followCard : null;
@@ -354,6 +375,16 @@ function BriscolaBoard({
         phase={cpuAnim?.phase ?? null}
         capturedCardIds={[]}
         player={cpuAnim ? 'cpu' : undefined}
+      />
+
+      {/* Deal animation: 3 cards to each player, alternating, from the
+          deck (on the right) to the players' hands. Only shown while
+          state.status === 'dealing'. */}
+      <DealingAnimation
+        isDealing={isDealing}
+        startPlayer={g.round.currentPlayer}
+        deckPosition="right"
+        dealMode="hands"
       />
 
       {state.status === 'roundEnd' && (
@@ -605,8 +636,8 @@ const tableGrid: React.CSSProperties = {
 
 const deckSlot: React.CSSProperties = {
   justifySelf: 'start',
-  // Push the deck further from the play area
-  marginLeft: 'var(--space-8, 32px)',
+  // Push the deck well clear of the play area
+  marginLeft: 'calc(var(--card-width) * 0.6)',
 };
 
 // Briscola only ever has 0, 1, or 2 cards in the trick area. Custom
