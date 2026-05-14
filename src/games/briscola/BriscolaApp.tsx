@@ -27,6 +27,7 @@ import { CardBack } from '../../components/Card/CardImage';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
 import { DealingAnimation, DEALING_HANDS_DURATION } from '../../components/UI/DealingAnimation';
+import dealStyles from '../../components/UI/DealingAnimation.module.css';
 import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
@@ -46,6 +47,7 @@ const CPU_MOVE_MS = 500;
 const CPU_DECISION_DELAY_MS = 600;
 const TRICK_VISIBLE_MS = 1200;
 const CAPTURE_DURATION_MS = 900;
+const DRAW_DURATION_MS = 400;
 
 // ---------------------------------------------------------------------------
 // State
@@ -71,6 +73,16 @@ type AppState =
       phase: 'reveal' | 'moving';
     }
   | { status: 'animatingTrick'; game: GameState; trick: AnimatingTrick }
+  | {
+      // Trick resolved, capture cards have flown to winner's pile; now
+      // both players (or just winner if deck only had 1) draw a card.
+      // preDrawGame is rendered (hands and deck still at pre-draw size);
+      // when the timer fires we transition to postDrawGame.
+      status: 'drawing';
+      preDrawGame: GameState;
+      postDrawGame: GameState;
+      drawTargets: PlayerId[];
+    }
   | { status: 'roundEnd'; game: GameState; finalPoints: { human: number; cpu: number } };
 
 type Action =
@@ -80,7 +92,8 @@ type Action =
   | { type: 'CPU_START'; move: Move }
   | { type: 'CPU_PHASE_MOVING' }
   | { type: 'CPU_APPLY' }
-  | { type: 'RESOLVE_TRICK' };
+  | { type: 'RESOLVE_TRICK' }
+  | { type: 'DRAW_COMPLETE' };
 
 function newRound(): GameState {
   const deck = shuffleDeck(createDeck());
@@ -171,17 +184,62 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'RESOLVE_TRICK': {
       if (state.status !== 'animatingTrick') return state;
-      const resolved = state.trick.resolved;
-      if (resolved.status === 'roundEnd') {
-        const human = calculateRoundScore(resolved.players.human.captured, resolved.players.cpu.captured);
-        const cpu = calculateRoundScore(resolved.players.cpu.captured, resolved.players.human.captured);
+      const { resolved, winner } = state.trick;
+      const visualGame = state.game;
+      const otherP: PlayerId = winner === 'human' ? 'cpu' : 'human';
+
+      // Figure out who actually drew a card. Compare visualGame's hand
+      // sizes (pre-draw) to resolved's hand sizes (post-draw).
+      const drawTargets: PlayerId[] = [];
+      if (resolved.players[winner].hand.length > visualGame.players[winner].hand.length) {
+        drawTargets.push(winner);
+      }
+      if (resolved.players[otherP].hand.length > visualGame.players[otherP].hand.length) {
+        drawTargets.push(otherP);
+      }
+
+      // If nobody drew (deck was already empty), skip the drawing
+      // animation entirely — go straight to the next state.
+      if (drawTargets.length === 0) {
+        if (resolved.status === 'roundEnd') {
+          const human = calculateRoundScore(resolved.players.human.captured, resolved.players.cpu.captured);
+          const cpu = calculateRoundScore(resolved.players.cpu.captured, resolved.players.human.captured);
+          return {
+            status: 'roundEnd',
+            game: resolved,
+            finalPoints: { human: human.points, cpu: cpu.points },
+          };
+        }
+        return { status: 'playing', game: resolved };
+      }
+
+      // Construct the pre-draw view: post-capture (so captured piles
+      // and trick-clear are visible) but hands and deck at pre-draw
+      // sizes (so the draw animation has somewhere to fly TO).
+      const preDrawGame: GameState = {
+        ...resolved,
+        round: { ...resolved.round, deck: visualGame.round.deck },
+        players: {
+          human: { ...resolved.players.human, hand: visualGame.players.human.hand },
+          cpu: { ...resolved.players.cpu, hand: visualGame.players.cpu.hand },
+        },
+      };
+      return { status: 'drawing', preDrawGame, postDrawGame: resolved, drawTargets };
+    }
+
+    case 'DRAW_COMPLETE': {
+      if (state.status !== 'drawing') return state;
+      const post = state.postDrawGame;
+      if (post.status === 'roundEnd') {
+        const human = calculateRoundScore(post.players.human.captured, post.players.cpu.captured);
+        const cpu = calculateRoundScore(post.players.cpu.captured, post.players.human.captured);
         return {
           status: 'roundEnd',
-          game: resolved,
+          game: post,
           finalPoints: { human: human.points, cpu: cpu.points },
         };
       }
-      return { status: 'playing', game: resolved };
+      return { status: 'playing', game: post };
     }
   }
 }
@@ -242,6 +300,13 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state]);
 
+  // drawing: hold for the duration of the draw animation, then advance
+  useEffect(() => {
+    if (state.status !== 'drawing') return;
+    const t = setTimeout(() => dispatch({ type: 'DRAW_COMPLETE' }), DRAW_DURATION_MS + 50);
+    return () => clearTimeout(t);
+  }, [state]);
+
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
@@ -293,11 +358,14 @@ function BriscolaBoard({
   onCardClick: (card: BriscolaCard) => void;
   onRestart: () => void;
 }) {
-  const g = state.game;
+  // While drawing, render the pre-draw view (hands/deck haven't grown yet).
+  // For every other state, state.game is the right view.
+  const g: GameState = state.status === 'drawing' ? state.preDrawGame : state.game;
   const isHumanTurn = state.status === 'playing' && g.round.currentPlayer === 'human';
   const animTrick = state.status === 'animatingTrick' ? state.trick : null;
   const cpuAnim = state.status === 'cpuAnimating' ? state : null;
   const isDealing = state.status === 'dealing';
+  const drawTargets = state.status === 'drawing' ? state.drawTargets : null;
 
   // During the deal animation, hands are visually empty — the flying cards
   // in the DealingAnimation overlay represent them landing in the hands.
@@ -387,6 +455,11 @@ function BriscolaBoard({
         dealMode="hands"
       />
 
+      {/* Draw animation: one card per player who drew after the trick,
+          flying from the deck to their hand. Briscola-specific (smaller
+          and faster than Scopa's full deal). */}
+      {drawTargets && <DrawAnimation targets={drawTargets} />}
+
       {state.status === 'roundEnd' && (
         <RoundEndOverlay
           humanPts={state.finalPoints.human}
@@ -431,6 +504,51 @@ function BriscolaTable({
         <BriscolaDeck deckCount={deckCount} trump={trump} />
       </div>
     </div>
+  );
+}
+
+// Short post-trick draw animation: one card-back per drawing player flies
+// from the deck position (right side of viewport) to that player's hand
+// position (top for cpu, bottom for human). Mirrors the visual language
+// of DealingAnimation but with only 1-2 cards and a quicker pace.
+function DrawAnimation({ targets }: { targets: PlayerId[] }) {
+  if (targets.length === 0) return null;
+  return (
+    <AnimatePresence>
+      <div className={dealStyles.overlay}>
+        {targets.map((target, i) => (
+          <motion.div
+            key={`draw-${target}-${i}`}
+            className={dealStyles.flyingCard}
+            initial={{
+              x: 280,    // start from the deck (right of viewport center)
+              y: 0,
+              scale: 0.85,
+              opacity: 1,
+              rotate: 5,
+            }}
+            animate={{
+              x: 0,
+              y: target === 'human' ? 280 : -280,
+              scale: 1,
+              opacity: [1, 1, 1, 0],   // crossfade out near the end
+              rotate: 0,
+            }}
+            transition={{
+              duration: DRAW_DURATION_MS / 1000,
+              delay: i * 0.06,           // tiny stagger if both draw
+              ease: [0.25, 0.1, 0.25, 1],
+              opacity: {
+                times: [0, 0.4, 0.6, 1],
+                duration: DRAW_DURATION_MS / 1000,
+              },
+            }}
+          >
+            <CardBack />
+          </motion.div>
+        ))}
+      </div>
+    </AnimatePresence>
   );
 }
 
