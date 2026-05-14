@@ -605,8 +605,8 @@ const tableGrid: React.CSSProperties = {
 
 const deckSlot: React.CSSProperties = {
   justifySelf: 'start',
-  // Push the deck a bit further from the play area
-  marginLeft: 'var(--space-5, 20px)',
+  // Push the deck further from the play area
+  marginLeft: 'var(--space-8, 32px)',
 };
 
 // Briscola only ever has 0, 1, or 2 cards in the trick area. Custom
@@ -669,6 +669,8 @@ const deckStack: React.CSSProperties = {
 //   - We want trump's visual center at x = 0.5 × card-height − 0 (centered on
 //     deck's left edge), so ~50% hides behind deck and ~50% extends to the left.
 //   - Wrapper top-left x = trump_center_x − card-width/2 = 0.5 × card-height − card-width/2
+// pointerEvents: 'none' so the trump card never registers mouse hover —
+// it's a static visual reference, not an interactive card.
 const trumpStickOut: React.CSSProperties = {
   position: 'absolute',
   left: 'calc(var(--card-height) * 0.5 - var(--card-width) / 2)',
@@ -678,6 +680,7 @@ const trumpStickOut: React.CSSProperties = {
   transform: 'rotate(-90deg)',
   transformOrigin: 'center',
   zIndex: 1,
+  pointerEvents: 'none',
 };
 
 // Wrapper around the count pill so it sits centered under the deck stack
