@@ -455,13 +455,13 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
   return (
     <div style={deckContainer}>
       <div style={deckTrumpArrangement}>
-        {/* Trump card rotated 90°, sticking out to the right of the deck.
-            Rendered first (below in z-order) so the deck overlaps its left edge. */}
+        {/* Trump card rotated -90°, sticking out to the LEFT of the deck.
+            Rendered first (below in z-order) so the deck overlaps its right edge. */}
         <div style={trumpStickOut}>
           <Card card={trump} />
         </div>
 
-        {/* Deck stack on top of the trump's left edge */}
+        {/* Deck stack on top of the trump's right edge */}
         {showStack && (
           <div style={deckStack}>
             {Array.from({ length: stackLayers }).map((_, i) => (
@@ -483,7 +483,11 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
           </div>
         )}
       </div>
-      <span style={deckCountPill}>{deckCount}</span>
+      {/* Count, centered under the deck stack (deck is anchored to the
+          right of the arrangement, so the count wrapper sits there too). */}
+      <div style={countWrapper}>
+        <span style={deckCountPill}>{deckCount}</span>
+      </div>
     </div>
   );
 }
@@ -601,6 +605,8 @@ const tableGrid: React.CSSProperties = {
 
 const deckSlot: React.CSSProperties = {
   justifySelf: 'start',
+  // Push the deck a bit further from the play area
+  marginLeft: 'var(--space-5, 20px)',
 };
 
 // Briscola only ever has 0, 1, or 2 cards in the trick area. Custom
@@ -627,17 +633,18 @@ const trickArea: React.CSSProperties = {
 const deckContainer: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  // Align count below the deck stack (which is on the RIGHT of the arrangement)
+  // The arrangement and count wrapper are aligned to the RIGHT of the column
+  // so they sit directly above each other under the deck stack.
   alignItems: 'flex-end',
   gap: '6px',
 };
 
 // Outer wrapper for the trump+deck arrangement (trump on left, deck on right).
-// Width: ~85% of trump's rotated width (visible portion) + full deck-width.
+// Width: deck-width + 50% of trump's rotated width (the visible-to-left portion).
 // Height: card-height (same as deck).
 const deckTrumpArrangement: React.CSSProperties = {
   position: 'relative',
-  width: 'calc(var(--card-width) + var(--card-height) * 0.85)',
+  width: 'calc(var(--card-width) + var(--card-height) * 0.5)',
   height: 'var(--card-height)',
 };
 
@@ -651,26 +658,34 @@ const deckStack: React.CSSProperties = {
   zIndex: 2,
 };
 
-// Trump card rotated 90°, positioned so its RIGHT edge is tucked behind
-// the LEFT edge of the deck.
+// Trump card rotated -90° (counterclockwise) so the original card's TOP
+// edge ends up on the LEFT — meaning the top of the card faces out to the
+// viewer's left as it sticks out from beneath the deck. Positioned so its
+// right ~50% is hidden behind the deck and its left ~50% extends visibly.
 //   - Pre-rotation wrapper is card-width × card-height
-//   - After rotate(90deg) around center, visual extends ±card-height/2
+//   - After rotate(-90deg) around center, visual extends ±card-height/2
 //     horizontally and ±card-width/2 vertically from the center
-//   - The deck stack sits at right: 0 in a container that is
-//     (card-width + 0.85 × card-height) wide, so the deck's left edge is at
-//     x = 0.85 × card-height.
-//   - We want trump's visual center at x = 0.85 × card-height − 0.35 × card-height
-//     = 0.5 × card-height, so ~15% of trump's rotated width hides behind the
-//     deck's left edge and ~85% extends clearly to the left.
+//   - The deck's left edge is at x = container.width − card-width = 0.5 × card-height
+//   - We want trump's visual center at x = 0.5 × card-height − 0 (centered on
+//     deck's left edge), so ~50% hides behind deck and ~50% extends to the left.
+//   - Wrapper top-left x = trump_center_x − card-width/2 = 0.5 × card-height − card-width/2
 const trumpStickOut: React.CSSProperties = {
   position: 'absolute',
   left: 'calc(var(--card-height) * 0.5 - var(--card-width) / 2)',
   top: 0,
   width: 'var(--card-width)',
   height: 'var(--card-height)',
-  transform: 'rotate(90deg)',
+  transform: 'rotate(-90deg)',
   transformOrigin: 'center',
   zIndex: 1,
+};
+
+// Wrapper around the count pill so it sits centered under the deck stack
+// (the deck stack itself is positioned at the right of deckTrumpArrangement).
+const countWrapper: React.CSSProperties = {
+  width: 'var(--card-width)',
+  display: 'flex',
+  justifyContent: 'center',
 };
 
 const deckCountPill: React.CSSProperties = {
