@@ -40,6 +40,7 @@ import { POINT_VALUES } from './constants';
 import { StartScreen, type CpuBotName } from './StartScreen';
 import { SettingsModal } from './SettingsModal';
 import { StatsModal } from './StatsModal';
+import { RulesModal } from './RulesModal';
 import { useBriscolaSettings } from './hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
@@ -338,6 +339,7 @@ function BriscolaApp() {
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isRulesOpen, setIsRulesOpen] = useState(false);
   const stats = useBriscolaStats();
   const cpuBot = CPU_BOTS[cpuBotName];
 
@@ -478,6 +480,7 @@ function BriscolaApp() {
           getRecentMatches={stats.getRecentMatches}
           onClear={stats.clearStats}
         />
+        <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
       </>
     );
   }
@@ -493,6 +496,7 @@ function BriscolaApp() {
         onOpenPile={setOpenPile}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenStats={() => setIsStatsOpen(true)}
+        onOpenRules={() => setIsRulesOpen(true)}
       />
       {openPile && (
         <BriscolaCapturedModal
@@ -519,6 +523,7 @@ function BriscolaApp() {
         getRecentMatches={stats.getRecentMatches}
         onClear={stats.clearStats}
       />
+      <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
     </DeckProvider>
   );
 }
@@ -538,6 +543,7 @@ function BriscolaBoard({
   onOpenPile,
   onOpenSettings,
   onOpenStats,
+  onOpenRules,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
@@ -547,6 +553,7 @@ function BriscolaBoard({
   onOpenPile: (player: PlayerId) => void;
   onOpenSettings: () => void;
   onOpenStats: () => void;
+  onOpenRules: () => void;
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
@@ -678,7 +685,7 @@ function BriscolaBoard({
               onNewGame={onRestart}
               onOpenSettings={onOpenSettings}
               onOpenStats={onOpenStats}
-              onOpenRules={() => { /* slice 7d-rules */ }}
+              onOpenRules={onOpenRules}
             />
           </div>
         }
