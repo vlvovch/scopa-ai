@@ -327,7 +327,7 @@ function winsNeeded(bestOf: number): number {
 
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
-  const { play, playDeal } = useSound();
+  const { play } = useSound();
   const [cpuBotName, setCpuBotName] = useState<CpuBotName>('heuristic');
   const [bestOf, setBestOf] = useState<number>(1);
   const cpuBot = CPU_BOTS[cpuBotName];
@@ -382,19 +382,19 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state, play]);
 
-  // dealing: play 6 staggered "deal" clicks then transition to playing.
-  // Only play the deal sound on the FIRST round of a match — the
-  // subsequent rounds' re-deals would otherwise be repetitive in
-  // best-of-N play.
+  // dealing: play a single 'deal' card-fan sound (matches Scopa, which
+  // uses one play('deal') per dealing phase), then transition to playing.
+  // Only on the FIRST round of a match — subsequent rounds' re-deals
+  // are visual-only to avoid repetition in best-of-N play.
   useEffect(() => {
     if (state.status !== 'dealing') return;
     if (state.game.roundNumber === 1) {
-      playDeal(6, 80);
+      play('deal');
     }
     // Slight buffer beyond the animation duration so cards fully settle
     const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), DEALING_HANDS_DURATION + 100);
     return () => clearTimeout(t);
-  }, [state, playDeal]);
+  }, [state, play]);
 
   // drawing: hold for the duration of the draw animation, then advance.
   // Deliberately no draw-sound here — the per-trick click train was too
