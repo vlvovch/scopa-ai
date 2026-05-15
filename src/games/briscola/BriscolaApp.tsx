@@ -38,6 +38,9 @@ import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
 import { StartScreen, type CpuBotName } from './StartScreen';
+import { SettingsModal } from './SettingsModal';
+import { useBriscolaSettings } from './hooks/useSettings';
+import { GameControls } from '../../components/UI/GameControls';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
 import type { AIPlayer } from './ai/types';
@@ -327,9 +330,11 @@ function winsNeeded(bestOf: number): number {
 
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
-  const { play } = useSound();
-  const [cpuBotName, setCpuBotName] = useState<CpuBotName>('heuristic');
-  const [bestOf, setBestOf] = useState<number>(1);
+  const { settings, updateSetting, resetSettings } = useBriscolaSettings();
+  const { play } = useSound({ enabled: settings.soundEnabled });
+  const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.defaultCpuBot);
+  const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const cpuBot = CPU_BOTS[cpuBotName];
 
   // CPU decision → CPU_START
@@ -420,20 +425,29 @@ function BriscolaApp() {
 
   if (state.status === 'idle') {
     return (
-      <StartScreen
-        cpuBotName={cpuBotName}
-        onSetCpuBotName={setCpuBotName}
-        defaultBestOf={bestOf}
-        onStartGame={(n) => {
-          setBestOf(n);
-          dispatch({ type: 'START', bestOf: n });
-        }}
-      />
+      <>
+        <StartScreen
+          cpuBotName={cpuBotName}
+          onSetCpuBotName={setCpuBotName}
+          defaultBestOf={bestOf}
+          onStartGame={(n) => {
+            setBestOf(n);
+            dispatch({ type: 'START', bestOf: n });
+          }}
+        />
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          settings={settings}
+          onUpdate={updateSetting}
+          onReset={resetSettings}
+        />
+      </>
     );
   }
 
   return (
-    <DeckProvider deck="napoletane">
+    <DeckProvider deck={settings.deck}>
       <BriscolaBoard
         state={state}
         cpuBotLabel={BOT_LABELS[cpuBotName]}
@@ -441,6 +455,7 @@ function BriscolaApp() {
         onNextRound={() => dispatch({ type: 'NEXT_ROUND' })}
         onRestart={() => dispatch({ type: 'START', bestOf })}
         onOpenPile={setOpenPile}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
       {openPile && (
         <BriscolaCapturedModal
@@ -453,6 +468,13 @@ function BriscolaApp() {
           onClose={() => setOpenPile(null)}
         />
       )}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onUpdate={updateSetting}
+        onReset={resetSettings}
+      />
     </DeckProvider>
   );
 }
@@ -470,6 +492,7 @@ function BriscolaBoard({
   onNextRound,
   onRestart,
   onOpenPile,
+  onOpenSettings,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
@@ -477,6 +500,7 @@ function BriscolaBoard({
   onNextRound: () => void;
   onRestart: () => void;
   onOpenPile: (player: PlayerId) => void;
+  onOpenSettings: () => void;
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
@@ -594,15 +618,23 @@ function BriscolaBoard({
     <>
       <GameLayout
         scoreBoard={
-          <ScoreBoard
-            humanScore={g.scores.human}
-            cpuScore={g.scores.cpu}
-            roundNumber={g.roundNumber}
-            targetScore={g.targetScore}
-            currentPlayer={g.round.currentPlayer}
-            cpuName={cpuBotLabel}
-            humanName="You"
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+            <ScoreBoard
+              humanScore={g.scores.human}
+              cpuScore={g.scores.cpu}
+              roundNumber={g.roundNumber}
+              targetScore={g.targetScore}
+              currentPlayer={g.round.currentPlayer}
+              cpuName={cpuBotLabel}
+              humanName="You"
+            />
+            <GameControls
+              onNewGame={onRestart}
+              onOpenSettings={onOpenSettings}
+              onOpenStats={() => { /* slice 7d-stats */ }}
+              onOpenRules={() => { /* slice 7d-rules */ }}
+            />
+          </div>
         }
         cpuPile={
           <BriscolaPile
