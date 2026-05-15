@@ -377,10 +377,15 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state, play]);
 
-  // dealing: play 6 staggered "deal" clicks then transition to playing
+  // dealing: play 6 staggered "deal" clicks then transition to playing.
+  // Only play the deal sound on the FIRST round of a match — the
+  // subsequent rounds' re-deals would otherwise be repetitive in
+  // best-of-N play.
   useEffect(() => {
     if (state.status !== 'dealing') return;
-    playDeal(6, 80);
+    if (state.game.roundNumber === 1) {
+      playDeal(6, 80);
+    }
     // Slight buffer beyond the animation duration so cards fully settle
     const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), DEALING_HANDS_DURATION + 100);
     return () => clearTimeout(t);
