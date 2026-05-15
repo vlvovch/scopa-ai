@@ -37,6 +37,7 @@ import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
+import { StartScreen, type CpuBotName } from './StartScreen';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
 import type { AIPlayer } from './ai/types';
@@ -88,38 +89,91 @@ type AppState =
       postDrawGame: GameState;
       drawTargets: PlayerId[];
     }
-  | { status: 'roundEnd'; game: GameState; finalPoints: { human: number; cpu: number } };
+  | {
+      // A round has finished. game.scores has been updated to reflect the
+      // round result. matchOver is true if either side has reached the
+      // wins-needed threshold for the match.
+      status: 'roundEnd';
+      game: GameState;
+      finalPoints: { human: number; cpu: number };
+      roundWinner: PlayerId | 'tie';
+      matchOver: boolean;
+    };
 
 type Action =
-  | { type: 'START' }
+  | { type: 'START'; bestOf: number }
   | { type: 'DEAL_COMPLETE' }
   | { type: 'HUMAN_PLAY'; move: Move }
   | { type: 'CPU_START'; move: Move }
   | { type: 'CPU_PHASE_MOVING' }
   | { type: 'CPU_APPLY' }
   | { type: 'RESOLVE_TRICK' }
-  | { type: 'DRAW_COMPLETE' };
+  | { type: 'DRAW_COMPLETE' }
+  | { type: 'NEXT_ROUND' };
 
-function newRound(): GameState {
+function newRound(
+  bestOf: number,
+  prevScores: Record<PlayerId, number> = { human: 0, cpu: 0 },
+  roundNumber: number = 1,
+  dealer: PlayerId = 'cpu'
+): GameState {
   const deck = shuffleDeck(createDeck());
-  const init = dealInitialHands(deck, 'cpu');
+  const init = dealInitialHands(deck, dealer);
+  // Non-dealer leads the first trick in Briscola
+  const leader: PlayerId = dealer === 'human' ? 'cpu' : 'human';
   return {
     status: 'playing',
     round: {
       deck: init.deck,
       trump: init.trump,
       trumpSuit: init.trump.suit,
-      trick: { leadCard: null, leader: 'human' },
-      currentPlayer: 'human',
-      dealer: 'cpu',
+      trick: { leadCard: null, leader },
+      currentPlayer: leader,
+      dealer,
     },
     players: {
       human: { hand: init.hands.human, captured: [] },
       cpu: { hand: init.hands.cpu, captured: [] },
     },
-    scores: { human: 0, cpu: 0 },
-    roundNumber: 1,
-    targetScore: 1,
+    scores: prevScores,
+    roundNumber,
+    // targetScore = number of round wins needed to take the match
+    targetScore: winsNeeded(bestOf),
+  };
+}
+
+/**
+ * Build the roundEnd state from a finished game: figure out who won this
+ * round, increment that player's round-win tally on the GameState's scores,
+ * and decide whether the match is over.
+ */
+function buildRoundEnd(finishedGame: GameState): Extract<AppState, { status: 'roundEnd' }> {
+  const humanScore = calculateRoundScore(
+    finishedGame.players.human.captured,
+    finishedGame.players.cpu.captured
+  );
+  const cpuScore = calculateRoundScore(
+    finishedGame.players.cpu.captured,
+    finishedGame.players.human.captured
+  );
+  let roundWinner: PlayerId | 'tie';
+  if (humanScore.points > cpuScore.points) roundWinner = 'human';
+  else if (cpuScore.points > humanScore.points) roundWinner = 'cpu';
+  else roundWinner = 'tie';
+
+  const nextScores: Record<PlayerId, number> = { ...finishedGame.scores };
+  if (roundWinner !== 'tie') nextScores[roundWinner] += 1;
+
+  const matchOver =
+    nextScores.human >= finishedGame.targetScore ||
+    nextScores.cpu >= finishedGame.targetScore;
+
+  return {
+    status: 'roundEnd',
+    game: { ...finishedGame, scores: nextScores },
+    finalPoints: { human: humanScore.points, cpu: cpuScore.points },
+    roundWinner,
+    matchOver,
   };
 }
 
@@ -157,7 +211,22 @@ function applyOrDeferTrick(
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'START':
-      return { status: 'dealing', game: newRound() };
+      return { status: 'dealing', game: newRound(action.bestOf) };
+
+    case 'NEXT_ROUND': {
+      if (state.status !== 'roundEnd' || state.matchOver) return state;
+      const prev = state.game;
+      // Alternate dealer each round
+      const nextDealer: PlayerId = prev.round.dealer === 'human' ? 'cpu' : 'human';
+      // bestOf was packed into targetScore via winsNeeded; reconstruct an
+      // equivalent bestOf so newRound recomputes the same targetScore.
+      // (For our purposes any value with winsNeeded(x) === prev.targetScore works.)
+      const bestOf = prev.targetScore * 2 - 1;
+      return {
+        status: 'dealing',
+        game: newRound(bestOf, prev.scores, prev.roundNumber + 1, nextDealer),
+      };
+    }
 
     case 'DEAL_COMPLETE':
       if (state.status !== 'dealing') return state;
@@ -207,13 +276,7 @@ function reducer(state: AppState, action: Action): AppState {
       // animation entirely — go straight to the next state.
       if (drawTargets.length === 0) {
         if (resolved.status === 'roundEnd') {
-          const human = calculateRoundScore(resolved.players.human.captured, resolved.players.cpu.captured);
-          const cpu = calculateRoundScore(resolved.players.cpu.captured, resolved.players.human.captured);
-          return {
-            status: 'roundEnd',
-            game: resolved,
-            finalPoints: { human: human.points, cpu: cpu.points },
-          };
+          return buildRoundEnd(resolved);
         }
         return { status: 'playing', game: resolved };
       }
@@ -236,13 +299,7 @@ function reducer(state: AppState, action: Action): AppState {
       if (state.status !== 'drawing') return state;
       const post = state.postDrawGame;
       if (post.status === 'roundEnd') {
-        const human = calculateRoundScore(post.players.human.captured, post.players.cpu.captured);
-        const cpu = calculateRoundScore(post.players.cpu.captured, post.players.human.captured);
-        return {
-          status: 'roundEnd',
-          game: post,
-          finalPoints: { human: human.points, cpu: cpu.points },
-        };
+        return buildRoundEnd(post);
       }
       return { status: 'playing', game: post };
     }
@@ -253,7 +310,6 @@ function reducer(state: AppState, action: Action): AppState {
 // App
 // ---------------------------------------------------------------------------
 
-type CpuBotName = 'random' | 'heuristic';
 const CPU_BOTS: Record<CpuBotName, AIPlayer> = {
   random: randomAI,
   heuristic: heuristicAI,
@@ -263,10 +319,17 @@ const BOT_LABELS: Record<CpuBotName, string> = {
   heuristic: 'Heuristic',
 };
 
+// Round wins needed to win the match for a given "best of N" setting.
+// For Best-of-1: 1 win. Best-of-2: 2 (a tie is still possible). Best-of-3: 2.
+function winsNeeded(bestOf: number): number {
+  return Math.floor(bestOf / 2) + 1;
+}
+
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { play, playDeal } = useSound();
   const [cpuBotName, setCpuBotName] = useState<CpuBotName>('heuristic');
+  const [bestOf, setBestOf] = useState<number>(1);
   const cpuBot = CPU_BOTS[cpuBotName];
 
   // CPU decision → CPU_START
@@ -350,7 +413,11 @@ function BriscolaApp() {
       <StartScreen
         cpuBotName={cpuBotName}
         onSetCpuBotName={setCpuBotName}
-        onStart={() => dispatch({ type: 'START' })}
+        defaultBestOf={bestOf}
+        onStartGame={(n) => {
+          setBestOf(n);
+          dispatch({ type: 'START', bestOf: n });
+        }}
       />
     );
   }
@@ -361,7 +428,8 @@ function BriscolaApp() {
         state={state}
         cpuBotLabel={BOT_LABELS[cpuBotName]}
         onCardClick={onPlayerCardClick}
-        onRestart={() => dispatch({ type: 'START' })}
+        onNextRound={() => dispatch({ type: 'NEXT_ROUND' })}
+        onRestart={() => dispatch({ type: 'START', bestOf })}
         onOpenPile={setOpenPile}
       />
       {openPile && (
@@ -385,56 +453,18 @@ export default BriscolaApp;
 // Screens
 // ---------------------------------------------------------------------------
 
-function StartScreen({
-  cpuBotName,
-  onSetCpuBotName,
-  onStart,
-}: {
-  cpuBotName: CpuBotName;
-  onSetCpuBotName: (name: CpuBotName) => void;
-  onStart: () => void;
-}) {
-  return (
-    <div style={fullScreenCenter}>
-      <h1 style={{ fontSize: '3rem', margin: 0 }}>Briscola AI</h1>
-      <p style={{ opacity: 0.8, margin: '0.5rem 0 1.5rem 0' }}>
-        Play against a CPU opponent
-      </p>
-
-      <div style={aiPickerWrap}>
-        <span style={aiPickerLabel}>Opponent</span>
-        <div style={aiPickerOptions}>
-          {(['random', 'heuristic'] as CpuBotName[]).map(name => (
-            <button
-              key={name}
-              type="button"
-              onClick={() => onSetCpuBotName(name)}
-              style={{
-                ...aiPickerButton,
-                ...(cpuBotName === name ? aiPickerButtonSelected : null),
-              }}
-            >
-              {BOT_LABELS[name]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <button style={primaryButton} onClick={onStart}>Start Game</button>
-    </div>
-  );
-}
-
 function BriscolaBoard({
   state,
   cpuBotLabel,
   onCardClick,
+  onNextRound,
   onRestart,
   onOpenPile,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
   onCardClick: (card: BriscolaCard) => void;
+  onNextRound: () => void;
   onRestart: () => void;
   onOpenPile: (player: PlayerId) => void;
 }) {
@@ -640,6 +670,12 @@ function BriscolaBoard({
         <RoundEndOverlay
           humanPts={state.finalPoints.human}
           cpuPts={state.finalPoints.cpu}
+          roundWinner={state.roundWinner}
+          matchOver={state.matchOver}
+          matchScore={state.game.scores}
+          matchTarget={state.game.targetScore}
+          cpuLabel={cpuBotLabel}
+          onNextRound={onNextRound}
           onRestart={onRestart}
         />
       )}
@@ -1003,30 +1039,76 @@ function BriscolaCapturedModal({
 function RoundEndOverlay({
   humanPts,
   cpuPts,
+  roundWinner,
+  matchOver,
+  matchScore,
+  matchTarget,
+  cpuLabel,
+  onNextRound,
   onRestart,
 }: {
   humanPts: number;
   cpuPts: number;
+  roundWinner: PlayerId | 'tie';
+  matchOver: boolean;
+  matchScore: Record<PlayerId, number>;
+  matchTarget: number;
+  cpuLabel: string;
+  onNextRound: () => void;
   onRestart: () => void;
 }) {
-  const outcome =
-    humanPts > cpuPts ? 'You win!' :
-    humanPts < cpuPts ? 'CPU wins!' :
-    'Tied at 60.';
+  const roundLine =
+    roundWinner === 'human'
+      ? 'You take the round'
+      : roundWinner === 'cpu'
+        ? `${cpuLabel} takes the round`
+        : 'Tied at 60';
+
+  // Match outcome only shown when matchOver
+  const matchOutcome = !matchOver
+    ? null
+    : matchScore.human > matchScore.cpu
+      ? `You win the match (${matchScore.human}–${matchScore.cpu})`
+      : matchScore.cpu > matchScore.human
+        ? `${cpuLabel} wins the match (${matchScore.cpu}–${matchScore.human})`
+        : `Match drawn (${matchScore.human}–${matchScore.cpu})`;
+
+  // For best-of-1, the match score line is redundant with the round line
+  const showMatchScore = matchTarget > 1 && !matchOver;
 
   return (
     <div style={overlay}>
       <div style={overlayCard}>
-        <h2 style={{ marginTop: 0 }}>{outcome}</h2>
+        <h2 style={{ marginTop: 0 }}>{matchOver ? matchOutcome : roundLine}</h2>
         <p style={{ fontSize: '1.5rem', margin: '0.5rem 0' }}>
           <strong>{humanPts}</strong> — <strong>{cpuPts}</strong>
         </p>
-        <p style={{ opacity: 0.7, margin: '0 0 1.5rem 0' }}>
-          You vs CPU (out of 120)
+        <p style={{ opacity: 0.7, margin: '0 0 1rem 0' }}>
+          You vs {cpuLabel} (out of 120)
         </p>
-        <button style={primaryButton} onClick={onRestart}>
-          Play Again
-        </button>
+        {showMatchScore && (
+          <p style={{ opacity: 0.85, margin: '0 0 1.5rem 0', fontSize: '0.95rem' }}>
+            Match: <strong>{matchScore.human}</strong> — <strong>{matchScore.cpu}</strong>{' '}
+            (first to {matchTarget})
+          </p>
+        )}
+        {!matchOver && matchTarget === 1 && (
+          // Edge case: best-of-1 with a tied round → no winner, replay
+          roundWinner === 'tie' && (
+            <p style={{ opacity: 0.7, margin: '0 0 1.5rem 0', fontStyle: 'italic' }}>
+              Replay the round.
+            </p>
+          )
+        )}
+        {matchOver ? (
+          <button style={primaryButton} onClick={onRestart}>
+            Play Again
+          </button>
+        ) : (
+          <button style={primaryButton} onClick={onNextRound}>
+            Next Round
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1035,19 +1117,6 @@ function RoundEndOverlay({
 // ---------------------------------------------------------------------------
 // Inline styles (kept minimal — most layout comes from GameLayout/CapturedPile CSS modules)
 // ---------------------------------------------------------------------------
-
-const fullScreenCenter: React.CSSProperties = {
-  minHeight: '100vh',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'var(--color-background, #1A237E)',
-  color: 'white',
-  fontFamily: 'system-ui, sans-serif',
-  padding: '2rem',
-  textAlign: 'center',
-};
 
 const turnLabelStyle: React.CSSProperties = {
   fontSize: '14px',
@@ -1192,40 +1261,6 @@ const emptyDeckLabel: React.CSSProperties = {
   fontSize: '10px',
   color: 'var(--empty-label-color, var(--color-text-secondary))',
   opacity: 0.5,
-};
-
-// ---- Start screen AI picker ----
-const aiPickerWrap: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '0.5rem',
-  marginBottom: '2rem',
-};
-const aiPickerLabel: React.CSSProperties = {
-  fontSize: '0.85rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.1em',
-  opacity: 0.7,
-};
-const aiPickerOptions: React.CSSProperties = {
-  display: 'flex',
-  gap: '0.5rem',
-};
-const aiPickerButton: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.1)',
-  color: 'white',
-  border: '1px solid rgba(255,255,255,0.2)',
-  padding: '0.5rem 1.25rem',
-  borderRadius: '6px',
-  fontSize: '1rem',
-  cursor: 'pointer',
-};
-const aiPickerButtonSelected: React.CSSProperties = {
-  background: 'var(--color-accent, #FFD600)',
-  color: 'var(--color-background, #1A237E)',
-  border: '1px solid transparent',
-  fontWeight: 'bold',
 };
 
 // ---- Modals + buttons ----
