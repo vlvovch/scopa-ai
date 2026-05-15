@@ -36,6 +36,8 @@ import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { heuristicAI } from './ai/heuristic';
+import { randomAI } from './ai/random';
+import type { AIPlayer } from './ai/types';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
 
@@ -249,9 +251,21 @@ function reducer(state: AppState, action: Action): AppState {
 // App
 // ---------------------------------------------------------------------------
 
+type CpuBotName = 'random' | 'heuristic';
+const CPU_BOTS: Record<CpuBotName, AIPlayer> = {
+  random: randomAI,
+  heuristic: heuristicAI,
+};
+const BOT_LABELS: Record<CpuBotName, string> = {
+  random: 'Random',
+  heuristic: 'Heuristic',
+};
+
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { play, playDeal } = useSound();
+  const [cpuBotName, setCpuBotName] = useState<CpuBotName>('heuristic');
+  const cpuBot = CPU_BOTS[cpuBotName];
 
   // CPU decision → CPU_START
   useEffect(() => {
@@ -261,7 +275,7 @@ function BriscolaApp() {
 
     const g = state.game;
     const t = setTimeout(() => {
-      const move = heuristicAI.selectMove({
+      const move = cpuBot.selectMove({
         hand: g.players.cpu.hand,
         player: 'cpu',
         trump: g.round.trump,
@@ -272,7 +286,7 @@ function BriscolaApp() {
       dispatch({ type: 'CPU_START', move });
     }, CPU_DECISION_DELAY_MS);
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, cpuBot]);
 
   // cpuAnimating: reveal → moving → apply (play sound as the card lands)
   useEffect(() => {
@@ -327,13 +341,20 @@ function BriscolaApp() {
   );
 
   if (state.status === 'idle') {
-    return <StartScreen onStart={() => dispatch({ type: 'START' })} />;
+    return (
+      <StartScreen
+        cpuBotName={cpuBotName}
+        onSetCpuBotName={setCpuBotName}
+        onStart={() => dispatch({ type: 'START' })}
+      />
+    );
   }
 
   return (
     <DeckProvider deck="napoletane">
       <BriscolaBoard
         state={state}
+        cpuBotLabel={BOT_LABELS[cpuBotName]}
         onCardClick={onPlayerCardClick}
         onRestart={() => dispatch({ type: 'START' })}
       />
@@ -347,13 +368,41 @@ export default BriscolaApp;
 // Screens
 // ---------------------------------------------------------------------------
 
-function StartScreen({ onStart }: { onStart: () => void }) {
+function StartScreen({
+  cpuBotName,
+  onSetCpuBotName,
+  onStart,
+}: {
+  cpuBotName: CpuBotName;
+  onSetCpuBotName: (name: CpuBotName) => void;
+  onStart: () => void;
+}) {
   return (
     <div style={fullScreenCenter}>
       <h1 style={{ fontSize: '3rem', margin: 0 }}>Briscola AI</h1>
-      <p style={{ opacity: 0.8, margin: '0.5rem 0 2rem 0' }}>
-        Play against a heuristic CPU
+      <p style={{ opacity: 0.8, margin: '0.5rem 0 1.5rem 0' }}>
+        Play against a CPU opponent
       </p>
+
+      <div style={aiPickerWrap}>
+        <span style={aiPickerLabel}>Opponent</span>
+        <div style={aiPickerOptions}>
+          {(['random', 'heuristic'] as CpuBotName[]).map(name => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => onSetCpuBotName(name)}
+              style={{
+                ...aiPickerButton,
+                ...(cpuBotName === name ? aiPickerButtonSelected : null),
+              }}
+            >
+              {BOT_LABELS[name]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button style={primaryButton} onClick={onStart}>Start Game</button>
     </div>
   );
@@ -361,10 +410,12 @@ function StartScreen({ onStart }: { onStart: () => void }) {
 
 function BriscolaBoard({
   state,
+  cpuBotLabel,
   onCardClick,
   onRestart,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
+  cpuBotLabel: string;
   onCardClick: (card: BriscolaCard) => void;
   onRestart: () => void;
 }) {
@@ -490,14 +541,14 @@ function BriscolaBoard({
             roundNumber={g.roundNumber}
             targetScore={g.targetScore}
             currentPlayer={g.round.currentPlayer}
-            cpuName="Heuristic"
+            cpuName={cpuBotLabel}
             humanName="You"
           />
         }
         cpuPile={
           <BriscolaPile
             captured={g.players.cpu.captured}
-            label="Heuristic"
+            label={cpuBotLabel}
           />
         }
         cpuHand={<PlayerHand cards={cpuHand} isHuman={false} />}
@@ -1024,6 +1075,40 @@ const emptyDeckLabel: React.CSSProperties = {
   fontSize: '10px',
   color: 'var(--empty-label-color, var(--color-text-secondary))',
   opacity: 0.5,
+};
+
+// ---- Start screen AI picker ----
+const aiPickerWrap: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '0.5rem',
+  marginBottom: '2rem',
+};
+const aiPickerLabel: React.CSSProperties = {
+  fontSize: '0.85rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.1em',
+  opacity: 0.7,
+};
+const aiPickerOptions: React.CSSProperties = {
+  display: 'flex',
+  gap: '0.5rem',
+};
+const aiPickerButton: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.1)',
+  color: 'white',
+  border: '1px solid rgba(255,255,255,0.2)',
+  padding: '0.5rem 1.25rem',
+  borderRadius: '6px',
+  fontSize: '1rem',
+  cursor: 'pointer',
+};
+const aiPickerButtonSelected: React.CSSProperties = {
+  background: 'var(--color-accent, #FFD600)',
+  color: 'var(--color-background, #1A237E)',
+  border: '1px solid transparent',
+  fontWeight: 'bold',
 };
 
 // ---- Modals + buttons ----
