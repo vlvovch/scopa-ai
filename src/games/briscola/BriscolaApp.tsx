@@ -36,6 +36,7 @@ import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { heuristicAI } from './ai/heuristic';
+import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
 
 // ---------------------------------------------------------------------------
@@ -250,6 +251,7 @@ function reducer(state: AppState, action: Action): AppState {
 
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
+  const { play, playDeal } = useSound();
 
   // CPU decision → CPU_START
   useEffect(() => {
@@ -272,7 +274,7 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state]);
 
-  // cpuAnimating: reveal → moving → apply
+  // cpuAnimating: reveal → moving → apply (play sound as the card lands)
   useEffect(() => {
     if (state.status !== 'cpuAnimating') return;
     if (state.phase === 'reveal') {
@@ -280,40 +282,48 @@ function BriscolaApp() {
       return () => clearTimeout(t);
     }
     if (state.phase === 'moving') {
+      play('play');
       const t = setTimeout(() => dispatch({ type: 'CPU_APPLY' }), CPU_MOVE_MS);
       return () => clearTimeout(t);
     }
-  }, [state]);
+  }, [state, play]);
 
-  // animatingTrick: hold then resolve
+  // animatingTrick: hold then resolve (capture sound on resolution)
   useEffect(() => {
     if (state.status !== 'animatingTrick') return;
-    const t = setTimeout(() => dispatch({ type: 'RESOLVE_TRICK' }), TRICK_VISIBLE_MS);
+    const t = setTimeout(() => {
+      play('capture');
+      dispatch({ type: 'RESOLVE_TRICK' });
+    }, TRICK_VISIBLE_MS);
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, play]);
 
-  // dealing: hold for the duration of the deal animation, then start playing
+  // dealing: play 6 staggered "deal" clicks then transition to playing
   useEffect(() => {
     if (state.status !== 'dealing') return;
+    playDeal(6, 80);
     // Slight buffer beyond the animation duration so cards fully settle
     const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), DEALING_HANDS_DURATION + 100);
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, playDeal]);
 
   // drawing: hold for the duration of the draw animation, then advance
+  // (play a "deal" click per drawing player)
   useEffect(() => {
     if (state.status !== 'drawing') return;
+    playDeal(state.drawTargets.length, 80);
     const t = setTimeout(() => dispatch({ type: 'DRAW_COMPLETE' }), DRAW_DURATION_MS + 50);
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, playDeal]);
 
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
       if (state.game.round.currentPlayer !== 'human') return;
+      play('play');
       dispatch({ type: 'HUMAN_PLAY', move: { player: 'human', cardPlayed: card } });
     },
-    [state]
+    [state, play]
   );
 
   if (state.status === 'idle') {
