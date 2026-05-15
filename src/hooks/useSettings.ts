@@ -5,16 +5,30 @@ import type { ExtendedAIType } from '../games/scopa/ai';
 
 export type DeckType = 'napoletane' | 'siciliane' | 'sarde' | 'piacentine' | 'bergamasche' | 'romagnole';
 export type TableStyle = 'green' | 'tablecloth';
+export type AnimationSpeed = 'instant' | 'fast' | 'normal' | 'slow';
+
+/** Multiplier applied to all timer-driven animation durations.
+ *  'instant' collapses everything to a tiny delay; 'normal' is baseline. */
+export const SPEED_MULTIPLIER: Record<AnimationSpeed, number> = {
+  instant: 0.02,
+  fast: 0.5,
+  normal: 1,
+  slow: 1.6,
+};
 
 export interface GameSettings {
-  /** Default target score for new games (minimum 1) */
+  /** Default target score for new Scopa games (minimum 1) */
   defaultTargetScore: number;
+  /** Default "Best Of" for new Briscola matches */
+  defaultBestOf: number;
   /** Animation speed: 'instant' | 'fast' | 'normal' | 'slow' */
-  animationSpeed: 'instant' | 'fast' | 'normal' | 'slow';
+  animationSpeed: AnimationSpeed;
   /** Whether to show card values in corners */
   showCardValues: boolean;
-  /** CPU AI type */
+  /** CPU AI type (Scopa) */
   cpuAI: ExtendedAIType;
+  /** Default Briscola CPU bot */
+  briscolaCpuBot: 'random' | 'heuristic';
   /** Card deck style */
   deck: DeckType;
   /** Table background style */
@@ -51,9 +65,11 @@ const STORAGE_KEY = 'scopa-settings';
 
 const DEFAULT_SETTINGS: GameSettings = {
   defaultTargetScore: 11,
+  defaultBestOf: 1,
   animationSpeed: 'normal',
   showCardValues: true,
   cpuAI: 'heuristic',
+  briscolaCpuBot: 'heuristic',
   deck: 'napoletane',
   tableStyle: 'green',
   geminiModel: 'gemini-2.5-flash',

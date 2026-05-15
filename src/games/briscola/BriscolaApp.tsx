@@ -38,10 +38,10 @@ import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
 import { StartScreen, type CpuBotName } from './StartScreen';
-import { SettingsModal } from './SettingsModal';
+import { SettingsModal } from '../../components/UI/SettingsModal';
 import { StatsModal } from './StatsModal';
 import { RulesModal } from './RulesModal';
-import { useBriscolaSettings, SPEED_MULTIPLIER } from './hooks/useSettings';
+import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
 import { heuristicAI } from './ai/heuristic';
@@ -333,9 +333,9 @@ function winsNeeded(bestOf: number): number {
 
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
-  const { settings, updateSetting, resetSettings } = useBriscolaSettings();
+  const { settings, updateSetting, resetSettings } = useSettings();
   const { play } = useSound({ enabled: settings.soundEnabled });
-  const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.defaultCpuBot);
+  const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.briscolaCpuBot);
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
 
   // Animation speed scales every timer-driven duration by a multiplier.
@@ -475,8 +475,9 @@ function BriscolaApp() {
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
           settings={settings}
-          onUpdate={updateSetting}
-          onReset={resetSettings}
+          onUpdateSetting={updateSetting}
+          onResetSettings={resetSettings}
+          game="briscola"
         />
         <StatsModal
           isOpen={isStatsOpen}
@@ -518,8 +519,9 @@ function BriscolaApp() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
-        onUpdate={updateSetting}
-        onReset={resetSettings}
+        onUpdateSetting={updateSetting}
+        onResetSettings={resetSettings}
+        game="briscola"
       />
       <StatsModal
         isOpen={isStatsOpen}

@@ -29,7 +29,13 @@ interface SettingsModalProps {
   settings: GameSettings;
   onUpdateSetting: <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => void;
   onResetSettings: () => void;
+  /** Which game's settings are being shown. Controls the "Default ..."
+   *  section (Target Score for Scopa vs Best Of for Briscola) and which
+   *  game-specific sections are visible. Defaults to 'scopa'. */
+  game?: 'scopa' | 'briscola';
 }
+
+const PRESET_BEST_OF = [1, 2, 3] as const;
 
 // Session storage key for API key warning dismissal
 const API_KEY_WARNING_KEY = 'scopa-api-key-warning-shown';
@@ -44,6 +50,7 @@ export function SettingsModal({
   settings,
   onUpdateSetting,
   onResetSettings,
+  game = 'scopa',
 }: SettingsModalProps) {
   // Track if warning popup should be shown
   const [showApiKeyWarning, setShowApiKeyWarning] = useState(false);
@@ -212,34 +219,63 @@ export function SettingsModal({
           >
             <h2 className={styles.title}>Settings</h2>
 
-            <div className={styles.setting}>
-              <label className={styles.label}>Default Target Score</label>
-              <div className={styles.options}>
-                {PRESET_SCORES.map((score) => (
-                  <button
-                    key={score}
-                    className={`${styles.option} ${settings.defaultTargetScore === score ? styles.selected : ''}`}
-                    onClick={() => onUpdateSetting('defaultTargetScore', score)}
-                  >
-                    {score}
-                  </button>
-                ))}
-                <input
-                  type="number"
-                  min="1"
-                  max="999"
-                  className={`${styles.customInput} ${!PRESET_SCORES.includes(settings.defaultTargetScore as 11 | 16 | 21) ? styles.selected : ''}`}
-                  value={settings.defaultTargetScore}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val) && val >= 1) {
-                      onUpdateSetting('defaultTargetScore', val);
-                    }
-                  }}
-                  title="Custom target score"
-                />
+            {game === 'briscola' ? (
+              <div className={styles.setting}>
+                <label className={styles.label}>Default Best Of</label>
+                <div className={styles.options}>
+                  {PRESET_BEST_OF.map((n) => (
+                    <button
+                      key={n}
+                      className={`${styles.option} ${settings.defaultBestOf === n ? styles.selected : ''}`}
+                      onClick={() => onUpdateSetting('defaultBestOf', n)}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    className={`${styles.customInput} ${!(PRESET_BEST_OF as readonly number[]).includes(settings.defaultBestOf) ? styles.selected : ''}`}
+                    value={settings.defaultBestOf}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val >= 1) onUpdateSetting('defaultBestOf', val);
+                    }}
+                    title="Custom best-of value"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className={styles.setting}>
+                <label className={styles.label}>Default Target Score</label>
+                <div className={styles.options}>
+                  {PRESET_SCORES.map((score) => (
+                    <button
+                      key={score}
+                      className={`${styles.option} ${settings.defaultTargetScore === score ? styles.selected : ''}`}
+                      onClick={() => onUpdateSetting('defaultTargetScore', score)}
+                    >
+                      {score}
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className={`${styles.customInput} ${!PRESET_SCORES.includes(settings.defaultTargetScore as 11 | 16 | 21) ? styles.selected : ''}`}
+                    value={settings.defaultTargetScore}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val) && val >= 1) {
+                        onUpdateSetting('defaultTargetScore', val);
+                      }
+                    }}
+                    title="Custom target score"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className={styles.setting}>
               <label className={styles.label}>Animation Speed</label>
@@ -288,24 +324,28 @@ export function SettingsModal({
               </div>
             </div>
 
-            <div className={styles.setting}>
-              <label className={styles.label}>Watch Mode</label>
-              <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Auto-advance rounds</span>
-                <button
-                  className={`${styles.toggle} ${settings.autoAdvanceSpectator ? styles.on : ''}`}
-                  onClick={() => onUpdateSetting('autoAdvanceSpectator', !settings.autoAdvanceSpectator)}
-                  title={settings.autoAdvanceSpectator ? 'Auto-advance enabled (2s delay)' : 'Manual advance'}
-                >
-                  <span className={styles.toggleKnob} />
-                </button>
+            {/* Watch Mode — Scopa's spectator-mode setting. Hidden for
+                Briscola until a spectator mode is built. */}
+            {game === 'scopa' && (
+              <div className={styles.setting}>
+                <label className={styles.label}>Watch Mode</label>
+                <div className={styles.toggleRow}>
+                  <span className={styles.toggleLabel}>Auto-advance rounds</span>
+                  <button
+                    className={`${styles.toggle} ${settings.autoAdvanceSpectator ? styles.on : ''}`}
+                    onClick={() => onUpdateSetting('autoAdvanceSpectator', !settings.autoAdvanceSpectator)}
+                    title={settings.autoAdvanceSpectator ? 'Auto-advance enabled (2s delay)' : 'Manual advance'}
+                  >
+                    <span className={styles.toggleKnob} />
+                  </button>
+                </div>
+                <p className={styles.settingHint}>
+                  {settings.autoAdvanceSpectator
+                    ? 'Round summary shows for 2 seconds, then auto-continues'
+                    : 'Wait for manual click to proceed between rounds'}
+                </p>
               </div>
-              <p className={styles.settingHint}>
-                {settings.autoAdvanceSpectator
-                  ? 'Round summary shows for 2 seconds, then auto-continues'
-                  : 'Wait for manual click to proceed between rounds'}
-              </p>
-            </div>
+            )}
 
             <div className={styles.setting}>
               <label className={styles.label}>Sound</label>
@@ -335,12 +375,17 @@ export function SettingsModal({
               </div>
               <p className={styles.settingHint}>
                 {settings.showPileStats
-                  ? 'Show coins count, sette bello, and scopas near piles'
+                  ? game === 'briscola'
+                    ? 'Show point total and per-rank counts near each pile'
+                    : 'Show coins count, sette bello, and scopas near piles'
                   : 'Hide pile statistics for a cleaner view'}
               </p>
             </div>
 
-            {/* API Keys Section */}
+            {/* API Keys — only relevant where LLM bots exist (Scopa today,
+                Briscola once slice 9 lands). Hidden for Briscola for now. */}
+            {game === 'scopa' && (
+              <>
             <h3 className={styles.sectionTitle}>API Keys (to play against AI)</h3>
 
             {ITCH_MODE ? (
@@ -406,6 +451,8 @@ export function SettingsModal({
                   Keys are stored locally in your browser only. We do not have access to your keys.
                   Always exercise caution when entering API keys on any website.
                 </p>
+              </>
+            )}
               </>
             )}
 
