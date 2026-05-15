@@ -335,6 +335,17 @@ function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { settings, updateSetting, resetSettings } = useSettings();
   const { play } = useSound({ enabled: settings.soundEnabled });
+
+  // Apply the table-style class to <body> exactly the way Scopa does
+  // (the body.table-tablecloth CSS lives in src/index.css). 'green' is
+  // the default — no class needed.
+  useEffect(() => {
+    const body = document.body;
+    body.classList.remove('table-green', 'table-tablecloth');
+    if (settings.tableStyle !== 'green') {
+      body.classList.add(`table-${settings.tableStyle}`);
+    }
+  }, [settings.tableStyle]);
   const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.briscolaCpuBot);
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
 
