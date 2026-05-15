@@ -39,7 +39,9 @@ import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
 import { StartScreen, type CpuBotName } from './StartScreen';
 import { SettingsModal } from './SettingsModal';
+import { StatsModal } from './StatsModal';
 import { useBriscolaSettings } from './hooks/useSettings';
+import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
@@ -335,7 +337,34 @@ function BriscolaApp() {
   const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.defaultCpuBot);
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const stats = useBriscolaStats();
   const cpuBot = CPU_BOTS[cpuBotName];
+
+  // Record the match into stats exactly once, when matchOver first becomes true.
+  // Triggered by the state.status === 'roundEnd' transition.
+  const matchRecordedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (state.status !== 'roundEnd' || !state.matchOver) return;
+    // De-duplicate per match: build a stable id from the round-end snapshot.
+    const matchId = `${state.game.roundNumber}-${state.game.scores.human}-${state.game.scores.cpu}-${state.game.targetScore}`;
+    if (matchRecordedRef.current === matchId) return;
+    matchRecordedRef.current = matchId;
+    stats.recordMatch(
+      cpuBotName,
+      state.game.scores.human,
+      state.game.scores.cpu,
+      bestOf,
+      state.game.roundNumber
+    );
+  }, [state, cpuBotName, bestOf, stats]);
+
+  // Clear the dedup id whenever a new match starts.
+  useEffect(() => {
+    if (state.status === 'idle' || state.status === 'dealing') {
+      matchRecordedRef.current = null;
+    }
+  }, [state.status]);
 
   // CPU decision → CPU_START
   useEffect(() => {
@@ -442,6 +471,13 @@ function BriscolaApp() {
           onUpdate={updateSetting}
           onReset={resetSettings}
         />
+        <StatsModal
+          isOpen={isStatsOpen}
+          onClose={() => setIsStatsOpen(false)}
+          getBotSummary={stats.getBotSummary}
+          getRecentMatches={stats.getRecentMatches}
+          onClear={stats.clearStats}
+        />
       </>
     );
   }
@@ -456,6 +492,7 @@ function BriscolaApp() {
         onRestart={() => dispatch({ type: 'START', bestOf })}
         onOpenPile={setOpenPile}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenStats={() => setIsStatsOpen(true)}
       />
       {openPile && (
         <BriscolaCapturedModal
@@ -475,6 +512,13 @@ function BriscolaApp() {
         onUpdate={updateSetting}
         onReset={resetSettings}
       />
+      <StatsModal
+        isOpen={isStatsOpen}
+        onClose={() => setIsStatsOpen(false)}
+        getBotSummary={stats.getBotSummary}
+        getRecentMatches={stats.getRecentMatches}
+        onClear={stats.clearStats}
+      />
     </DeckProvider>
   );
 }
@@ -493,6 +537,7 @@ function BriscolaBoard({
   onRestart,
   onOpenPile,
   onOpenSettings,
+  onOpenStats,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
@@ -501,6 +546,7 @@ function BriscolaBoard({
   onRestart: () => void;
   onOpenPile: (player: PlayerId) => void;
   onOpenSettings: () => void;
+  onOpenStats: () => void;
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
@@ -631,7 +677,7 @@ function BriscolaBoard({
             <GameControls
               onNewGame={onRestart}
               onOpenSettings={onOpenSettings}
-              onOpenStats={() => { /* slice 7d-stats */ }}
+              onOpenStats={onOpenStats}
               onOpenRules={() => { /* slice 7d-rules */ }}
             />
           </div>

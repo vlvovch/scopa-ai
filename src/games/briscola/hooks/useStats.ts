@@ -1,0 +1,148 @@
+// Briscola match-statistics hook. Persists every finished match to
+// localStorage and exposes per-bot summary queries.
+
+import { useState, useEffect, useCallback } from 'react';
+import type { CpuBotName } from '../StartScreen';
+
+/** One finished match (best-of-N round wins ⇒ a single MatchRecord) */
+export interface MatchRecord {
+  id: string;
+  /** Which CPU bot the player faced */
+  cpuBot: CpuBotName;
+  /** Player's cumulative round wins */
+  playerWins: number;
+  /** CPU's cumulative round wins */
+  cpuWins: number;
+  /** 'human' | 'cpu' | 'tie' — the match outcome */
+  winner: 'human' | 'cpu' | 'tie';
+  /** Number of rounds actually played */
+  roundsPlayed: number;
+  /** "Best of N" that was selected for this match */
+  bestOf: number;
+  /** Wall-clock timestamp the match ended */
+  timestamp: number;
+}
+
+export interface BotSummary {
+  cpuBot: CpuBotName;
+  matchesPlayed: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  /** Wins / matchesPlayed (0–1), or 0 if matchesPlayed === 0 */
+  winRate: number;
+  /** Total round wins by the player across all matches */
+  totalPlayerRoundWins: number;
+  /** Total round wins by the CPU */
+  totalCpuRoundWins: number;
+}
+
+interface StatsStore {
+  matches: MatchRecord[];
+  lastUpdated: number;
+}
+
+const STORAGE_KEY = 'briscola-game-stats';
+
+function newId(): string {
+  return `match-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function load(): StatsStore {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        matches: Array.isArray(parsed.matches) ? parsed.matches : [],
+        lastUpdated: parsed.lastUpdated ?? Date.now(),
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load Briscola stats:', e);
+  }
+  return { matches: [], lastUpdated: Date.now() };
+}
+
+function save(s: StatsStore): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+  } catch (e) {
+    console.warn('Failed to save Briscola stats:', e);
+  }
+}
+
+export function useBriscolaStats() {
+  const [store, setStore] = useState<StatsStore>(load);
+
+  useEffect(() => {
+    save(store);
+  }, [store]);
+
+  const recordMatch = useCallback(
+    (
+      cpuBot: CpuBotName,
+      playerWins: number,
+      cpuWins: number,
+      bestOf: number,
+      roundsPlayed: number
+    ) => {
+      const winner: MatchRecord['winner'] =
+        playerWins > cpuWins ? 'human' : cpuWins > playerWins ? 'cpu' : 'tie';
+      const record: MatchRecord = {
+        id: newId(),
+        cpuBot,
+        playerWins,
+        cpuWins,
+        winner,
+        roundsPlayed,
+        bestOf,
+        timestamp: Date.now(),
+      };
+      setStore((prev) => ({
+        matches: [...prev.matches, record],
+        lastUpdated: Date.now(),
+      }));
+      return record;
+    },
+    []
+  );
+
+  const getBotSummary = useCallback(
+    (cpuBot: CpuBotName): BotSummary => {
+      const matches = store.matches.filter((m) => m.cpuBot === cpuBot);
+      const wins = matches.filter((m) => m.winner === 'human').length;
+      const losses = matches.filter((m) => m.winner === 'cpu').length;
+      const ties = matches.filter((m) => m.winner === 'tie').length;
+      return {
+        cpuBot,
+        matchesPlayed: matches.length,
+        wins,
+        losses,
+        ties,
+        winRate: matches.length > 0 ? wins / matches.length : 0,
+        totalPlayerRoundWins: matches.reduce((s, m) => s + m.playerWins, 0),
+        totalCpuRoundWins: matches.reduce((s, m) => s + m.cpuWins, 0),
+      };
+    },
+    [store.matches]
+  );
+
+  const getRecentMatches = useCallback(
+    (limit: number = 20): MatchRecord[] =>
+      [...store.matches].sort((a, b) => b.timestamp - a.timestamp).slice(0, limit),
+    [store.matches]
+  );
+
+  const clearStats = useCallback(() => {
+    setStore({ matches: [], lastUpdated: Date.now() });
+  }, []);
+
+  return {
+    matches: store.matches,
+    recordMatch,
+    getBotSummary,
+    getRecentMatches,
+    clearStats,
+  };
+}
