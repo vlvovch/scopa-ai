@@ -510,9 +510,12 @@ function BriscolaTable({
 // Short post-trick draw animation: one card-back per drawing player flies
 // from the deck position (right side of viewport) to that player's hand
 // position (top for cpu, bottom for human). Mirrors the visual language
-// of DealingAnimation but with only 1-2 cards and a quicker pace.
+// of DealingAnimation but with smaller offsets — game-start dealing
+// (±280px) overshoots noticeably when used mid-game.
 function DrawAnimation({ targets }: { targets: PlayerId[] }) {
   if (targets.length === 0) return null;
+  const startX = 200;
+  const endY = 200;
   return (
     <AnimatePresence>
       <div className={dealStyles.overlay}>
@@ -521,7 +524,7 @@ function DrawAnimation({ targets }: { targets: PlayerId[] }) {
             key={`draw-${target}-${i}`}
             className={dealStyles.flyingCard}
             initial={{
-              x: 280,    // start from the deck (right of viewport center)
+              x: startX,
               y: 0,
               scale: 0.85,
               opacity: 1,
@@ -529,7 +532,7 @@ function DrawAnimation({ targets }: { targets: PlayerId[] }) {
             }}
             animate={{
               x: 0,
-              y: target === 'human' ? 280 : -280,
+              y: target === 'human' ? endY : -endY,
               scale: 1,
               opacity: [1, 1, 1, 0],   // crossfade out near the end
               rotate: 0,
