@@ -353,7 +353,10 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state, cpuBot]);
 
-  // cpuAnimating: reveal → moving → apply (play sound as the card lands)
+  // cpuAnimating: reveal → moving → apply. The 'play' sound fires when
+  // the card actually LANDS in the play area (end of the moving phase),
+  // not when it starts flying — otherwise it feels disconnected from
+  // the visual since the move takes ~500ms.
   useEffect(() => {
     if (state.status !== 'cpuAnimating') return;
     if (state.phase === 'reveal') {
@@ -361,8 +364,10 @@ function BriscolaApp() {
       return () => clearTimeout(t);
     }
     if (state.phase === 'moving') {
-      play('play');
-      const t = setTimeout(() => dispatch({ type: 'CPU_APPLY' }), CPU_MOVE_MS);
+      const t = setTimeout(() => {
+        play('play');
+        dispatch({ type: 'CPU_APPLY' });
+      }, CPU_MOVE_MS);
       return () => clearTimeout(t);
     }
   }, [state, play]);
