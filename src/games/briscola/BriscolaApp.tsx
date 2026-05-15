@@ -369,30 +369,56 @@ function BriscolaBoard({
 
   // Drag-to-play (mirrors Scopa's pattern). The card is draggable; if released
   // with the cursor inside the trickArea's bounding rect, we treat it as a
-  // play (same code path as click). Otherwise it snaps back to the hand via
-  // framer-motion's dragSnapToOrigin and nothing happens.
+  // play (same code path as click). Otherwise framer-motion's
+  // dragSnapToOrigin returns it to the hand — nothing happens.
+  //
+  // We track the cursor with our own pointermove listener while a drag is in
+  // progress so the drop-zone highlight (isDragOver) reflects actual cursor
+  // position, and the hit-test on release uses a definitive viewport coord.
   const tableRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const lastPointerPos = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e: PointerEvent) => {
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+      const target = tableRef.current;
+      if (!target) {
+        setIsDragOver(false);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const over =
+        e.clientX >= rect.left &&
+        e.clientX <= rect.right &&
+        e.clientY >= rect.top &&
+        e.clientY <= rect.bottom;
+      setIsDragOver(over);
+    };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [isDragging]);
 
   const handleCardDragStart = useCallback(() => {
-    setIsDragOver(true);
+    setIsDragging(true);
   }, []);
 
   const handleCardDragEnd = useCallback(
-    (card: BriscolaCard, info: PanInfo) => {
+    (card: BriscolaCard, _info: PanInfo) => {
+      setIsDragging(false);
       setIsDragOver(false);
       if (!isHumanTurn) return;
       const target = tableRef.current;
       if (!target) return;
       const rect = target.getBoundingClientRect();
-      const { x, y } = info.point;
+      const { x, y } = lastPointerPos.current;
       const dropped =
         x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
       if (dropped) {
         onCardClick(card);
       }
-      // Otherwise: framer-motion's dragSnapToOrigin returns the card home,
-      // and we do nothing — the player got to change their mind.
     },
     [isHumanTurn, onCardClick]
   );
