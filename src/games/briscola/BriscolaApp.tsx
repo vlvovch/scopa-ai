@@ -375,10 +375,16 @@ function BriscolaBoard({
   // We track the cursor with our own pointermove listener while a drag is in
   // progress so the drop-zone highlight (isDragOver) reflects actual cursor
   // position, and the hit-test on release uses a definitive viewport coord.
+  //
+  // wasDraggingRef gates the click handler so any synthetic onClick that
+  // framer-motion may fire AFTER a drag is dropped on the floor — otherwise
+  // every drag would also fire the click-to-play path regardless of where
+  // the card was released.
   const tableRef = useRef<HTMLDivElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const lastPointerPos = useRef({ x: 0, y: 0 });
+  const wasDraggingRef = useRef(false);
 
   useEffect(() => {
     if (!isDragging) return;
@@ -397,11 +403,31 @@ function BriscolaBoard({
         e.clientY <= rect.bottom;
       setIsDragOver(over);
     };
+    // Capture pointerup before framer-motion sees it so lastPointerPos
+    // has a definitive release coord by the time dragEnd runs.
+    const onUp = (e: PointerEvent) => {
+      lastPointerPos.current = { x: e.clientX, y: e.clientY };
+    };
     window.addEventListener('pointermove', onMove);
-    return () => window.removeEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, true);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp, true);
+    };
   }, [isDragging]);
 
+  const handleCardClick = useCallback(
+    (card: BriscolaCard) => {
+      // Suppress the click that follows a drag — drag releases are handled
+      // exclusively through handleCardDragEnd's hit-test.
+      if (wasDraggingRef.current) return;
+      onCardClick(card);
+    },
+    [onCardClick]
+  );
+
   const handleCardDragStart = useCallback(() => {
+    wasDraggingRef.current = true;
     setIsDragging(true);
   }, []);
 
@@ -409,16 +435,22 @@ function BriscolaBoard({
     (card: BriscolaCard, _info: PanInfo) => {
       setIsDragging(false);
       setIsDragOver(false);
-      if (!isHumanTurn) return;
-      const target = tableRef.current;
-      if (!target) return;
-      const rect = target.getBoundingClientRect();
-      const { x, y } = lastPointerPos.current;
-      const dropped =
-        x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-      if (dropped) {
-        onCardClick(card);
+      let dropped = false;
+      if (isHumanTurn) {
+        const target = tableRef.current;
+        if (target) {
+          const rect = target.getBoundingClientRect();
+          const { x, y } = lastPointerPos.current;
+          dropped =
+            x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+        }
       }
+      if (dropped) onCardClick(card);
+      // Clear wasDraggingRef after any tail-end synthetic click has had a
+      // chance to fire (queued microtask runs before the next paint).
+      Promise.resolve().then(() => {
+        wasDraggingRef.current = false;
+      });
     },
     [isHumanTurn, onCardClick]
   );
@@ -476,7 +508,7 @@ function BriscolaBoard({
           <PlayerHand
             cards={humanHand}
             isHuman={true}
-            onCardClick={onCardClick}
+            onCardClick={handleCardClick}
             onCardDragStart={handleCardDragStart}
             onCardDragEnd={handleCardDragEnd}
             disabled={!isHumanTurn}
