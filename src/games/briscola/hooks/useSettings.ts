@@ -7,6 +7,19 @@ import type { CpuBotName } from '../StartScreen';
 
 export type { DeckType };
 
+export type AnimationSpeed = 'instant' | 'fast' | 'normal' | 'slow';
+
+/** Multiplier applied to all timer-driven durations (CPU reveal/move,
+ *  trick-visible hold, capture exit, draw, dealing). Instant collapses
+ *  everything to a tiny duration so a game runs as fast as state can
+ *  propagate. */
+export const SPEED_MULTIPLIER: Record<AnimationSpeed, number> = {
+  instant: 0.02,
+  fast: 0.5,
+  normal: 1,
+  slow: 1.6,
+};
+
 export interface BriscolaSettings {
   /** Whether sound effects are enabled */
   soundEnabled: boolean;
@@ -16,6 +29,8 @@ export interface BriscolaSettings {
   defaultBestOf: number;
   /** Default CPU bot for new matches */
   defaultCpuBot: CpuBotName;
+  /** Animation speed multiplier preset */
+  animationSpeed: AnimationSpeed;
 }
 
 const STORAGE_KEY = 'briscola-settings';
@@ -25,6 +40,7 @@ const DEFAULT_SETTINGS: BriscolaSettings = {
   deck: 'napoletane',
   defaultBestOf: 1,
   defaultCpuBot: 'heuristic',
+  animationSpeed: 'normal',
 };
 
 function loadSettings(): BriscolaSettings {

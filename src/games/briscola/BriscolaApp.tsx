@@ -41,7 +41,7 @@ import { StartScreen, type CpuBotName } from './StartScreen';
 import { SettingsModal } from './SettingsModal';
 import { StatsModal } from './StatsModal';
 import { RulesModal } from './RulesModal';
-import { useBriscolaSettings } from './hooks/useSettings';
+import { useBriscolaSettings, SPEED_MULTIPLIER } from './hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
 import { heuristicAI } from './ai/heuristic';
@@ -337,6 +337,11 @@ function BriscolaApp() {
   const { play } = useSound({ enabled: settings.soundEnabled });
   const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.defaultCpuBot);
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
+
+  // Animation speed scales every timer-driven duration by a multiplier.
+  // 'instant' collapses to near-zero; 'normal' is the unscaled baseline.
+  const speed = SPEED_MULTIPLIER[settings.animationSpeed];
+  const dur = (base: number) => Math.max(20, Math.round(base * speed));
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
@@ -385,9 +390,9 @@ function BriscolaApp() {
         deckCount: g.round.deck.length,
       });
       dispatch({ type: 'CPU_START', move });
-    }, CPU_DECISION_DELAY_MS);
+    }, dur(CPU_DECISION_DELAY_MS));
     return () => clearTimeout(t);
-  }, [state, cpuBot]);
+  }, [state, cpuBot, dur]);
 
   // cpuAnimating: reveal → moving → apply. The 'play' sound fires when
   // the card actually LANDS in the play area (end of the moving phase),
@@ -396,17 +401,17 @@ function BriscolaApp() {
   useEffect(() => {
     if (state.status !== 'cpuAnimating') return;
     if (state.phase === 'reveal') {
-      const t = setTimeout(() => dispatch({ type: 'CPU_PHASE_MOVING' }), CPU_REVEAL_MS);
+      const t = setTimeout(() => dispatch({ type: 'CPU_PHASE_MOVING' }), dur(CPU_REVEAL_MS));
       return () => clearTimeout(t);
     }
     if (state.phase === 'moving') {
       const t = setTimeout(() => {
         play('play');
         dispatch({ type: 'CPU_APPLY' });
-      }, CPU_MOVE_MS);
+      }, dur(CPU_MOVE_MS));
       return () => clearTimeout(t);
     }
-  }, [state, play]);
+  }, [state, play, dur]);
 
   // animatingTrick: hold then resolve (capture sound on resolution)
   useEffect(() => {
@@ -414,9 +419,9 @@ function BriscolaApp() {
     const t = setTimeout(() => {
       play('capture');
       dispatch({ type: 'RESOLVE_TRICK' });
-    }, TRICK_VISIBLE_MS);
+    }, dur(TRICK_VISIBLE_MS));
     return () => clearTimeout(t);
-  }, [state, play]);
+  }, [state, play, dur]);
 
   // dealing: play a single 'deal' card-fan sound (matches Scopa, which
   // uses one play('deal') per dealing phase), then transition to playing.
@@ -428,18 +433,18 @@ function BriscolaApp() {
       play('deal');
     }
     // Slight buffer beyond the animation duration so cards fully settle
-    const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), DEALING_HANDS_DURATION + 100);
+    const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), dur(DEALING_HANDS_DURATION + 100));
     return () => clearTimeout(t);
-  }, [state, play]);
+  }, [state, play, dur]);
 
   // drawing: hold for the duration of the draw animation, then advance.
   // Deliberately no draw-sound here — the per-trick click train was too
   // busy on top of the capture sound that fires at the same time.
   useEffect(() => {
     if (state.status !== 'drawing') return;
-    const t = setTimeout(() => dispatch({ type: 'DRAW_COMPLETE' }), DRAW_DURATION_MS + 50);
+    const t = setTimeout(() => dispatch({ type: 'DRAW_COMPLETE' }), dur(DRAW_DURATION_MS + 50));
     return () => clearTimeout(t);
-  }, [state]);
+  }, [state, dur]);
 
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
