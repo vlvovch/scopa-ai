@@ -45,8 +45,8 @@ import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
 const CPU_REVEAL_MS = 600;
 const CPU_MOVE_MS = 500;
 const CPU_DECISION_DELAY_MS = 600;
-const TRICK_VISIBLE_MS = 1200;
-const CAPTURE_DURATION_MS = 900;
+const TRICK_VISIBLE_MS = 900;     // was 1200 — tightened pause before capture
+const CAPTURE_DURATION_MS = 550;  // was 900 — quicker fly to pile
 const DRAW_DURATION_MS = 400;
 
 // ---------------------------------------------------------------------------
@@ -410,6 +410,8 @@ function BriscolaBoard({
             leadCard={leadCard}
             followCard={followCard}
             winner={winner}
+            leadIsWinner={animTrick !== null && animTrick.winner === animTrick.leader}
+            followIsWinner={animTrick !== null && animTrick.winner === animTrick.follower}
           />
         }
         humanHand={
@@ -481,12 +483,16 @@ function BriscolaTable({
   leadCard,
   followCard,
   winner,
+  leadIsWinner,
+  followIsWinner,
 }: {
   deckCount: number;
   trump: BriscolaCard;
   leadCard: BriscolaCard | null;
   followCard: BriscolaCard | null;
   winner: PlayerId | null;
+  leadIsWinner: boolean;
+  followIsWinner: boolean;
 }) {
   return (
     <div style={tableGrid}>
@@ -494,8 +500,22 @@ function BriscolaTable({
       <div />
       <div style={trickArea}>
         <AnimatePresence>
-          {leadCard && <TrickCard key={leadCard.id} card={leadCard} exitToward={winner} />}
-          {followCard && <TrickCard key={followCard.id} card={followCard} exitToward={winner} />}
+          {leadCard && (
+            <TrickCard
+              key={leadCard.id}
+              card={leadCard}
+              exitToward={winner}
+              isWinner={leadIsWinner}
+            />
+          )}
+          {followCard && (
+            <TrickCard
+              key={followCard.id}
+              card={followCard}
+              exitToward={winner}
+              isWinner={followIsWinner}
+            />
+          )}
         </AnimatePresence>
       </div>
       {/* Deck sits in the right column, anchored to the left of that column
@@ -558,9 +578,11 @@ function DrawAnimation({ targets }: { targets: PlayerId[] }) {
 function TrickCard({
   card,
   exitToward,
+  isWinner = false,
 }: {
   card: BriscolaCard;
   exitToward: PlayerId | null;
+  isWinner?: boolean;
 }) {
   // Fly toward the winning corner pile.
   // CPU pile: top-right.   Human pile: bottom-left.
@@ -570,12 +592,24 @@ function TrickCard({
   return (
     <motion.div
       layoutId={`hand-${card.id}`}
+      animate={
+        isWinner
+          ? {
+              scale: 1.08,
+              filter: 'drop-shadow(0 0 14px rgba(255, 215, 0, 0.95))',
+            }
+          : {
+              scale: 1,
+              filter: 'drop-shadow(0 0 0 rgba(255, 215, 0, 0))',
+            }
+      }
       exit={{
         x: exitX,
         y: exitY,
         opacity: 0,
         scale: 0.7,
         rotate: exitToward === 'cpu' ? 30 : exitToward === 'human' ? -30 : 0,
+        filter: 'drop-shadow(0 0 0 rgba(255, 215, 0, 0))',
         transition: { duration: CAPTURE_DURATION_MS / 1000, ease: [0.25, 0.1, 0.25, 1] },
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
