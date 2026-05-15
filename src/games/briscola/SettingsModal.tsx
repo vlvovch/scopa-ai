@@ -70,7 +70,10 @@ export function SettingsModal({
             {/* Deck art */}
             <div className={styles.setting}>
               <span className={styles.label}>Deck</span>
-              <div className={styles.options}>
+              <div
+                className={styles.options}
+                style={{ flexWrap: 'wrap', rowGap: 'var(--space-2)' }}
+              >
                 {DECK_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
