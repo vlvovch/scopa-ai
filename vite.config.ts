@@ -1,4 +1,5 @@
-import { defineConfig } from 'vite'
+/// <reference types="vitest" />
+import { defineConfig, configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
@@ -30,5 +31,10 @@ export default defineConfig({
         }
       }
     }
-  }
+  },
+  test: {
+    // Keep Vitest's default excludes and add .claude/** so test runs
+    // don't double-discover specs inside .claude/worktrees/... .
+    exclude: [...configDefaults.exclude, '**/.claude/**'],
+  },
 })
