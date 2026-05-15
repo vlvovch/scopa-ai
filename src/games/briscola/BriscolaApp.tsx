@@ -396,14 +396,14 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state, playDeal]);
 
-  // drawing: hold for the duration of the draw animation, then advance
-  // (play a "deal" click per drawing player)
+  // drawing: hold for the duration of the draw animation, then advance.
+  // Deliberately no draw-sound here — the per-trick click train was too
+  // busy on top of the capture sound that fires at the same time.
   useEffect(() => {
     if (state.status !== 'drawing') return;
-    playDeal(state.drawTargets.length, 80);
     const t = setTimeout(() => dispatch({ type: 'DRAW_COMPLETE' }), DRAW_DURATION_MS + 50);
     return () => clearTimeout(t);
-  }, [state, playDeal]);
+  }, [state]);
 
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
