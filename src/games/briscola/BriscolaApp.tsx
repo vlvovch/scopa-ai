@@ -20,8 +20,8 @@
 //   - Trick resolves: both cards exit toward the winner's corner pile
 //     after a 1200ms hold (matches Scopa's CAPTURE_DURATION_MS)
 
-import { useReducer, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useReducer, useCallback, useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { Card } from '../../components/Card/Card';
 import { CardBack } from '../../components/Card/CardImage';
 import { PlayerHand } from '../../components/Table/PlayerHand';
@@ -367,6 +367,36 @@ function BriscolaBoard({
   const isDealing = state.status === 'dealing';
   const drawTargets = state.status === 'drawing' ? state.drawTargets : null;
 
+  // Drag-to-play (mirrors Scopa's pattern). The card is draggable; if released
+  // with the cursor inside the trickArea's bounding rect, we treat it as a
+  // play (same code path as click). Otherwise it snaps back to the hand via
+  // framer-motion's dragSnapToOrigin and nothing happens.
+  const tableRef = useRef<HTMLDivElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleCardDragStart = useCallback(() => {
+    setIsDragOver(true);
+  }, []);
+
+  const handleCardDragEnd = useCallback(
+    (card: BriscolaCard, info: PanInfo) => {
+      setIsDragOver(false);
+      if (!isHumanTurn) return;
+      const target = tableRef.current;
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const { x, y } = info.point;
+      const dropped =
+        x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+      if (dropped) {
+        onCardClick(card);
+      }
+      // Otherwise: framer-motion's dragSnapToOrigin returns the card home,
+      // and we do nothing — the player got to change their mind.
+    },
+    [isHumanTurn, onCardClick]
+  );
+
   // During the deal animation, hands are visually empty — the flying cards
   // in the DealingAnimation overlay represent them landing in the hands.
   // After deal completes, the real hand cards appear (PlayerHand's
@@ -412,6 +442,8 @@ function BriscolaBoard({
             winner={winner}
             leadIsWinner={animTrick !== null && animTrick.winner === animTrick.leader}
             followIsWinner={animTrick !== null && animTrick.winner === animTrick.follower}
+            tableRef={tableRef}
+            isDragOver={isDragOver}
           />
         }
         humanHand={
@@ -419,6 +451,8 @@ function BriscolaBoard({
             cards={humanHand}
             isHuman={true}
             onCardClick={onCardClick}
+            onCardDragStart={handleCardDragStart}
+            onCardDragEnd={handleCardDragEnd}
             disabled={!isHumanTurn}
           />
         }
@@ -485,6 +519,8 @@ function BriscolaTable({
   winner,
   leadIsWinner,
   followIsWinner,
+  tableRef,
+  isDragOver,
 }: {
   deckCount: number;
   trump: BriscolaCard;
@@ -493,12 +529,22 @@ function BriscolaTable({
   winner: PlayerId | null;
   leadIsWinner: boolean;
   followIsWinner: boolean;
+  tableRef: React.RefObject<HTMLDivElement>;
+  isDragOver: boolean;
 }) {
+  // Highlight the drop zone while the user is dragging
+  const trickAreaStyle = isDragOver
+    ? {
+        ...trickArea,
+        background: 'rgba(212, 175, 55, 0.15)',
+        border: '2px dashed rgba(212, 175, 55, 0.7)',
+      }
+    : trickArea;
   return (
     <div style={tableGrid}>
       {/* Left spacer keeps the play area visually centered */}
       <div />
-      <div style={trickArea}>
+      <div ref={tableRef} style={trickAreaStyle}>
         <AnimatePresence>
           {leadCard && (
             <TrickCard
