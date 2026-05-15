@@ -23,7 +23,7 @@
 import { useReducer, useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { Card } from '../../components/Card/Card';
-import { CardBack } from '../../components/Card/CardImage';
+import { CardBack, CardImage } from '../../components/Card/CardImage';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
 import { DealingAnimation, DEALING_HANDS_DURATION } from '../../components/UI/DealingAnimation';
@@ -32,9 +32,11 @@ import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
 import pileStyles from '../../components/Table/CapturedPile.module.css';
+import modalStyles from '../../components/UI/CapturedCardsModal.module.css';
 import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
+import { POINT_VALUES } from './constants';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
 import type { AIPlayer } from './ai/types';
@@ -340,6 +342,9 @@ function BriscolaApp() {
     [state, play]
   );
 
+  // Which player's captured pile is currently open as a modal (null = closed)
+  const [openPile, setOpenPile] = useState<PlayerId | null>(null);
+
   if (state.status === 'idle') {
     return (
       <StartScreen
@@ -357,7 +362,19 @@ function BriscolaApp() {
         cpuBotLabel={BOT_LABELS[cpuBotName]}
         onCardClick={onPlayerCardClick}
         onRestart={() => dispatch({ type: 'START' })}
+        onOpenPile={setOpenPile}
       />
+      {openPile && (
+        <BriscolaCapturedModal
+          cards={
+            state.status === 'drawing'
+              ? state.preDrawGame.players[openPile].captured
+              : state.game.players[openPile].captured
+          }
+          playerName={openPile === 'human' ? 'You' : BOT_LABELS[cpuBotName]}
+          onClose={() => setOpenPile(null)}
+        />
+      )}
     </DeckProvider>
   );
 }
@@ -413,11 +430,13 @@ function BriscolaBoard({
   cpuBotLabel,
   onCardClick,
   onRestart,
+  onOpenPile,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
   onCardClick: (card: BriscolaCard) => void;
   onRestart: () => void;
+  onOpenPile: (player: PlayerId) => void;
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
@@ -549,6 +568,7 @@ function BriscolaBoard({
           <BriscolaPile
             captured={g.players.cpu.captured}
             label={cpuBotLabel}
+            onClick={() => onOpenPile('cpu')}
           />
         }
         cpuHand={<PlayerHand cards={cpuHand} isHuman={false} />}
@@ -579,6 +599,7 @@ function BriscolaBoard({
           <BriscolaPile
             captured={g.players.human.captured}
             label="You"
+            onClick={() => onOpenPile('human')}
           />
         }
         controls={
@@ -846,13 +867,34 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
 // Captured pile — uses Scopa's CapturedPile CSS module verbatim so it looks
 // identical, but its stats row is replaced with a count + point-total pill
 // (Briscola has no denari/scopa/sette bello to display).
-function BriscolaPile({ captured, label }: { captured: BriscolaCard[]; label: string }) {
+function BriscolaPile({
+  captured,
+  label,
+  onClick,
+}: {
+  captured: BriscolaCard[];
+  label: string;
+  onClick?: () => void;
+}) {
   const count = captured.length;
   const points = sumPoints(captured);
   const stackLayers = Math.min(6, Math.max(1, Math.ceil(count / 4)));
+  const clickable = !!onClick && count > 0;
 
   return (
-    <div className={pileStyles.pile}>
+    <div
+      className={`${pileStyles.pile} ${clickable ? pileStyles.clickable : ''}`}
+      onClick={clickable ? onClick : undefined}
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') onClick!();
+            }
+          : undefined
+      }
+    >
       <span className={pileStyles.playerLabel}>{label}</span>
       <div className={pileStyles.pileStack}>
         {count === 0 ? (
@@ -880,6 +922,81 @@ function BriscolaPile({ captured, label }: { captured: BriscolaCard[]; label: st
         </span>
       </div>
     </div>
+  );
+}
+
+// Modal that shows a player's captured pile in full, with the Briscola
+// point-value totals. Reuses Scopa's CapturedCardsModal CSS module for
+// styling so it visually matches the rest of the app.
+function BriscolaCapturedModal({
+  cards,
+  playerName,
+  onClose,
+}: {
+  cards: BriscolaCard[];
+  playerName: string;
+  onClose: () => void;
+}) {
+  const points = sumPoints(cards);
+  // Tally point cards by value for a compact stats row
+  const tally = {
+    aces: cards.filter(c => c.value === 1).length,
+    threes: cards.filter(c => c.value === 3).length,
+    kings: cards.filter(c => c.value === 10).length,
+    knights: cards.filter(c => c.value === 9).length,
+    knaves: cards.filter(c => c.value === 8).length,
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className={modalStyles.overlay}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+      >
+        <motion.div
+          className={modalStyles.modal}
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 className={modalStyles.title}>{playerName} · Captured Cards</h2>
+
+          <div className={modalStyles.stats}>
+            <span className={modalStyles.stat}>
+              <strong>{cards.length}</strong> cards
+            </span>
+            <span className={modalStyles.stat}>
+              <strong>{points}</strong> pts ({POINT_VALUES[1]}·A + {POINT_VALUES[3]}·3 + {POINT_VALUES[10]}·K + {POINT_VALUES[9]}·Kn + {POINT_VALUES[8]}·J)
+            </span>
+            <span className={modalStyles.stat}>
+              A:<strong>{tally.aces}</strong> 3:<strong>{tally.threes}</strong> K:<strong>{tally.kings}</strong> Kn:<strong>{tally.knights}</strong> J:<strong>{tally.knaves}</strong>
+            </span>
+          </div>
+
+          <div className={modalStyles.cardsContainer}>
+            {cards.length === 0 ? (
+              <p className={modalStyles.empty}>No cards captured yet</p>
+            ) : (
+              <div className={modalStyles.cardsGrid}>
+                {cards.map((card) => (
+                  <div key={card.id} className={modalStyles.cardWrapper}>
+                    <CardImage card={card} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button className={modalStyles.closeButton} onClick={onClose}>
+            Close
+          </button>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
