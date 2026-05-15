@@ -20,7 +20,7 @@
 //   - Trick resolves: both cards exit toward the winner's corner pile
 //     after a 1200ms hold (matches Scopa's CAPTURE_DURATION_MS)
 
-import { useReducer, useCallback, useEffect, useRef, useState } from 'react';
+import { useReducer, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { Card } from '../../components/Card/Card';
 import { CardBack, CardImage } from '../../components/Card/CardImage';
@@ -39,8 +39,12 @@ import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
 import { StartScreen, type CpuBotName } from './StartScreen';
 import { SettingsModal } from '../../components/UI/SettingsModal';
-import { StatsModal } from './StatsModal';
-import { RulesModal } from './RulesModal';
+import {
+  StatsModal,
+  type StatsModalOpponent,
+  type StatsModalGame,
+} from '../../components/UI/StatsModal';
+import { RulesModal } from '../../components/UI/RulesModal';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
@@ -366,6 +370,51 @@ function BriscolaApp() {
   const stats = useBriscolaStats();
   const cpuBot = CPU_BOTS[cpuBotName];
 
+  // Adapt Briscola's per-bot stats to the generic StatsModal shape.
+  const ALL_BOTS: CpuBotName[] = ['random', 'heuristic'];
+  const BOT_INFO: Record<CpuBotName, { icon: string; name: string }> = {
+    random: { icon: '🎲', name: 'Random' },
+    heuristic: { icon: '🦊', name: 'Heuristic' },
+  };
+  const statsModalOpponents: StatsModalOpponent[] = useMemo(() => {
+    return ALL_BOTS.map((bot) => {
+      const info = BOT_INFO[bot];
+      const s = stats.getBotSummary(bot);
+      return {
+        key: bot,
+        label: (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4em' }}>
+            <span style={{ fontSize: '1.1em' }}>{info.icon}</span>
+            <span>{info.name}</span>
+          </span>
+        ),
+        summary: {
+          gamesPlayed: s.gamesPlayed,
+          wins: s.wins,
+          losses: s.losses,
+          ties: s.ties,
+          winRate: s.winRate,
+        },
+      };
+    });
+    // ALL_BOTS / BOT_INFO are constants defined above; only stats deps matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stats.getBotSummary]);
+
+  const getStatsModalGames = useCallback(
+    (key: string): StatsModalGame[] => {
+      const rounds = stats.getRoundsAgainst(key as CpuBotName);
+      return rounds.map((r) => ({
+        id: r.id,
+        timestamp: r.timestamp,
+        playerScore: r.playerPoints,
+        opponentScore: r.cpuPoints,
+        outcome: r.outcome,
+      }));
+    },
+    [stats]
+  );
+
   // Record the match into stats exactly once, when matchOver first becomes true.
   // Triggered by the state.status === 'roundEnd' transition.
   const matchRecordedRef = useRef<string | null>(null);
@@ -500,11 +549,11 @@ function BriscolaApp() {
         <StatsModal
           isOpen={isStatsOpen}
           onClose={() => setIsStatsOpen(false)}
-          getBotSummary={stats.getBotSummary}
-          getRoundsAgainst={stats.getRoundsAgainst}
-          onClear={stats.clearStats}
+          opponents={statsModalOpponents}
+          getGames={getStatsModalGames}
+          onClearStats={stats.clearStats}
         />
-        <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
+        <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} game="briscola" />
       </>
     );
   }
@@ -544,11 +593,11 @@ function BriscolaApp() {
       <StatsModal
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}
-        getBotSummary={stats.getBotSummary}
-        getRoundsAgainst={stats.getRoundsAgainst}
-        onClear={stats.clearStats}
+        opponents={statsModalOpponents}
+        getGames={getStatsModalGames}
+        onClearStats={stats.clearStats}
       />
-      <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
+      <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} game="briscola" />
     </DeckProvider>
   );
 }

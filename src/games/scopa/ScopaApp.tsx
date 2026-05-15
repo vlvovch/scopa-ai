@@ -15,7 +15,8 @@ import { GameEndScreen } from '../../components/UI/GameEndScreen';
 import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
 import { SetteBelloCelebration } from '../../components/UI/SetteBelloCelebration';
 import { SettingsModal } from '../../components/UI/SettingsModal';
-import { StatsModal } from '../../components/UI/StatsModal';
+import { StatsModal, type StatsModalOpponent, type StatsModalGame } from '../../components/UI/StatsModal';
+import { AIPlayerLabel } from '../../components/UI/AIPlayerLabel';
 import { RulesModal } from '../../components/UI/RulesModal';
 import { GameControls } from '../../components/UI/GameControls';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
@@ -145,6 +146,57 @@ function ScopaApp() {
     getAllDisplayOpponents,
     clearStats,
   } = useStats();
+
+  // Adapt Scopa's per-opponent stats to the generic StatsModal shape.
+  const statsModalOpponents: StatsModalOpponent[] = useMemo(() => {
+    return getAllDisplayOpponents().map((o) => {
+      const s = getOpponentStats(o.type, o.model);
+      return {
+        key: `${o.type}:${o.model ?? ''}`,
+        label: (
+          <AIPlayerLabel
+            aiType={o.type}
+            model={o.model}
+            showModeIndicator={false}
+          />
+        ),
+        summary: {
+          gamesPlayed: s.gamesPlayed,
+          wins: s.wins,
+          losses: s.losses,
+          winRate: s.winRate,
+        },
+      };
+    });
+  }, [getAllDisplayOpponents, getOpponentStats]);
+
+  const getStatsModalGames = useCallback(
+    (key: string): StatsModalGame[] => {
+      const [type, model] = key.split(':');
+      const games = getGamesAgainst(
+        type as ExtendedAIType,
+        model ? model : undefined
+      );
+      return games.map((g) => {
+        const indicator =
+          g.isMultiTurn !== undefined
+            ? {
+                text: `${g.isMultiTurn ? '💬' : '1️⃣'}${g.useThinking ? '🧠' : ''}`,
+                title: `${g.isMultiTurn ? 'Multi-turn' : 'Single-turn'}${g.useThinking ? ' + Thinking' : ''}`,
+              }
+            : undefined;
+        return {
+          id: g.id,
+          timestamp: g.timestamp,
+          playerScore: g.playerScore,
+          opponentScore: g.opponentScore,
+          outcome: g.playerWon ? 'win' : 'loss',
+          modeIndicator: indicator,
+        };
+      });
+    },
+    [getGamesAgainst]
+  );
 
   // Multiplayer state
   const multiplayer = useMultiplayer();
@@ -2564,9 +2616,8 @@ function ScopaApp() {
         <StatsModal
           isOpen={showStats}
           onClose={() => setShowStats(false)}
-          opponents={getAllDisplayOpponents()}
-          getOpponentStats={getOpponentStats}
-          getGamesAgainst={getGamesAgainst}
+          opponents={statsModalOpponents}
+          getGames={getStatsModalGames}
           onClearStats={clearStats}
         />
         <RulesModal
@@ -2795,9 +2846,8 @@ function ScopaApp() {
       <StatsModal
         isOpen={showStats}
         onClose={() => setShowStats(false)}
-        opponents={getAllDisplayOpponents()}
-        getOpponentStats={getOpponentStats}
-        getGamesAgainst={getGamesAgainst}
+        opponents={statsModalOpponents}
+        getGames={getStatsModalGames}
         onClearStats={clearStats}
       />
       <RulesModal

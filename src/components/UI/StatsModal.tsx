@@ -1,75 +1,107 @@
-// Statistics Modal - Shows win/loss records against opponents
+// Generic statistics modal. Shared between Scopa and Briscola via a
+// game-agnostic data shape: each caller computes `opponents` (with their own
+// label nodes + summary) and supplies a `getGames(key)` function returning
+// per-game rows. Outcome can be 'win' | 'loss' | 'tie', enabling Briscola's
+// 60-60 ties to render naturally.
 
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { ExtendedAIType } from '../../games/scopa/ai';
-import type { GameRecord, OpponentStats } from '../../hooks/useStats';
-import { AIPlayerLabel } from './AIPlayerLabel';
 import styles from './StatsModal.module.css';
+
+export interface StatsModalSummary {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  ties?: number;
+  winRate: number;
+}
+
+export interface StatsModalOpponent {
+  /** Stable key — used as React key and passed back to getGames(). */
+  key: string;
+  /** Rendered label for both the list row and the detail-view title. */
+  label: ReactNode;
+  summary: StatsModalSummary;
+}
+
+export interface StatsModalGame {
+  id: string;
+  timestamp: number;
+  playerScore: number;
+  opponentScore: number;
+  outcome: 'win' | 'loss' | 'tie';
+  /** Optional indicator chip (e.g. Scopa's AI mode emoji). */
+  modeIndicator?: { text: string; title?: string };
+}
 
 interface StatsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** All opponents to display */
-  opponents: Array<{ type: ExtendedAIType; model?: string }>;
-  /** Function to get stats for an opponent */
-  getOpponentStats: (type: ExtendedAIType, model?: string) => OpponentStats;
-  /** Function to get games against an opponent */
-  getGamesAgainst: (type: ExtendedAIType, model?: string) => GameRecord[];
-  /** Function to clear all stats */
+  opponents: StatsModalOpponent[];
+  getGames: (opponentKey: string) => StatsModalGame[];
   onClearStats: () => void;
 }
 
-/** Format date for display */
-function formatDate(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString(undefined, {
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 }
 
-/** Format time for display */
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString(undefined, {
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString(undefined, {
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
-/** Opponent row in summary view */
+function outcomeClass(outcome: StatsModalGame['outcome']): string | undefined {
+  if (outcome === 'win') return styles.win;
+  if (outcome === 'loss') return styles.loss;
+  return undefined;
+}
+
+function outcomeLabel(outcome: StatsModalGame['outcome']): string {
+  return outcome === 'win' ? 'W' : outcome === 'loss' ? 'L' : 'T';
+}
+
 function OpponentRow({
   opponent,
-  stats,
   onClick,
 }: {
-  opponent: { type: ExtendedAIType; model?: string };
-  stats: OpponentStats;
+  opponent: StatsModalOpponent;
   onClick: () => void;
 }) {
-  const hasGames = stats.gamesPlayed > 0;
+  const { summary, label } = opponent;
+  const hasGames = summary.gamesPlayed > 0;
 
   return (
     <button
+      type="button"
       className={`${styles.opponentRow} ${hasGames ? styles.clickable : ''}`}
       onClick={hasGames ? onClick : undefined}
       disabled={!hasGames}
     >
-      <div className={styles.opponentInfo}>
-        <AIPlayerLabel aiType={opponent.type} model={opponent.model} showModeIndicator={false} />
-      </div>
+      <div className={styles.opponentInfo}>{label}</div>
       <div className={styles.statsInfo}>
         {hasGames ? (
           <>
             <span className={styles.record}>
-              <span className={styles.wins}>{stats.wins}W</span>
+              <span className={styles.wins}>{summary.wins}W</span>
               {' - '}
-              <span className={styles.losses}>{stats.losses}L</span>
+              <span className={styles.losses}>{summary.losses}L</span>
+              {summary.ties !== undefined && summary.ties > 0 && (
+                <>
+                  {' - '}
+                  <span>{summary.ties}T</span>
+                </>
+              )}
             </span>
             <span className={styles.winRate}>
-              {Math.round(stats.winRate * 100)}%
+              {Math.round(summary.winRate * 100)}%
             </span>
           </>
         ) : (
@@ -81,44 +113,26 @@ function OpponentRow({
   );
 }
 
-/** Format AI mode indicator */
-function formatAIMode(game: GameRecord): string | null {
-  // Only show for LLM games
-  if (game.isMultiTurn === undefined) return null;
-
-  const turnMode = game.isMultiTurn ? '💬' : '1️⃣';
-  const thinkingMode = game.useThinking ? '🧠' : '';
-  return `${turnMode}${thinkingMode}`;
-}
-
-/** Game row in detail view */
-function GameRow({ game, index }: { game: GameRecord; index: number }) {
-  const resultClass = game.playerWon ? styles.win : styles.loss;
-  const aiMode = formatAIMode(game);
-
+function GameRow({ game, index }: { game: StatsModalGame; index: number }) {
+  const cls = outcomeClass(game.outcome);
   return (
     <div className={styles.gameRow}>
       <div className={styles.gameIndex}>#{index}</div>
       <div className={styles.gameDate}>
         {formatDate(game.timestamp)} {formatTime(game.timestamp)}
-        {aiMode && (
-          <span
-            className={styles.gameMode}
-            title={`${game.isMultiTurn ? 'Multi-turn' : 'Single-turn'}${game.useThinking ? ' + Thinking' : ''}`}
-          >
-            {aiMode}
+        {game.modeIndicator && (
+          <span className={styles.gameMode} title={game.modeIndicator.title}>
+            {game.modeIndicator.text}
           </span>
         )}
       </div>
       <div className={styles.gameScore}>
-        <span className={resultClass}>
-          {game.playerScore}-{game.opponentScore}
+        <span className={cls}>
+          {game.playerScore}–{game.opponentScore}
         </span>
       </div>
       <div className={styles.gameResult}>
-        <span className={resultClass}>
-          {game.playerWon ? 'W' : 'L'}
-        </span>
+        <span className={cls}>{outcomeLabel(game.outcome)}</span>
       </div>
     </div>
   );
@@ -128,32 +142,18 @@ export function StatsModal({
   isOpen,
   onClose,
   opponents,
-  getOpponentStats,
-  getGamesAgainst,
+  getGames,
   onClearStats,
 }: StatsModalProps) {
-  // Selected opponent for detail view (null = summary view)
-  const [selectedOpponent, setSelectedOpponent] = useState<{
-    type: ExtendedAIType;
-    model?: string;
-  } | null>(null);
-
-  // Confirmation state for clearing stats
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
 
-  // Handle close - reset state
   const handleClose = () => {
-    setSelectedOpponent(null);
+    setSelectedKey(null);
     setConfirmClear(false);
     onClose();
   };
-
-  // Handle back from detail view
-  const handleBack = () => {
-    setSelectedOpponent(null);
-  };
-
-  // Handle clear stats
+  const handleBack = () => setSelectedKey(null);
   const handleClearStats = () => {
     if (confirmClear) {
       onClearStats();
@@ -163,22 +163,18 @@ export function StatsModal({
     }
   };
 
-  // Get data for current view
-  const selectedStats = selectedOpponent
-    ? getOpponentStats(selectedOpponent.type, selectedOpponent.model)
+  const selectedOpponent = selectedKey
+    ? opponents.find((o) => o.key === selectedKey) ?? null
     : null;
-  const selectedGames = selectedOpponent
-    ? getGamesAgainst(selectedOpponent.type, selectedOpponent.model)
-    : [];
+  const selectedGames = selectedOpponent ? getGames(selectedOpponent.key) : [];
 
-  // Calculate total stats
-  const totalGames = opponents.reduce(
-    (sum, o) => sum + getOpponentStats(o.type, o.model).gamesPlayed,
-    0
-  );
-  const totalWins = opponents.reduce(
-    (sum, o) => sum + getOpponentStats(o.type, o.model).wins,
-    0
+  const totals = opponents.reduce(
+    (acc, o) => {
+      acc.games += o.summary.gamesPlayed;
+      acc.wins += o.summary.wins;
+      return acc;
+    },
+    { games: 0, wins: 0 }
   );
 
   return (
@@ -198,7 +194,6 @@ export function StatsModal({
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
             <div className={styles.header}>
               {selectedOpponent ? (
                 <button className={styles.backButton} onClick={handleBack}>
@@ -208,39 +203,52 @@ export function StatsModal({
                 <div />
               )}
               <h2 className={styles.title}>
-                {selectedOpponent ? (
-                  <AIPlayerLabel
-                    aiType={selectedOpponent.type}
-                    model={selectedOpponent.model}
-                    showModeIndicator={false}
-                  />
-                ) : (
-                  'Statistics'
-                )}
+                {selectedOpponent ? selectedOpponent.label : 'Statistics'}
               </h2>
               <div />
             </div>
 
-            {/* Content */}
             <div className={styles.content}>
-              {selectedOpponent && selectedStats ? (
-                // Detail view - game history
+              {selectedOpponent ? (
                 <>
-                  <div className={styles.detailStats}>
+                  <div
+                    className={styles.detailStats}
+                    style={
+                      (selectedOpponent.summary.ties ?? 0) > 0
+                        ? { gridTemplateColumns: 'repeat(5, 1fr)' }
+                        : undefined
+                    }
+                  >
                     <div className={styles.statBox}>
-                      <span className={styles.statValue}>{selectedStats.gamesPlayed}</span>
+                      <span className={styles.statValue}>
+                        {selectedOpponent.summary.gamesPlayed}
+                      </span>
                       <span className={styles.statLabel}>Games</span>
                     </div>
                     <div className={styles.statBox}>
-                      <span className={`${styles.statValue} ${styles.wins}`}>{selectedStats.wins}</span>
+                      <span className={`${styles.statValue} ${styles.wins}`}>
+                        {selectedOpponent.summary.wins}
+                      </span>
                       <span className={styles.statLabel}>Wins</span>
                     </div>
                     <div className={styles.statBox}>
-                      <span className={`${styles.statValue} ${styles.losses}`}>{selectedStats.losses}</span>
+                      <span className={`${styles.statValue} ${styles.losses}`}>
+                        {selectedOpponent.summary.losses}
+                      </span>
                       <span className={styles.statLabel}>Losses</span>
                     </div>
+                    {(selectedOpponent.summary.ties ?? 0) > 0 && (
+                      <div className={styles.statBox}>
+                        <span className={styles.statValue}>
+                          {selectedOpponent.summary.ties}
+                        </span>
+                        <span className={styles.statLabel}>Ties</span>
+                      </div>
+                    )}
                     <div className={styles.statBox}>
-                      <span className={styles.statValue}>{Math.round(selectedStats.winRate * 100)}%</span>
+                      <span className={styles.statValue}>
+                        {Math.round(selectedOpponent.summary.winRate * 100)}%
+                      </span>
                       <span className={styles.statLabel}>Win Rate</span>
                     </div>
                   </div>
@@ -253,22 +261,30 @@ export function StatsModal({
                       <span></span>
                     </div>
                     {selectedGames.length > 0 ? (
-                      [...selectedGames].reverse().map((game, i) => (
-                        <GameRow key={game.id} game={game} index={selectedGames.length - i} />
-                      ))
+                      [...selectedGames]
+                        .reverse()
+                        .map((game, i) => (
+                          <GameRow
+                            key={game.id}
+                            game={game}
+                            index={selectedGames.length - i}
+                          />
+                        ))
                     ) : (
-                      <div className={styles.noGamesMessage}>No games played</div>
+                      <div className={styles.noGamesMessage}>
+                        No games played
+                      </div>
                     )}
                   </div>
                 </>
               ) : (
-                // Summary view - opponent list
                 <>
-                  {totalGames > 0 && (
+                  {totals.games > 0 && (
                     <div className={styles.totalStats}>
                       <span>
-                        Total: <strong>{totalWins}</strong> wins / <strong>{totalGames}</strong> games
-                        ({totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0}%)
+                        Total: <strong>{totals.wins}</strong> wins /{' '}
+                        <strong>{totals.games}</strong> games (
+                        {Math.round((totals.wins / totals.games) * 100)}%)
                       </span>
                     </div>
                   )}
@@ -276,27 +292,27 @@ export function StatsModal({
                   <div className={styles.opponentsList}>
                     {opponents.map((opponent) => (
                       <OpponentRow
-                        key={`${opponent.type}-${opponent.model || ''}`}
+                        key={opponent.key}
                         opponent={opponent}
-                        stats={getOpponentStats(opponent.type, opponent.model)}
-                        onClick={() => setSelectedOpponent(opponent)}
+                        onClick={() => setSelectedKey(opponent.key)}
                       />
                     ))}
                   </div>
 
-                  {totalGames === 0 && (
+                  {totals.games === 0 && (
                     <div className={styles.emptyState}>
                       <p>No games played yet.</p>
-                      <p className={styles.hint}>Play against a CPU opponent to start tracking!</p>
+                      <p className={styles.hint}>
+                        Play against a CPU opponent to start tracking!
+                      </p>
                     </div>
                   )}
                 </>
               )}
             </div>
 
-            {/* Footer */}
             <div className={styles.footer}>
-              {!selectedOpponent && totalGames > 0 && (
+              {!selectedOpponent && totals.games > 0 && (
                 <button
                   className={`${styles.clearButton} ${confirmClear ? styles.confirm : ''}`}
                   onClick={handleClearStats}
