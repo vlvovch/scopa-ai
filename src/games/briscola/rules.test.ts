@@ -35,6 +35,7 @@ const makeState = (overrides: {
       cpu: { hand: overrides.cpuHand ?? [], captured: [] },
     },
     scores: { human: 0, cpu: 0 },
+    roundHistory: [],
     roundNumber: 1,
     targetScore: 1,
   };

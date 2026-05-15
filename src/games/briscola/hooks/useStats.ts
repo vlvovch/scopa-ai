@@ -15,8 +15,9 @@ export interface MatchRecord {
   cpuWins: number;
   /** 'human' | 'cpu' | 'tie' — the match outcome */
   winner: 'human' | 'cpu' | 'tie';
-  /** Number of rounds actually played */
-  roundsPlayed: number;
+  /** Per-round 120-point splits, in chronological order. rounds.length is
+   *  the number of rounds actually played. */
+  rounds: Array<{ playerPoints: number; cpuPoints: number }>;
   /** "Best of N" that was selected for this match */
   bestOf: number;
   /** Wall-clock timestamp the match ended */
@@ -85,7 +86,7 @@ export function useBriscolaStats() {
       playerWins: number,
       cpuWins: number,
       bestOf: number,
-      roundsPlayed: number
+      rounds: Array<{ playerPoints: number; cpuPoints: number }>
     ) => {
       const winner: MatchRecord['winner'] =
         playerWins > cpuWins ? 'human' : cpuWins > playerWins ? 'cpu' : 'tie';
@@ -95,7 +96,7 @@ export function useBriscolaStats() {
         playerWins,
         cpuWins,
         winner,
-        roundsPlayed,
+        rounds,
         bestOf,
         timestamp: Date.now(),
       };

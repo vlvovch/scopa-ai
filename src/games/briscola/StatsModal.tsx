@@ -20,6 +20,10 @@ interface StatsModalProps {
   onClose: () => void;
   getBotSummary: (bot: CpuBotName) => BotSummary;
   getRecentMatches: (limit?: number) => MatchRecord[];
+  /** Total number of matches in storage. Used to assign each visible match
+   *  its absolute match number (most recent = total, oldest visible = total
+   *  - recent.length + 1). */
+  totalMatches: number;
   onClear: () => void;
 }
 
@@ -28,12 +32,12 @@ export function StatsModal({
   onClose,
   getBotSummary,
   getRecentMatches,
+  totalMatches,
   onClear,
 }: StatsModalProps) {
   const [confirmingClear, setConfirmingClear] = useState(false);
   const summaries = ALL_BOTS.map(getBotSummary);
   const recent = getRecentMatches(15);
-  const totalMatches = summaries.reduce((s, b) => s + b.matchesPlayed, 0);
 
   return (
     <AnimatePresence>
@@ -92,50 +96,75 @@ export function StatsModal({
                 </table>
 
                 <h3 style={sectionTitle}>Recent ({recent.length})</h3>
-                <table style={table}>
-                  <thead>
-                    <tr>
-                      <th style={th}>When</th>
-                      <th style={th}>Opponent</th>
-                      <th style={th}>Result</th>
-                      <th style={thNum}>Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recent.map((m) => (
-                      <tr key={m.id}>
-                        <td style={td}>{relativeTime(m.timestamp)}</td>
-                        <td style={td}>{BOT_LABELS[m.cpuBot]}</td>
-                        <td
-                          style={{
-                            ...td,
-                            color:
-                              m.winner === 'human'
-                                ? '#7CB342'
-                                : m.winner === 'cpu'
-                                  ? '#E57373'
-                                  : 'inherit',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {m.winner === 'human'
-                            ? 'Win'
-                            : m.winner === 'cpu'
-                              ? 'Loss'
-                              : 'Tie'}
-                        </td>
-                        <td style={tdNum}>
-                          {m.playerWins}–{m.cpuWins}
-                          {m.bestOf > 1 && (
-                            <span style={{ opacity: 0.6, fontSize: '0.85em' }}>
-                              {' '}Bo{m.bestOf}
+                <div style={matchList}>
+                  {recent.map((m, i) => {
+                    // recent is sorted newest-first, so the first item is
+                    // the most-recently-finished match (= totalMatches).
+                    const matchNumber = totalMatches - i;
+                    const winnerColor =
+                      m.winner === 'human'
+                        ? '#7CB342'
+                        : m.winner === 'cpu'
+                          ? '#E57373'
+                          : '#aaaaaa';
+                    const resultLabel =
+                      m.winner === 'human'
+                        ? 'Win'
+                        : m.winner === 'cpu'
+                          ? 'Loss'
+                          : 'Tie';
+                    return (
+                      <div key={m.id} style={matchBlock}>
+                        <div style={matchHeader}>
+                          <span style={matchLabel}>Match #{matchNumber}</span>
+                          <span style={matchHeaderMeta}>
+                            {relativeTime(m.timestamp)} · {BOT_LABELS[m.cpuBot]}
+                            {m.bestOf > 1 && ` · Bo${m.bestOf}`}
+                          </span>
+                          <span style={{ ...matchResult, color: winnerColor }}>
+                            {resultLabel} {m.playerWins}–{m.cpuWins}
+                          </span>
+                        </div>
+                        <div style={roundChips}>
+                          {(m.rounds ?? []).map((r, idx) => {
+                            const roundWinner =
+                              r.playerPoints > r.cpuPoints
+                                ? 'human'
+                                : r.cpuPoints > r.playerPoints
+                                  ? 'cpu'
+                                  : 'tie';
+                            const chipColor =
+                              roundWinner === 'human'
+                                ? 'rgba(124, 179, 66, 0.18)'
+                                : roundWinner === 'cpu'
+                                  ? 'rgba(229, 115, 115, 0.18)'
+                                  : 'rgba(255, 255, 255, 0.08)';
+                            return (
+                              <span
+                                key={idx}
+                                style={{ ...roundChip, background: chipColor }}
+                              >
+                                <span style={roundChipLabel}>R{idx + 1}</span>
+                                <span style={roundChipScore}>
+                                  <strong>{r.playerPoints}</strong>
+                                  <span style={{ opacity: 0.6 }}>–</span>
+                                  <strong>{r.cpuPoints}</strong>
+                                </span>
+                              </span>
+                            );
+                          })}
+                          {(m.rounds ?? []).length === 0 && (
+                            // Backward-compat for matches recorded before
+                            // rounds[] was added.
+                            <span style={{ opacity: 0.5, fontSize: '0.85em' }}>
+                              No per-round data
                             </span>
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </>
             )}
 
@@ -246,4 +275,72 @@ const emptyStyle: React.CSSProperties = {
   color: 'var(--color-text-secondary)',
   fontSize: '0.95rem',
   fontStyle: 'italic',
+};
+
+// ---- Recent matches layout (one card per match) ----
+const matchList: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+};
+
+const matchBlock: React.CSSProperties = {
+  background: 'rgba(0, 0, 0, 0.25)',
+  borderRadius: '6px',
+  padding: '8px 10px',
+  border: '1px solid rgba(255, 255, 255, 0.06)',
+};
+
+const matchHeader: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: '8px',
+  flexWrap: 'wrap',
+  marginBottom: '6px',
+};
+
+const matchLabel: React.CSSProperties = {
+  fontWeight: 700,
+  fontSize: '0.85rem',
+  color: 'var(--color-accent)',
+};
+
+const matchHeaderMeta: React.CSSProperties = {
+  fontSize: '0.8rem',
+  color: 'var(--color-text-secondary)',
+  flex: 1,
+};
+
+const matchResult: React.CSSProperties = {
+  fontWeight: 600,
+  fontSize: '0.85rem',
+};
+
+const roundChips: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+};
+
+const roundChip: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '3px 8px',
+  borderRadius: '12px',
+  fontSize: '0.8rem',
+  fontVariantNumeric: 'tabular-nums',
+};
+
+const roundChipLabel: React.CSSProperties = {
+  opacity: 0.65,
+  fontSize: '0.7rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+};
+
+const roundChipScore: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'baseline',
+  gap: '2px',
 };

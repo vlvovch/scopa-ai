@@ -33,6 +33,7 @@ function playOneRound(
       cpu: { hand: initial.hands.cpu, captured: [] },
     },
     scores: { human: 0, cpu: 0 },
+    roundHistory: [],
     roundNumber: 1,
     targetScore: 1,
   };

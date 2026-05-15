@@ -64,6 +64,9 @@ export interface GameState {
     human: RoundScore;
     cpu: RoundScore;
   };
+  /** Per-round 120-point splits accumulated over the current match,
+   *  oldest first. Used for the stats history display. */
+  roundHistory: Array<{ playerPoints: number; cpuPoints: number }>;
   isGameOver?: boolean;
   gameMode?: GameMode;
 }

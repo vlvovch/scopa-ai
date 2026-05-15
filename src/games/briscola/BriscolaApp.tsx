@@ -121,7 +121,8 @@ function newRound(
   bestOf: number,
   prevScores: Record<PlayerId, number> = { human: 0, cpu: 0 },
   roundNumber: number = 1,
-  dealer: PlayerId = 'cpu'
+  dealer: PlayerId = 'cpu',
+  prevHistory: GameState['roundHistory'] = []
 ): GameState {
   const deck = shuffleDeck(createDeck());
   const init = dealInitialHands(deck, dealer);
@@ -145,6 +146,7 @@ function newRound(
     roundNumber,
     // targetScore = number of round wins needed to take the match
     targetScore: winsNeeded(bestOf),
+    roundHistory: prevHistory,
   };
 }
 
@@ -174,9 +176,14 @@ function buildRoundEnd(finishedGame: GameState): Extract<AppState, { status: 'ro
     nextScores.human >= finishedGame.targetScore ||
     nextScores.cpu >= finishedGame.targetScore;
 
+  const roundHistory = [
+    ...finishedGame.roundHistory,
+    { playerPoints: humanScore.points, cpuPoints: cpuScore.points },
+  ];
+
   return {
     status: 'roundEnd',
-    game: { ...finishedGame, scores: nextScores },
+    game: { ...finishedGame, scores: nextScores, roundHistory },
     finalPoints: { human: humanScore.points, cpu: cpuScore.points },
     roundWinner,
     matchOver,
@@ -230,7 +237,7 @@ function reducer(state: AppState, action: Action): AppState {
       const bestOf = prev.targetScore * 2 - 1;
       return {
         status: 'dealing',
-        game: newRound(bestOf, prev.scores, prev.roundNumber + 1, nextDealer),
+        game: newRound(bestOf, prev.scores, prev.roundNumber + 1, nextDealer, prev.roundHistory),
       };
     }
 
@@ -373,7 +380,7 @@ function BriscolaApp() {
       state.game.scores.human,
       state.game.scores.cpu,
       bestOf,
-      state.game.roundNumber
+      state.game.roundHistory
     );
   }, [state, cpuBotName, bestOf, stats]);
 
@@ -495,6 +502,7 @@ function BriscolaApp() {
           onClose={() => setIsStatsOpen(false)}
           getBotSummary={stats.getBotSummary}
           getRecentMatches={stats.getRecentMatches}
+          totalMatches={stats.matches.length}
           onClear={stats.clearStats}
         />
         <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
@@ -539,6 +547,7 @@ function BriscolaApp() {
         onClose={() => setIsStatsOpen(false)}
         getBotSummary={stats.getBotSummary}
         getRecentMatches={stats.getRecentMatches}
+        totalMatches={stats.matches.length}
         onClear={stats.clearStats}
       />
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
