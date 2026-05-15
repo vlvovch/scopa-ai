@@ -24,18 +24,30 @@ export interface MatchRecord {
   timestamp: number;
 }
 
+/** Per-bot summary, computed at ROUND granularity — i.e. each 120-point
+ *  round counts as one "game" toward gamesPlayed/wins/losses/ties.
+ *  This matches the user-facing model that a "game of Briscola" is one
+ *  round, not a best-of-N match. */
 export interface BotSummary {
   cpuBot: CpuBotName;
-  matchesPlayed: number;
+  /** Total rounds played against this bot */
+  gamesPlayed: number;
   wins: number;
   losses: number;
   ties: number;
-  /** Wins / matchesPlayed (0–1), or 0 if matchesPlayed === 0 */
+  /** Wins / gamesPlayed (0–1), or 0 if no rounds played yet */
   winRate: number;
-  /** Total round wins by the player across all matches */
-  totalPlayerRoundWins: number;
-  /** Total round wins by the CPU */
-  totalCpuRoundWins: number;
+}
+
+/** A single 120-point round, flattened out of its parent match for the
+ *  per-opponent detail view. */
+export interface RoundEntry {
+  id: string;
+  timestamp: number;
+  cpuBot: CpuBotName;
+  playerPoints: number;
+  cpuPoints: number;
+  outcome: 'win' | 'loss' | 'tie';
 }
 
 interface StatsStore {
@@ -109,29 +121,63 @@ export function useBriscolaStats() {
     []
   );
 
+  /** Round-level summary for one bot. Each 120-point round counts as a
+   *  game; we don't bucket by match here. */
   const getBotSummary = useCallback(
     (cpuBot: CpuBotName): BotSummary => {
-      const matches = store.matches.filter((m) => m.cpuBot === cpuBot);
-      const wins = matches.filter((m) => m.winner === 'human').length;
-      const losses = matches.filter((m) => m.winner === 'cpu').length;
-      const ties = matches.filter((m) => m.winner === 'tie').length;
+      let wins = 0, losses = 0, ties = 0;
+      for (const m of store.matches) {
+        if (m.cpuBot !== cpuBot) continue;
+        for (const r of m.rounds ?? []) {
+          if (r.playerPoints > r.cpuPoints) wins++;
+          else if (r.cpuPoints > r.playerPoints) losses++;
+          else ties++;
+        }
+      }
+      const gamesPlayed = wins + losses + ties;
       return {
         cpuBot,
-        matchesPlayed: matches.length,
+        gamesPlayed,
         wins,
         losses,
         ties,
-        winRate: matches.length > 0 ? wins / matches.length : 0,
-        totalPlayerRoundWins: matches.reduce((s, m) => s + m.playerWins, 0),
-        totalCpuRoundWins: matches.reduce((s, m) => s + m.cpuWins, 0),
+        winRate: gamesPlayed > 0 ? wins / gamesPlayed : 0,
       };
     },
     [store.matches]
   );
 
-  const getRecentMatches = useCallback(
-    (limit: number = 20): MatchRecord[] =>
-      [...store.matches].sort((a, b) => b.timestamp - a.timestamp).slice(0, limit),
+  /** Flatten matches against `cpuBot` into a list of individual rounds,
+   *  sorted by timestamp descending (newest first), then within a match
+   *  by round-position descending (last round of a match first). */
+  const getRoundsAgainst = useCallback(
+    (cpuBot: CpuBotName): RoundEntry[] => {
+      const out: RoundEntry[] = [];
+      for (const m of store.matches) {
+        if (m.cpuBot !== cpuBot) continue;
+        const rs = m.rounds ?? [];
+        for (let i = 0; i < rs.length; i++) {
+          const r = rs[i];
+          const outcome: RoundEntry['outcome'] =
+            r.playerPoints > r.cpuPoints
+              ? 'win'
+              : r.cpuPoints > r.playerPoints
+                ? 'loss'
+                : 'tie';
+          out.push({
+            id: `${m.id}-r${i}`,
+            // Within a match all rounds share a timestamp, so add a tiny
+            // per-round offset so they sort in play order.
+            timestamp: m.timestamp + i,
+            cpuBot,
+            playerPoints: r.playerPoints,
+            cpuPoints: r.cpuPoints,
+            outcome,
+          });
+        }
+      }
+      return out.sort((a, b) => b.timestamp - a.timestamp);
+    },
     [store.matches]
   );
 
@@ -143,7 +189,7 @@ export function useBriscolaStats() {
     matches: store.matches,
     recordMatch,
     getBotSummary,
-    getRecentMatches,
+    getRoundsAgainst,
     clearStats,
   };
 }

@@ -1,209 +1,298 @@
-// Briscola match-stats modal: per-bot summary table + recent matches list.
-// Reuses Scopa's SettingsModal.module.css for the modal chrome (overlay,
-// modal box, title, actions). Tables and rows are inline-styled here.
+// Briscola statistics modal — mirrors Scopa's two-level StatsModal:
+//   Main view: total + one row per opponent (clickable).
+//   Detail view: stat cards + game-by-game table (one row per 120-point
+//   round).
+// Reuses Scopa's StatsModal.module.css verbatim for the chrome.
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import settingsStyles from '../../components/UI/SettingsModal.module.css';
+import styles from '../../components/UI/StatsModal.module.css';
 import type { CpuBotName } from './StartScreen';
-import type { BotSummary, MatchRecord } from './hooks/useStats';
-
-const BOT_LABELS: Record<CpuBotName, string> = {
-  random: '🎲 Random',
-  heuristic: '🦊 Heuristic',
-};
+import type { BotSummary, RoundEntry } from './hooks/useStats';
 
 const ALL_BOTS: CpuBotName[] = ['random', 'heuristic'];
+
+const BOT_INFO: Record<CpuBotName, { icon: string; name: string }> = {
+  random: { icon: '🎲', name: 'Random' },
+  heuristic: { icon: '🦊', name: 'Heuristic' },
+};
 
 interface StatsModalProps {
   isOpen: boolean;
   onClose: () => void;
   getBotSummary: (bot: CpuBotName) => BotSummary;
-  getRecentMatches: (limit?: number) => MatchRecord[];
-  /** Total number of matches in storage. Used to assign each visible match
-   *  its absolute match number (most recent = total, oldest visible = total
-   *  - recent.length + 1). */
-  totalMatches: number;
+  getRoundsAgainst: (bot: CpuBotName) => RoundEntry[];
   onClear: () => void;
+}
+
+function formatDate(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function BotLabel({ bot }: { bot: CpuBotName }) {
+  const info = BOT_INFO[bot];
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4em' }}>
+      <span style={{ fontSize: '1.1em' }}>{info.icon}</span>
+      <span>{info.name}</span>
+    </span>
+  );
+}
+
+function OpponentRow({
+  bot,
+  summary,
+  onClick,
+}: {
+  bot: CpuBotName;
+  summary: BotSummary;
+  onClick: () => void;
+}) {
+  const hasGames = summary.gamesPlayed > 0;
+  return (
+    <button
+      type="button"
+      className={`${styles.opponentRow} ${hasGames ? styles.clickable : ''}`}
+      onClick={hasGames ? onClick : undefined}
+      disabled={!hasGames}
+    >
+      <div className={styles.opponentInfo}>
+        <BotLabel bot={bot} />
+      </div>
+      <div className={styles.statsInfo}>
+        {hasGames ? (
+          <>
+            <span className={styles.record}>
+              <span className={styles.wins}>{summary.wins}W</span>
+              {' - '}
+              <span className={styles.losses}>{summary.losses}L</span>
+              {summary.ties > 0 && (
+                <>
+                  {' - '}
+                  <span>{summary.ties}T</span>
+                </>
+              )}
+            </span>
+            <span className={styles.winRate}>
+              {Math.round(summary.winRate * 100)}%
+            </span>
+          </>
+        ) : (
+          <span className={styles.noGames}>No games</span>
+        )}
+      </div>
+      {hasGames && <span className={styles.arrow}>›</span>}
+    </button>
+  );
+}
+
+function RoundRow({ round, index }: { round: RoundEntry; index: number }) {
+  const cls =
+    round.outcome === 'win'
+      ? styles.win
+      : round.outcome === 'loss'
+        ? styles.loss
+        : undefined;
+  const label =
+    round.outcome === 'win' ? 'W' : round.outcome === 'loss' ? 'L' : 'T';
+  return (
+    <div className={styles.gameRow}>
+      <div className={styles.gameIndex}>#{index}</div>
+      <div className={styles.gameDate}>
+        {formatDate(round.timestamp)} {formatTime(round.timestamp)}
+      </div>
+      <div className={styles.gameScore}>
+        <span className={cls}>
+          {round.playerPoints}–{round.cpuPoints}
+        </span>
+      </div>
+      <div className={styles.gameResult}>
+        <span className={cls}>{label}</span>
+      </div>
+    </div>
+  );
 }
 
 export function StatsModal({
   isOpen,
   onClose,
   getBotSummary,
-  getRecentMatches,
-  totalMatches,
+  getRoundsAgainst,
   onClear,
 }: StatsModalProps) {
-  const [confirmingClear, setConfirmingClear] = useState(false);
-  const summaries = ALL_BOTS.map(getBotSummary);
-  const recent = getRecentMatches(15);
+  const [selectedBot, setSelectedBot] = useState<CpuBotName | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+
+  const handleClose = () => {
+    setSelectedBot(null);
+    setConfirmClear(false);
+    onClose();
+  };
+  const handleBack = () => setSelectedBot(null);
+  const handleClear = () => {
+    if (confirmClear) {
+      onClear();
+      setConfirmClear(false);
+    } else {
+      setConfirmClear(true);
+    }
+  };
+
+  const selectedSummary = selectedBot ? getBotSummary(selectedBot) : null;
+  const selectedRounds = selectedBot ? getRoundsAgainst(selectedBot) : [];
+
+  // Aggregate totals across all bots (round-level).
+  const totals = ALL_BOTS.reduce(
+    (acc, bot) => {
+      const s = getBotSummary(bot);
+      acc.games += s.gamesPlayed;
+      acc.wins += s.wins;
+      return acc;
+    },
+    { games: 0, wins: 0 }
+  );
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className={settingsStyles.overlay}
+          className={styles.overlay}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={handleClose}
         >
           <motion.div
-            className={settingsStyles.modal}
+            className={styles.modal}
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className={settingsStyles.title}>Statistics</h2>
+            <div className={styles.header}>
+              {selectedBot ? (
+                <button className={styles.backButton} onClick={handleBack}>
+                  ← Back
+                </button>
+              ) : (
+                <div />
+              )}
+              <h2 className={styles.title}>
+                {selectedBot ? <BotLabel bot={selectedBot} /> : 'Statistics'}
+              </h2>
+              <div />
+            </div>
 
-            {totalMatches === 0 ? (
-              <p style={emptyStyle}>
-                No matches recorded yet. Win or lose, results show up here once
-                a match ends.
-              </p>
-            ) : (
-              <>
-                <h3 style={sectionTitle}>By Opponent</h3>
-                <table style={table}>
-                  <thead>
-                    <tr>
-                      <th style={th}>Opponent</th>
-                      <th style={thNum}>Matches</th>
-                      <th style={thNum}>W</th>
-                      <th style={thNum}>L</th>
-                      <th style={thNum}>T</th>
-                      <th style={thNum}>Win&nbsp;rate</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summaries.map((s) => (
-                      <tr key={s.cpuBot}>
-                        <td style={td}>{BOT_LABELS[s.cpuBot]}</td>
-                        <td style={tdNum}>{s.matchesPlayed}</td>
-                        <td style={tdNum}>{s.wins}</td>
-                        <td style={tdNum}>{s.losses}</td>
-                        <td style={tdNum}>{s.ties}</td>
-                        <td style={tdNum}>
-                          {s.matchesPlayed > 0
-                            ? `${Math.round(s.winRate * 100)}%`
-                            : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className={styles.content}>
+              {selectedBot && selectedSummary ? (
+                <>
+                  <div className={styles.detailStats}>
+                    <div className={styles.statBox}>
+                      <span className={styles.statValue}>
+                        {selectedSummary.gamesPlayed}
+                      </span>
+                      <span className={styles.statLabel}>Games</span>
+                    </div>
+                    <div className={styles.statBox}>
+                      <span className={`${styles.statValue} ${styles.wins}`}>
+                        {selectedSummary.wins}
+                      </span>
+                      <span className={styles.statLabel}>Wins</span>
+                    </div>
+                    <div className={styles.statBox}>
+                      <span className={`${styles.statValue} ${styles.losses}`}>
+                        {selectedSummary.losses}
+                      </span>
+                      <span className={styles.statLabel}>Losses</span>
+                    </div>
+                    <div className={styles.statBox}>
+                      <span className={styles.statValue}>
+                        {Math.round(selectedSummary.winRate * 100)}%
+                      </span>
+                      <span className={styles.statLabel}>Win Rate</span>
+                    </div>
+                  </div>
 
-                <h3 style={sectionTitle}>Recent ({recent.length})</h3>
-                <div style={matchList}>
-                  {recent.map((m, i) => {
-                    // recent is sorted newest-first, so the first item is
-                    // the most-recently-finished match (= totalMatches).
-                    const matchNumber = totalMatches - i;
-                    const winnerColor =
-                      m.winner === 'human'
-                        ? '#7CB342'
-                        : m.winner === 'cpu'
-                          ? '#E57373'
-                          : '#aaaaaa';
-                    const resultLabel =
-                      m.winner === 'human'
-                        ? 'Win'
-                        : m.winner === 'cpu'
-                          ? 'Loss'
-                          : 'Tie';
-                    return (
-                      <div key={m.id} style={matchBlock}>
-                        <div style={matchHeader}>
-                          <span style={matchLabel}>Match #{matchNumber}</span>
-                          <span style={matchHeaderMeta}>
-                            {relativeTime(m.timestamp)} · {BOT_LABELS[m.cpuBot]}
-                            {m.bestOf > 1 && ` · Bo${m.bestOf}`}
-                          </span>
-                          <span style={{ ...matchResult, color: winnerColor }}>
-                            {resultLabel} {m.playerWins}–{m.cpuWins}
-                          </span>
-                        </div>
-                        <div style={roundChips}>
-                          {(m.rounds ?? []).map((r, idx) => {
-                            const roundWinner =
-                              r.playerPoints > r.cpuPoints
-                                ? 'human'
-                                : r.cpuPoints > r.playerPoints
-                                  ? 'cpu'
-                                  : 'tie';
-                            const chipColor =
-                              roundWinner === 'human'
-                                ? 'rgba(124, 179, 66, 0.18)'
-                                : roundWinner === 'cpu'
-                                  ? 'rgba(229, 115, 115, 0.18)'
-                                  : 'rgba(255, 255, 255, 0.08)';
-                            return (
-                              <span
-                                key={idx}
-                                style={{ ...roundChip, background: chipColor }}
-                              >
-                                <span style={roundChipLabel}>R{idx + 1}</span>
-                                <span style={roundChipScore}>
-                                  <strong>{r.playerPoints}</strong>
-                                  <span style={{ opacity: 0.6 }}>–</span>
-                                  <strong>{r.cpuPoints}</strong>
-                                </span>
-                              </span>
-                            );
-                          })}
-                          {(m.rounds ?? []).length === 0 && (
-                            // Backward-compat for matches recorded before
-                            // rounds[] was added.
-                            <span style={{ opacity: 0.5, fontSize: '0.85em' }}>
-                              No per-round data
-                            </span>
-                          )}
-                        </div>
+                  <div className={styles.gamesList}>
+                    <div className={styles.gamesHeader}>
+                      <span>#</span>
+                      <span>Date</span>
+                      <span>Score</span>
+                      <span></span>
+                    </div>
+                    {selectedRounds.length > 0 ? (
+                      // Match Scopa's numbering: most recent round = #1,
+                      // oldest = #N. We display oldest at top, newest at
+                      // bottom (the natural reading order).
+                      [...selectedRounds].reverse().map((round, i) => (
+                        <RoundRow
+                          key={round.id}
+                          round={round}
+                          index={selectedRounds.length - i}
+                        />
+                      ))
+                    ) : (
+                      <div className={styles.noGamesMessage}>
+                        No rounds played
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  {totals.games > 0 && (
+                    <div className={styles.totalStats}>
+                      <span>
+                        Total: <strong>{totals.wins}</strong> wins /{' '}
+                        <strong>{totals.games}</strong> games (
+                        {Math.round((totals.wins / totals.games) * 100)}%)
+                      </span>
+                    </div>
+                  )}
 
-            <div className={settingsStyles.actions}>
-              {totalMatches > 0 &&
-                (confirmingClear ? (
-                  <>
-                    <button
-                      type="button"
-                      className={settingsStyles.resetButton}
-                      onClick={() => {
-                        onClear();
-                        setConfirmingClear(false);
-                      }}
-                    >
-                      Confirm clear
-                    </button>
-                    <button
-                      type="button"
-                      className={settingsStyles.resetButton}
-                      onClick={() => setConfirmingClear(false)}
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className={settingsStyles.resetButton}
-                    onClick={() => setConfirmingClear(true)}
-                  >
-                    Clear stats
-                  </button>
-                ))}
-              <button
-                type="button"
-                className={settingsStyles.resetButton}
-                onClick={onClose}
-              >
+                  <div className={styles.opponentsList}>
+                    {ALL_BOTS.map((bot) => (
+                      <OpponentRow
+                        key={bot}
+                        bot={bot}
+                        summary={getBotSummary(bot)}
+                        onClick={() => setSelectedBot(bot)}
+                      />
+                    ))}
+                  </div>
+
+                  {totals.games === 0 && (
+                    <div className={styles.emptyState}>
+                      <p>No rounds played yet.</p>
+                      <p className={styles.hint}>
+                        Play against a CPU opponent to start tracking!
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className={styles.footer}>
+              {!selectedBot && totals.games > 0 && (
+                <button
+                  className={`${styles.clearButton} ${confirmClear ? styles.confirm : ''}`}
+                  onClick={handleClear}
+                >
+                  {confirmClear ? 'Confirm Clear' : 'Clear All'}
+                </button>
+              )}
+              <button className={styles.closeButton} onClick={handleClose}>
                 Close
               </button>
             </div>
@@ -213,134 +302,3 @@ export function StatsModal({
     </AnimatePresence>
   );
 }
-
-function relativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
-
-// ---- Inline styles for the tables (overlay + modal chrome come from CSS) ----
-
-const sectionTitle: React.CSSProperties = {
-  fontSize: '0.85rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.08em',
-  color: 'var(--color-text-secondary)',
-  margin: '1rem 0 0.5rem',
-};
-
-const table: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontSize: '0.9rem',
-  marginBottom: '0.5rem',
-};
-
-const th: React.CSSProperties = {
-  textAlign: 'left',
-  padding: '6px 8px',
-  borderBottom: '1px solid rgba(255,255,255,0.15)',
-  color: 'var(--color-text-secondary)',
-  fontWeight: 500,
-  fontSize: '0.8rem',
-};
-
-const thNum: React.CSSProperties = {
-  ...th,
-  textAlign: 'right',
-};
-
-const td: React.CSSProperties = {
-  padding: '6px 8px',
-  borderBottom: '1px solid rgba(255,255,255,0.06)',
-  color: 'var(--color-text-primary)',
-};
-
-const tdNum: React.CSSProperties = {
-  ...td,
-  textAlign: 'right',
-  fontVariantNumeric: 'tabular-nums',
-};
-
-const emptyStyle: React.CSSProperties = {
-  textAlign: 'center',
-  padding: '2rem 1rem',
-  color: 'var(--color-text-secondary)',
-  fontSize: '0.95rem',
-  fontStyle: 'italic',
-};
-
-// ---- Recent matches layout (one card per match) ----
-const matchList: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-};
-
-const matchBlock: React.CSSProperties = {
-  background: 'rgba(0, 0, 0, 0.25)',
-  borderRadius: '6px',
-  padding: '8px 10px',
-  border: '1px solid rgba(255, 255, 255, 0.06)',
-};
-
-const matchHeader: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  gap: '8px',
-  flexWrap: 'wrap',
-  marginBottom: '6px',
-};
-
-const matchLabel: React.CSSProperties = {
-  fontWeight: 700,
-  fontSize: '0.85rem',
-  color: 'var(--color-accent)',
-};
-
-const matchHeaderMeta: React.CSSProperties = {
-  fontSize: '0.8rem',
-  color: 'var(--color-text-secondary)',
-  flex: 1,
-};
-
-const matchResult: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: '0.85rem',
-};
-
-const roundChips: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: '6px',
-};
-
-const roundChip: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px',
-  padding: '3px 8px',
-  borderRadius: '12px',
-  fontSize: '0.8rem',
-  fontVariantNumeric: 'tabular-nums',
-};
-
-const roundChipLabel: React.CSSProperties = {
-  opacity: 0.65,
-  fontSize: '0.7rem',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-};
-
-const roundChipScore: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'baseline',
-  gap: '2px',
-};

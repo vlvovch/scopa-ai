@@ -501,8 +501,7 @@ function BriscolaApp() {
           isOpen={isStatsOpen}
           onClose={() => setIsStatsOpen(false)}
           getBotSummary={stats.getBotSummary}
-          getRecentMatches={stats.getRecentMatches}
-          totalMatches={stats.matches.length}
+          getRoundsAgainst={stats.getRoundsAgainst}
           onClear={stats.clearStats}
         />
         <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
@@ -546,8 +545,7 @@ function BriscolaApp() {
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}
         getBotSummary={stats.getBotSummary}
-        getRecentMatches={stats.getRecentMatches}
-        totalMatches={stats.matches.length}
+        getRoundsAgainst={stats.getRoundsAgainst}
         onClear={stats.clearStats}
       />
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
