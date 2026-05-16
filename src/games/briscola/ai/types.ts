@@ -23,6 +23,11 @@ export interface LLMAIContext extends AIContext {
   lastSelfMove: Move | null;
   /** Every legal move available this turn (== one per card in hand). */
   validMoves: Move[];
+  /** All moves played so far in the current round, in chronological order.
+   *  Required for single-turn LLM mode (the model has no chat memory and
+   *  needs the history embedded in each request). Multi-turn bots ignore
+   *  this field. */
+  roundMoveHistory?: Move[];
 }
 
 /**

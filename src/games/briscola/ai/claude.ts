@@ -7,7 +7,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import {
+  SYSTEM_INSTRUCTION_MULTITURN,
+  SYSTEM_INSTRUCTION_SINGLETURN,
+  buildTurnPrompt,
+  buildSingleTurnPrompt,
+} from './prompts';
+import type { ConversationMode } from './gemini';
 import {
   isClaudeAvailable,
   fetchClaudeModels,
@@ -65,6 +71,7 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
   private client: Anthropic;
   private model: string;
   private useExtendedThinking: boolean;
+  private mode: ConversationMode;
   private messages: MessageParam[] = [];
   private tracker: TokenTracker;
 
@@ -78,10 +85,16 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
     return this.tracker.lastDelta;
   }
 
-  constructor(apiKey: string, model: string = DEFAULT_CLAUDE_MODEL, useExtendedThinking = true) {
+  constructor(
+    apiKey: string,
+    model: string = DEFAULT_CLAUDE_MODEL,
+    useExtendedThinking = true,
+    mode: ConversationMode = 'multiturn'
+  ) {
     this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
     this.model = model;
     this.useExtendedThinking = useExtendedThinking;
+    this.mode = mode;
     this.name = displayNameFor(model);
     this.tracker = new TokenTracker(model, this.name);
   }
@@ -106,11 +119,19 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
       return validMoves[0];
     }
 
-    const prompt = buildTurnPrompt(context);
+    const prompt =
+      this.mode === 'singleturn'
+        ? buildSingleTurnPrompt(context)
+        : buildTurnPrompt(context);
     // eslint-disable-next-line no-console
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
-    this.messages.push({ role: 'user', content: prompt });
+    // single-turn rebuilds the message list from just this prompt each call;
+    // multi-turn appends to the accumulated history.
+    const messagesForCall: MessageParam[] =
+      this.mode === 'singleturn'
+        ? [{ role: 'user', content: prompt }]
+        : (this.messages.push({ role: 'user', content: prompt }), this.messages);
 
     const shouldThink = this.useExtendedThinking;
 
@@ -118,9 +139,12 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
     const requestParams: any = {
       model: this.model,
       max_tokens: shouldThink ? 16000 : 1024,
-      system: SYSTEM_INSTRUCTION_MULTITURN,
+      system:
+        this.mode === 'singleturn'
+          ? SYSTEM_INSTRUCTION_SINGLETURN
+          : SYSTEM_INSTRUCTION_MULTITURN,
       output_format: MOVE_OUTPUT_SCHEMA,
-      messages: this.messages,
+      messages: messagesForCall,
       betas: ['structured-outputs-2025-11-13'],
     };
 
@@ -168,12 +192,16 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
 
       if (!textBlock) {
         console.warn(`[briscola ${this.model}] No text in response, falling back.`);
-        this.messages.push({ role: 'assistant', content: '{}' });
+        if (this.mode === 'multiturn') {
+          this.messages.push({ role: 'assistant', content: '{}' });
+        }
         this.lastReasoning = 'No text in response — fell back to first valid move.';
         return validMoves[0];
       }
 
-      this.messages.push({ role: 'assistant', content: textBlock.text });
+      if (this.mode === 'multiturn') {
+        this.messages.push({ role: 'assistant', content: textBlock.text });
+      }
 
       try {
         const parsed = JSON.parse(textBlock.text) as {
@@ -203,21 +231,26 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
 
 const instances = new Map<string, ClaudeBriscolaAI>();
 
-function cacheKey(model: string, useThinking: boolean): string {
-  return `${model}::${useThinking ? '1' : '0'}`;
+function cacheKey(
+  model: string,
+  useThinking: boolean,
+  mode: ConversationMode
+): string {
+  return `${model}::${useThinking ? '1' : '0'}::${mode}`;
 }
 
 export function getClaudeBriscolaAI(
   model: string = DEFAULT_CLAUDE_MODEL,
-  useExtendedThinking = true
+  useExtendedThinking = true,
+  mode: ConversationMode = 'multiturn'
 ): ClaudeBriscolaAI | null {
   if (!isClaudeAvailable()) return null;
   const apiKey = getClaudeApiKey();
   if (!apiKey) return null;
-  const key = cacheKey(model, useExtendedThinking);
+  const key = cacheKey(model, useExtendedThinking, mode);
   let inst = instances.get(key);
   if (!inst) {
-    inst = new ClaudeBriscolaAI(apiKey, model, useExtendedThinking);
+    inst = new ClaudeBriscolaAI(apiKey, model, useExtendedThinking, mode);
     instances.set(key, inst);
   }
   return inst;
@@ -227,26 +260,36 @@ export function clearClaudeCache(): void {
   instances.clear();
 }
 
-export function startClaudeRound(model: string, useThinking = true): void {
-  instances.get(cacheKey(model, useThinking))?.startRound();
+export function startClaudeRound(
+  model: string,
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
+): void {
+  instances.get(cacheKey(model, useThinking, mode))?.startRound();
 }
 
-export function endClaudeRound(model: string, useThinking = true): void {
-  instances.get(cacheKey(model, useThinking))?.endRound();
+export function endClaudeRound(
+  model: string,
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
+): void {
+  instances.get(cacheKey(model, useThinking, mode))?.endRound();
 }
 
 export function getClaudeBriscolaTokenStats(
   model: string,
-  useThinking = true
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
 ): GeminiTokenStats | null {
-  return instances.get(cacheKey(model, useThinking))?.tokenStats ?? null;
+  return instances.get(cacheKey(model, useThinking, mode))?.tokenStats ?? null;
 }
 
 export function getClaudeBriscolaTokenDelta(
   model: string,
-  useThinking = true
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
 ): GeminiTokenDelta | null {
-  return instances.get(cacheKey(model, useThinking))?.lastDelta ?? null;
+  return instances.get(cacheKey(model, useThinking, mode))?.lastDelta ?? null;
 }
 
 export {

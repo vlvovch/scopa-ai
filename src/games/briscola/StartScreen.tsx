@@ -112,6 +112,10 @@ interface StartScreenProps {
   onSetClaudeModel: (modelId: string) => void;
   useThinking: boolean;
   onToggleThinking: (enabled: boolean) => void;
+  /** Multi-turn = SDK manages chat history. Single-turn = full round
+   *  history embedded in each request. Same toggle UX as Scopa. */
+  conversationMode: 'multiturn' | 'singleturn';
+  onToggleConversationMode: (mode: 'multiturn' | 'singleturn') => void;
   /** Watch-mode seats — both accept any opponent (CPU or LLM). */
   watchOpponents: { player1: BriscolaOpponentName; player2: BriscolaOpponentName };
   onSetWatchOpponent: (player: 'player1' | 'player2', name: BriscolaOpponentName) => void;
@@ -130,6 +134,8 @@ export function StartScreen({
   onSetClaudeModel,
   useThinking,
   onToggleThinking,
+  conversationMode,
+  onToggleConversationMode,
   watchOpponents,
   onSetWatchOpponent,
   defaultBestOf,
@@ -334,6 +340,24 @@ export function StartScreen({
 
               {/* Model picker for the chosen provider */}
               {modelDropdownFor(provider)}
+
+              {/* Conversation-mode toggle: multi-turn chat (💬) vs single-
+                  turn requests (1️⃣ — full round history in every prompt). */}
+              <button
+                className={styles.modeToggle}
+                onClick={() =>
+                  onToggleConversationMode(
+                    conversationMode === 'multiturn' ? 'singleturn' : 'multiturn'
+                  )
+                }
+                title={
+                  conversationMode === 'multiturn'
+                    ? 'Multi-turn chat (click for single-turn)'
+                    : 'Single-turn requests (click for multi-turn)'
+                }
+              >
+                {conversationMode === 'multiturn' ? '💬' : '1️⃣'}
+              </button>
 
               {/* Thinking toggle (Gemini + Claude only). Single global flag —
                   matches Scopa. OpenAI uses its own server-side reasoning, no

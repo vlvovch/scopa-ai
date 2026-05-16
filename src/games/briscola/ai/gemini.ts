@@ -9,7 +9,14 @@
 import { GoogleGenAI, type Chat } from '@google/genai';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import {
+  SYSTEM_INSTRUCTION_MULTITURN,
+  SYSTEM_INSTRUCTION_SINGLETURN,
+  buildTurnPrompt,
+  buildSingleTurnPrompt,
+} from './prompts';
+
+export type ConversationMode = 'multiturn' | 'singleturn';
 import {
   getGeminiApiKey,
   isGeminiAvailable,
@@ -63,6 +70,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
   private ai: GoogleGenAI;
   private model: string;
   private useThinking: boolean;
+  private mode: ConversationMode;
   private chat: Chat | null = null;
   private tracker: TokenTracker;
 
@@ -75,23 +83,34 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
     return this.tracker.lastDelta;
   }
 
-  constructor(apiKey: string, model: string = DEFAULT_GEMINI_MODEL, useThinking = true) {
+  constructor(
+    apiKey: string,
+    model: string = DEFAULT_GEMINI_MODEL,
+    useThinking = true,
+    mode: ConversationMode = 'multiturn'
+  ) {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
     this.useThinking = useThinking;
+    this.mode = mode;
     this.name = displayNameFor(model);
     this.tracker = new TokenTracker(model, this.name);
   }
 
   startRound(): void {
-    this.chat = this.ai.chats.create({
-      model: this.model,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
-        responseMimeType: 'application/json',
-        responseJsonSchema: MOVE_JSON_SCHEMA,
-      },
-    });
+    if (this.mode === 'multiturn') {
+      this.chat = this.ai.chats.create({
+        model: this.model,
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
+          responseMimeType: 'application/json',
+          responseJsonSchema: MOVE_JSON_SCHEMA,
+        },
+      });
+    } else {
+      // single-turn keeps no per-round state
+      this.chat = null;
+    }
     this.lastReasoning = '';
     this.tracker.resetRound();
   }
@@ -116,22 +135,45 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
       return validMoves[0];
     }
 
-    if (!this.chat) this.startRound();
+    if (this.mode === 'multiturn' && !this.chat) this.startRound();
 
-    const prompt = buildTurnPrompt(context);
+    const prompt =
+      this.mode === 'singleturn'
+        ? buildSingleTurnPrompt(context)
+        : buildTurnPrompt(context);
     // eslint-disable-next-line no-console
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
     try {
       const startTime = performance.now();
-      const response = await this.chat!.sendMessage({
-        message: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseJsonSchema: MOVE_JSON_SCHEMA,
-          thinkingConfig: thinkingConfigFor(this.model, this.useThinking, true),
-        },
-      });
+      const response =
+        this.mode === 'singleturn'
+          ? await this.ai.models.generateContent({
+              model: this.model,
+              contents: prompt,
+              config: {
+                systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
+                responseMimeType: 'application/json',
+                responseJsonSchema: MOVE_JSON_SCHEMA,
+                thinkingConfig: thinkingConfigFor(
+                  this.model,
+                  this.useThinking,
+                  true
+                ),
+              },
+            })
+          : await this.chat!.sendMessage({
+              message: prompt,
+              config: {
+                responseMimeType: 'application/json',
+                responseJsonSchema: MOVE_JSON_SCHEMA,
+                thinkingConfig: thinkingConfigFor(
+                  this.model,
+                  this.useThinking,
+                  true
+                ),
+              },
+            });
 
       this.tracker.recordTokens({
         promptTokens: response.usageMetadata?.promptTokenCount,
@@ -180,21 +222,26 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
 // mid-match.
 const instances = new Map<string, GeminiBriscolaAI>();
 
-function cacheKey(model: string, useThinking: boolean): string {
-  return `${model}::${useThinking ? '1' : '0'}`;
+function cacheKey(
+  model: string,
+  useThinking: boolean,
+  mode: ConversationMode
+): string {
+  return `${model}::${useThinking ? '1' : '0'}::${mode}`;
 }
 
 export function getGeminiBriscolaAI(
   model: string = DEFAULT_GEMINI_MODEL,
-  useThinking = true
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
 ): GeminiBriscolaAI | null {
   if (!isGeminiAvailable()) return null;
   const apiKey = getGeminiApiKey();
   if (!apiKey) return null;
-  const key = cacheKey(model, useThinking);
+  const key = cacheKey(model, useThinking, mode);
   let instance = instances.get(key);
   if (!instance) {
-    instance = new GeminiBriscolaAI(apiKey, model, useThinking);
+    instance = new GeminiBriscolaAI(apiKey, model, useThinking, mode);
     instances.set(key, instance);
   }
   return instance;
@@ -204,26 +251,36 @@ export function clearGeminiCache(): void {
   instances.clear();
 }
 
-export function startGeminiRound(model: string, useThinking = true): void {
-  instances.get(cacheKey(model, useThinking))?.startRound();
+export function startGeminiRound(
+  model: string,
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
+): void {
+  instances.get(cacheKey(model, useThinking, mode))?.startRound();
 }
 
-export function endGeminiRound(model: string, useThinking = true): void {
-  instances.get(cacheKey(model, useThinking))?.endRound();
+export function endGeminiRound(
+  model: string,
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
+): void {
+  instances.get(cacheKey(model, useThinking, mode))?.endRound();
 }
 
 export function getGeminiBriscolaTokenStats(
   model: string,
-  useThinking = true
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
 ): GeminiTokenStats | null {
-  return instances.get(cacheKey(model, useThinking))?.tokenStats ?? null;
+  return instances.get(cacheKey(model, useThinking, mode))?.tokenStats ?? null;
 }
 
 export function getGeminiBriscolaTokenDelta(
   model: string,
-  useThinking = true
+  useThinking = true,
+  mode: ConversationMode = 'multiturn'
 ): GeminiTokenDelta | null {
-  return instances.get(cacheKey(model, useThinking))?.lastDelta ?? null;
+  return instances.get(cacheKey(model, useThinking, mode))?.lastDelta ?? null;
 }
 
 // Re-export the shared key/availability/model helpers so callers don't have

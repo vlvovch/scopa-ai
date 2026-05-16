@@ -6,7 +6,13 @@
 import OpenAI from 'openai';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import {
+  SYSTEM_INSTRUCTION_MULTITURN,
+  SYSTEM_INSTRUCTION_SINGLETURN,
+  buildTurnPrompt,
+  buildSingleTurnPrompt,
+} from './prompts';
+import type { ConversationMode } from './gemini';
 import {
   isOpenAIAvailable,
   fetchOpenAIModels,
@@ -44,6 +50,7 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
 
   private client: OpenAI;
   private model: string;
+  private mode: ConversationMode;
   private conversationId: string | null = null;
   private tracker: TokenTracker;
 
@@ -56,9 +63,14 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
     return this.tracker.lastDelta;
   }
 
-  constructor(apiKey: string, model: string = DEFAULT_OPENAI_MODEL) {
+  constructor(
+    apiKey: string,
+    model: string = DEFAULT_OPENAI_MODEL,
+    mode: ConversationMode = 'multiturn'
+  ) {
     this.client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
     this.model = model;
+    this.mode = mode;
     this.name = displayNameFor(model);
     this.tracker = new TokenTracker(model, this.name);
   }
@@ -82,7 +94,10 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
       return validMoves[0];
     }
 
-    const prompt = buildTurnPrompt(context);
+    const prompt =
+      this.mode === 'singleturn'
+        ? buildSingleTurnPrompt(context)
+        : buildTurnPrompt(context);
     // eslint-disable-next-line no-console
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
@@ -90,9 +105,15 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
       const startTime = performance.now();
       const response = await this.client.responses.create({
         model: this.model,
-        instructions: SYSTEM_INSTRUCTION_MULTITURN,
+        instructions:
+          this.mode === 'singleturn'
+            ? SYSTEM_INSTRUCTION_SINGLETURN
+            : SYSTEM_INSTRUCTION_MULTITURN,
         input: prompt,
-        conversation: this.conversationId ? { id: this.conversationId } : undefined,
+        conversation:
+          this.mode === 'multiturn' && this.conversationId
+            ? { id: this.conversationId }
+            : undefined,
         text: {
           format: {
             type: 'json_schema',
@@ -102,7 +123,9 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
         },
       });
 
-      if (response.conversation?.id) this.conversationId = response.conversation.id;
+      if (this.mode === 'multiturn' && response.conversation?.id) {
+        this.conversationId = response.conversation.id;
+      }
 
       // OpenAI's usage shape: { input_tokens, output_tokens, total_tokens,
       // input_tokens_details: { cached_tokens }, output_tokens_details: { reasoning_tokens } }
@@ -154,16 +177,22 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
 
 const instances = new Map<string, OpenAIBriscolaAI>();
 
+function cacheKey(model: string, mode: ConversationMode): string {
+  return `${model}::${mode}`;
+}
+
 export function getOpenAIBriscolaAI(
-  model: string = DEFAULT_OPENAI_MODEL
+  model: string = DEFAULT_OPENAI_MODEL,
+  mode: ConversationMode = 'multiturn'
 ): OpenAIBriscolaAI | null {
   if (!isOpenAIAvailable()) return null;
   const apiKey = getOpenAIApiKey();
   if (!apiKey) return null;
-  let inst = instances.get(model);
+  const key = cacheKey(model, mode);
+  let inst = instances.get(key);
   if (!inst) {
-    inst = new OpenAIBriscolaAI(apiKey, model);
-    instances.set(model, inst);
+    inst = new OpenAIBriscolaAI(apiKey, model, mode);
+    instances.set(key, inst);
   }
   return inst;
 }
@@ -172,20 +201,32 @@ export function clearOpenAICache(): void {
   instances.clear();
 }
 
-export function startOpenAIRound(model: string): void {
-  instances.get(model)?.startRound();
+export function startOpenAIRound(
+  model: string,
+  mode: ConversationMode = 'multiturn'
+): void {
+  instances.get(cacheKey(model, mode))?.startRound();
 }
 
-export function endOpenAIRound(model: string): void {
-  instances.get(model)?.endRound();
+export function endOpenAIRound(
+  model: string,
+  mode: ConversationMode = 'multiturn'
+): void {
+  instances.get(cacheKey(model, mode))?.endRound();
 }
 
-export function getOpenAIBriscolaTokenStats(model: string): GeminiTokenStats | null {
-  return instances.get(model)?.tokenStats ?? null;
+export function getOpenAIBriscolaTokenStats(
+  model: string,
+  mode: ConversationMode = 'multiturn'
+): GeminiTokenStats | null {
+  return instances.get(cacheKey(model, mode))?.tokenStats ?? null;
 }
 
-export function getOpenAIBriscolaTokenDelta(model: string): GeminiTokenDelta | null {
-  return instances.get(model)?.lastDelta ?? null;
+export function getOpenAIBriscolaTokenDelta(
+  model: string,
+  mode: ConversationMode = 'multiturn'
+): GeminiTokenDelta | null {
+  return instances.get(cacheKey(model, mode))?.lastDelta ?? null;
 }
 
 export {

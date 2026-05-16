@@ -37,6 +37,7 @@ export {
   getGeminiBriscolaTokenDelta,
   DEFAULT_GEMINI_MODEL,
   type GeminiModelInfo,
+  type ConversationMode,
 } from './gemini';
 export {
   getOpenAIBriscolaAI,
