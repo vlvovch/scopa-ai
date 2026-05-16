@@ -2,9 +2,11 @@
 
 A web-based implementation of the classic Italian card game **Scopa**, featuring CPU opponents of varying difficulty and AI opponents powered by LLMs (Gemini, GPT, Claude), real-time multiplayer, and spectator mode to watch CPU/AI vs CPU/AI battles.
 
+The same codebase now also includes **Briscola** — the other Italian trick-taking classic — built as a separate deployment that shares the LLM, settings, and UI infrastructure.
+
 ![Scopa AI gameplay](screenshots/gameplay.png)
 
-<p align="center"><b><a href="https://scopa-ai.vovchenko.net">Play Now</a></b></p>
+<p align="center"><b>Play: <a href="https://scopa-ai.vovchenko.net">Scopa</a> · <a href="https://briscola-ai.vovchenko.net">Briscola</a></b></p>
 
 ---
 
@@ -15,6 +17,7 @@ This is a continuation of [vlvovch/scopa](https://github.com/vlvovch/scopa), whi
 - **LLM AI opponents** (Gemini, GPT, Claude) that can reason about the game
 - **Real-time multiplayer** via WebSocket server
 - **Watch mode** for spectating CPU/AI vs CPU/AI battles
+- **Briscola** as a sibling game in the same codebase, deployed separately at [briscola-ai.vovchenko.net](https://briscola-ai.vovchenko.net)
 
 As a physicist who uses code as a tool for research a lot but has limited background in web development, during the winter break I wanted to explore how far AI coding assistants could take me in building a complete, polished web application, in the future I plan to use this project as a basis for building more complex physics applications.
 The codebase was developed using [Claude Code](https://claude.ai/code) - Anthropic's agentic coding tool. 
@@ -87,6 +90,10 @@ Play against friends online via WebSocket server:
 - Multiple Italian card decks (Napoletane, Siciliane, Piacentine, Bergamasche, Sarde, Romagnole)
 - Progressive Web App (PWA) support for offline play (CPU opponents only)
 
+### Briscola
+
+The Briscola build reuses the same game-mode menu, settings, multiplayer, watch mode, and LLM opponents as Scopa, with game-specific rules, prompts, and an Esperto bot tuned for trick-taking (determinization + alpha-beta minimax). Play at **[briscola-ai.vovchenko.net](https://briscola-ai.vovchenko.net)** or run locally with `npm run dev:briscola`.
+
 ---
 
 ## Quick Start
@@ -107,11 +114,14 @@ cd scopa-ai
 # Install dependencies
 npm install
 
-# Start development server
+# Start development server (Scopa)
 npm run dev
+
+# Or run the Briscola build
+npm run dev:briscola
 ```
 
-The app will be available at `http://localhost:5173` (port may vary, see the logs after running the command).
+The app will be available at `http://localhost:5173` (port may vary, see the logs after running the command). Scopa and Briscola are separate builds (`npm run build` vs `npm run build:briscola`, output to `dist/` vs `dist-briscola/`).
 
 ---
 
@@ -195,10 +205,12 @@ VITE_WS_URL=ws://localhost:8080
 ```
 scopa-ai/
 ├── src/
-│   ├── ai/              # AI opponent implementations
-│   ├── components/      # React UI components
-│   ├── game/            # Game logic (rules, scoring, deck)
-│   ├── hooks/           # React hooks (useGame, useMultiplayer, etc.)
+│   ├── ai/              # Shared LLM utilities (Seat, TokenTracker, schemas)
+│   ├── games/
+│   │   ├── scopa/       # Scopa rules, scoring, AI bots, ScopaApp
+│   │   └── briscola/    # Briscola rules, scoring, AI bots, BriscolaApp
+│   ├── components/      # Shared React UI (cards, modals, layout)
+│   ├── hooks/           # React hooks (useSettings, useStats, useMultiplayer)
 │   ├── multiplayer/     # Multiplayer types
 │   └── workers/         # Web Workers for background simulation
 ├── scopa-server/        # Multiplayer WebSocket server
@@ -232,7 +244,7 @@ npm run lint
 
 ### CLI Simulation Tool
 
-Run AI vs AI simulations from the command line:
+Run AI vs AI simulations from the command line. Scopa has a full-featured runner with CLI flags:
 
 ```bash
 # Run 100 games: Heuristic vs Random
@@ -244,6 +256,8 @@ npm run simulate -- -p1=gemini -p2=claude -g=10 -v
 # Save results to JSON
 npm run simulate -- -p1=expert -p2=heuristic -g=50 -o=results.json
 ```
+
+Briscola has a smaller benchmark script (hardcoded Furbo vs Esperto): `npx tsx scripts/briscola-sim.ts`.
 
 ---
 
