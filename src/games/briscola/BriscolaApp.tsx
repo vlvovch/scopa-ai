@@ -51,6 +51,10 @@ import {
 } from '../../components/UI/StatsModal';
 import { RulesModal } from '../../components/UI/RulesModal';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
+import {
+  BriscolaReasoningModal,
+  type BriscolaReasoningData,
+} from './BriscolaReasoningModal';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
@@ -416,14 +420,18 @@ function BriscolaApp() {
     settings.claudeModel || DEFAULT_CLAUDE_MODEL
   );
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
-  // Game mode + watch-mode bots. In 'play' the local user is 'human' and
-  // `opponentName` drives the 'cpu' side. In 'watch' both seats are sync
-  // CPU bots (LLM watch is intentionally not supported — burns the quota).
+  // Game mode + watch-mode opponents. Both seats accept any opponent
+  // (CPU or LLM) — same as Scopa. Burning LLM quota in watch mode is the
+  // user's call.
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
-  const [watchBots, setWatchBots] = useState<{
-    player1: CpuBotName;
-    player2: CpuBotName;
+  const [watchOpponents, setWatchOpponents] = useState<{
+    player1: BriscolaOpponentName;
+    player2: BriscolaOpponentName;
   }>({ player1: 'heuristic', player2: 'expert' });
+
+  // Single thinking toggle applied to Gemini + Claude (OpenAI uses its own
+  // server-side reasoning). Mirrors Scopa's behavior.
+  const [useThinking, setUseThinking] = useState<boolean>(true);
 
   // Last move each player made (used as `lastSelfMove` / `lastOpponentMove`
   // when building the LLM prompt). Reset at the start of every round.
@@ -432,45 +440,52 @@ function BriscolaApp() {
     cpu: null,
   });
 
+  // LLM reasoning indexed by the played card's id, so clicking that card in
+  // the trick area can surface the bot's explanation. Sync bots add no
+  // entries, so the modal trigger never fires for them.
+  const lastReasoningsRef = useRef<Map<string, BriscolaReasoningData>>(new Map());
+  const [reasoningModal, setReasoningModal] = useState<{
+    open: boolean;
+    data: BriscolaReasoningData | null;
+  }>({ open: false, data: null });
+
+  // Map an opponent name to the actual AI player instance. Falls back to
+  // the heuristic CPU if an LLM isn't reachable (proxy unset, no key, etc.)
+  // so the game can't deadlock on a config glitch.
+  const resolveBot = useCallback(
+    (name: BriscolaOpponentName): AnyAIPlayer => {
+      if (name === 'gemini-free') {
+        return getGeminiFreeBriscolaAI() ?? CPU_BOTS.heuristic;
+      }
+      if (name === 'gemini') {
+        return getGeminiBriscolaAI(geminiModel, useThinking) ?? CPU_BOTS.heuristic;
+      }
+      if (name === 'openai') {
+        return getOpenAIBriscolaAI(openaiModel) ?? CPU_BOTS.heuristic;
+      }
+      if (name === 'claude') {
+        return getClaudeBriscolaAI(claudeModel, useThinking) ?? CPU_BOTS.heuristic;
+      }
+      return CPU_BOTS[name];
+    },
+    [geminiModel, openaiModel, claudeModel, useThinking]
+  );
+
   // Resolve which bot drives a given player. Returns AnyAIPlayer because
   // Play mode may bind 'cpu' to an async LLM; the move-selection effect
   // awaits the result either way.
   const botFor = useCallback(
     (player: PlayerId): AnyAIPlayer => {
       if (gameMode === 'watch') {
-        return CPU_BOTS[player === 'human' ? watchBots.player1 : watchBots.player2];
+        return resolveBot(
+          player === 'human' ? watchOpponents.player1 : watchOpponents.player2
+        );
       }
-      if (player === 'cpu') {
-        if (opponentName === 'gemini-free') {
-          const ai = getGeminiFreeBriscolaAI();
-          if (ai) return ai;
-        }
-        if (opponentName === 'gemini') {
-          const ai = getGeminiBriscolaAI(geminiModel);
-          if (ai) return ai;
-        }
-        if (opponentName === 'openai') {
-          const ai = getOpenAIBriscolaAI(openaiModel);
-          if (ai) return ai;
-        }
-        if (opponentName === 'claude') {
-          const ai = getClaudeBriscolaAI(claudeModel);
-          if (ai) return ai;
-        }
-        // Fallback to a sane CPU bot if the LLM isn't reachable (proxy
-        // unset, no key, etc.). Saves us from crashing mid-game.
-        const isLLM =
-          opponentName === 'gemini-free' ||
-          opponentName === 'gemini' ||
-          opponentName === 'openai' ||
-          opponentName === 'claude';
-        const cpuName: CpuBotName = isLLM ? 'heuristic' : opponentName;
-        return CPU_BOTS[cpuName];
-      }
+      if (player === 'cpu') return resolveBot(opponentName);
       // 'human' seat in Play mode is the user — should never be queried.
       return CPU_BOTS.heuristic;
     },
-    [gameMode, watchBots, opponentName, geminiModel, openaiModel, claudeModel]
+    [gameMode, watchOpponents, opponentName, resolveBot]
   );
 
   // Animation speed scales every timer-driven duration by a multiplier.
@@ -600,25 +615,37 @@ function BriscolaApp() {
     if (prevRoundRef.current === key) return;
     prevRoundRef.current = key;
     lastMovesRef.current = { human: null, cpu: null };
-    if (opponentName === 'gemini-free') {
-      // New match (round 1) → new gameId for rate-limiting; otherwise just
-      // reset the per-round chat history.
-      if (roundNumber === 1) newGeminiFreeGame();
-      startGeminiFreeRound();
+    lastReasoningsRef.current.clear();
+    // Build the set of opponents whose LLM lifecycle we need to nudge.
+    // Play mode = the single opponent; Watch mode = both seats.
+    const activeOpponents: BriscolaOpponentName[] =
+      gameMode === 'watch'
+        ? [watchOpponents.player1, watchOpponents.player2]
+        : [opponentName];
+    for (const op of activeOpponents) {
+      if (op === 'gemini-free') {
+        if (roundNumber === 1) newGeminiFreeGame();
+        startGeminiFreeRound();
+      } else if (op === 'gemini') startGeminiRound(geminiModel, useThinking);
+      else if (op === 'openai') startOpenAIRound(openaiModel);
+      else if (op === 'claude') startClaudeRound(claudeModel, useThinking);
     }
-    if (opponentName === 'gemini') startGeminiRound(geminiModel);
-    if (opponentName === 'openai') startOpenAIRound(openaiModel);
-    if (opponentName === 'claude') startClaudeRound(claudeModel);
-  }, [state, opponentName, geminiModel, openaiModel, claudeModel]);
+  }, [state, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking]);
 
   // Close out the LLM round when we hit roundEnd. (No-op for sync bots.)
   useEffect(() => {
     if (state.status !== 'roundEnd') return;
-    if (opponentName === 'gemini-free') endGeminiFreeRound();
-    if (opponentName === 'gemini') endGeminiRound(geminiModel);
-    if (opponentName === 'openai') endOpenAIRound(openaiModel);
-    if (opponentName === 'claude') endClaudeRound(claudeModel);
-  }, [state.status, opponentName, geminiModel, openaiModel, claudeModel]);
+    const activeOpponents: BriscolaOpponentName[] =
+      gameMode === 'watch'
+        ? [watchOpponents.player1, watchOpponents.player2]
+        : [opponentName];
+    for (const op of activeOpponents) {
+      if (op === 'gemini-free') endGeminiFreeRound();
+      else if (op === 'gemini') endGeminiRound(geminiModel, useThinking);
+      else if (op === 'openai') endOpenAIRound(openaiModel);
+      else if (op === 'claude') endClaudeRound(claudeModel, useThinking);
+    }
+  }, [state.status, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking]);
 
   // CPU decision → CPU_START. Fires whenever the current player is bot-
   // controlled: always 'cpu' in Play mode, both 'human' and 'cpu' in Watch.
@@ -671,6 +698,23 @@ function BriscolaApp() {
         );
         if (!stillLegal) return;
         lastMovesRef.current[current] = move;
+        // If this was an LLM, stash the reasoning indexed by card id so the
+        // user can click the trick card to see it. The opponent name driving
+        // this seat tells us which provider's BOT_LABEL to display.
+        const seatOpponent =
+          gameMode === 'watch'
+            ? current === 'human'
+              ? watchOpponents.player1
+              : watchOpponents.player2
+            : opponentName;
+        const reasoning = (bot as { lastReasoning?: string }).lastReasoning;
+        if (reasoning && seatOpponent) {
+          lastReasoningsRef.current.set(move.cardPlayed.id, {
+            card: move.cardPlayed,
+            botLabel: bot.name || BOT_LABELS[seatOpponent],
+            reasoning,
+          });
+        }
         dispatch({ type: 'CPU_START', move });
       } catch (e) {
         if (cancelled) return;
@@ -758,6 +802,13 @@ function BriscolaApp() {
   // Which player's captured pile is currently open as a modal (null = closed)
   const [openPile, setOpenPile] = useState<PlayerId | null>(null);
 
+  // Open the reasoning modal when the user clicks a trick card that an
+  // LLM played. Sync-bot cards have no entry → click is a no-op.
+  const onTrickCardClick = useCallback((card: BriscolaCard) => {
+    const data = lastReasoningsRef.current.get(card.id);
+    if (data) setReasoningModal({ open: true, data });
+  }, []);
+
   if (state.status === 'idle') {
     return (
       <>
@@ -780,9 +831,11 @@ function BriscolaApp() {
             setClaudeModel(m);
             updateSetting('claudeModel', m);
           }}
-          watchBots={watchBots}
-          onSetWatchBot={(p, name) =>
-            setWatchBots((prev) => ({ ...prev, [p]: name }))
+          useThinking={useThinking}
+          onToggleThinking={setUseThinking}
+          watchOpponents={watchOpponents}
+          onSetWatchOpponent={(p, name) =>
+            setWatchOpponents((prev) => ({ ...prev, [p]: name }))
           }
           // Pull the default directly from settings so changes in the
           // Settings modal flow through to the start screen live.
@@ -826,15 +879,16 @@ function BriscolaApp() {
       <BriscolaBoard
         state={state}
         cpuBotLabel={
-          gameMode === 'watch' ? BOT_LABELS[watchBots.player2] : BOT_LABELS[opponentName]
+          gameMode === 'watch' ? BOT_LABELS[watchOpponents.player2] : BOT_LABELS[opponentName]
         }
-        opponentName={gameMode === 'watch' ? watchBots.player2 : opponentName}
-        humanLabel={gameMode === 'watch' ? BOT_LABELS[watchBots.player1] : 'You'}
-        humanBotName={gameMode === 'watch' ? watchBots.player1 : null}
+        opponentName={gameMode === 'watch' ? watchOpponents.player2 : opponentName}
+        humanLabel={gameMode === 'watch' ? BOT_LABELS[watchOpponents.player1] : 'You'}
+        humanBotName={gameMode === 'watch' ? watchOpponents.player1 : null}
         isWatchMode={gameMode === 'watch'}
         autoAdvanceSpectator={settings.autoAdvanceSpectator}
         showPileStats={settings.showPileStats}
         onCardClick={onPlayerCardClick}
+        onTrickCardClick={onTrickCardClick}
         onNextRound={() => dispatch({ type: 'NEXT_ROUND' })}
         onRestart={handleRestartRequest}
         onOpenPile={setOpenPile}
@@ -852,10 +906,10 @@ function BriscolaApp() {
           playerName={
             openPile === 'human'
               ? gameMode === 'watch'
-                ? BOT_LABELS[watchBots.player1]
+                ? BOT_LABELS[watchOpponents.player1]
                 : 'You'
               : gameMode === 'watch'
-                ? BOT_LABELS[watchBots.player2]
+                ? BOT_LABELS[watchOpponents.player2]
                 : BOT_LABELS[opponentName]
           }
           onClose={() => setOpenPile(null)}
@@ -885,6 +939,11 @@ function BriscolaApp() {
         onConfirm={confirmRestart}
         onCancel={() => setConfirmNewGame(false)}
       />
+      <BriscolaReasoningModal
+        isOpen={reasoningModal.open}
+        data={reasoningModal.data}
+        onClose={() => setReasoningModal({ open: false, data: null })}
+      />
     </DeckProvider>
   );
 }
@@ -905,6 +964,7 @@ function BriscolaBoard({
   autoAdvanceSpectator,
   showPileStats,
   onCardClick,
+  onTrickCardClick,
   onNextRound,
   onRestart,
   onOpenPile,
@@ -916,12 +976,13 @@ function BriscolaBoard({
   cpuBotLabel: string;
   opponentName: BriscolaOpponentName;
   humanLabel: string;
-  /** When in watch mode, the bot name driving the bottom seat (else null). */
-  humanBotName: CpuBotName | null;
+  /** When in watch mode, the opponent name driving the bottom seat (else null). */
+  humanBotName: BriscolaOpponentName | null;
   isWatchMode: boolean;
   autoAdvanceSpectator: boolean;
   showPileStats: boolean;
   onCardClick: (card: BriscolaCard) => void;
+  onTrickCardClick: (card: BriscolaCard) => void;
   onNextRound: () => void;
   onRestart: () => void;
   onOpenPile: (player: PlayerId) => void;
@@ -1093,6 +1154,7 @@ function BriscolaBoard({
             followIsWinner={animTrick !== null && animTrick.winner === animTrick.follower}
             tableRef={tableRef}
             isDragOver={isDragOver}
+            onCardClick={onTrickCardClick}
           />
         }
         humanHand={
@@ -1198,6 +1260,7 @@ function BriscolaTable({
   followIsWinner,
   tableRef,
   isDragOver,
+  onCardClick,
 }: {
   deckCount: number;
   trump: BriscolaCard;
@@ -1208,6 +1271,8 @@ function BriscolaTable({
   followIsWinner: boolean;
   tableRef: React.RefObject<HTMLDivElement>;
   isDragOver: boolean;
+  /** Click handler for individual trick cards — opens reasoning modal. */
+  onCardClick: (card: BriscolaCard) => void;
 }) {
   // Highlight the drop zone while the user is dragging
   const trickAreaStyle = isDragOver
@@ -1229,6 +1294,7 @@ function BriscolaTable({
               card={leadCard}
               exitToward={winner}
               isWinner={leadIsWinner}
+              onClick={() => onCardClick(leadCard)}
             />
           )}
           {followCard && (
@@ -1237,6 +1303,7 @@ function BriscolaTable({
               card={followCard}
               exitToward={winner}
               isWinner={followIsWinner}
+              onClick={() => onCardClick(followCard)}
             />
           )}
         </AnimatePresence>
@@ -1302,10 +1369,12 @@ function TrickCard({
   card,
   exitToward,
   isWinner = false,
+  onClick,
 }: {
   card: BriscolaCard;
   exitToward: PlayerId | null;
   isWinner?: boolean;
+  onClick?: () => void;
 }) {
   // Fly toward the winning corner pile.
   // CPU pile: top-right.   Human pile: bottom-left.
@@ -1336,6 +1405,8 @@ function TrickCard({
         transition: { duration: CAPTURE_DURATION_MS / 1000, ease: [0.25, 0.1, 0.25, 1] },
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+      onClick={onClick}
+      style={onClick ? { cursor: 'pointer' } : undefined}
     >
       <Card card={card} />
     </motion.div>
