@@ -59,6 +59,7 @@ import { GameControls } from '../../components/UI/GameControls';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { TurnTimer } from '../../components/UI/TurnTimer';
+import { WaitingForOpponent } from '../../components/UI/WaitingForOpponent';
 import { useBriscolaMultiplayer } from '../../hooks/useBriscolaMultiplayer';
 import type {
   MultiplayerPlayerId,
@@ -1138,17 +1139,24 @@ function BriscolaApp() {
   // Multiplayer bridging effects
   // ---------------------------------------------------------------------------
 
-  // Minimal Phase 3b: when the server reports a move, immediately commit the
-  // pending state (no in-flight card animation yet — that's Phase 3c). Also
-  // fire a 'play' or 'capture' sound so the audio feedback isn't dead silent.
+  // When the server reports a move, fire the sound and apply the pending
+  // state. For trick-completing moves (the second card of a pair), pause
+  // briefly so the two-card trick is visible before it gets swept into the
+  // winner's pile — otherwise the capture is instantaneous and players
+  // can't see what just won. Lead plays apply immediately (nothing to
+  // resolve yet, the played card just appears in the trick area).
   useEffect(() => {
     if (!multiplayer.lastMove) return;
-    const wasFollow =
-      multiplayer.gameState?.round?.trick.leadCard !== null;
+    const wasFollow = multiplayer.gameState?.round?.trick.leadCard !== null;
     play(wasFollow ? 'capture' : 'play');
-    multiplayer.applyPendingState();
-    // Intentionally only depends on lastMove identity — applyPendingState is
-    // a stable useCallback, gameState is read once at trigger time.
+    if (!wasFollow) {
+      multiplayer.applyPendingState();
+      return;
+    }
+    const t = setTimeout(() => multiplayer.applyPendingState(), dur(TRICK_VISIBLE_MS));
+    return () => clearTimeout(t);
+    // Intentionally only depends on lastMove identity — applyPendingState
+    // and dur are stable, gameState is read once at trigger time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multiplayer.lastMove]);
 
@@ -1308,12 +1316,9 @@ function BriscolaApp() {
         <BriscolaBoard
           state={bridgedState}
           cpuBotLabel={opponentLabel}
-          // Opponent in multiplayer is a human, not a BriscolaOpponentName.
-          // Cast through unknown — BriscolaBoard only uses opponentName for
-          // AIPlayerLabel routing, which we suppress by leaving the AI flags
-          // false. Passing 'heuristic' as a typesafe stand-in avoids the
-          // cast hatch while still rendering only the plain label.
-          opponentName={'heuristic' as BriscolaOpponentName}
+          // null = remote human opponent; BriscolaBoard then renders the
+          // plain cpuBotLabel (opponent's nickname) instead of an AI brand icon.
+          opponentName={null}
           humanLabel={youLabel}
           humanBotName={null}
           isWatchMode={false}
@@ -1417,9 +1422,30 @@ function BriscolaApp() {
     );
   }
 
+  // Multiplayer waiting room: shown after the user created a room but
+  // before the second player has joined (room exists, no gameState yet).
+  // Without this branch the lobby form keeps showing — the user clicks
+  // Create Game repeatedly thinking nothing happened.
+  if (isMultiplayerMode && multiplayer.roomCode && !multiplayer.gameState) {
+    return (
+      <WaitingForOpponent
+        roomCode={multiplayer.roomCode}
+        nickname={multiplayer.nickname}
+        targetScore={multiplayer.targetScore}
+        turnTimerEnabled={multiplayer.turnTimerEnabled}
+        onUpdateNickname={multiplayer.updateNickname}
+        onLeaveRoom={() => {
+          multiplayer.leaveRoom();
+          setIsMultiplayerMode(false);
+        }}
+      />
+    );
+  }
+
   // Multiplayer lobby: shown when the user is in MP mode but not yet in
-  // a room (no gameState from server). Once gameState arrives, the in-game
-  // render branch above takes over.
+  // a room (no gameState from server, no roomCode either). Once a room is
+  // created (CREATE_ROOM acknowledged) the waiting-room branch above
+  // takes over; once gameState arrives, the in-game render takes over.
   if (isMultiplayerMode && !multiplayer.gameState) {
     return (
       <MultiplayerLobby
@@ -1663,7 +1689,9 @@ function BriscolaBoard({
   state: Exclude<AppState, { status: 'idle' }>;
   /** Plain-text fallback (used by ReasoningModal title etc.). */
   cpuBotLabel: string;
-  opponentName: BriscolaOpponentName;
+  /** null = the cpu seat is a remote human player (multiplayer) and the
+   *  AIPlayerLabel/brand-icon path must be skipped — use cpuBotLabel instead. */
+  opponentName: BriscolaOpponentName | null;
   /** Provider model id for the CPU seat (undefined for non-LLM opponents). */
   cpuModel?: string;
   /** Plain-text fallback for the user-side label. */
@@ -1844,7 +1872,7 @@ function BriscolaBoard({
               targetScore={g.targetScore}
               currentPlayer={g.round.currentPlayer}
               cpuName={cpuBotLabel}
-              player2AIType={opponentName}
+              player2AIType={opponentName ?? undefined}
               player2Model={cpuModel}
               humanName={humanLabel}
               player1AIType={humanBotName ?? undefined}
