@@ -7,11 +7,17 @@
 
 import { useEffect, useState } from 'react';
 import styles from '../../components/UI/StartScreen.module.css';
+import { isGeminiFreeAvailable } from './ai/gemini-free';
 
+/** Sync CPU bots — usable on either seat in Watch mode. */
 export type CpuBotName = 'random' | 'heuristic' | 'expert';
+
+/** Anything that can be the *Play-mode* opponent — CPU or an async LLM. */
+export type BriscolaOpponentName = CpuBotName | 'gemini-free';
+
 export type BriscolaGameMode = 'play' | 'watch';
 
-const BOT_INFO: Record<CpuBotName, { icon: string; name: string; description: string }> = {
+const BOT_INFO: Record<BriscolaOpponentName, { icon: string; name: string; description: string }> = {
   random: {
     icon: '🐒',
     name: 'Scimmietta',
@@ -27,22 +33,29 @@ const BOT_INFO: Record<CpuBotName, { icon: string; name: string; description: st
     name: 'Esperto',
     description: 'Determinization + minimax — samples opponent hands and looks ahead a couple of tricks.',
   },
+  'gemini-free': {
+    icon: '✦',
+    name: 'Gemini 3 Flash (Free)',
+    description: 'Google Gemini via free proxy with thinking. Limited to 3 games/day per user.',
+  },
 };
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
 
 interface StartScreenProps {
-  cpuBotName: CpuBotName;
-  onSetCpuBotName: (name: CpuBotName) => void;
+  opponentName: BriscolaOpponentName;
+  onSetOpponentName: (name: BriscolaOpponentName) => void;
   watchBots: { player1: CpuBotName; player2: CpuBotName };
   onSetWatchBot: (player: 'player1' | 'player2', name: CpuBotName) => void;
   defaultBestOf: number;
   onStartGame: (bestOf: number, gameMode: BriscolaGameMode) => void;
 }
 
+const CPU_BOT_NAMES: CpuBotName[] = ['random', 'heuristic', 'expert'];
+
 export function StartScreen({
-  cpuBotName,
-  onSetCpuBotName,
+  opponentName,
+  onSetOpponentName,
   watchBots,
   onSetWatchBot,
   defaultBestOf,
@@ -126,17 +139,22 @@ export function StartScreen({
             <div className={styles.dropdownRow}>
               <select
                 className={styles.dropdown}
-                value={cpuBotName}
-                onChange={(e) => onSetCpuBotName(e.target.value as CpuBotName)}
+                value={opponentName}
+                onChange={(e) => onSetOpponentName(e.target.value as BriscolaOpponentName)}
               >
-                {(Object.keys(BOT_INFO) as CpuBotName[]).map((name) => (
+                {CPU_BOT_NAMES.map((name) => (
                   <option key={name} value={name}>
                     {BOT_INFO[name].icon} {BOT_INFO[name].name}
                   </option>
                 ))}
+                {isGeminiFreeAvailable() && (
+                  <option value="gemini-free">
+                    {BOT_INFO['gemini-free'].icon} {BOT_INFO['gemini-free'].name}
+                  </option>
+                )}
               </select>
             </div>
-            <p className={styles.aiDescription}>{BOT_INFO[cpuBotName].description}</p>
+            <p className={styles.aiDescription}>{BOT_INFO[opponentName].description}</p>
           </div>
         ) : (
           <div className={styles.opponentSelector}>
@@ -147,7 +165,7 @@ export function StartScreen({
                 value={watchBots.player1}
                 onChange={(e) => onSetWatchBot('player1', e.target.value as CpuBotName)}
               >
-                {(Object.keys(BOT_INFO) as CpuBotName[]).map((name) => (
+                {CPU_BOT_NAMES.map((name) => (
                   <option key={name} value={name}>
                     {BOT_INFO[name].icon} {BOT_INFO[name].name}
                   </option>
@@ -161,7 +179,7 @@ export function StartScreen({
                 value={watchBots.player2}
                 onChange={(e) => onSetWatchBot('player2', e.target.value as CpuBotName)}
               >
-                {(Object.keys(BOT_INFO) as CpuBotName[]).map((name) => (
+                {CPU_BOT_NAMES.map((name) => (
                   <option key={name} value={name}>
                     {BOT_INFO[name].icon} {BOT_INFO[name].name}
                   </option>

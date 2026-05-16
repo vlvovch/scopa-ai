@@ -3,6 +3,29 @@
 import type { Card, Move, PlayerId, Suit } from '../types';
 
 /**
+ * Extended context for LLM-based (async) AI players. Adds running match
+ * info + last-move pointers + the list of valid moves the model picks from
+ * — every legal hand card, wrapped as a Move so the response can be a plain
+ * 0-based index.
+ */
+export interface LLMAIContext extends AIContext {
+  /** Cumulative round wins, this match. */
+  scores: { self: number; opponent: number };
+  /** Round wins needed to take the match (== "First To N"). */
+  targetScore: number;
+  /** 1-based round number within the current match. */
+  roundNumber: number;
+  /** Number of cards in opponent's hand right now. */
+  opponentHandCount: number;
+  /** Last move the opponent made (null = start of round). */
+  lastOpponentMove: Move | null;
+  /** Last move we made (null = haven't moved yet this round). */
+  lastSelfMove: Move | null;
+  /** Every legal move available this turn (== one per card in hand). */
+  validMoves: Move[];
+}
+
+/**
  * Context provided to a Briscola AI for picking its move.
  * Contains exactly the information a player on the table would see.
  */
@@ -38,11 +61,11 @@ export interface AIPlayer {
   selectMove(context: AIContext): Move;
 }
 
-/** Asynchronous AI player (LLM bots — added later) */
+/** Asynchronous AI player (LLM bots). Takes the extended LLMAIContext. */
 export interface AsyncAIPlayer {
   readonly name: string;
   readonly isAsync: true;
-  selectMove(context: AIContext): Promise<Move>;
+  selectMove(context: LLMAIContext): Promise<Move>;
   startRound?(): void;
   endRound?(): void;
 }

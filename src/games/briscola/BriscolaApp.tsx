@@ -37,7 +37,12 @@ import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
-import { StartScreen, type CpuBotName, type BriscolaGameMode } from './StartScreen';
+import {
+  StartScreen,
+  type CpuBotName,
+  type BriscolaOpponentName,
+  type BriscolaGameMode,
+} from './StartScreen';
 import { SettingsModal } from '../../components/UI/SettingsModal';
 import {
   StatsModal,
@@ -52,6 +57,14 @@ import { GameControls } from '../../components/UI/GameControls';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
 import { expertAI } from './ai/expert';
+import {
+  getGeminiFreeBriscolaAI,
+  startGeminiFreeRound,
+  endGeminiFreeRound,
+  newGeminiFreeGame,
+  RateLimitError,
+} from './ai/gemini-free';
+import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
 import type { AIPlayer } from './ai/types';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
@@ -336,10 +349,11 @@ const CPU_BOTS: Record<CpuBotName, AIPlayer> = {
   heuristic: heuristicAI,
   expert: expertAI,
 };
-const BOT_LABELS: Record<CpuBotName, string> = {
+const BOT_LABELS: Record<BriscolaOpponentName, string> = {
   random: 'Scimmietta',
   heuristic: 'Furbo',
   expert: 'Esperto',
+  'gemini-free': 'Gemini',
 };
 
 // The "best of" value now directly represents wins needed to take the
@@ -364,26 +378,50 @@ function BriscolaApp() {
       body.classList.add(`table-${settings.tableStyle}`);
     }
   }, [settings.tableStyle]);
-  const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.briscolaCpuBot);
+  // The active Play-mode opponent. May be a sync CPU bot or an async LLM.
+  const [opponentName, setOpponentName] = useState<BriscolaOpponentName>(
+    settings.briscolaCpuBot
+  );
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
   // Game mode + watch-mode bots. In 'play' the local user is 'human' and
-  // `cpuBotName` drives the 'cpu' side. In 'watch' both sides are bots —
-  // we use watchBots.player1 for 'human' and watchBots.player2 for 'cpu'.
+  // `opponentName` drives the 'cpu' side. In 'watch' both seats are sync
+  // CPU bots (LLM watch is intentionally not supported — burns the quota).
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
   const [watchBots, setWatchBots] = useState<{
     player1: CpuBotName;
     player2: CpuBotName;
   }>({ player1: 'heuristic', player2: 'expert' });
 
-  // Resolve which bot drives a given player based on the active mode.
+  // Last move each player made (used as `lastSelfMove` / `lastOpponentMove`
+  // when building the LLM prompt). Reset at the start of every round.
+  const lastMovesRef = useRef<{ human: Move | null; cpu: Move | null }>({
+    human: null,
+    cpu: null,
+  });
+
+  // Resolve which bot drives a given player. Returns AnyAIPlayer because
+  // Play mode may bind 'cpu' to an async LLM; the move-selection effect
+  // awaits the result either way.
   const botFor = useCallback(
-    (player: PlayerId): AIPlayer => {
+    (player: PlayerId): AnyAIPlayer => {
       if (gameMode === 'watch') {
         return CPU_BOTS[player === 'human' ? watchBots.player1 : watchBots.player2];
       }
-      return CPU_BOTS[cpuBotName];
+      if (player === 'cpu') {
+        if (opponentName === 'gemini-free') {
+          const ai = getGeminiFreeBriscolaAI();
+          if (ai) return ai;
+        }
+        // Fallback to a sane CPU bot if the LLM isn't reachable (e.g. proxy
+        // unset). Saves us from crashing mid-game on a config glitch.
+        const cpuName: CpuBotName =
+          opponentName === 'gemini-free' ? 'heuristic' : opponentName;
+        return CPU_BOTS[cpuName];
+      }
+      // 'human' seat in Play mode is the user — should never be queried.
+      return CPU_BOTS.heuristic;
     },
-    [gameMode, watchBots, cpuBotName]
+    [gameMode, watchBots, opponentName]
   );
 
   // Animation speed scales every timer-driven duration by a multiplier.
@@ -467,18 +505,21 @@ function BriscolaApp() {
     // Don't track watch-mode (CPU vs CPU) matches — they're not the user's
     // games, and conflating them with real play would skew win rates.
     if (gameMode === 'watch') return;
+    // LLM opponents aren't yet first-class in the stats store (it keys on
+    // CpuBotName). Skip tracking until we extend the store.
+    if (opponentName === 'gemini-free') return;
     // De-duplicate per match: build a stable id from the round-end snapshot.
     const matchId = `${state.game.roundNumber}-${state.game.scores.human}-${state.game.scores.cpu}-${state.game.targetScore}`;
     if (matchRecordedRef.current === matchId) return;
     matchRecordedRef.current = matchId;
     stats.recordMatch(
-      cpuBotName,
+      opponentName,
       state.game.scores.human,
       state.game.scores.cpu,
       bestOf,
       state.game.roundHistory
     );
-  }, [state, cpuBotName, bestOf, stats, gameMode]);
+  }, [state, opponentName, bestOf, stats, gameMode]);
 
   // Clear the dedup id whenever a new match starts.
   useEffect(() => {
@@ -486,6 +527,36 @@ function BriscolaApp() {
       matchRecordedRef.current = null;
     }
   }, [state.status]);
+
+  // Reset the per-round last-move pointers + reset the LLM conversation
+  // history at the start of every round (dealing → playing transition).
+  // prevRoundRef is keyed so that a brand-new match (back to idle then
+  // re-dealing round 1) re-triggers the hook even if roundNumber matches.
+  const prevRoundRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (state.status === 'idle') {
+      prevRoundRef.current = null;
+      return;
+    }
+    if (state.status !== 'dealing') return;
+    const roundNumber = state.game.roundNumber;
+    const key = `${roundNumber}-${state.game.round.dealer}-${state.game.targetScore}`;
+    if (prevRoundRef.current === key) return;
+    prevRoundRef.current = key;
+    lastMovesRef.current = { human: null, cpu: null };
+    if (opponentName === 'gemini-free') {
+      // New match (round 1) → new gameId for rate-limiting; otherwise just
+      // reset the per-round chat history.
+      if (roundNumber === 1) newGeminiFreeGame();
+      startGeminiFreeRound();
+    }
+  }, [state, opponentName]);
+
+  // Close out the LLM round when we hit roundEnd. (No-op for sync bots.)
+  useEffect(() => {
+    if (state.status !== 'roundEnd') return;
+    if (opponentName === 'gemini-free') endGeminiFreeRound();
+  }, [state.status, opponentName]);
 
   // CPU decision → CPU_START. Fires whenever the current player is bot-
   // controlled: always 'cpu' in Play mode, both 'human' and 'cpu' in Watch.
@@ -498,20 +569,65 @@ function BriscolaApp() {
 
     const g = state.game;
     const opp: PlayerId = current === 'human' ? 'cpu' : 'human';
-    const t = setTimeout(() => {
-      const move = botFor(current).selectMove({
-        hand: g.players[current].hand,
-        player: current,
-        trump: g.round.trump,
-        trumpSuit: g.round.trumpSuit,
-        leadCard: g.round.trick.leadCard,
-        deckCount: g.round.deck.length,
-        myCaptured: g.players[current].captured,
-        oppCaptured: g.players[opp].captured,
-      });
-      dispatch({ type: 'CPU_START', move });
+    const bot = botFor(current);
+    // Build the legal-moves list — in Briscola every hand card is a legal
+    // move (no follow-suit), so this is just hand.map → Move.
+    const validMoves: Move[] = g.players[current].hand.map((c) => ({
+      player: current,
+      cardPlayed: c,
+    }));
+    const llmCtx: LLMAIContext = {
+      hand: g.players[current].hand,
+      player: current,
+      trump: g.round.trump,
+      trumpSuit: g.round.trumpSuit,
+      leadCard: g.round.trick.leadCard,
+      deckCount: g.round.deck.length,
+      myCaptured: g.players[current].captured,
+      oppCaptured: g.players[opp].captured,
+      scores: { self: g.scores[current], opponent: g.scores[opp] },
+      targetScore: g.targetScore,
+      roundNumber: g.roundNumber,
+      opponentHandCount: g.players[opp].hand.length,
+      lastSelfMove: lastMovesRef.current[current],
+      lastOpponentMove: lastMovesRef.current[opp],
+      validMoves,
+    };
+
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (cancelled) return;
+      try {
+        const move = isAsyncAI(bot)
+          ? await bot.selectMove(llmCtx)
+          : bot.selectMove(llmCtx);
+        if (cancelled) return;
+        // Validate the move is actually legal — async LLMs can return stale
+        // ids if the state mutated mid-request (cancellation race).
+        const stillLegal = g.players[current].hand.some(
+          (c) => c.id === move.cardPlayed.id
+        );
+        if (!stillLegal) return;
+        lastMovesRef.current[current] = move;
+        dispatch({ type: 'CPU_START', move });
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof RateLimitError) {
+          // eslint-disable-next-line no-console
+          console.warn('[briscola] LLM rate-limit hit, falling back to heuristic.');
+        } else {
+          console.error('[briscola] LLM move failed:', e);
+        }
+        // Don't lock up the game — fall back to a sync bot for this move.
+        const fallback = CPU_BOTS.heuristic.selectMove(llmCtx);
+        lastMovesRef.current[current] = fallback;
+        dispatch({ type: 'CPU_START', move: fallback });
+      }
     }, dur(CPU_DECISION_DELAY_MS));
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [state, botFor, gameMode, dur]);
 
   // cpuAnimating: reveal → moving → apply. The 'play' sound fires when
@@ -569,8 +685,10 @@ function BriscolaApp() {
       // Watch mode: the 'human' seat is bot-controlled — ignore clicks so
       // we don't double-play.
       if (gameMode === 'watch') return;
+      const move: Move = { player: 'human', cardPlayed: card };
+      lastMovesRef.current.human = move;
       play('play');
-      dispatch({ type: 'HUMAN_PLAY', move: { player: 'human', cardPlayed: card } });
+      dispatch({ type: 'HUMAN_PLAY', move });
     },
     [state, play, gameMode]
   );
@@ -582,8 +700,8 @@ function BriscolaApp() {
     return (
       <>
         <StartScreen
-          cpuBotName={cpuBotName}
-          onSetCpuBotName={setCpuBotName}
+          opponentName={opponentName}
+          onSetOpponentName={setOpponentName}
           watchBots={watchBots}
           onSetWatchBot={(p, name) =>
             setWatchBots((prev) => ({ ...prev, [p]: name }))
@@ -630,9 +748,9 @@ function BriscolaApp() {
       <BriscolaBoard
         state={state}
         cpuBotLabel={
-          gameMode === 'watch' ? BOT_LABELS[watchBots.player2] : BOT_LABELS[cpuBotName]
+          gameMode === 'watch' ? BOT_LABELS[watchBots.player2] : BOT_LABELS[opponentName]
         }
-        cpuBotName={gameMode === 'watch' ? watchBots.player2 : cpuBotName}
+        opponentName={gameMode === 'watch' ? watchBots.player2 : opponentName}
         humanLabel={gameMode === 'watch' ? BOT_LABELS[watchBots.player1] : 'You'}
         humanBotName={gameMode === 'watch' ? watchBots.player1 : null}
         isWatchMode={gameMode === 'watch'}
@@ -660,7 +778,7 @@ function BriscolaApp() {
                 : 'You'
               : gameMode === 'watch'
                 ? BOT_LABELS[watchBots.player2]
-                : BOT_LABELS[cpuBotName]
+                : BOT_LABELS[opponentName]
           }
           onClose={() => setOpenPile(null)}
         />
@@ -702,7 +820,7 @@ export default BriscolaApp;
 function BriscolaBoard({
   state,
   cpuBotLabel,
-  cpuBotName,
+  opponentName,
   humanLabel,
   humanBotName,
   isWatchMode,
@@ -718,7 +836,7 @@ function BriscolaBoard({
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
-  cpuBotName: CpuBotName;
+  opponentName: BriscolaOpponentName;
   humanLabel: string;
   /** When in watch mode, the bot name driving the bottom seat (else null). */
   humanBotName: CpuBotName | null;
@@ -865,7 +983,7 @@ function BriscolaBoard({
               targetScore={g.targetScore}
               currentPlayer={g.round.currentPlayer}
               cpuName={cpuBotLabel}
-              player2AIType={cpuBotName}
+              player2AIType={opponentName}
               humanName={humanLabel}
               player1AIType={humanBotName ?? undefined}
             />
