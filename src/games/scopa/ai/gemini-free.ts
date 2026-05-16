@@ -314,69 +314,80 @@ class GeminiFreeAI implements AsyncAIPlayer {
   }
 }
 
-// Singleton instance (one per session, regenerates gameId per new game)
-let instance: GeminiFreeAI | null = null;
+// Per-seat instance map — spectator-mode with Free AI on both sides
+// would otherwise share a single chat session and rate-limit counter.
+// Each seat ('cpu' | 'p1' | 'p2') gets its own instance.
+import type { Seat } from './types';
+
+const instances = new Map<Seat, GeminiFreeAI>();
 
 export function createGeminiFreeAI(): AsyncAIPlayer | null {
   if (!isGeminiFreeAvailable()) return null;
   return new GeminiFreeAI();
 }
 
-export function getGeminiFreeAI(): AsyncAIPlayer | null {
+export function getGeminiFreeAI(seat: Seat = 'cpu'): AsyncAIPlayer | null {
   if (!isGeminiFreeAvailable()) return null;
-  if (!instance) {
-    instance = new GeminiFreeAI();
+  let inst = instances.get(seat);
+  if (!inst) {
+    inst = new GeminiFreeAI();
+    instances.set(seat, inst);
   }
-  return instance;
+  return inst;
 }
 
-export function getGeminiFreeTokenStats(): GeminiTokenStats | null {
-  if (instance && 'tokenStats' in instance) {
-    return { ...instance.tokenStats };
+export function getGeminiFreeTokenStats(seat: Seat = 'cpu'): GeminiTokenStats | null {
+  const inst = instances.get(seat);
+  if (inst && 'tokenStats' in inst) {
+    return { ...inst.tokenStats };
   }
   return null;
 }
 
-export function getGeminiFreeTokenDelta(): GeminiTokenDelta | null {
-  if (instance && 'lastDelta' in instance) {
-    return { ...instance.lastDelta };
+export function getGeminiFreeTokenDelta(seat: Seat = 'cpu'): GeminiTokenDelta | null {
+  const inst = instances.get(seat);
+  if (inst && 'lastDelta' in inst) {
+    return { ...inst.lastDelta };
   }
   return null;
 }
 
 export function resetGeminiFreeTokenStats(): void {
-  if (instance && 'resetTokenStats' in instance) {
-    instance.resetTokenStats();
+  for (const inst of instances.values()) {
+    if ('resetTokenStats' in inst) inst.resetTokenStats();
   }
 }
 
-export function startGeminiFreeRound(): void {
-  if (instance && 'startRound' in instance) {
-    instance.startRound();
+export function startGeminiFreeRound(seat: Seat = 'cpu'): void {
+  const inst = instances.get(seat);
+  if (inst && 'startRound' in inst) {
+    inst.startRound();
   }
 }
 
-export function endGeminiFreeRound(): void {
-  if (instance && 'endRound' in instance) {
-    instance.endRound();
+export function endGeminiFreeRound(seat: Seat = 'cpu'): void {
+  const inst = instances.get(seat);
+  if (inst && 'endRound' in inst) {
+    inst.endRound();
   }
 }
 
 /** Call when starting a new game to get a fresh gameId for rate limiting */
-export function newGeminiFreeGame(): void {
-  if (instance) {
-    instance.newGame();
-  }
+export function newGeminiFreeGame(seat: Seat = 'cpu'): void {
+  instances.get(seat)?.newGame();
 }
 
 export function clearGeminiFreeCache(): void {
-  instance = null;
+  instances.clear();
 }
 
 /** Get rate limit info from the free AI instance */
-export function getGeminiFreeRateLimitInfo(): { gamesUsed: number; gamesLimit: number } | null {
-  if (instance) {
-    return { gamesUsed: instance.gamesUsed, gamesLimit: instance.gamesLimit };
+export function getGeminiFreeRateLimitInfo(
+  seat: Seat = 'cpu'
+): { gamesUsed: number; gamesLimit: number } | null {
+  const inst = instances.get(seat);
+  if (inst) {
+    return { gamesUsed: inst.gamesUsed, gamesLimit: inst.gamesLimit };
   }
   return null;
 }

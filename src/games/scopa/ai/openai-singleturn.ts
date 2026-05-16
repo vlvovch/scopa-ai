@@ -365,30 +365,37 @@ const instanceCache = new Map<string, AsyncAIPlayer>();
 /**
  * Get an OpenAI Single-Turn AI instance (cached by model ID)
  */
-export function getOpenAISingleTurnAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function getOpenAISingleTurnAI(
+  model: string = DEFAULT_MODEL,
+  seat: import('./types').Seat = 'cpu'
+): AsyncAIPlayer | null {
   if (!isOpenAIAvailable()) {
     return null;
   }
 
-  // Return cached instance if exists for this model
-  const cached = instanceCache.get(model);
+  const cacheKey = `${model}:${seat}`;
+  const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  // Create and cache new instance
   const instance = createOpenAISingleTurnAI(model);
   if (instance) {
-    instanceCache.set(model, instance);
+    instanceCache.set(cacheKey, instance);
   }
   return instance;
 }
 
 /**
- * Get token stats from an OpenAI Single-Turn AI instance by model
+ * Get token stats from an OpenAI Single-Turn AI instance by (model, seat)
  */
-export function getOpenAISingleTurnTokenStats(model?: string): OpenAITokenStats | null {
-  const instance = model ? instanceCache.get(model) as OpenAISingleTurnAI | null : null;
+export function getOpenAISingleTurnTokenStats(
+  model?: string,
+  seat: import('./types').Seat = 'cpu'
+): OpenAITokenStats | null {
+  const instance = model
+    ? (instanceCache.get(`${model}:${seat}`) as OpenAISingleTurnAI | null)
+    : null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -396,10 +403,15 @@ export function getOpenAISingleTurnTokenStats(model?: string): OpenAITokenStats 
 }
 
 /**
- * Get last turn delta from an OpenAI Single-Turn AI instance by model
+ * Get last turn delta from an OpenAI Single-Turn AI instance by (model, seat)
  */
-export function getOpenAISingleTurnTokenDelta(model?: string): OpenAITokenDelta | null {
-  const instance = model ? instanceCache.get(model) as OpenAISingleTurnAI | null : null;
+export function getOpenAISingleTurnTokenDelta(
+  model?: string,
+  seat: import('./types').Seat = 'cpu'
+): OpenAITokenDelta | null {
+  const instance = model
+    ? (instanceCache.get(`${model}:${seat}`) as OpenAISingleTurnAI | null)
+    : null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }

@@ -352,44 +352,45 @@ function ScopaApp() {
 
   // Helper to get delta for a specific AI type and model
   // Returns a unified delta type (Gemini, OpenAI, and Claude deltas are structurally compatible)
-  const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenDelta | OpenAITokenDelta | ClaudeTokenDelta | null => {
+  const getDeltaForAIType = useCallback((aiType: ExtendedAIType, model?: string, seat: 'cpu' | 'p1' | 'p2' = 'cpu'): GeminiTokenDelta | OpenAITokenDelta | ClaudeTokenDelta | null => {
     const useThinking = settings.useThinking;
     if (aiType === 'gemini-free') {
-      return getGeminiFreeTokenDelta();
+      return getGeminiFreeTokenDelta(seat);
     } else if (aiType === 'gemini-singleturn') {
-      return getGeminiSingleTurnTokenDelta(model, useThinking);
+      return getGeminiSingleTurnTokenDelta(model, useThinking, seat);
     } else if (aiType === 'gemini') {
-      return getGeminiTokenDelta(model, useThinking);
+      return getGeminiTokenDelta(model, useThinking, seat);
     } else if (aiType === 'openai') {
-      return getOpenAITokenDelta(model);
+      return getOpenAITokenDelta(model, seat);
     } else if (aiType === 'openai-singleturn') {
-      return getOpenAISingleTurnTokenDelta(model);
+      return getOpenAISingleTurnTokenDelta(model, seat);
     } else if (aiType === 'claude') {
-      return getClaudeTokenDelta(model, useThinking);
+      return getClaudeTokenDelta(model, useThinking, seat);
     } else if (aiType === 'claude-singleturn') {
-      return getClaudeSingleTurnTokenDelta(model, useThinking);
+      return getClaudeSingleTurnTokenDelta(model, useThinking, seat);
     }
     return null;
   }, [settings.useThinking]);
 
-  // Helper to get full stats for a specific AI type and model
-  // Returns a unified stats type (Gemini, OpenAI, and Claude stats are structurally compatible)
-  const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string): GeminiTokenStats | OpenAITokenStats | ClaudeTokenStats | null => {
+  // Helper to get full stats for a specific AI type and model. seat is
+  // 'p1' / 'p2' in spectator mode so we read the right instance's tracker;
+  // play mode defaults to 'cpu'.
+  const getStatsForAIType = useCallback((aiType: ExtendedAIType, model?: string, seat: 'cpu' | 'p1' | 'p2' = 'cpu'): GeminiTokenStats | OpenAITokenStats | ClaudeTokenStats | null => {
     const useThinking = settings.useThinking;
     if (aiType === 'gemini-free') {
-      return getGeminiFreeTokenStats();
+      return getGeminiFreeTokenStats(seat);
     } else if (aiType === 'gemini-singleturn') {
-      return getGeminiSingleTurnTokenStats(model, useThinking);
+      return getGeminiSingleTurnTokenStats(model, useThinking, seat);
     } else if (aiType === 'gemini') {
-      return getGeminiTokenStats(model, useThinking);
+      return getGeminiTokenStats(model, useThinking, seat);
     } else if (aiType === 'openai') {
-      return getOpenAITokenStats(model);
+      return getOpenAITokenStats(model, seat);
     } else if (aiType === 'openai-singleturn') {
-      return getOpenAISingleTurnTokenStats(model);
+      return getOpenAISingleTurnTokenStats(model, seat);
     } else if (aiType === 'claude') {
-      return getClaudeTokenStats(model, useThinking);
+      return getClaudeTokenStats(model, useThinking, seat);
     } else if (aiType === 'claude-singleturn') {
-      return getClaudeSingleTurnTokenStats(model, useThinking);
+      return getClaudeSingleTurnTokenStats(model, useThinking, seat);
     }
     return null;
   }, [settings.useThinking]);
@@ -502,7 +503,9 @@ function ScopaApp() {
     const model = player === 'player1' ? spectatorModels.player1 : spectatorModels.player2;
     if (!isLLMAI(aiType)) return;
 
-    const delta = getDeltaForAIType(aiType, model);
+    // Pass the matching seat key so we read the right per-seat instance.
+    const seat = player === 'player1' ? 'p1' : 'p2';
+    const delta = getDeltaForAIType(aiType, model, seat);
 
     if (player === 'player1') {
       setPlayer1TokenDelta(delta as GeminiTokenDelta);
@@ -523,59 +526,57 @@ function ScopaApp() {
   // Check if animations should be skipped (instant mode)
   const isInstantMode = settings.animationSpeed === 'instant';
 
-  // Get AI player instance for a given AI type and model
-  const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string): AnyAIPlayer => {
+  // Get AI player instance for a given AI type and model. The `seat`
+  // parameter ('cpu' | 'p1' | 'p2') ensures spectator-mode same-model
+  // self-play gets distinct instances per seat — without it, both
+  // players would share one chat session / conversation id / message
+  // array / token tracker and "you" would alternate inside one
+  // conversation.
+  const getAIPlayer = useCallback((aiType: ExtendedAIType, model?: string, seat: 'cpu' | 'p1' | 'p2' = 'cpu'): AnyAIPlayer => {
     const useThinking = settings.useThinking;
     if (aiType === 'gemini-free') {
-      const geminiFree = getGeminiFreeAI();
+      const geminiFree = getGeminiFreeAI(seat);
       if (geminiFree) return geminiFree;
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'gemini') {
       const geminiModel = model || settings.geminiModel;
-      const gemini = getGeminiAI(geminiModel, useThinking);
+      const gemini = getGeminiAI(geminiModel, useThinking, seat);
       if (gemini) return gemini;
-      // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'gemini-singleturn') {
       const geminiModel = model || settings.geminiModel;
-      const gemini = getGeminiSingleTurnAI(geminiModel, useThinking);
+      const gemini = getGeminiSingleTurnAI(geminiModel, useThinking, seat);
       if (gemini) return gemini;
-      // Fallback to heuristic if Gemini not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'openai') {
       const openaiModel = model || settings.openaiModel;
-      const openai = getOpenAI(openaiModel);
+      const openai = getOpenAI(openaiModel, seat);
       if (openai) return openai;
-      // Fallback to heuristic if OpenAI not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'openai-singleturn') {
       const openaiModel = model || settings.openaiModel;
-      const openai = getOpenAISingleTurnAI(openaiModel);
+      const openai = getOpenAISingleTurnAI(openaiModel, seat);
       if (openai) return openai;
-      // Fallback to heuristic if OpenAI not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'claude') {
       const claudeModel = model || settings.claudeModel;
-      const claude = getClaudeAI(claudeModel, useThinking);
+      const claude = getClaudeAI(claudeModel, useThinking, seat);
       if (claude) return claude;
-      // Fallback to heuristic if Claude not available
       return AI_PLAYERS.heuristic;
     }
     if (aiType === 'claude-singleturn') {
       const claudeModel = model || settings.claudeModel;
-      const claude = getClaudeSingleTurnAI(claudeModel, useThinking);
+      const claude = getClaudeSingleTurnAI(claudeModel, useThinking, seat);
       if (claude) return claude;
-      // Fallback to heuristic if Claude not available
       return AI_PLAYERS.heuristic;
     }
-    // 'multiplayer' is not a real AI type - it's only used for stats tracking
     if (aiType === 'multiplayer') {
-      return AI_PLAYERS.heuristic; // Fallback (should never be called)
+      return AI_PLAYERS.heuristic;
     }
     return AI_PLAYERS[aiType];
   }, [settings.geminiModel, settings.openaiModel, settings.claudeModel, settings.useThinking]);
@@ -1038,7 +1039,8 @@ function ScopaApp() {
       const model = isSpectatorMode
         ? spectatorModels.player2
         : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : (isClaudeAI(settings.cpuAI) ? settings.claudeModel : settings.geminiModel));
-      const ai = getAIPlayer(aiType, model);
+      // In spectator mode, the cpu seat is player2. Otherwise just 'cpu'.
+      const ai = getAIPlayer(aiType, model, isSpectatorMode ? 'p2' : 'cpu');
 
       let moveToExecute: Move;
       let reasoning: string | null = null;
@@ -2156,7 +2158,7 @@ function ScopaApp() {
     const baseDelay = 500 + Math.random() * 500;
     const delay = getAnimationDelay(baseDelay);
     const timeoutId = setTimeout(async () => {
-      const ai = getAIPlayer(spectatorAIs.player1, spectatorModels.player1);
+      const ai = getAIPlayer(spectatorAIs.player1, spectatorModels.player1, 'p1');
 
       let moveToExecute: Move;
       let reasoning: string | null = null;

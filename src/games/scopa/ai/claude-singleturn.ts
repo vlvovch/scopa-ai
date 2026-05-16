@@ -390,19 +390,21 @@ const instanceCache = new Map<string, AsyncAIPlayer>();
  * @param model - Model ID to use
  * @param useExtendedThinking - Enable extended thinking (default: true)
  */
-export function getClaudeSingleTurnAI(model: string = DEFAULT_MODEL, useExtendedThinking: boolean = true): AsyncAIPlayer | null {
+export function getClaudeSingleTurnAI(
+  model: string = DEFAULT_MODEL,
+  useExtendedThinking: boolean = true,
+  seat: import('./types').Seat = 'cpu'
+): AsyncAIPlayer | null {
   if (!isClaudeAvailable()) {
     return null;
   }
 
-  // Cache key includes thinking mode
-  const cacheKey = `${model}:${useExtendedThinking}`;
+  const cacheKey = `${model}:${useExtendedThinking}:${seat}`;
   const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  // Create and cache new instance
   const instance = createClaudeSingleTurnAI(model, useExtendedThinking);
   if (instance) {
     instanceCache.set(cacheKey, instance);
@@ -411,11 +413,15 @@ export function getClaudeSingleTurnAI(model: string = DEFAULT_MODEL, useExtended
 }
 
 /**
- * Get token stats from a Claude Single-Turn AI instance by model and thinking mode
+ * Get token stats from a Claude Single-Turn AI instance by (model, thinking, seat)
  */
-export function getClaudeSingleTurnTokenStats(model?: string, useThinking: boolean = true): ClaudeTokenStats | null {
+export function getClaudeSingleTurnTokenStats(
+  model?: string,
+  useThinking: boolean = true,
+  seat: import('./types').Seat = 'cpu'
+): ClaudeTokenStats | null {
   if (!model) return null;
-  const cacheKey = `${model}:${useThinking}`;
+  const cacheKey = `${model}:${useThinking}:${seat}`;
   const instance = instanceCache.get(cacheKey) as ClaudeSingleTurnAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
@@ -424,11 +430,15 @@ export function getClaudeSingleTurnTokenStats(model?: string, useThinking: boole
 }
 
 /**
- * Get last turn delta from a Claude Single-Turn AI instance by model and thinking mode
+ * Get last turn delta from a Claude Single-Turn AI instance by (model, thinking, seat)
  */
-export function getClaudeSingleTurnTokenDelta(model?: string, useThinking: boolean = true): ClaudeTokenDelta | null {
+export function getClaudeSingleTurnTokenDelta(
+  model?: string,
+  useThinking: boolean = true,
+  seat: import('./types').Seat = 'cpu'
+): ClaudeTokenDelta | null {
   if (!model) return null;
-  const cacheKey = `${model}:${useThinking}`;
+  const cacheKey = `${model}:${useThinking}:${seat}`;
   const instance = instanceCache.get(cacheKey) as ClaudeSingleTurnAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };

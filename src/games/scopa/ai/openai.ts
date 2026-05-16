@@ -467,21 +467,25 @@ const instanceCache = new Map<string, AsyncAIPlayer>();
 /**
  * Get an OpenAI AI instance (cached by model ID)
  */
-export function getOpenAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
+export function getOpenAI(
+  model: string = DEFAULT_MODEL,
+  seat: import('./types').Seat = 'cpu'
+): AsyncAIPlayer | null {
   if (!isOpenAIAvailable()) {
     return null;
   }
 
-  // Return cached instance if exists for this model
-  const cached = instanceCache.get(model);
+  // Cache key now includes seat — spectator-mode same-model self-play
+  // needs distinct instances so the OpenAI conversation id isn't shared.
+  const cacheKey = `${model}:${seat}`;
+  const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  // Create and cache new instance
   const instance = createOpenAI(model);
   if (instance) {
-    instanceCache.set(model, instance);
+    instanceCache.set(cacheKey, instance);
   }
   return instance;
 }
@@ -494,10 +498,15 @@ export function getDefaultOpenAIModel(): string {
 }
 
 /**
- * Get token stats from an OpenAI AI instance by model
+ * Get token stats from an OpenAI AI instance by (model, seat)
  */
-export function getOpenAITokenStats(model?: string): OpenAITokenStats | null {
-  const instance = model ? instanceCache.get(model) as OpenAIAI | null : null;
+export function getOpenAITokenStats(
+  model?: string,
+  seat: import('./types').Seat = 'cpu'
+): OpenAITokenStats | null {
+  const instance = model
+    ? (instanceCache.get(`${model}:${seat}`) as OpenAIAI | null)
+    : null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
   }
@@ -505,10 +514,15 @@ export function getOpenAITokenStats(model?: string): OpenAITokenStats | null {
 }
 
 /**
- * Get last turn delta from an OpenAI AI instance by model
+ * Get last turn delta from an OpenAI AI instance by (model, seat)
  */
-export function getOpenAITokenDelta(model?: string): OpenAITokenDelta | null {
-  const instance = model ? instanceCache.get(model) as OpenAIAI | null : null;
+export function getOpenAITokenDelta(
+  model?: string,
+  seat: import('./types').Seat = 'cpu'
+): OpenAITokenDelta | null {
+  const instance = model
+    ? (instanceCache.get(`${model}:${seat}`) as OpenAIAI | null)
+    : null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };
   }

@@ -485,13 +485,18 @@ const instanceCache = new Map<string, AsyncAIPlayer>();
  * @param model - Model ID to use
  * @param useThinking - Enable thinking/reasoning mode (default: true)
  */
-export function getGeminiAI(model: string = DEFAULT_MODEL, useThinking: boolean = true): AsyncAIPlayer | null {
+export function getGeminiAI(
+  model: string = DEFAULT_MODEL,
+  useThinking: boolean = true,
+  seat: import('./types').Seat = 'cpu'
+): AsyncAIPlayer | null {
   if (!isGeminiAvailable()) {
     return null;
   }
 
-  // Cache key includes thinking mode
-  const cacheKey = `${model}:${useThinking}`;
+  // Cache key includes thinking mode AND seat — spectator-mode same-model
+  // self-play needs distinct instances so chat sessions don't intermix.
+  const cacheKey = `${model}:${useThinking}:${seat}`;
   const cached = instanceCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -515,9 +520,13 @@ export function getDefaultGeminiModel(): string {
 /**
  * Get token stats from a Gemini AI instance by model and thinking mode
  */
-export function getGeminiTokenStats(model?: string, useThinking: boolean = true): GeminiTokenStats | null {
+export function getGeminiTokenStats(
+  model?: string,
+  useThinking: boolean = true,
+  seat: import('./types').Seat = 'cpu'
+): GeminiTokenStats | null {
   if (!model) return null;
-  const cacheKey = `${model}:${useThinking}`;
+  const cacheKey = `${model}:${useThinking}:${seat}`;
   const instance = instanceCache.get(cacheKey) as GeminiAI | null;
   if (instance && 'tokenStats' in instance) {
     return { ...instance.tokenStats };
@@ -528,9 +537,13 @@ export function getGeminiTokenStats(model?: string, useThinking: boolean = true)
 /**
  * Get last turn delta from a Gemini AI instance by model and thinking mode
  */
-export function getGeminiTokenDelta(model?: string, useThinking: boolean = true): GeminiTokenDelta | null {
+export function getGeminiTokenDelta(
+  model?: string,
+  useThinking: boolean = true,
+  seat: import('./types').Seat = 'cpu'
+): GeminiTokenDelta | null {
   if (!model) return null;
-  const cacheKey = `${model}:${useThinking}`;
+  const cacheKey = `${model}:${useThinking}:${seat}`;
   const instance = instanceCache.get(cacheKey) as GeminiAI | null;
   if (instance && 'lastDelta' in instance) {
     return { ...instance.lastDelta };

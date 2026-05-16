@@ -99,6 +99,17 @@ export interface AsyncAIPlayer {
 export type AnyAIPlayer = AIPlayer | AsyncAIPlayer;
 
 /**
+ * Seat the bot instance is bound to. In single-player (Play) mode the
+ * bot always sits in the 'cpu' seat. In spectator mode (CPU vs CPU) the
+ * two seats need distinct instances — otherwise same-provider self-play
+ * (e.g. Gemini 2.5 Flash vs Gemini 2.5 Flash) would share a single chat
+ * session / message array / conversation id / token tracker, with both
+ * players' moves intermixed inside one conversation. Each factory
+ * includes this in its cache key.
+ */
+export type Seat = 'cpu' | 'p1' | 'p2';
+
+/**
  * Type guard to check if an AI player is async
  */
 export function isAsyncAI(ai: AnyAIPlayer): ai is AsyncAIPlayer {
