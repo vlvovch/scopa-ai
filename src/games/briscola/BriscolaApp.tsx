@@ -1161,8 +1161,10 @@ function BriscolaApp() {
     const beforeState = multiplayer.gameState;
     const round = beforeState?.round;
     const wasFollow = round?.trick.leadCard != null;
-    play(wasFollow ? 'capture' : 'play');
     if (!wasFollow || !beforeState || !round) {
+      // Lead play: the card just appears in the trick area. Play the
+      // light "card down" sound immediately and commit.
+      play('play');
       multiplayer.applyPendingState();
       return;
     }
@@ -1181,8 +1183,13 @@ function BriscolaApp() {
       follower,
       round.trumpSuit
     );
+    // The follow card lands in the trick area now (light sound); the
+    // capture sound fires when the trick actually resolves after the
+    // hold — matches single-player timing.
+    play('play');
     setMpTrickAnim({ followCard, follower, winner });
     const t = setTimeout(() => {
+      play('capture');
       setMpTrickAnim(null);
       multiplayer.applyPendingState();
     }, dur(TRICK_VISIBLE_MS));
