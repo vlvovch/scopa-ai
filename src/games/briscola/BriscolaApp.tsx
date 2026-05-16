@@ -57,7 +57,13 @@ import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
+import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
+import { TurnTimer } from '../../components/UI/TurnTimer';
 import { useBriscolaMultiplayer } from '../../hooks/useBriscolaMultiplayer';
+import type {
+  MultiplayerPlayerId,
+  PlayerVisibleGameState,
+} from './multiplayer/types';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
 import { expertAI } from './ai/expert';
@@ -104,7 +110,7 @@ import {
 import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
 import type { AIPlayer } from './ai/types';
 import { useSound } from '../../hooks/useSound';
-import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
+import type { Card as BriscolaCard, GameState, GameStatus, Move, PlayerId } from './types';
 
 // ---------------------------------------------------------------------------
 // Timing — matches Scopa's CpuCardAnimation phases
@@ -411,6 +417,139 @@ function winsNeeded(bestOf: number): number {
   return bestOf;
 }
 
+// ---------------------------------------------------------------------------
+// Multiplayer bridge: shape a server-sent PlayerVisibleGameState into the
+// local AppState that BriscolaBoard expects. Locally the user is always the
+// 'human' seat and the opponent is 'cpu', regardless of which MP slot
+// (player1/player2) the user actually occupies.
+//
+// Limitations (Phase 3b):
+//   - The opponent's hand is synthesized as N face-down placeholders so the
+//     CPU hand row renders the right number of cards. The placeholder cards
+//     share suit/value but get unique ids per index for React keys.
+//   - Captured piles only show counts during the round (server doesn't send
+//     pile contents per move). The bridged state stuffs N placeholders into
+//     each captured array so the pile-stack renders the right "thickness";
+//     the in-game points pill falls back to `mp.{self,opponent}.points`.
+//   - The fake deck synthesizes N face-down placeholders with the trump as
+//     the last element, mirroring deck.ts's invariant.
+// ---------------------------------------------------------------------------
+
+const MP_PLACEHOLDER_OPP_PREFIX = 'mp-opp-';
+const MP_PLACEHOLDER_DECK_PREFIX = 'mp-deck-';
+const MP_PLACEHOLDER_CAP_PREFIX = 'mp-cap-';
+
+function mpPlaceholderCard(prefix: string, i: number): BriscolaCard {
+  // Suit/value choice is arbitrary — these cards are only rendered face-down
+  // (CardBack in PlayerHand / pile stack). React keys come from the unique id.
+  return { id: `${prefix}${i}`, suit: 'coins', value: 1 };
+}
+
+function mpToBriscolaAppState(
+  mp: PlayerVisibleGameState,
+  myId: MultiplayerPlayerId
+): Extract<AppState, { status: 'playing' | 'roundEnd' }> {
+  const oppId: MultiplayerPlayerId = myId === 'player1' ? 'player2' : 'player1';
+  const toLocal = (p: MultiplayerPlayerId): PlayerId =>
+    p === myId ? 'human' : 'cpu';
+
+  // Synthesize the deck: deckCount cards with the trump as the last element.
+  // If deckCount === 0 the trump has already been drawn into a hand, which
+  // matches the local invariant (deck length 0 = trump in hand).
+  const deck: BriscolaCard[] = [];
+  if (mp.round) {
+    const total = Math.max(0, mp.round.deckCount);
+    // The trump occupies the last slot (index total - 1) when total > 0.
+    // Top-of-deck placeholders fill 0..(total - 2).
+    if (total > 0) {
+      for (let i = 0; i < total - 1; i++) {
+        deck.push(mpPlaceholderCard(MP_PLACEHOLDER_DECK_PREFIX, i));
+      }
+      deck.push(mp.round.trump);
+    }
+  }
+
+  // Synthesize opponent hand and captured piles — face-down placeholders,
+  // unique ids per index so React keys stay stable across re-renders.
+  const oppHand: BriscolaCard[] = Array.from(
+    { length: mp.opponent.handCount },
+    (_, i) => mpPlaceholderCard(MP_PLACEHOLDER_OPP_PREFIX, i)
+  );
+  const myCaptured: BriscolaCard[] = Array.from(
+    { length: mp.self.capturedCount },
+    (_, i) => mpPlaceholderCard(`${MP_PLACEHOLDER_CAP_PREFIX}h-`, i)
+  );
+  const oppCaptured: BriscolaCard[] = Array.from(
+    { length: mp.opponent.capturedCount },
+    (_, i) => mpPlaceholderCard(`${MP_PLACEHOLDER_CAP_PREFIX}c-`, i)
+  );
+
+  // mp.round is null only when the room is still waiting for the second
+  // player. The caller (render branch) gates on mp.round before calling
+  // this, but be defensive — fall back to a dummy trump card.
+  const trump: BriscolaCard = mp.round?.trump ?? {
+    id: 'mp-trump-stub',
+    suit: 'coins',
+    value: 1,
+  };
+  const trumpSuit = mp.round?.trumpSuit ?? trump.suit;
+  const trickLeadCard = mp.round?.trick.leadCard ?? null;
+  const trickLeader: PlayerId = mp.round
+    ? toLocal(mp.round.trick.leader)
+    : 'human';
+  const currentPlayer: PlayerId = mp.round ? toLocal(mp.round.currentPlayer) : 'human';
+  const dealer: PlayerId = mp.round ? toLocal(mp.round.dealer) : 'cpu';
+
+  // Map MP status to local GameStatus. 'gameEnd' is treated like 'roundEnd'
+  // for the BriscolaBoard wrapper — the actual game-end UI is rendered as a
+  // separate overlay outside the board.
+  const localStatus: GameStatus =
+    mp.status === 'playing' ? 'playing' :
+    mp.status === 'roundEnd' ? 'roundEnd' :
+    mp.status === 'gameEnd' ? 'roundEnd' :
+    'playing';
+
+  const game: GameState = {
+    status: localStatus,
+    round: {
+      deck,
+      trump,
+      trumpSuit,
+      trick: { leadCard: trickLeadCard, leader: trickLeader },
+      currentPlayer,
+      dealer,
+    },
+    players: {
+      human: { hand: mp.self.hand, captured: myCaptured },
+      cpu: { hand: oppHand, captured: oppCaptured },
+    },
+    scores: { human: mp.scores[myId], cpu: mp.scores[oppId] },
+    roundNumber: mp.roundNumber,
+    targetScore: mp.targetScore,
+    roundHistory: [], // filled in by the caller from multiplayerRoundHistory
+  };
+
+  // While the round is in progress, wrap as 'playing'. At round end the
+  // caller will replace this with a 'roundEnd' wrapper that fills in
+  // finalPoints / roundWinner / matchOver from roundEndData.
+  if (localStatus === 'roundEnd') {
+    // Placeholder — caller patches finalPoints and roundWinner from
+    // multiplayer.roundEndData. matchOver is true if mp.status === 'gameEnd'.
+    const roundWinner: PlayerId | 'tie' =
+      mp.self.points > mp.opponent.points ? 'human' :
+      mp.opponent.points > mp.self.points ? 'cpu' :
+      'tie';
+    return {
+      status: 'roundEnd',
+      game,
+      finalPoints: { human: mp.self.points, cpu: mp.opponent.points },
+      roundWinner,
+      matchOver: mp.status === 'gameEnd',
+    };
+  }
+  return { status: 'playing', game };
+}
+
 function BriscolaApp() {
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -458,6 +597,16 @@ function BriscolaApp() {
   // when the user returns to a /join/CODE URL or has an active room.
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
   const multiplayer = useBriscolaMultiplayer();
+
+  // Per-game accumulated round history for the multiplayer match. Server only
+  // sends per-round scores at ROUND_END, so we maintain our own list here and
+  // feed it into the bridged AppState.roundHistory for the RoundEndOverlay.
+  const [multiplayerRoundHistory, setMultiplayerRoundHistory] = useState<
+    Array<{ playerPoints: number; cpuPoints: number }>
+  >([]);
+  // Dedup ref: a roundEndData payload may render multiple times before being
+  // cleared; we only want to append once per (roundNumber, points-pair).
+  const recordedRoundEndRef = useRef<string | null>(null);
 
   // Single thinking toggle applied to Gemini + Claude (OpenAI uses its own
   // server-side reasoning). Mirrors Scopa's behavior.
@@ -985,6 +1134,56 @@ function BriscolaApp() {
     return () => clearTimeout(t);
   }, [state, dur]);
 
+  // ---------------------------------------------------------------------------
+  // Multiplayer bridging effects
+  // ---------------------------------------------------------------------------
+
+  // Minimal Phase 3b: when the server reports a move, immediately commit the
+  // pending state (no in-flight card animation yet — that's Phase 3c). Also
+  // fire a 'play' or 'capture' sound so the audio feedback isn't dead silent.
+  useEffect(() => {
+    if (!multiplayer.lastMove) return;
+    const wasFollow =
+      multiplayer.gameState?.round?.trick.leadCard !== null;
+    play(wasFollow ? 'capture' : 'play');
+    multiplayer.applyPendingState();
+    // Intentionally only depends on lastMove identity — applyPendingState is
+    // a stable useCallback, gameState is read once at trigger time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [multiplayer.lastMove]);
+
+  // Append finished rounds to the multiplayer history. Dedup on a key built
+  // from the round number + final point split so re-renders of the same
+  // roundEndData payload don't append twice.
+  useEffect(() => {
+    if (!multiplayer.roundEndData || !multiplayer.gameState || !multiplayer.playerId) {
+      return;
+    }
+    const myId = multiplayer.playerId;
+    const oppId: MultiplayerPlayerId = myId === 'player1' ? 'player2' : 'player1';
+    const myScore = multiplayer.roundEndData.scores[myId];
+    const oppScore = multiplayer.roundEndData.scores[oppId];
+    const key = `${multiplayer.gameState.roundNumber}-${myScore.points}-${oppScore.points}`;
+    if (recordedRoundEndRef.current === key) return;
+    recordedRoundEndRef.current = key;
+    setMultiplayerRoundHistory((prev) => [
+      ...prev,
+      { playerPoints: myScore.points, cpuPoints: oppScore.points },
+    ]);
+  }, [multiplayer.roundEndData, multiplayer.gameState, multiplayer.playerId]);
+
+  // Reset accumulated multiplayer round history whenever a brand-new game
+  // starts (i.e. we transition from no gameState to having one with round 1).
+  useEffect(() => {
+    if (multiplayer.gameState?.roundNumber === 1 &&
+        multiplayer.gameState.round?.trick.leadCard === null &&
+        multiplayer.gameState.self.capturedCount === 0 &&
+        multiplayer.gameState.opponent.capturedCount === 0) {
+      setMultiplayerRoundHistory([]);
+      recordedRoundEndRef.current = null;
+    }
+  }, [multiplayer.gameState]);
+
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
@@ -1014,11 +1213,174 @@ function BriscolaApp() {
     [modelFor]
   );
 
+  // Multiplayer in-game render: take over before the single-player branches
+  // once the server has sent a game state. Reuses BriscolaBoard but driven
+  // by a bridged AppState built from the server payload.
+  if (
+    isMultiplayerMode &&
+    multiplayer.gameState &&
+    multiplayer.gameState.round &&
+    multiplayer.playerId
+  ) {
+    const mp = multiplayer.gameState;
+    const myId = multiplayer.playerId;
+    const oppId: MultiplayerPlayerId = myId === 'player1' ? 'player2' : 'player1';
+    const isMyTurn = mp.round!.currentPlayer === myId;
+
+    // Build the bridged AppState. Patch in our locally-tracked round history
+    // and (if this is a roundEnd state) the actual finalPoints from the
+    // server's roundEndData rather than the stale self/opponent.points.
+    const bridged = mpToBriscolaAppState(mp, myId);
+    const patchedGame: GameState = {
+      ...bridged.game,
+      roundHistory: multiplayerRoundHistory,
+    };
+    let bridgedState: Exclude<AppState, { status: 'idle' }>;
+    if (bridged.status === 'roundEnd') {
+      // Override with server-reported scores when available (more accurate
+      // than the in-state .points field at the boundary).
+      const finalHuman =
+        multiplayer.roundEndData?.scores[myId].points ?? bridged.finalPoints.human;
+      const finalCpu =
+        multiplayer.roundEndData?.scores[oppId].points ?? bridged.finalPoints.cpu;
+      const winner: PlayerId | 'tie' =
+        finalHuman > finalCpu ? 'human' : finalCpu > finalHuman ? 'cpu' : 'tie';
+      const cumHuman =
+        multiplayer.roundEndData?.cumulativeScores[myId] ?? mp.scores[myId];
+      const cumCpu =
+        multiplayer.roundEndData?.cumulativeScores[oppId] ?? mp.scores[oppId];
+      bridgedState = {
+        status: 'roundEnd',
+        game: {
+          ...patchedGame,
+          scores: { human: cumHuman, cpu: cumCpu },
+          status: 'roundEnd',
+        },
+        finalPoints: { human: finalHuman, cpu: finalCpu },
+        roundWinner: winner,
+        matchOver: !!multiplayer.gameEndData,
+      };
+    } else {
+      bridgedState = { status: 'playing', game: patchedGame };
+    }
+
+    const opponentLabel = multiplayer.opponentNickname || 'Opponent';
+    const youLabel = multiplayer.nickname || 'You';
+
+    const handleLeaveMultiplayer = () => {
+      multiplayer.leaveRoom();
+      setIsMultiplayerMode(false);
+    };
+
+    const handleMultiplayerCardClick = (card: BriscolaCard) => {
+      if (!isMyTurn) return;
+      // Make sure the card is actually in our hand (defensive — UI might fire
+      // a click on a placeholder card if state shapes ever diverge).
+      if (!mp.self.hand.some((c) => c.id === card.id)) return;
+      play('play');
+      multiplayer.playMove({ player: myId, cardPlayed: card });
+    };
+
+    const handleMultiplayerNextRound = () => {
+      multiplayer.continueToNextRound();
+    };
+
+    return (
+      <DeckProvider deck={settings.deck}>
+        <BriscolaBoard
+          state={bridgedState}
+          cpuBotLabel={opponentLabel}
+          // Opponent in multiplayer is a human, not a BriscolaOpponentName.
+          // Cast through unknown — BriscolaBoard only uses opponentName for
+          // AIPlayerLabel routing, which we suppress by leaving the AI flags
+          // false. Passing 'heuristic' as a typesafe stand-in avoids the
+          // cast hatch while still rendering only the plain label.
+          opponentName={'heuristic' as BriscolaOpponentName}
+          humanLabel={youLabel}
+          humanBotName={null}
+          isWatchMode={false}
+          autoAdvanceSpectator={false}
+          showPileStats={settings.showPileStats}
+          onCardClick={handleMultiplayerCardClick}
+          onOpenReasoning={() => {
+            /* no LLM reasoning in multiplayer */
+          }}
+          lastMoveData={{ human: null, cpu: null }}
+          tokenStatsBySeat={{
+            human: { stats: null, delta: null },
+            cpu: { stats: null, delta: null },
+          }}
+          apiErrorBySeat={{ human: null, cpu: null }}
+          onDismissApiError={() => {
+            /* no LLM errors in multiplayer */
+          }}
+          cpuIsLLM={false}
+          humanIsLLM={false}
+          onNextRound={handleMultiplayerNextRound}
+          onRestart={handleLeaveMultiplayer}
+          onOpenPile={setOpenPile}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenStats={() => setIsStatsOpen(true)}
+          onOpenRules={() => setIsRulesOpen(true)}
+        />
+        {/* Opponent-disconnected overlay (server reports OPPONENT_DISCONNECTED) */}
+        {!multiplayer.isOpponentConnected && (
+          <OpponentDisconnected
+            opponentNickname={multiplayer.opponentNickname}
+            onLeaveRoom={handleLeaveMultiplayer}
+          />
+        )}
+        {/* Turn timer (only shown when the room enabled timed turns) */}
+        {multiplayer.turnTimerEnabled && multiplayer.turnTimerSeconds !== null && (
+          <TurnTimer
+            secondsRemaining={multiplayer.turnTimerSeconds}
+            isMyTurn={isMyTurn}
+            canForceMove={multiplayer.canForceMove}
+            onForceMove={multiplayer.forceMove}
+          />
+        )}
+        {openPile && (
+          <BriscolaCapturedModal
+            cards={
+              openPile === 'human'
+                ? (multiplayer.roundEndData?.capturedCards[myId] ??
+                  multiplayer.gameEndData?.capturedCards[myId] ??
+                  [])
+                : (multiplayer.roundEndData?.capturedCards[oppId] ??
+                  multiplayer.gameEndData?.capturedCards[oppId] ??
+                  [])
+            }
+            playerName={openPile === 'human' ? youLabel : opponentLabel}
+            onClose={() => setOpenPile(null)}
+          />
+        )}
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          settings={settings}
+          onUpdateSetting={updateSetting}
+          onResetSettings={resetSettings}
+          game="briscola"
+        />
+        <StatsModal
+          isOpen={isStatsOpen}
+          onClose={() => setIsStatsOpen(false)}
+          opponents={statsModalOpponents}
+          getGames={getStatsModalGames}
+          onClearStats={stats.clearStats}
+        />
+        <RulesModal
+          isOpen={isRulesOpen}
+          onClose={() => setIsRulesOpen(false)}
+          game="briscola"
+        />
+      </DeckProvider>
+    );
+  }
+
   // Multiplayer lobby: shown when the user is in MP mode but not yet in
-  // a room (no gameState from server). Once gameState arrives, fall
-  // through to the in-game render below. NOTE: in-game multiplayer
-  // rendering is wired in Phase 3b — for now we fall back to the lobby
-  // until the game-render branch is added.
+  // a room (no gameState from server). Once gameState arrives, the in-game
+  // render branch above takes over.
   if (isMultiplayerMode && !multiplayer.gameState) {
     return (
       <MultiplayerLobby
