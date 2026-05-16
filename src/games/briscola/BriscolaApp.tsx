@@ -401,6 +401,21 @@ const CPU_BOTS: Record<CpuBotName, AIPlayer> = {
   heuristic: heuristicAI,
   expert: expertAI,
 };
+// localStorage key the multiplayer hook persists its session under.
+// Must match SESSION_STORAGE_KEY in useBriscolaMultiplayer.ts. Used to
+// decide, on first render after a page refresh, whether we should come
+// back up in multiplayer mode (the hook auto-reconnects, but the
+// isMultiplayerMode flag itself doesn't survive a reload).
+const MP_SESSION_KEY = 'briscola-mp-session';
+
+function hasStoredMpSession(): boolean {
+  try {
+    return localStorage.getItem(MP_SESSION_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 const BOT_LABELS: Record<BriscolaOpponentName, string> = {
   random: 'Scimmietta',
   heuristic: 'Furbo',
@@ -593,10 +608,14 @@ function BriscolaApp() {
   }>({ player1: 'heuristic', player2: 'expert' });
 
   // Multiplayer: separate flag (not part of gameMode) since the lobby
-  // replaces the StartScreen UI flow entirely. Hook auto-reconnects on
-  // mount if a stored session exists, so we wake into multiplayer mode
-  // when the user returns to a /join/CODE URL or has an active room.
-  const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
+  // replaces the StartScreen UI flow entirely. Seed it from a stored
+  // session so a page refresh mid-game comes back up in multiplayer
+  // mode: the hook auto-reconnects (restoring roomCode then gameState),
+  // but without this seed isMultiplayerMode would reset to false on
+  // reload and we'd render the StartScreen over a live, reconnecting
+  // session. If the reconnect ultimately fails the hook surfaces an
+  // error in the lobby (which this flag still routes to).
+  const [isMultiplayerMode, setIsMultiplayerMode] = useState(hasStoredMpSession);
   const multiplayer = useBriscolaMultiplayer();
 
   // Trick-resolution overlay for multiplayer. When a follow move completes
@@ -1478,6 +1497,37 @@ function BriscolaApp() {
           game="briscola"
         />
       </DeckProvider>
+    );
+  }
+
+  // Reconnecting after a page refresh / transient socket drop. The hook
+  // sets connectionStatus to 'reconnecting' and restores roomCode from
+  // the stored session before gameState arrives via RECONNECT_SUCCESS.
+  // Show a dedicated reconnect screen rather than the WaitingForOpponent
+  // room (which would misleadingly say "share this code — nobody joined").
+  if (
+    isMultiplayerMode &&
+    !multiplayer.gameState &&
+    multiplayer.connectionStatus === 'reconnecting'
+  ) {
+    return (
+      <div style={overlay}>
+        <div style={overlayCard}>
+          <h2 style={{ marginTop: 0 }}>Reconnecting…</h2>
+          <p style={{ opacity: 0.75, margin: '0.5rem 0 1.25rem' }}>
+            Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
+          </p>
+          <button
+            style={primaryButton}
+            onClick={() => {
+              multiplayer.leaveRoom();
+              setIsMultiplayerMode(false);
+            }}
+          >
+            Leave Game
+          </button>
+        </div>
+      </div>
     );
   }
 
