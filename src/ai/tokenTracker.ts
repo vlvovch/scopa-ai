@@ -1,9 +1,8 @@
-// Small helper that bundles the token + timing bookkeeping each Briscola
-// LLM bot needs. We use Scopa's GeminiTokenStats as the canonical shape
-// so the shared TokenStatsDisplay component can render any provider
-// uniformly.
+// Small helper that bundles the token + timing bookkeeping each LLM bot
+// needs. Shared between Scopa and Briscola; renders uniformly through
+// the shared TokenStatsDisplay component.
 
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
+import type { GeminiTokenStats, GeminiTokenDelta } from './tokenStats';
 
 export class TokenTracker {
   public stats: GeminiTokenStats;

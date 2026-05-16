@@ -13,7 +13,8 @@ import {
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
-import type { ConversationMode, Seat } from './gemini';
+import type { ConversationMode } from './gemini';
+import type { Seat } from '../../../ai/seat';
 import {
   isClaudeAvailable,
   fetchClaudeModels,
@@ -22,8 +23,8 @@ import {
   isAdaptiveThinkingModel,
   type ClaudeModelInfo,
 } from '../../scopa/ai/claude';
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
-import { TokenTracker } from './tokenTracker';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
+import { TokenTracker } from '../../../ai/tokenTracker';
 
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
 

@@ -9,20 +9,12 @@
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { TokenTracker } from './tokenTracker';
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
+import { TokenTracker } from '../../../ai/tokenTracker';
+import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 
 const PROXY_URL = import.meta.env.VITE_PROXY_URL as string | undefined;
 const MODEL_DISPLAY_NAME = 'Gemini 3 Flash Preview';
-
-const MOVE_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    moveIndex: { type: 'integer', description: '0-based index of the selected move' },
-    reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' },
-  },
-  required: ['moveIndex', 'reasoning'],
-};
 
 interface ContentEntry {
   role: 'user' | 'model';
@@ -209,10 +201,7 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
   }
 }
 
-/** Same Seat type the BYOK providers use — keep per-seat instances so
- *  watch mode with Gemini-Free vs Gemini-Free doesn't share a single
- *  chat history between both players. */
-import type { Seat } from './gemini';
+import type { Seat } from '../../../ai/seat';
 
 const instances = new Map<Seat, GeminiFreeBriscolaAI>();
 

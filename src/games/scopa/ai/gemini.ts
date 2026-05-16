@@ -12,53 +12,13 @@ export interface GeminiModelInfo {
   displayName: string;
 }
 
-// Token usage statistics
-export interface GeminiTokenStats {
-  promptTokens: number;
-  responseTokens: number;
-  thoughtTokens: number;
-  totalTokens: number;
-  cachedTokens: number;
-  requestCount: number;
-  // Round-specific stats (reset each round)
-  roundPromptTokens: number;
-  roundResponseTokens: number;
-  roundThoughtTokens: number;
-  roundTotalTokens: number;
-  roundRequestCount: number;
-  // Model info
-  modelId: string;
-  modelDisplayName: string;
-  // Timing stats (in milliseconds)
-  totalTimeMs: number;
-  lastTurnTimeMs: number;
-  minTurnTimeMs: number;
-  maxTurnTimeMs: number;
-  // Round-specific timing
-  roundTotalTimeMs: number;
-}
-
-// Delta from last API call
-export interface GeminiTokenDelta {
-  promptTokens: number;
-  responseTokens: number;
-  thoughtTokens: number;
-  totalTokens: number;
-  turnTimeMs: number;
-}
+export type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
+import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
+import { TokenTracker } from '../../../ai/tokenTracker';
 
 // Default model to use
 const DEFAULT_MODEL = 'gemini-2.5-flash';
-
-// JSON schema for move selection response
-const MOVE_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    moveIndex: { type: 'integer', description: '0-based index of the selected move' },
-    reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' },
-  },
-  required: ['moveIndex', 'reasoning'],
-};
 
 /** Pro models cannot fully disable thinking, require minimum budget */
 function isProModel(modelId: string): boolean {
@@ -206,14 +166,9 @@ class GeminiAI implements AsyncAIPlayer {
   private chat: Chat | null = null;
   private useThinking: boolean;
   public lastReasoning: string = '';
-  public tokenStats: GeminiTokenStats;
-  public lastDelta: GeminiTokenDelta = {
-    promptTokens: 0,
-    responseTokens: 0,
-    thoughtTokens: 0,
-    totalTokens: 0,
-    turnTimeMs: 0,
-  };
+  private tracker: TokenTracker;
+  get tokenStats(): GeminiTokenStats { return this.tracker.stats; }
+  get lastDelta(): GeminiTokenDelta { return this.tracker.lastDelta; }
 
   constructor(apiKey: string, model: string = DEFAULT_MODEL, useThinking: boolean = true) {
     this.ai = new GoogleGenAI({ apiKey });
@@ -225,33 +180,9 @@ class GeminiAI implements AsyncAIPlayer {
     ).join(' ');
     this.modelDisplayName = `Gemini ${shortName}`;
     this.name = this.modelDisplayName;
-
-    // Initialize token stats with model info
-    this.tokenStats = {
-      promptTokens: 0,
-      responseTokens: 0,
-      thoughtTokens: 0,
-      totalTokens: 0,
-      cachedTokens: 0,
-      requestCount: 0,
-      roundPromptTokens: 0,
-      roundResponseTokens: 0,
-      roundThoughtTokens: 0,
-      roundTotalTokens: 0,
-      roundRequestCount: 0,
-      modelId: model,
-      modelDisplayName: this.modelDisplayName,
-      totalTimeMs: 0,
-      lastTurnTimeMs: 0,
-      minTurnTimeMs: 0,
-      maxTurnTimeMs: 0,
-      roundTotalTimeMs: 0,
-    };
+    this.tracker = new TokenTracker(model, this.modelDisplayName);
   }
 
-  /**
-   * Update token stats from response metadata
-   */
   private updateTokenStats(usageMetadata: {
     promptTokenCount?: number;
     candidatesTokenCount?: number;
@@ -260,100 +191,25 @@ class GeminiAI implements AsyncAIPlayer {
     thoughtsTokenCount?: number;
   } | undefined): void {
     if (!usageMetadata) return;
-
-    const promptDelta = usageMetadata.promptTokenCount || 0;
-    const responseDelta = usageMetadata.candidatesTokenCount || 0;
-    const thoughtDelta = usageMetadata.thoughtsTokenCount || 0;
-    const totalDelta = usageMetadata.totalTokenCount || 0;
-
-    // Update cumulative stats
-    this.tokenStats.promptTokens += promptDelta;
-    this.tokenStats.responseTokens += responseDelta;
-    this.tokenStats.thoughtTokens += thoughtDelta;
-    this.tokenStats.totalTokens += totalDelta;
-    this.tokenStats.cachedTokens += usageMetadata.cachedContentTokenCount || 0;
-    this.tokenStats.requestCount += 1;
-
-    // Update round-specific stats
-    this.tokenStats.roundPromptTokens += promptDelta;
-    this.tokenStats.roundResponseTokens += responseDelta;
-    this.tokenStats.roundThoughtTokens += thoughtDelta;
-    this.tokenStats.roundTotalTokens += totalDelta;
-    this.tokenStats.roundRequestCount += 1;
-
-    // Track last delta (timing added by updateTimingStats)
-    this.lastDelta = {
-      promptTokens: promptDelta,
-      responseTokens: responseDelta,
-      thoughtTokens: thoughtDelta,
-      totalTokens: totalDelta,
-      turnTimeMs: 0,
-    };
+    this.tracker.recordTokens({
+      promptTokens: usageMetadata.promptTokenCount,
+      responseTokens: usageMetadata.candidatesTokenCount,
+      thoughtTokens: usageMetadata.thoughtsTokenCount,
+      totalTokens: usageMetadata.totalTokenCount,
+      cachedTokens: usageMetadata.cachedContentTokenCount,
+    });
   }
 
-  /**
-   * Update timing stats after a turn
-   */
   private updateTimingStats(turnTimeMs: number): void {
-    this.tokenStats.lastTurnTimeMs = turnTimeMs;
-    this.tokenStats.totalTimeMs += turnTimeMs;
-    this.tokenStats.roundTotalTimeMs += turnTimeMs;
-
-    // Update min/max (initialize min on first turn)
-    if (this.tokenStats.minTurnTimeMs === 0 || turnTimeMs < this.tokenStats.minTurnTimeMs) {
-      this.tokenStats.minTurnTimeMs = turnTimeMs;
-    }
-    if (turnTimeMs > this.tokenStats.maxTurnTimeMs) {
-      this.tokenStats.maxTurnTimeMs = turnTimeMs;
-    }
-
-    // Include timing in delta
-    this.lastDelta.turnTimeMs = turnTimeMs;
+    this.tracker.recordTiming(turnTimeMs);
   }
 
-  /**
-   * Reset token stats (e.g., for new game)
-   */
   resetTokenStats(): void {
-    this.tokenStats = {
-      promptTokens: 0,
-      responseTokens: 0,
-      thoughtTokens: 0,
-      totalTokens: 0,
-      cachedTokens: 0,
-      requestCount: 0,
-      roundPromptTokens: 0,
-      roundResponseTokens: 0,
-      roundThoughtTokens: 0,
-      roundTotalTokens: 0,
-      roundRequestCount: 0,
-      modelId: this.model,
-      modelDisplayName: this.modelDisplayName,
-      totalTimeMs: 0,
-      lastTurnTimeMs: 0,
-      minTurnTimeMs: 0,
-      maxTurnTimeMs: 0,
-      roundTotalTimeMs: 0,
-    };
-    this.lastDelta = {
-      promptTokens: 0,
-      responseTokens: 0,
-      thoughtTokens: 0,
-      totalTokens: 0,
-      turnTimeMs: 0,
-    };
+    this.tracker = new TokenTracker(this.model, this.modelDisplayName);
   }
 
-  /**
-   * Reset round-specific stats (called at start of each round)
-   */
   resetRoundStats(): void {
-    this.tokenStats.roundPromptTokens = 0;
-    this.tokenStats.roundResponseTokens = 0;
-    this.tokenStats.roundThoughtTokens = 0;
-    this.tokenStats.roundTotalTokens = 0;
-    this.tokenStats.roundRequestCount = 0;
-    this.tokenStats.roundTotalTimeMs = 0;
+    this.tracker.resetRound();
   }
 
   /**

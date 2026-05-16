@@ -24,19 +24,12 @@ import {
   getCachedGeminiModels,
   type GeminiModelInfo,
 } from '../../scopa/ai/gemini';
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
-import { TokenTracker } from './tokenTracker';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
+import { TokenTracker } from '../../../ai/tokenTracker';
+import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
+import type { Seat } from '../../../ai/seat';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-
-const MOVE_JSON_SCHEMA = {
-  type: 'object',
-  properties: {
-    moveIndex: { type: 'integer', description: '0-based index of the selected move' },
-    reasoning: { type: 'string', description: 'Brief explanation of why this move was chosen' },
-  },
-  required: ['moveIndex', 'reasoning'],
-};
 
 /** Pro models can't fully disable thinking — they need a minimum budget. */
 function isProModel(modelId: string): boolean {
@@ -222,11 +215,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
 // mid-match.
 const instances = new Map<string, GeminiBriscolaAI>();
 
-/** Seat the bot is bound to. In play mode the bot is always 'cpu'. In
- *  watch mode the two seats need separate instances so they don't share
- *  chat history / token tracker — same-model self-play would otherwise
- *  intermix both players' moves into one conversation. */
-export type Seat = 'cpu' | 'p1' | 'p2';
+export type { Seat } from '../../../ai/seat';
 
 function cacheKey(
   model: string,

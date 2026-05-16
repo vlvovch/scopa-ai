@@ -12,7 +12,8 @@ import {
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
-import type { ConversationMode, Seat } from './gemini';
+import type { ConversationMode } from './gemini';
+import type { Seat } from '../../../ai/seat';
 import {
   isOpenAIAvailable,
   fetchOpenAIModels,
@@ -20,8 +21,8 @@ import {
   getOpenAIApiKey,
   type OpenAIModelInfo,
 } from '../../scopa/ai/openai';
-import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
-import { TokenTracker } from './tokenTracker';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
+import { TokenTracker } from '../../../ai/tokenTracker';
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
