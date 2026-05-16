@@ -23,3 +23,14 @@ export {
   getGeminiFreeRateLimitInfo,
   RateLimitError,
 } from './gemini-free';
+export {
+  getGeminiBriscolaAI,
+  isGeminiAvailable,
+  fetchGeminiModels,
+  getCachedGeminiModels,
+  startGeminiRound,
+  endGeminiRound,
+  clearGeminiCache,
+  DEFAULT_GEMINI_MODEL,
+  type GeminiModelInfo,
+} from './gemini';

@@ -379,10 +379,9 @@ export function SettingsModal({
               </p>
             </div>
 
-            {/* API Keys — only relevant where LLM bots exist (Scopa today,
-                Briscola once slice 9 lands). Hidden for Briscola for now. */}
-            {game === 'scopa' && (
-              <>
+            {/* API Keys — Briscola supports Gemini today (slice 9), OpenAI
+                and Claude still Scopa-only but keys are shared across both
+                games (stored in the same settings object). */}
             <h3 className={styles.sectionTitle}>API Keys (to play against AI)</h3>
 
             {ITCH_MODE ? (
@@ -448,8 +447,6 @@ export function SettingsModal({
                   Keys are stored locally in your browser only. We do not have access to your keys.
                   Always exercise caution when entering API keys on any website.
                 </p>
-              </>
-            )}
               </>
             )}
 

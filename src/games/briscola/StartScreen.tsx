@@ -8,12 +8,18 @@
 import { useEffect, useState } from 'react';
 import styles from '../../components/UI/StartScreen.module.css';
 import { isGeminiFreeAvailable } from './ai/gemini-free';
+import {
+  isGeminiAvailable,
+  fetchGeminiModels,
+  getCachedGeminiModels,
+  type GeminiModelInfo,
+} from './ai/gemini';
 
 /** Sync CPU bots — usable on either seat in Watch mode. */
 export type CpuBotName = 'random' | 'heuristic' | 'expert';
 
 /** Anything that can be the *Play-mode* opponent — CPU or an async LLM. */
-export type BriscolaOpponentName = CpuBotName | 'gemini-free';
+export type BriscolaOpponentName = CpuBotName | 'gemini-free' | 'gemini';
 
 export type BriscolaGameMode = 'play' | 'watch';
 
@@ -38,6 +44,11 @@ const BOT_INFO: Record<BriscolaOpponentName, { icon: string; name: string; descr
     name: 'Gemini 3 Flash (Free)',
     description: 'Google Gemini via free proxy with thinking. Limited to 3 games/day per user.',
   },
+  gemini: {
+    icon: '✦',
+    name: 'Gemini',
+    description: 'Google Gemini using your own API key. Pick a model from the dropdown.',
+  },
 };
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
@@ -45,6 +56,9 @@ const PRESET_BEST_OF = [1, 2, 3] as const;
 interface StartScreenProps {
   opponentName: BriscolaOpponentName;
   onSetOpponentName: (name: BriscolaOpponentName) => void;
+  /** Chosen Gemini model id (when opponentName === 'gemini'). */
+  geminiModel: string;
+  onSetGeminiModel: (modelId: string) => void;
   watchBots: { player1: CpuBotName; player2: CpuBotName };
   onSetWatchBot: (player: 'player1' | 'player2', name: CpuBotName) => void;
   defaultBestOf: number;
@@ -56,11 +70,28 @@ const CPU_BOT_NAMES: CpuBotName[] = ['random', 'heuristic', 'expert'];
 export function StartScreen({
   opponentName,
   onSetOpponentName,
+  geminiModel,
+  onSetGeminiModel,
   watchBots,
   onSetWatchBot,
   defaultBestOf,
   onStartGame,
 }: StartScreenProps) {
+  // Gemini model list (lazy fetched once when the Gemini option is chosen).
+  const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>(
+    () => getCachedGeminiModels()
+  );
+  useEffect(() => {
+    if (opponentName === 'gemini' && geminiModels.length === 0 && isGeminiAvailable()) {
+      let cancelled = false;
+      fetchGeminiModels().then((models) => {
+        if (!cancelled) setGeminiModels(models);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [opponentName, geminiModels.length]);
   const [bestOf, setBestOf] = useState<number>(defaultBestOf);
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
   const isPreset = (PRESET_BEST_OF as readonly number[]).includes(bestOf);
@@ -152,8 +183,31 @@ export function StartScreen({
                     {BOT_INFO['gemini-free'].icon} {BOT_INFO['gemini-free'].name}
                   </option>
                 )}
+                {isGeminiAvailable() && (
+                  <option value="gemini">
+                    {BOT_INFO.gemini.icon} {BOT_INFO.gemini.name}
+                  </option>
+                )}
               </select>
             </div>
+            {opponentName === 'gemini' && (
+              <div className={styles.dropdownRow} style={{ marginTop: '0.5rem' }}>
+                <select
+                  className={styles.dropdown}
+                  value={geminiModel}
+                  onChange={(e) => onSetGeminiModel(e.target.value)}
+                >
+                  {(geminiModels.length > 0
+                    ? geminiModels
+                    : [{ id: geminiModel, displayName: geminiModel }]
+                  ).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <p className={styles.aiDescription}>{BOT_INFO[opponentName].description}</p>
           </div>
         ) : (
