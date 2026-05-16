@@ -277,8 +277,16 @@ function applyOrDeferTrick(
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'START':
-      return { status: 'dealing', game: newRound(action.bestOf) };
+    case 'START': {
+      // Randomize who deals the first hand of a new match — equivalent to
+      // a coin flip / drawing for deal in tabletop play. The non-dealer
+      // leads, so this also randomizes who plays first.
+      const firstDealer: PlayerId = Math.random() < 0.5 ? 'human' : 'cpu';
+      return {
+        status: 'dealing',
+        game: newRound(action.bestOf, undefined, 1, firstDealer),
+      };
+    }
 
     case 'RESET':
       return { status: 'idle' };
@@ -447,7 +455,20 @@ function BriscolaApp() {
 
   // Last move each player made (used as `lastSelfMove` / `lastOpponentMove`
   // when building the LLM prompt). Reset at the start of every round.
+  // Two parallel maps:
+  //   - `lastMovesRef` is the running per-trick log: updated the moment a
+  //     move is dispatched. Used internally for whatever might need "what
+  //     was just played" (currently nothing, but the slot stays useful).
+  //   - `prevTrickMovesRef` is what the LLM prompt sees as
+  //     `lastSelfMove` / `lastOpponentMove`. Updated only when a trick
+  //     RESOLVES, so a follower's prompt won't say "opponent's last move
+  //     = X" right after saying "opponent led X" — those moves come from
+  //     the PRIOR trick.
   const lastMovesRef = useRef<{ human: Move | null; cpu: Move | null }>({
+    human: null,
+    cpu: null,
+  });
+  const prevTrickMovesRef = useRef<{ human: Move | null; cpu: Move | null }>({
     human: null,
     cpu: null,
   });
@@ -678,6 +699,7 @@ function BriscolaApp() {
     if (prevRoundRef.current === key) return;
     prevRoundRef.current = key;
     lastMovesRef.current = { human: null, cpu: null };
+    prevTrickMovesRef.current = { human: null, cpu: null };
     setLastMoveData({ human: null, cpu: null });
     setTokenStatsBySeat({
       human: { stats: null, delta: null },
@@ -746,8 +768,8 @@ function BriscolaApp() {
       targetScore: g.targetScore,
       roundNumber: g.roundNumber,
       opponentHandCount: g.players[opp].hand.length,
-      lastSelfMove: lastMovesRef.current[current],
-      lastOpponentMove: lastMovesRef.current[opp],
+      lastSelfMove: prevTrickMovesRef.current[current],
+      lastOpponentMove: prevTrickMovesRef.current[opp],
       validMoves,
     };
 
@@ -825,7 +847,13 @@ function BriscolaApp() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [state, botFor, gameMode, dur]);
+    // statsFor and the watch/opponent-name references inside the async
+    // closure are belt-and-suspenders here — botFor already depends on
+    // them, so when any of them change botFor becomes a new reference
+    // and this effect re-runs (cancellation fires on cleanup). Listing
+    // them explicitly keeps things robust if botFor's identity ever
+    // gets memoized differently in the future.
+  }, [state, botFor, gameMode, dur, watchOpponents, opponentName, statsFor]);
 
   // cpuAnimating: reveal → moving → apply. The 'play' sound fires when
   // the card actually LANDS in the play area (end of the moving phase),
@@ -846,11 +874,15 @@ function BriscolaApp() {
     }
   }, [state, play, dur]);
 
-  // animatingTrick: hold then resolve (capture sound on resolution)
+  // animatingTrick: hold then resolve (capture sound on resolution).
+  // Also snapshot the just-completed trick's plays into prevTrickMovesRef
+  // so the next prompt's "Your last move / Opponent's last move" reflects
+  // the PRIOR trick, not the one currently being led.
   useEffect(() => {
     if (state.status !== 'animatingTrick') return;
     const t = setTimeout(() => {
       play('capture');
+      prevTrickMovesRef.current = { ...lastMovesRef.current };
       dispatch({ type: 'RESOLVE_TRICK' });
     }, dur(TRICK_VISIBLE_MS));
     return () => clearTimeout(t);
@@ -1898,17 +1930,12 @@ function CapturedSummaryRow({
 
   return (
     <div style={{ margin: '0.5rem 0', textAlign: 'left' }}>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          gap: '0.5rem',
-          marginBottom: '0.35rem',
-          fontSize: '0.95rem',
-        }}
-      >
-        <strong>{label}</strong>
-        <span style={{ opacity: 0.85 }}>
+      {/* Stack label + stats vertically so a long label (e.g. "Gemini 3
+          Flash Preview") doesn't make this column's header taller than the
+          other and offset the cards strip below. */}
+      <div style={{ marginBottom: '0.35rem', fontSize: '0.95rem' }}>
+        <strong style={{ display: 'block' }}>{label}</strong>
+        <span style={{ opacity: 0.85, whiteSpace: 'nowrap' }}>
           {points} pts · {totalCards} cards
         </span>
       </div>
