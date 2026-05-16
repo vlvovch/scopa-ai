@@ -51,10 +51,8 @@ import {
 } from '../../components/UI/StatsModal';
 import { RulesModal } from '../../components/UI/RulesModal';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
-import {
-  BriscolaReasoningModal,
-  type BriscolaReasoningData,
-} from './BriscolaReasoningModal';
+import { ReasoningModal, type LastMoveData } from '../../components/UI/ReasoningModal';
+import { ThinkingBubble } from '../../components/UI/ThinkingBubble';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
@@ -66,26 +64,40 @@ import {
   startGeminiFreeRound,
   endGeminiFreeRound,
   newGeminiFreeGame,
+  getGeminiFreeTokenStats,
+  getGeminiFreeTokenDelta,
   RateLimitError,
 } from './ai/gemini-free';
 import {
   getGeminiBriscolaAI,
   startGeminiRound,
   endGeminiRound,
+  getGeminiBriscolaTokenStats,
+  getGeminiBriscolaTokenDelta,
   DEFAULT_GEMINI_MODEL,
 } from './ai/gemini';
 import {
   getOpenAIBriscolaAI,
   startOpenAIRound,
   endOpenAIRound,
+  getOpenAIBriscolaTokenStats,
+  getOpenAIBriscolaTokenDelta,
   DEFAULT_OPENAI_MODEL,
 } from './ai/openai';
 import {
   getClaudeBriscolaAI,
   startClaudeRound,
   endClaudeRound,
+  getClaudeBriscolaTokenStats,
+  getClaudeBriscolaTokenDelta,
   DEFAULT_CLAUDE_MODEL,
 } from './ai/claude';
+import { TokenStatsDisplay } from '../../components/UI/TokenStatsDisplay';
+import type { GeminiTokenStats, GeminiTokenDelta, ExtendedAIType } from '../scopa/ai';
+import {
+  getAIDisplayNameText,
+  AIPlayerLabel,
+} from '../../components/UI/AIPlayerLabel';
 import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
 import type { AIPlayer } from './ai/types';
 import { useSound } from '../../hooks/useSound';
@@ -440,14 +452,33 @@ function BriscolaApp() {
     cpu: null,
   });
 
-  // LLM reasoning indexed by the played card's id, so clicking that card in
-  // the trick area can surface the bot's explanation. Sync bots add no
-  // entries, so the modal trigger never fires for them.
-  const lastReasoningsRef = useRef<Map<string, BriscolaReasoningData>>(new Map());
+  // Per-seat "last move + reasoning" snapshot, used by the shared Scopa
+  // ReasoningModal. Only LLM bots populate `reasoning`; CPU bots leave it
+  // empty and the ThinkingBubble trigger stays hidden.
+  const [lastMoveData, setLastMoveData] = useState<{
+    human: LastMoveData | null;
+    cpu: LastMoveData | null;
+  }>({ human: null, cpu: null });
   const [reasoningModal, setReasoningModal] = useState<{
-    open: boolean;
-    data: BriscolaReasoningData | null;
-  }>({ open: false, data: null });
+    isOpen: boolean;
+    player: PlayerId | null;
+  }>({ isOpen: false, player: null });
+
+  // Token stats per seat, refreshed after each LLM call.
+  const [tokenStatsBySeat, setTokenStatsBySeat] = useState<{
+    human: { stats: GeminiTokenStats | null; delta: GeminiTokenDelta | null };
+    cpu: { stats: GeminiTokenStats | null; delta: GeminiTokenDelta | null };
+  }>({
+    human: { stats: null, delta: null },
+    cpu: { stats: null, delta: null },
+  });
+
+  // LLM error per seat — when set, the TokenStatsDisplay shows it as an
+  // error badge. Cleared on next successful call or by the user.
+  const [apiErrorBySeat, setApiErrorBySeat] = useState<{
+    human: string | null;
+    cpu: string | null;
+  }>({ human: null, cpu: null });
 
   // Map an opponent name to the actual AI player instance. Falls back to
   // the heuristic CPU if an LLM isn't reachable (proxy unset, no key, etc.)
@@ -467,6 +498,38 @@ function BriscolaApp() {
         return getClaudeBriscolaAI(claudeModel, useThinking) ?? CPU_BOTS.heuristic;
       }
       return CPU_BOTS[name];
+    },
+    [geminiModel, openaiModel, claudeModel, useThinking]
+  );
+
+  // Look up the current token stats for an opponent name. Returns null
+  // for sync CPU bots since they have nothing to report.
+  const statsFor = useCallback(
+    (
+      name: BriscolaOpponentName
+    ): { stats: GeminiTokenStats | null; delta: GeminiTokenDelta | null } => {
+      if (name === 'gemini-free') {
+        return { stats: getGeminiFreeTokenStats(), delta: getGeminiFreeTokenDelta() };
+      }
+      if (name === 'gemini') {
+        return {
+          stats: getGeminiBriscolaTokenStats(geminiModel, useThinking),
+          delta: getGeminiBriscolaTokenDelta(geminiModel, useThinking),
+        };
+      }
+      if (name === 'openai') {
+        return {
+          stats: getOpenAIBriscolaTokenStats(openaiModel),
+          delta: getOpenAIBriscolaTokenDelta(openaiModel),
+        };
+      }
+      if (name === 'claude') {
+        return {
+          stats: getClaudeBriscolaTokenStats(claudeModel, useThinking),
+          delta: getClaudeBriscolaTokenDelta(claudeModel, useThinking),
+        };
+      }
+      return { stats: null, delta: null };
     },
     [geminiModel, openaiModel, claudeModel, useThinking]
   );
@@ -615,7 +678,12 @@ function BriscolaApp() {
     if (prevRoundRef.current === key) return;
     prevRoundRef.current = key;
     lastMovesRef.current = { human: null, cpu: null };
-    lastReasoningsRef.current.clear();
+    setLastMoveData({ human: null, cpu: null });
+    setTokenStatsBySeat({
+      human: { stats: null, delta: null },
+      cpu: { stats: null, delta: null },
+    });
+    setApiErrorBySeat({ human: null, cpu: null });
     // Build the set of opponents whose LLM lifecycle we need to nudge.
     // Play mode = the single opponent; Watch mode = both seats.
     const activeOpponents: BriscolaOpponentName[] =
@@ -698,32 +766,55 @@ function BriscolaApp() {
         );
         if (!stillLegal) return;
         lastMovesRef.current[current] = move;
-        // If this was an LLM, stash the reasoning indexed by card id so the
-        // user can click the trick card to see it. The opponent name driving
-        // this seat tells us which provider's BOT_LABEL to display.
+        // Snapshot this seat's move for the ReasoningModal. Briscola has no
+        // captures-from-table notion, so tableCards / capturedCards stay
+        // empty — the modal will just render the played card + reasoning.
         const seatOpponent =
           gameMode === 'watch'
             ? current === 'human'
               ? watchOpponents.player1
               : watchOpponents.player2
             : opponentName;
-        const reasoning = (bot as { lastReasoning?: string }).lastReasoning;
-        if (reasoning && seatOpponent) {
-          lastReasoningsRef.current.set(move.cardPlayed.id, {
-            card: move.cardPlayed,
-            botLabel: bot.name || BOT_LABELS[seatOpponent],
+        const reasoning = (bot as { lastReasoning?: string }).lastReasoning ?? '';
+        const opp: PlayerId = current === 'human' ? 'cpu' : 'human';
+        setLastMoveData((prev) => ({
+          ...prev,
+          [current]: {
+            cardPlayed: move.cardPlayed,
+            tableCards: [],
+            capturedCards: [],
             reasoning,
-          });
+            player: current,
+            aiName: bot.name || (seatOpponent ? BOT_LABELS[seatOpponent] : undefined),
+            opponentHandCount: g.players[opp].hand.length,
+            otherHandCards: g.players[current].hand.filter(
+              (c) => c.id !== move.cardPlayed.id
+            ),
+          } satisfies LastMoveData,
+        }));
+        if (seatOpponent) {
+          const snapshot = statsFor(seatOpponent);
+          setTokenStatsBySeat((prev) => ({ ...prev, [current]: snapshot }));
         }
+        setApiErrorBySeat((prev) =>
+          prev[current] === null ? prev : { ...prev, [current]: null }
+        );
         dispatch({ type: 'CPU_START', move });
       } catch (e) {
         if (cancelled) return;
+        const msg =
+          e instanceof RateLimitError
+            ? `Rate limit (${e.gamesUsed}/${e.gamesLimit})`
+            : e instanceof Error
+              ? e.message
+              : String(e);
         if (e instanceof RateLimitError) {
           // eslint-disable-next-line no-console
           console.warn('[briscola] LLM rate-limit hit, falling back to heuristic.');
         } else {
           console.error('[briscola] LLM move failed:', e);
         }
+        setApiErrorBySeat((prev) => ({ ...prev, [current]: msg }));
         // Don't lock up the game — fall back to a sync bot for this move.
         const fallback = CPU_BOTS.heuristic.selectMove(llmCtx);
         lastMovesRef.current[current] = fallback;
@@ -802,12 +893,27 @@ function BriscolaApp() {
   // Which player's captured pile is currently open as a modal (null = closed)
   const [openPile, setOpenPile] = useState<PlayerId | null>(null);
 
-  // Open the reasoning modal when the user clicks a trick card that an
-  // LLM played. Sync-bot cards have no entry → click is a no-op.
-  const onTrickCardClick = useCallback((card: BriscolaCard) => {
-    const data = lastReasoningsRef.current.get(card.id);
-    if (data) setReasoningModal({ open: true, data });
-  }, []);
+  // Resolve the chosen model id for an opponent name (undefined for non-LLMs).
+  const modelFor = useCallback(
+    (name: BriscolaOpponentName): string | undefined => {
+      if (name === 'gemini') return geminiModel;
+      if (name === 'openai') return openaiModel;
+      if (name === 'claude') return claudeModel;
+      if (name === 'gemini-free') return 'gemini-3-flash-preview';
+      return undefined;
+    },
+    [geminiModel, openaiModel, claudeModel]
+  );
+
+  // Build a display label that includes the model when available — so every
+  // UI surface (scoreboard, pile, modal title) agrees on "Claude Opus 4.7"
+  // instead of some saying just "Claude" and others "Sonnet 4.5". Delegates
+  // to Scopa's getAIDisplayNameText so both games format identically.
+  const labelWithModel = useCallback(
+    (name: BriscolaOpponentName): string =>
+      getAIDisplayNameText(name as ExtendedAIType, modelFor(name), false),
+    [modelFor]
+  );
 
   if (state.status === 'idle') {
     return (
@@ -879,16 +985,43 @@ function BriscolaApp() {
       <BriscolaBoard
         state={state}
         cpuBotLabel={
-          gameMode === 'watch' ? BOT_LABELS[watchOpponents.player2] : BOT_LABELS[opponentName]
+          gameMode === 'watch'
+            ? labelWithModel(watchOpponents.player2)
+            : labelWithModel(opponentName)
         }
         opponentName={gameMode === 'watch' ? watchOpponents.player2 : opponentName}
-        humanLabel={gameMode === 'watch' ? BOT_LABELS[watchOpponents.player1] : 'You'}
+        cpuModel={modelFor(gameMode === 'watch' ? watchOpponents.player2 : opponentName)}
+        humanLabel={
+          gameMode === 'watch' ? labelWithModel(watchOpponents.player1) : 'You'
+        }
         humanBotName={gameMode === 'watch' ? watchOpponents.player1 : null}
+        humanModel={
+          gameMode === 'watch' ? modelFor(watchOpponents.player1) : undefined
+        }
         isWatchMode={gameMode === 'watch'}
         autoAdvanceSpectator={settings.autoAdvanceSpectator}
         showPileStats={settings.showPileStats}
         onCardClick={onPlayerCardClick}
-        onTrickCardClick={onTrickCardClick}
+        onOpenReasoning={(p) => setReasoningModal({ isOpen: true, player: p })}
+        lastMoveData={lastMoveData}
+        tokenStatsBySeat={tokenStatsBySeat}
+        apiErrorBySeat={apiErrorBySeat}
+        onDismissApiError={(p) =>
+          setApiErrorBySeat((prev) => ({ ...prev, [p]: null }))
+        }
+        cpuIsLLM={
+          opponentName === 'gemini' ||
+          opponentName === 'gemini-free' ||
+          opponentName === 'openai' ||
+          opponentName === 'claude'
+        }
+        humanIsLLM={
+          gameMode === 'watch' &&
+          (watchOpponents.player1 === 'gemini' ||
+            watchOpponents.player1 === 'gemini-free' ||
+            watchOpponents.player1 === 'openai' ||
+            watchOpponents.player1 === 'claude')
+        }
         onNextRound={() => dispatch({ type: 'NEXT_ROUND' })}
         onRestart={handleRestartRequest}
         onOpenPile={setOpenPile}
@@ -939,10 +1072,19 @@ function BriscolaApp() {
         onConfirm={confirmRestart}
         onCancel={() => setConfirmNewGame(false)}
       />
-      <BriscolaReasoningModal
-        isOpen={reasoningModal.open}
-        data={reasoningModal.data}
-        onClose={() => setReasoningModal({ open: false, data: null })}
+      <ReasoningModal
+        isOpen={reasoningModal.isOpen}
+        lastMove={
+          reasoningModal.player ? lastMoveData[reasoningModal.player] : null
+        }
+        position={
+          reasoningModal.player === 'cpu'
+            ? 'top'
+            : reasoningModal.player === 'human'
+              ? 'bottom'
+              : 'center'
+        }
+        onClose={() => setReasoningModal({ isOpen: false, player: null })}
       />
     </DeckProvider>
   );
@@ -958,13 +1100,21 @@ function BriscolaBoard({
   state,
   cpuBotLabel,
   opponentName,
+  cpuModel,
   humanLabel,
   humanBotName,
+  humanModel,
   isWatchMode,
   autoAdvanceSpectator,
   showPileStats,
   onCardClick,
-  onTrickCardClick,
+  onOpenReasoning,
+  lastMoveData,
+  tokenStatsBySeat,
+  apiErrorBySeat,
+  onDismissApiError,
+  cpuIsLLM,
+  humanIsLLM,
   onNextRound,
   onRestart,
   onOpenPile,
@@ -973,16 +1123,36 @@ function BriscolaBoard({
   onOpenRules,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
+  /** Plain-text fallback (used by ReasoningModal title etc.). */
   cpuBotLabel: string;
   opponentName: BriscolaOpponentName;
+  /** Provider model id for the CPU seat (undefined for non-LLM opponents). */
+  cpuModel?: string;
+  /** Plain-text fallback for the user-side label. */
   humanLabel: string;
   /** When in watch mode, the opponent name driving the bottom seat (else null). */
   humanBotName: BriscolaOpponentName | null;
+  humanModel?: string;
   isWatchMode: boolean;
   autoAdvanceSpectator: boolean;
   showPileStats: boolean;
   onCardClick: (card: BriscolaCard) => void;
-  onTrickCardClick: (card: BriscolaCard) => void;
+  /** Open the reasoning modal for a given seat (called from ThinkingBubble). */
+  onOpenReasoning: (player: PlayerId) => void;
+  /** Last-move snapshot per seat — populated only for LLM moves. */
+  lastMoveData: { human: LastMoveData | null; cpu: LastMoveData | null };
+  /** Latest token stats per seat (null for sync CPU bots). */
+  tokenStatsBySeat: {
+    human: { stats: GeminiTokenStats | null; delta: GeminiTokenDelta | null };
+    cpu: { stats: GeminiTokenStats | null; delta: GeminiTokenDelta | null };
+  };
+  /** API error per seat (null if no error). */
+  apiErrorBySeat: { human: string | null; cpu: string | null };
+  onDismissApiError: (player: PlayerId) => void;
+  /** Whether the CPU seat is currently an LLM (controls whether the stats /
+   *  bubble container renders at all). */
+  cpuIsLLM: boolean;
+  humanIsLLM: boolean;
   onNextRound: () => void;
   onRestart: () => void;
   onOpenPile: (player: PlayerId) => void;
@@ -997,6 +1167,20 @@ function BriscolaBoard({
   const animTrick = state.status === 'animatingTrick' ? state.trick : null;
   const cpuAnim = state.status === 'cpuAnimating' ? state : null;
   const isDealing = state.status === 'dealing';
+
+  // JSX label for a seat — AIPlayerLabel for bots so brand-icon SVGs show
+  // up, plain text for the local user. Used where the parent accepts a
+  // ReactNode (pile labels, turn banner). String contexts (modal titles
+  // etc.) still use cpuBotLabel / humanLabel.
+  const seatLabelNode = (seat: PlayerId): React.ReactNode => {
+    const aiType = (seat === 'human' ? humanBotName : opponentName) as
+      | ExtendedAIType
+      | null;
+    const model = seat === 'human' ? humanModel : cpuModel;
+    if (seat === 'human' && !humanBotName) return humanLabel;
+    if (!aiType) return seat === 'human' ? humanLabel : cpuBotLabel;
+    return <AIPlayerLabel aiType={aiType} model={model} showModeIndicator={false} />;
+  };
   const drawTargets = state.status === 'drawing' ? state.drawTargets : null;
 
   // Drag-to-play (mirrors Scopa's pattern). The card is draggable; if released
@@ -1123,8 +1307,10 @@ function BriscolaBoard({
               currentPlayer={g.round.currentPlayer}
               cpuName={cpuBotLabel}
               player2AIType={opponentName}
+              player2Model={cpuModel}
               humanName={humanLabel}
               player1AIType={humanBotName ?? undefined}
+              player1Model={humanModel}
             />
             <GameControls
               onNewGame={onRestart}
@@ -1135,12 +1321,32 @@ function BriscolaBoard({
           </div>
         }
         cpuPile={
-          <BriscolaPile
-            captured={g.players.cpu.captured}
-            label={cpuBotLabel}
-            onClick={() => onOpenPile('cpu')}
-            showStats={showPileStats}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <BriscolaPile
+              captured={g.players.cpu.captured}
+              label={seatLabelNode('cpu')}
+              onClick={() => onOpenPile('cpu')}
+              showStats={showPileStats}
+            />
+            {cpuIsLLM && (
+              <div style={{ position: 'relative' }}>
+                <TokenStatsDisplay
+                  stats={tokenStatsBySeat.cpu.stats}
+                  delta={tokenStatsBySeat.cpu.delta}
+                  show
+                  mode="game"
+                  position="bottom"
+                  error={apiErrorBySeat.cpu}
+                  onDismissError={() => onDismissApiError('cpu')}
+                />
+                <ThinkingBubble
+                  show
+                  hasReasoning={!!lastMoveData.cpu?.reasoning}
+                  onClick={() => onOpenReasoning('cpu')}
+                />
+              </div>
+            )}
+          </div>
         }
         cpuHand={<PlayerHand cards={cpuHand} isHuman={false} />}
         tableCards={
@@ -1154,7 +1360,6 @@ function BriscolaBoard({
             followIsWinner={animTrick !== null && animTrick.winner === animTrick.follower}
             tableRef={tableRef}
             isDragOver={isDragOver}
-            onCardClick={onTrickCardClick}
           />
         }
         humanHand={
@@ -1168,34 +1373,81 @@ function BriscolaBoard({
           />
         }
         humanPile={
-          <BriscolaPile
-            captured={g.players.human.captured}
-            label={humanLabel}
-            onClick={() => onOpenPile('human')}
-            showStats={showPileStats}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+            <BriscolaPile
+              captured={g.players.human.captured}
+              label={seatLabelNode('human')}
+              onClick={() => onOpenPile('human')}
+              showStats={showPileStats}
+            />
+            {isWatchMode && humanIsLLM && (
+              <div style={{ position: 'relative' }}>
+                <TokenStatsDisplay
+                  stats={tokenStatsBySeat.human.stats}
+                  delta={tokenStatsBySeat.human.delta}
+                  show
+                  mode="game"
+                  position="top"
+                  error={apiErrorBySeat.human}
+                  onDismissError={() => onDismissApiError('human')}
+                />
+                <ThinkingBubble
+                  show
+                  hasReasoning={!!lastMoveData.human?.reasoning}
+                  onClick={() => onOpenReasoning('human')}
+                  position="top"
+                />
+              </div>
+            )}
+          </div>
         }
         controls={
-          <div style={turnLabelStyle}>
-            {state.status === 'playing' &&
-              (isHumanTurn
-                ? humanLabel === 'You'
-                  ? 'Your turn'
-                  : `${humanLabel} thinking…`
-                : `${cpuBotLabel} thinking…`)}
-            {state.status === 'cpuAnimating' && `${
-              state.game.round.currentPlayer === 'human' ? humanLabel : cpuBotLabel
-            } plays…`}
-            {state.status === 'animatingTrick' &&
-              `${
-                winner === 'human' ? humanLabel : cpuBotLabel
-              } ${
-                (winner === 'human' ? humanLabel : cpuBotLabel) === 'You'
-                  ? 'take'
-                  : 'takes'
-              } it`}
-            {state.status === 'roundEnd' && 'Round over'}
-          </div>
+          (() => {
+            const currentSeat: PlayerId | null =
+              state.status === 'playing'
+                ? state.game.round.currentPlayer
+                : state.status === 'cpuAnimating'
+                  ? state.game.round.currentPlayer
+                  : state.status === 'animatingTrick' && winner
+                    ? winner
+                    : null;
+            const seatIsUser = currentSeat === 'human' && !humanBotName;
+            // turnLabelStyle gives padding/colors etc.; the inner flex row
+            // is what gets the AIPlayerLabel and trailing text onto a
+            // shared baseline (otherwise inline-flex + inline text drift
+            // vertically apart).
+            const row = {
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35em',
+            } as const;
+            return (
+              <div style={turnLabelStyle}>
+                {state.status === 'playing' &&
+                  (isHumanTurn && seatIsUser ? (
+                    <span>Your turn</span>
+                  ) : (
+                    <span style={row}>
+                      {seatLabelNode(currentSeat ?? 'cpu')}
+                      <span>thinking…</span>
+                    </span>
+                  ))}
+                {state.status === 'cpuAnimating' && (
+                  <span style={row}>
+                    {seatLabelNode(currentSeat ?? 'cpu')}
+                    <span>plays…</span>
+                  </span>
+                )}
+                {state.status === 'animatingTrick' && winner && (
+                  <span style={row}>
+                    {seatLabelNode(winner)}
+                    <span>{seatIsUser ? 'take' : 'takes'} it</span>
+                  </span>
+                )}
+                {state.status === 'roundEnd' && <span>Round over</span>}
+              </div>
+            );
+          })()
         }
       />
 
@@ -1260,7 +1512,6 @@ function BriscolaTable({
   followIsWinner,
   tableRef,
   isDragOver,
-  onCardClick,
 }: {
   deckCount: number;
   trump: BriscolaCard;
@@ -1271,8 +1522,6 @@ function BriscolaTable({
   followIsWinner: boolean;
   tableRef: React.RefObject<HTMLDivElement>;
   isDragOver: boolean;
-  /** Click handler for individual trick cards — opens reasoning modal. */
-  onCardClick: (card: BriscolaCard) => void;
 }) {
   // Highlight the drop zone while the user is dragging
   const trickAreaStyle = isDragOver
@@ -1294,7 +1543,6 @@ function BriscolaTable({
               card={leadCard}
               exitToward={winner}
               isWinner={leadIsWinner}
-              onClick={() => onCardClick(leadCard)}
             />
           )}
           {followCard && (
@@ -1303,7 +1551,6 @@ function BriscolaTable({
               card={followCard}
               exitToward={winner}
               isWinner={followIsWinner}
-              onClick={() => onCardClick(followCard)}
             />
           )}
         </AnimatePresence>
@@ -1369,12 +1616,10 @@ function TrickCard({
   card,
   exitToward,
   isWinner = false,
-  onClick,
 }: {
   card: BriscolaCard;
   exitToward: PlayerId | null;
   isWinner?: boolean;
-  onClick?: () => void;
 }) {
   // Fly toward the winning corner pile.
   // CPU pile: top-right.   Human pile: bottom-left.
@@ -1405,10 +1650,10 @@ function TrickCard({
         transition: { duration: CAPTURE_DURATION_MS / 1000, ease: [0.25, 0.1, 0.25, 1] },
       }}
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-      onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : undefined}
     >
-      <Card card={card} />
+      {/* Trick cards aren't interactive — disabled drops cursor:pointer
+          + hover glow + tap animation. */}
+      <Card card={card} disabled />
     </motion.div>
   );
 }
@@ -1498,7 +1743,9 @@ function BriscolaPile({
   showStats,
 }: {
   captured: BriscolaCard[];
-  label: string;
+  /** Accepts JSX so callers can pass AIPlayerLabel (proper brand-icon SVG)
+   *  instead of a flat string with the unicode-text fallback icon. */
+  label: React.ReactNode;
   onClick?: () => void;
   showStats: boolean;
 }) {

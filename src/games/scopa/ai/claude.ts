@@ -12,10 +12,20 @@ import { getClaudeApiKey, isClaudeKeyValid } from '../../../hooks/useSettings';
 const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking (legacy, pre-Opus 4.6)
 
 /**
- * Check if model is Claude Opus 4.6 or later (uses adaptive thinking)
+ * Check if a model requires adaptive thinking. All Opus 4.x models from 4.6
+ * onward only support `thinking.type === 'adaptive'` with an `output_config.
+ * effort` knob — the older `thinking.type === 'enabled'` + `budget_tokens`
+ * shape produces a 400 ("'thinking.type.enabled' is not supported for this
+ * model").
  */
 export function isAdaptiveThinkingModel(model: string): boolean {
-  return model.includes('opus-4-6');
+  // Match opus-4-N where N >= 6 (covers opus-4-6, opus-4-7, opus-4-8, …).
+  const m = model.match(/opus-4-(\d+)/);
+  if (m) {
+    const minor = parseInt(m[1], 10);
+    return !isNaN(minor) && minor >= 6;
+  }
+  return false;
 }
 
 // Model info returned from API

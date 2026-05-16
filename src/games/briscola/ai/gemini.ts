@@ -17,6 +17,8 @@ import {
   getCachedGeminiModels,
   type GeminiModelInfo,
 } from '../../scopa/ai/gemini';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
+import { TokenTracker } from './tokenTracker';
 
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -62,14 +64,23 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
   private model: string;
   private useThinking: boolean;
   private chat: Chat | null = null;
+  private tracker: TokenTracker;
 
   public lastReasoning: string = '';
+
+  get tokenStats(): GeminiTokenStats {
+    return this.tracker.stats;
+  }
+  get lastDelta(): GeminiTokenDelta {
+    return this.tracker.lastDelta;
+  }
 
   constructor(apiKey: string, model: string = DEFAULT_GEMINI_MODEL, useThinking = true) {
     this.ai = new GoogleGenAI({ apiKey });
     this.model = model;
     this.useThinking = useThinking;
     this.name = displayNameFor(model);
+    this.tracker = new TokenTracker(model, this.name);
   }
 
   startRound(): void {
@@ -82,6 +93,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
       },
     });
     this.lastReasoning = '';
+    this.tracker.resetRound();
   }
 
   endRound(): void {
@@ -111,6 +123,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
     try {
+      const startTime = performance.now();
       const response = await this.chat!.sendMessage({
         message: prompt,
         config: {
@@ -119,6 +132,15 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
           thinkingConfig: thinkingConfigFor(this.model, this.useThinking, true),
         },
       });
+
+      this.tracker.recordTokens({
+        promptTokens: response.usageMetadata?.promptTokenCount,
+        responseTokens: response.usageMetadata?.candidatesTokenCount,
+        thoughtTokens: response.usageMetadata?.thoughtsTokenCount,
+        totalTokens: response.usageMetadata?.totalTokenCount,
+        cachedTokens: response.usageMetadata?.cachedContentTokenCount,
+      });
+      this.tracker.recordTiming(performance.now() - startTime);
 
       const jsonText = response.text;
       if (!jsonText) {
@@ -188,6 +210,20 @@ export function startGeminiRound(model: string, useThinking = true): void {
 
 export function endGeminiRound(model: string, useThinking = true): void {
   instances.get(cacheKey(model, useThinking))?.endRound();
+}
+
+export function getGeminiBriscolaTokenStats(
+  model: string,
+  useThinking = true
+): GeminiTokenStats | null {
+  return instances.get(cacheKey(model, useThinking))?.tokenStats ?? null;
+}
+
+export function getGeminiBriscolaTokenDelta(
+  model: string,
+  useThinking = true
+): GeminiTokenDelta | null {
+  return instances.get(cacheKey(model, useThinking))?.lastDelta ?? null;
 }
 
 // Re-export the shared key/availability/model helpers so callers don't have

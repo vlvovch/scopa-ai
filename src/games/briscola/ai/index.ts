@@ -21,6 +21,8 @@ export {
   newGeminiFreeGame,
   clearGeminiFreeCache,
   getGeminiFreeRateLimitInfo,
+  getGeminiFreeTokenStats,
+  getGeminiFreeTokenDelta,
   RateLimitError,
 } from './gemini-free';
 export {
@@ -31,6 +33,8 @@ export {
   startGeminiRound,
   endGeminiRound,
   clearGeminiCache,
+  getGeminiBriscolaTokenStats,
+  getGeminiBriscolaTokenDelta,
   DEFAULT_GEMINI_MODEL,
   type GeminiModelInfo,
 } from './gemini';
@@ -42,6 +46,8 @@ export {
   startOpenAIRound,
   endOpenAIRound,
   clearOpenAICache,
+  getOpenAIBriscolaTokenStats,
+  getOpenAIBriscolaTokenDelta,
   DEFAULT_OPENAI_MODEL,
   type OpenAIModelInfo,
 } from './openai';
@@ -53,6 +59,8 @@ export {
   startClaudeRound,
   endClaudeRound,
   clearClaudeCache,
+  getClaudeBriscolaTokenStats,
+  getClaudeBriscolaTokenDelta,
   DEFAULT_CLAUDE_MODEL,
   type ClaudeModelInfo,
 } from './claude';

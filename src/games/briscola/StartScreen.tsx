@@ -7,6 +7,10 @@
 
 import { useEffect, useState } from 'react';
 import styles from '../../components/UI/StartScreen.module.css';
+import { CustomDropdown } from '../../components/UI/CustomDropdown';
+import { GeminiIcon } from '../../components/UI/GeminiIcon';
+import { OpenAIIcon } from '../../components/UI/OpenAIIcon';
+import { ClaudeIcon } from '../../components/UI/ClaudeIcon';
 import { isGeminiFreeAvailable, getGeminiFreeRateLimitInfo } from './ai/gemini-free';
 import {
   isGeminiAvailable,
@@ -309,28 +313,24 @@ export function StartScreen({
             <span className={styles.freeAILabel}>✦ Gemini 3 Flash Preview</span>
           ) : (
             <>
-              {/* Provider */}
-              <select
-                className={styles.dropdown}
+              {/* AI provider — uses Scopa's CustomDropdown so the SVG brand
+                  icons render inside the open list (native <select> can't
+                  show ReactNode options). */}
+              <CustomDropdown<AIProvider>
+                options={[
+                  ...(geminiOk
+                    ? [{ value: 'gemini' as const, label: 'Gemini', icon: <GeminiIcon size="1.1em" /> }]
+                    : []),
+                  ...(openaiOk
+                    ? [{ value: 'openai' as const, label: 'OpenAI', icon: <OpenAIIcon size="1.1em" /> }]
+                    : []),
+                  ...(claudeOk
+                    ? [{ value: 'claude' as const, label: 'Claude', icon: <ClaudeIcon size="1.1em" /> }]
+                    : []),
+                ]}
                 value={provider}
-                onChange={(e) => onChange(e.target.value as BriscolaOpponentName)}
-              >
-                {geminiOk && (
-                  <option value="gemini">
-                    {PROVIDER_INFO.gemini.icon} {PROVIDER_INFO.gemini.label}
-                  </option>
-                )}
-                {openaiOk && (
-                  <option value="openai">
-                    {PROVIDER_INFO.openai.icon} {PROVIDER_INFO.openai.label}
-                  </option>
-                )}
-                {claudeOk && (
-                  <option value="claude">
-                    {PROVIDER_INFO.claude.icon} {PROVIDER_INFO.claude.label}
-                  </option>
-                )}
-              </select>
+                onChange={(p) => onChange(p)}
+              />
 
               {/* Model picker for the chosen provider */}
               {modelDropdownFor(provider)}

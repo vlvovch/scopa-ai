@@ -16,6 +16,8 @@ import {
   isAdaptiveThinkingModel,
   type ClaudeModelInfo,
 } from '../../scopa/ai/claude';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
+import { TokenTracker } from './tokenTracker';
 
 export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
 
@@ -64,21 +66,31 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
   private model: string;
   private useExtendedThinking: boolean;
   private messages: MessageParam[] = [];
+  private tracker: TokenTracker;
 
   public lastReasoning: string = '';
   public lastThinking: string = '';
+
+  get tokenStats(): GeminiTokenStats {
+    return this.tracker.stats;
+  }
+  get lastDelta(): GeminiTokenDelta {
+    return this.tracker.lastDelta;
+  }
 
   constructor(apiKey: string, model: string = DEFAULT_CLAUDE_MODEL, useExtendedThinking = true) {
     this.client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
     this.model = model;
     this.useExtendedThinking = useExtendedThinking;
     this.name = displayNameFor(model);
+    this.tracker = new TokenTracker(model, this.name);
   }
 
   startRound(): void {
     this.messages = [];
     this.lastReasoning = '';
     this.lastThinking = '';
+    this.tracker.resetRound();
   }
 
   endRound(): void {
@@ -125,7 +137,25 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
     }
 
     try {
+      const startTime = performance.now();
       const response = await this.client.beta.messages.create(requestParams);
+
+      // Anthropic usage: { input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens }
+      // Extended-thinking tokens are part of output_tokens; the SDK exposes
+      // them in `thinking` content blocks but not as a separate count.
+      const usage = response.usage;
+      const thinkingTokens = response.content
+        .filter((b): b is Anthropic.ThinkingBlock => b.type === 'thinking')
+        .reduce((sum, b) => sum + Math.ceil(b.thinking.length / 4), 0); // rough estimate
+      this.tracker.recordTokens({
+        promptTokens: usage?.input_tokens,
+        responseTokens: usage?.output_tokens,
+        thoughtTokens: thinkingTokens,
+        totalTokens:
+          (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
+        cachedTokens: usage?.cache_read_input_tokens ?? undefined,
+      });
+      this.tracker.recordTiming(performance.now() - startTime);
 
       const thinkingBlocks = response.content.filter(
         (b): b is Anthropic.ThinkingBlock => b.type === 'thinking'
@@ -203,6 +233,20 @@ export function startClaudeRound(model: string, useThinking = true): void {
 
 export function endClaudeRound(model: string, useThinking = true): void {
   instances.get(cacheKey(model, useThinking))?.endRound();
+}
+
+export function getClaudeBriscolaTokenStats(
+  model: string,
+  useThinking = true
+): GeminiTokenStats | null {
+  return instances.get(cacheKey(model, useThinking))?.tokenStats ?? null;
+}
+
+export function getClaudeBriscolaTokenDelta(
+  model: string,
+  useThinking = true
+): GeminiTokenDelta | null {
+  return instances.get(cacheKey(model, useThinking))?.lastDelta ?? null;
 }
 
 export {

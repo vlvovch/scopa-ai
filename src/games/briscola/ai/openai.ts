@@ -14,6 +14,8 @@ import {
   getOpenAIApiKey,
   type OpenAIModelInfo,
 } from '../../scopa/ai/openai';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
+import { TokenTracker } from './tokenTracker';
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
 
@@ -43,18 +45,28 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
   private client: OpenAI;
   private model: string;
   private conversationId: string | null = null;
+  private tracker: TokenTracker;
 
   public lastReasoning: string = '';
+
+  get tokenStats(): GeminiTokenStats {
+    return this.tracker.stats;
+  }
+  get lastDelta(): GeminiTokenDelta {
+    return this.tracker.lastDelta;
+  }
 
   constructor(apiKey: string, model: string = DEFAULT_OPENAI_MODEL) {
     this.client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true });
     this.model = model;
     this.name = displayNameFor(model);
+    this.tracker = new TokenTracker(model, this.name);
   }
 
   startRound(): void {
     this.conversationId = null;
     this.lastReasoning = '';
+    this.tracker.resetRound();
   }
 
   endRound(): void {
@@ -75,6 +87,7 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
     try {
+      const startTime = performance.now();
       const response = await this.client.responses.create({
         model: this.model,
         instructions: SYSTEM_INSTRUCTION_MULTITURN,
@@ -90,6 +103,24 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
       });
 
       if (response.conversation?.id) this.conversationId = response.conversation.id;
+
+      // OpenAI's usage shape: { input_tokens, output_tokens, total_tokens,
+      // input_tokens_details: { cached_tokens }, output_tokens_details: { reasoning_tokens } }
+      const usage = response.usage as {
+        input_tokens?: number;
+        output_tokens?: number;
+        total_tokens?: number;
+        input_tokens_details?: { cached_tokens?: number };
+        output_tokens_details?: { reasoning_tokens?: number };
+      } | undefined;
+      this.tracker.recordTokens({
+        promptTokens: usage?.input_tokens,
+        responseTokens: usage?.output_tokens,
+        thoughtTokens: usage?.output_tokens_details?.reasoning_tokens,
+        totalTokens: usage?.total_tokens,
+        cachedTokens: usage?.input_tokens_details?.cached_tokens,
+      });
+      this.tracker.recordTiming(performance.now() - startTime);
 
       const content = response.output_text;
       if (!content) {
@@ -147,6 +178,14 @@ export function startOpenAIRound(model: string): void {
 
 export function endOpenAIRound(model: string): void {
   instances.get(model)?.endRound();
+}
+
+export function getOpenAIBriscolaTokenStats(model: string): GeminiTokenStats | null {
+  return instances.get(model)?.tokenStats ?? null;
+}
+
+export function getOpenAIBriscolaTokenDelta(model: string): GeminiTokenDelta | null {
+  return instances.get(model)?.lastDelta ?? null;
 }
 
 export {

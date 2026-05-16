@@ -9,6 +9,8 @@
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { TokenTracker } from './tokenTracker';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../scopa/ai';
 
 const PROXY_URL = import.meta.env.VITE_PROXY_URL as string | undefined;
 const MODEL_DISPLAY_NAME = 'Gemini 3 Flash Preview';
@@ -54,10 +56,18 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
 
   private gameId: string;
   private conversationHistory: ContentEntry[] = [];
+  private tracker = new TokenTracker('gemini-3-flash-preview', MODEL_DISPLAY_NAME);
 
   public lastReasoning: string = '';
   public gamesUsed: number = 0;
   public gamesLimit: number = 3;
+
+  get tokenStats(): GeminiTokenStats {
+    return this.tracker.stats;
+  }
+  get lastDelta(): GeminiTokenDelta {
+    return this.tracker.lastDelta;
+  }
 
   constructor() {
     this.gameId = generateGameId();
@@ -66,6 +76,7 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
   startRound(): void {
     this.conversationHistory = [];
     this.lastReasoning = '';
+    this.tracker.resetRound();
   }
 
   endRound(): void {
@@ -106,6 +117,7 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
     const userMessage: ContentEntry = { role: 'user', parts: [{ text: prompt }] };
     const contentsToSend = [...this.conversationHistory, userMessage];
 
+    const startTime = performance.now();
     let response: Response;
     try {
       response = await fetch(`${PROXY_URL}/api/move`, {
@@ -144,10 +156,25 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
       text: string;
       gamesUsed: number;
       gamesLimit: number;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        thoughtsTokenCount?: number;
+        totalTokenCount?: number;
+        cachedContentTokenCount?: number;
+      };
     };
 
     this.gamesUsed = data.gamesUsed;
     this.gamesLimit = data.gamesLimit;
+    this.tracker.recordTokens({
+      promptTokens: data.usageMetadata?.promptTokenCount,
+      responseTokens: data.usageMetadata?.candidatesTokenCount,
+      thoughtTokens: data.usageMetadata?.thoughtsTokenCount,
+      totalTokens: data.usageMetadata?.totalTokenCount,
+      cachedTokens: data.usageMetadata?.cachedContentTokenCount,
+    });
+    this.tracker.recordTiming(performance.now() - startTime);
 
     if (!data.text) {
       console.warn('[briscola gemini-free] Empty response, falling back.');
@@ -208,4 +235,12 @@ export function clearGeminiFreeCache(): void {
 
 export function getGeminiFreeRateLimitInfo(): { gamesUsed: number; gamesLimit: number } | null {
   return instance ? instance.getRateLimitInfo() : null;
+}
+
+export function getGeminiFreeTokenStats(): GeminiTokenStats | null {
+  return instance ? instance.tokenStats : null;
+}
+
+export function getGeminiFreeTokenDelta(): GeminiTokenDelta | null {
+  return instance ? instance.lastDelta : null;
 }

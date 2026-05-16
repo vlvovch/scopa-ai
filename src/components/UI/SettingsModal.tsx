@@ -5,6 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
 import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
 import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../games/scopa/ai';
+import {
+  clearGeminiCache as clearBriscolaGeminiCache,
+  clearOpenAICache as clearBriscolaOpenAICache,
+  clearClaudeCache as clearBriscolaClaudeCache,
+} from '../../games/briscola/ai';
 import styles from './SettingsModal.module.css';
 
 const DECK_OPTIONS: { value: DeckType; label: string }[] = [
@@ -124,17 +129,23 @@ export function SettingsModal({
   const wasWarningShown = () => sessionStorage.getItem(API_KEY_WARNING_KEY) === 'true';
   const markWarningShown = () => sessionStorage.setItem(API_KEY_WARNING_KEY, 'true');
 
-  // Clear AI caches for a specific provider (call when key changes)
+  // Clear AI caches for a specific provider (call when key changes).
+  // Both Scopa and Briscola maintain their own per-(model, useThinking)
+  // bot caches — clearing only Scopa's would leave Briscola holding an
+  // instance built with the stale (or missing) key.
   const clearCacheForProvider = useCallback((key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey') => {
     if (key === 'geminiApiKey') {
       clearGeminiCache();
       clearGeminiSingleTurnCache();
+      clearBriscolaGeminiCache();
     } else if (key === 'openaiApiKey') {
       clearOpenAICache();
       clearOpenAISingleTurnCache();
+      clearBriscolaOpenAICache();
     } else if (key === 'claudeApiKey') {
       clearClaudeCache();
       clearClaudeSingleTurnCache();
+      clearBriscolaClaudeCache();
     }
   }, []);
 
