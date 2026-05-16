@@ -38,6 +38,7 @@ export {
   DEFAULT_GEMINI_MODEL,
   type GeminiModelInfo,
   type ConversationMode,
+  type Seat,
 } from './gemini';
 export {
   getOpenAIBriscolaAI,

@@ -96,8 +96,8 @@ function playCard(s: SimState, card: Card): SimState {
 
   // Both players draw, winner first.
   const deckQueue = [...s.deckQueue];
-  let myH = [...myHand];
-  let oppH = [...oppHand];
+  const myH = [...myHand];
+  const oppH = [...oppHand];
   if (deckQueue.length > 0) {
     const drawn = deckQueue.shift()!;
     if (winnerIsMe) myH.push(drawn);

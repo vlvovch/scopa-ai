@@ -21,7 +21,7 @@
 //     after a 1200ms hold (matches Scopa's CAPTURE_DURATION_MS)
 
 import { useReducer, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../../components/Card/Card';
 import { CardBack, CardImage } from '../../components/Card/CardImage';
 import { PlayerHand } from '../../components/Table/PlayerHand';
@@ -512,29 +512,38 @@ function BriscolaApp() {
     cpu: string | null;
   }>({ human: null, cpu: null });
 
+  // Seat identifier used to key per-watch-mode bot instances. In play mode
+  // the bot always sits in the 'cpu' seat. In watch mode both seats need
+  // distinct instances so same-model self-play doesn't intermix histories.
+  const seatFor = useCallback(
+    (player: PlayerId): 'cpu' | 'p1' | 'p2' =>
+      gameMode === 'watch' ? (player === 'human' ? 'p1' : 'p2') : 'cpu',
+    [gameMode]
+  );
+
   // Map an opponent name to the actual AI player instance. Falls back to
   // the heuristic CPU if an LLM isn't reachable (proxy unset, no key, etc.)
   // so the game can't deadlock on a config glitch.
   const resolveBot = useCallback(
-    (name: BriscolaOpponentName): AnyAIPlayer => {
+    (name: BriscolaOpponentName, seat: 'cpu' | 'p1' | 'p2'): AnyAIPlayer => {
       if (name === 'gemini-free') {
-        return getGeminiFreeBriscolaAI() ?? CPU_BOTS.heuristic;
+        return getGeminiFreeBriscolaAI(seat) ?? CPU_BOTS.heuristic;
       }
       if (name === 'gemini') {
         return (
-          getGeminiBriscolaAI(geminiModel, useThinking, conversationMode) ??
+          getGeminiBriscolaAI(geminiModel, useThinking, conversationMode, seat) ??
           CPU_BOTS.heuristic
         );
       }
       if (name === 'openai') {
         return (
-          getOpenAIBriscolaAI(openaiModel, conversationMode) ??
+          getOpenAIBriscolaAI(openaiModel, conversationMode, seat) ??
           CPU_BOTS.heuristic
         );
       }
       if (name === 'claude') {
         return (
-          getClaudeBriscolaAI(claudeModel, useThinking, conversationMode) ??
+          getClaudeBriscolaAI(claudeModel, useThinking, conversationMode, seat) ??
           CPU_BOTS.heuristic
         );
       }
@@ -543,31 +552,35 @@ function BriscolaApp() {
     [geminiModel, openaiModel, claudeModel, useThinking, conversationMode]
   );
 
-  // Look up the current token stats for an opponent name. Returns null
-  // for sync CPU bots since they have nothing to report.
+  // Look up the current token stats for an opponent name (seat-aware so
+  // watch-mode same-model self-play gets distinct per-seat counters).
   const statsFor = useCallback(
     (
-      name: BriscolaOpponentName
+      name: BriscolaOpponentName,
+      seat: 'cpu' | 'p1' | 'p2'
     ): { stats: GeminiTokenStats | null; delta: GeminiTokenDelta | null } => {
       if (name === 'gemini-free') {
-        return { stats: getGeminiFreeTokenStats(), delta: getGeminiFreeTokenDelta() };
+        return {
+          stats: getGeminiFreeTokenStats(seat),
+          delta: getGeminiFreeTokenDelta(seat),
+        };
       }
       if (name === 'gemini') {
         return {
-          stats: getGeminiBriscolaTokenStats(geminiModel, useThinking, conversationMode),
-          delta: getGeminiBriscolaTokenDelta(geminiModel, useThinking, conversationMode),
+          stats: getGeminiBriscolaTokenStats(geminiModel, useThinking, conversationMode, seat),
+          delta: getGeminiBriscolaTokenDelta(geminiModel, useThinking, conversationMode, seat),
         };
       }
       if (name === 'openai') {
         return {
-          stats: getOpenAIBriscolaTokenStats(openaiModel, conversationMode),
-          delta: getOpenAIBriscolaTokenDelta(openaiModel, conversationMode),
+          stats: getOpenAIBriscolaTokenStats(openaiModel, conversationMode, seat),
+          delta: getOpenAIBriscolaTokenDelta(openaiModel, conversationMode, seat),
         };
       }
       if (name === 'claude') {
         return {
-          stats: getClaudeBriscolaTokenStats(claudeModel, useThinking, conversationMode),
-          delta: getClaudeBriscolaTokenDelta(claudeModel, useThinking, conversationMode),
+          stats: getClaudeBriscolaTokenStats(claudeModel, useThinking, conversationMode, seat),
+          delta: getClaudeBriscolaTokenDelta(claudeModel, useThinking, conversationMode, seat),
         };
       }
       return { stats: null, delta: null };
@@ -580,22 +593,30 @@ function BriscolaApp() {
   // awaits the result either way.
   const botFor = useCallback(
     (player: PlayerId): AnyAIPlayer => {
+      const seat = seatFor(player);
       if (gameMode === 'watch') {
         return resolveBot(
-          player === 'human' ? watchOpponents.player1 : watchOpponents.player2
+          player === 'human' ? watchOpponents.player1 : watchOpponents.player2,
+          seat
         );
       }
-      if (player === 'cpu') return resolveBot(opponentName);
+      if (player === 'cpu') return resolveBot(opponentName, seat);
       // 'human' seat in Play mode is the user — should never be queried.
       return CPU_BOTS.heuristic;
     },
-    [gameMode, watchOpponents, opponentName, resolveBot]
+    [gameMode, watchOpponents, opponentName, resolveBot, seatFor]
   );
 
   // Animation speed scales every timer-driven duration by a multiplier.
   // 'instant' collapses to near-zero; 'normal' is the unscaled baseline.
+  // Wrapped in useCallback so it's stable across renders — otherwise the
+  // bot-decision effect would cancel + restart on every parent state
+  // change, potentially discarding an in-flight LLM request mid-call.
   const speed = SPEED_MULTIPLIER[settings.animationSpeed];
-  const dur = (base: number) => Math.max(20, Math.round(base * speed));
+  const dur = useCallback(
+    (base: number) => Math.max(20, Math.round(base * speed)),
+    [speed]
+  );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
@@ -727,34 +748,41 @@ function BriscolaApp() {
       cpu: { stats: null, delta: null },
     });
     setApiErrorBySeat({ human: null, cpu: null });
-    // Build the set of opponents whose LLM lifecycle we need to nudge.
-    // Play mode = the single opponent; Watch mode = both seats.
-    const activeOpponents: BriscolaOpponentName[] =
+    // Build the (opponent, seat) pairs whose LLM lifecycle we need to
+    // nudge. Play mode = the single opponent in the cpu seat; Watch mode
+    // = both seats (p1 / p2) with potentially different opponents.
+    const activeOpponents: Array<{ op: BriscolaOpponentName; seat: 'cpu' | 'p1' | 'p2' }> =
       gameMode === 'watch'
-        ? [watchOpponents.player1, watchOpponents.player2]
-        : [opponentName];
-    for (const op of activeOpponents) {
+        ? [
+            { op: watchOpponents.player1, seat: 'p1' },
+            { op: watchOpponents.player2, seat: 'p2' },
+          ]
+        : [{ op: opponentName, seat: 'cpu' }];
+    for (const { op, seat } of activeOpponents) {
       if (op === 'gemini-free') {
-        if (roundNumber === 1) newGeminiFreeGame();
-        startGeminiFreeRound();
-      } else if (op === 'gemini') startGeminiRound(geminiModel, useThinking, conversationMode);
-      else if (op === 'openai') startOpenAIRound(openaiModel, conversationMode);
-      else if (op === 'claude') startClaudeRound(claudeModel, useThinking, conversationMode);
+        if (roundNumber === 1) newGeminiFreeGame(seat);
+        startGeminiFreeRound(seat);
+      } else if (op === 'gemini') startGeminiRound(geminiModel, useThinking, conversationMode, seat);
+      else if (op === 'openai') startOpenAIRound(openaiModel, conversationMode, seat);
+      else if (op === 'claude') startClaudeRound(claudeModel, useThinking, conversationMode, seat);
     }
   }, [state, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking, conversationMode]);
 
   // Close out the LLM round when we hit roundEnd. (No-op for sync bots.)
   useEffect(() => {
     if (state.status !== 'roundEnd') return;
-    const activeOpponents: BriscolaOpponentName[] =
+    const activeOpponents: Array<{ op: BriscolaOpponentName; seat: 'cpu' | 'p1' | 'p2' }> =
       gameMode === 'watch'
-        ? [watchOpponents.player1, watchOpponents.player2]
-        : [opponentName];
-    for (const op of activeOpponents) {
-      if (op === 'gemini-free') endGeminiFreeRound();
-      else if (op === 'gemini') endGeminiRound(geminiModel, useThinking, conversationMode);
-      else if (op === 'openai') endOpenAIRound(openaiModel, conversationMode);
-      else if (op === 'claude') endClaudeRound(claudeModel, useThinking, conversationMode);
+        ? [
+            { op: watchOpponents.player1, seat: 'p1' },
+            { op: watchOpponents.player2, seat: 'p2' },
+          ]
+        : [{ op: opponentName, seat: 'cpu' }];
+    for (const { op, seat } of activeOpponents) {
+      if (op === 'gemini-free') endGeminiFreeRound(seat);
+      else if (op === 'gemini') endGeminiRound(geminiModel, useThinking, conversationMode, seat);
+      else if (op === 'openai') endOpenAIRound(openaiModel, conversationMode, seat);
+      else if (op === 'claude') endClaudeRound(claudeModel, useThinking, conversationMode, seat);
     }
   }, [state.status, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking, conversationMode]);
 
@@ -855,7 +883,7 @@ function BriscolaApp() {
           } satisfies LastMoveData,
         }));
         if (seatOpponent) {
-          const snapshot = statsFor(seatOpponent);
+          const snapshot = statsFor(seatOpponent, seatFor(current));
           setTokenStatsBySeat((prev) => ({ ...prev, [current]: snapshot }));
         }
         setApiErrorBySeat((prev) =>
@@ -871,7 +899,7 @@ function BriscolaApp() {
               ? e.message
               : String(e);
         if (e instanceof RateLimitError) {
-          // eslint-disable-next-line no-console
+           
           console.warn('[briscola] LLM rate-limit hit, falling back to heuristic.');
         } else {
           console.error('[briscola] LLM move failed:', e);
@@ -894,7 +922,7 @@ function BriscolaApp() {
     // and this effect re-runs (cancellation fires on cleanup). Listing
     // them explicitly keeps things robust if botFor's identity ever
     // gets memoized differently in the future.
-  }, [state, botFor, gameMode, dur, watchOpponents, opponentName, statsFor]);
+  }, [state, botFor, gameMode, dur, watchOpponents, opponentName, statsFor, seatFor]);
 
   // cpuAnimating: reveal → moving → apply. The 'play' sound fires when
   // the card actually LANDS in the play area (end of the moving phase),
@@ -1073,12 +1101,16 @@ function BriscolaApp() {
         onDismissApiError={(p) =>
           setApiErrorBySeat((prev) => ({ ...prev, [p]: null }))
         }
-        cpuIsLLM={
-          opponentName === 'gemini' ||
-          opponentName === 'gemini-free' ||
-          opponentName === 'openai' ||
-          opponentName === 'claude'
-        }
+        cpuIsLLM={(() => {
+          // The cpu seat in watch mode is player2, NOT the play-mode opponent.
+          const cpuOp = gameMode === 'watch' ? watchOpponents.player2 : opponentName;
+          return (
+            cpuOp === 'gemini' ||
+            cpuOp === 'gemini-free' ||
+            cpuOp === 'openai' ||
+            cpuOp === 'claude'
+          );
+        })()}
         humanIsLLM={
           gameMode === 'watch' &&
           (watchOpponents.player1 === 'gemini' ||
@@ -1312,7 +1344,7 @@ function BriscolaBoard({
   }, []);
 
   const handleCardDragEnd = useCallback(
-    (card: BriscolaCard, _info: PanInfo) => {
+    (card: BriscolaCard) => {
       setIsDragging(false);
       setIsDragOver(false);
       let dropped = false;

@@ -141,7 +141,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
       this.mode === 'singleturn'
         ? buildSingleTurnPrompt(context)
         : buildTurnPrompt(context);
-    // eslint-disable-next-line no-console
+     
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
     try {
@@ -199,7 +199,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
         this.lastReasoning = result.reasoning ?? '';
         const idx = result.moveIndex;
         if (typeof idx === 'number' && idx >= 0 && idx < validMoves.length) {
-          // eslint-disable-next-line no-console
+           
           console.log(`[briscola ${this.model}] move ${idx}: ${this.lastReasoning}`);
           return validMoves[idx];
         }
@@ -222,23 +222,31 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
 // mid-match.
 const instances = new Map<string, GeminiBriscolaAI>();
 
+/** Seat the bot is bound to. In play mode the bot is always 'cpu'. In
+ *  watch mode the two seats need separate instances so they don't share
+ *  chat history / token tracker — same-model self-play would otherwise
+ *  intermix both players' moves into one conversation. */
+export type Seat = 'cpu' | 'p1' | 'p2';
+
 function cacheKey(
   model: string,
   useThinking: boolean,
-  mode: ConversationMode
+  mode: ConversationMode,
+  seat: Seat
 ): string {
-  return `${model}::${useThinking ? '1' : '0'}::${mode}`;
+  return `${model}::${useThinking ? '1' : '0'}::${mode}::${seat}`;
 }
 
 export function getGeminiBriscolaAI(
   model: string = DEFAULT_GEMINI_MODEL,
   useThinking = true,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): GeminiBriscolaAI | null {
   if (!isGeminiAvailable()) return null;
   const apiKey = getGeminiApiKey();
   if (!apiKey) return null;
-  const key = cacheKey(model, useThinking, mode);
+  const key = cacheKey(model, useThinking, mode, seat);
   let instance = instances.get(key);
   if (!instance) {
     instance = new GeminiBriscolaAI(apiKey, model, useThinking, mode);
@@ -254,33 +262,37 @@ export function clearGeminiCache(): void {
 export function startGeminiRound(
   model: string,
   useThinking = true,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): void {
-  instances.get(cacheKey(model, useThinking, mode))?.startRound();
+  instances.get(cacheKey(model, useThinking, mode, seat))?.startRound();
 }
 
 export function endGeminiRound(
   model: string,
   useThinking = true,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): void {
-  instances.get(cacheKey(model, useThinking, mode))?.endRound();
+  instances.get(cacheKey(model, useThinking, mode, seat))?.endRound();
 }
 
 export function getGeminiBriscolaTokenStats(
   model: string,
   useThinking = true,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): GeminiTokenStats | null {
-  return instances.get(cacheKey(model, useThinking, mode))?.tokenStats ?? null;
+  return instances.get(cacheKey(model, useThinking, mode, seat))?.tokenStats ?? null;
 }
 
 export function getGeminiBriscolaTokenDelta(
   model: string,
   useThinking = true,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): GeminiTokenDelta | null {
-  return instances.get(cacheKey(model, useThinking, mode))?.lastDelta ?? null;
+  return instances.get(cacheKey(model, useThinking, mode, seat))?.lastDelta ?? null;
 }
 
 // Re-export the shared key/availability/model helpers so callers don't have

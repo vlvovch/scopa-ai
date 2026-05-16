@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'scopa-server'] },
+  // .claude/worktrees are agent scratch checkouts and shouldn't be linted
+  // (they'd be double-linted against the main checkout).
+  { ignores: ['dist', 'scopa-server', '.claude'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

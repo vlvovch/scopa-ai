@@ -12,7 +12,7 @@ import {
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
-import type { ConversationMode } from './gemini';
+import type { ConversationMode, Seat } from './gemini';
 import {
   isOpenAIAvailable,
   fetchOpenAIModels,
@@ -98,7 +98,7 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
       this.mode === 'singleturn'
         ? buildSingleTurnPrompt(context)
         : buildTurnPrompt(context);
-    // eslint-disable-next-line no-console
+     
     console.log(`[briscola ${this.model}] Prompt:\n`, prompt);
 
     try {
@@ -157,7 +157,7 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
         this.lastReasoning = result.reasoning ?? '';
         const idx = result.moveIndex;
         if (typeof idx === 'number' && idx >= 0 && idx < validMoves.length) {
-          // eslint-disable-next-line no-console
+           
           console.log(`[briscola ${this.model}] move ${idx}: ${this.lastReasoning}`);
           return validMoves[idx];
         }
@@ -177,18 +177,19 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
 
 const instances = new Map<string, OpenAIBriscolaAI>();
 
-function cacheKey(model: string, mode: ConversationMode): string {
-  return `${model}::${mode}`;
+function cacheKey(model: string, mode: ConversationMode, seat: Seat): string {
+  return `${model}::${mode}::${seat}`;
 }
 
 export function getOpenAIBriscolaAI(
   model: string = DEFAULT_OPENAI_MODEL,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): OpenAIBriscolaAI | null {
   if (!isOpenAIAvailable()) return null;
   const apiKey = getOpenAIApiKey();
   if (!apiKey) return null;
-  const key = cacheKey(model, mode);
+  const key = cacheKey(model, mode, seat);
   let inst = instances.get(key);
   if (!inst) {
     inst = new OpenAIBriscolaAI(apiKey, model, mode);
@@ -203,30 +204,34 @@ export function clearOpenAICache(): void {
 
 export function startOpenAIRound(
   model: string,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): void {
-  instances.get(cacheKey(model, mode))?.startRound();
+  instances.get(cacheKey(model, mode, seat))?.startRound();
 }
 
 export function endOpenAIRound(
   model: string,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): void {
-  instances.get(cacheKey(model, mode))?.endRound();
+  instances.get(cacheKey(model, mode, seat))?.endRound();
 }
 
 export function getOpenAIBriscolaTokenStats(
   model: string,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): GeminiTokenStats | null {
-  return instances.get(cacheKey(model, mode))?.tokenStats ?? null;
+  return instances.get(cacheKey(model, mode, seat))?.tokenStats ?? null;
 }
 
 export function getOpenAIBriscolaTokenDelta(
   model: string,
-  mode: ConversationMode = 'multiturn'
+  mode: ConversationMode = 'multiturn',
+  seat: Seat = 'cpu'
 ): GeminiTokenDelta | null {
-  return instances.get(cacheKey(model, mode))?.lastDelta ?? null;
+  return instances.get(cacheKey(model, mode, seat))?.lastDelta ?? null;
 }
 
 export {

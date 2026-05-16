@@ -111,7 +111,7 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
 
     const prompt = buildTurnPrompt(context);
 
-    // eslint-disable-next-line no-console
+     
     console.log('[briscola gemini-free] Prompt:\n', prompt);
 
     const userMessage: ContentEntry = { role: 'user', parts: [{ text: prompt }] };
@@ -192,7 +192,7 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
       this.lastReasoning = result.reasoning ?? '';
       const idx = result.moveIndex;
       if (typeof idx === 'number' && idx >= 0 && idx < validMoves.length) {
-        // eslint-disable-next-line no-console
+         
         console.log(`[briscola gemini-free] move ${idx}: ${this.lastReasoning}`);
         return validMoves[idx];
       }
@@ -209,38 +209,58 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
   }
 }
 
-let instance: GeminiFreeBriscolaAI | null = null;
+/** Same Seat type the BYOK providers use — keep per-seat instances so
+ *  watch mode with Gemini-Free vs Gemini-Free doesn't share a single
+ *  chat history between both players. */
+import type { Seat } from './gemini';
 
-export function getGeminiFreeBriscolaAI(): GeminiFreeBriscolaAI | null {
+const instances = new Map<Seat, GeminiFreeBriscolaAI>();
+
+function getOrCreate(seat: Seat): GeminiFreeBriscolaAI | null {
   if (!isGeminiFreeAvailable()) return null;
-  if (!instance) instance = new GeminiFreeBriscolaAI();
-  return instance;
+  let inst = instances.get(seat);
+  if (!inst) {
+    inst = new GeminiFreeBriscolaAI();
+    instances.set(seat, inst);
+  }
+  return inst;
 }
 
-export function startGeminiFreeRound(): void {
-  instance?.startRound();
+export function getGeminiFreeBriscolaAI(
+  seat: Seat = 'cpu'
+): GeminiFreeBriscolaAI | null {
+  return getOrCreate(seat);
 }
 
-export function endGeminiFreeRound(): void {
-  instance?.endRound();
+export function startGeminiFreeRound(seat: Seat = 'cpu'): void {
+  instances.get(seat)?.startRound();
 }
 
-export function newGeminiFreeGame(): void {
-  instance?.newGame();
+export function endGeminiFreeRound(seat: Seat = 'cpu'): void {
+  instances.get(seat)?.endRound();
+}
+
+export function newGeminiFreeGame(seat: Seat = 'cpu'): void {
+  instances.get(seat)?.newGame();
 }
 
 export function clearGeminiFreeCache(): void {
-  instance = null;
+  instances.clear();
 }
 
-export function getGeminiFreeRateLimitInfo(): { gamesUsed: number; gamesLimit: number } | null {
-  return instance ? instance.getRateLimitInfo() : null;
+export function getGeminiFreeRateLimitInfo(
+  seat: Seat = 'cpu'
+): { gamesUsed: number; gamesLimit: number } | null {
+  const inst = instances.get(seat);
+  return inst ? inst.getRateLimitInfo() : null;
 }
 
-export function getGeminiFreeTokenStats(): GeminiTokenStats | null {
-  return instance ? instance.tokenStats : null;
+export function getGeminiFreeTokenStats(seat: Seat = 'cpu'): GeminiTokenStats | null {
+  const inst = instances.get(seat);
+  return inst ? inst.tokenStats : null;
 }
 
-export function getGeminiFreeTokenDelta(): GeminiTokenDelta | null {
-  return instance ? instance.lastDelta : null;
+export function getGeminiFreeTokenDelta(seat: Seat = 'cpu'): GeminiTokenDelta | null {
+  const inst = instances.get(seat);
+  return inst ? inst.lastDelta : null;
 }
