@@ -70,6 +70,18 @@ import {
   endGeminiRound,
   DEFAULT_GEMINI_MODEL,
 } from './ai/gemini';
+import {
+  getOpenAIBriscolaAI,
+  startOpenAIRound,
+  endOpenAIRound,
+  DEFAULT_OPENAI_MODEL,
+} from './ai/openai';
+import {
+  getClaudeBriscolaAI,
+  startClaudeRound,
+  endClaudeRound,
+  DEFAULT_CLAUDE_MODEL,
+} from './ai/claude';
 import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
 import type { AIPlayer } from './ai/types';
 import { useSound } from '../../hooks/useSound';
@@ -361,6 +373,8 @@ const BOT_LABELS: Record<BriscolaOpponentName, string> = {
   expert: 'Esperto',
   'gemini-free': 'Gemini Free',
   gemini: 'Gemini',
+  openai: 'GPT',
+  claude: 'Claude',
 };
 
 // The "best of" value now directly represents wins needed to take the
@@ -389,10 +403,17 @@ function BriscolaApp() {
   const [opponentName, setOpponentName] = useState<BriscolaOpponentName>(
     settings.briscolaCpuBot
   );
-  // Selected Gemini model when opponentName === 'gemini'. Reuses Scopa's
-  // saved model from settings if present, else the default.
+  // Selected model per provider when the matching opponent is chosen.
+  // We reuse Scopa's saved settings as the seed so picking models in one
+  // game persists into the other.
   const [geminiModel, setGeminiModel] = useState<string>(
     settings.geminiModel || DEFAULT_GEMINI_MODEL
+  );
+  const [openaiModel, setOpenAIModel] = useState<string>(
+    settings.openaiModel || DEFAULT_OPENAI_MODEL
+  );
+  const [claudeModel, setClaudeModel] = useState<string>(
+    settings.claudeModel || DEFAULT_CLAUDE_MODEL
   );
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
   // Game mode + watch-mode bots. In 'play' the local user is 'human' and
@@ -428,18 +449,28 @@ function BriscolaApp() {
           const ai = getGeminiBriscolaAI(geminiModel);
           if (ai) return ai;
         }
+        if (opponentName === 'openai') {
+          const ai = getOpenAIBriscolaAI(openaiModel);
+          if (ai) return ai;
+        }
+        if (opponentName === 'claude') {
+          const ai = getClaudeBriscolaAI(claudeModel);
+          if (ai) return ai;
+        }
         // Fallback to a sane CPU bot if the LLM isn't reachable (proxy
         // unset, no key, etc.). Saves us from crashing mid-game.
-        const cpuName: CpuBotName =
-          opponentName === 'gemini-free' || opponentName === 'gemini'
-            ? 'heuristic'
-            : opponentName;
+        const isLLM =
+          opponentName === 'gemini-free' ||
+          opponentName === 'gemini' ||
+          opponentName === 'openai' ||
+          opponentName === 'claude';
+        const cpuName: CpuBotName = isLLM ? 'heuristic' : opponentName;
         return CPU_BOTS[cpuName];
       }
       // 'human' seat in Play mode is the user — should never be queried.
       return CPU_BOTS.heuristic;
     },
-    [gameMode, watchBots, opponentName, geminiModel]
+    [gameMode, watchBots, opponentName, geminiModel, openaiModel, claudeModel]
   );
 
   // Animation speed scales every timer-driven duration by a multiplier.
@@ -525,7 +556,14 @@ function BriscolaApp() {
     if (gameMode === 'watch') return;
     // LLM opponents aren't yet first-class in the stats store (it keys on
     // CpuBotName). Skip tracking until we extend the store.
-    if (opponentName === 'gemini-free' || opponentName === 'gemini') return;
+    if (
+      opponentName === 'gemini-free' ||
+      opponentName === 'gemini' ||
+      opponentName === 'openai' ||
+      opponentName === 'claude'
+    ) {
+      return;
+    }
     // De-duplicate per match: build a stable id from the round-end snapshot.
     const matchId = `${state.game.roundNumber}-${state.game.scores.human}-${state.game.scores.cpu}-${state.game.targetScore}`;
     if (matchRecordedRef.current === matchId) return;
@@ -569,14 +607,18 @@ function BriscolaApp() {
       startGeminiFreeRound();
     }
     if (opponentName === 'gemini') startGeminiRound(geminiModel);
-  }, [state, opponentName, geminiModel]);
+    if (opponentName === 'openai') startOpenAIRound(openaiModel);
+    if (opponentName === 'claude') startClaudeRound(claudeModel);
+  }, [state, opponentName, geminiModel, openaiModel, claudeModel]);
 
   // Close out the LLM round when we hit roundEnd. (No-op for sync bots.)
   useEffect(() => {
     if (state.status !== 'roundEnd') return;
     if (opponentName === 'gemini-free') endGeminiFreeRound();
     if (opponentName === 'gemini') endGeminiRound(geminiModel);
-  }, [state.status, opponentName, geminiModel]);
+    if (opponentName === 'openai') endOpenAIRound(openaiModel);
+    if (opponentName === 'claude') endClaudeRound(claudeModel);
+  }, [state.status, opponentName, geminiModel, openaiModel, claudeModel]);
 
   // CPU decision → CPU_START. Fires whenever the current player is bot-
   // controlled: always 'cpu' in Play mode, both 'human' and 'cpu' in Watch.
@@ -727,6 +769,16 @@ function BriscolaApp() {
             setGeminiModel(m);
             // Keep the setting in sync so it's the default next session.
             updateSetting('geminiModel', m);
+          }}
+          openaiModel={openaiModel}
+          onSetOpenAIModel={(m) => {
+            setOpenAIModel(m);
+            updateSetting('openaiModel', m);
+          }}
+          claudeModel={claudeModel}
+          onSetClaudeModel={(m) => {
+            setClaudeModel(m);
+            updateSetting('claudeModel', m);
           }}
           watchBots={watchBots}
           onSetWatchBot={(p, name) =>

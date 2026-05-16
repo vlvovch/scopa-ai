@@ -14,12 +14,29 @@ import {
   getCachedGeminiModels,
   type GeminiModelInfo,
 } from './ai/gemini';
+import {
+  isOpenAIAvailable,
+  fetchOpenAIModels,
+  getCachedOpenAIModels,
+  type OpenAIModelInfo,
+} from './ai/openai';
+import {
+  isClaudeAvailable,
+  fetchClaudeModels,
+  getCachedClaudeModels,
+  type ClaudeModelInfo,
+} from './ai/claude';
 
 /** Sync CPU bots — usable on either seat in Watch mode. */
 export type CpuBotName = 'random' | 'heuristic' | 'expert';
 
 /** Anything that can be the *Play-mode* opponent — CPU or an async LLM. */
-export type BriscolaOpponentName = CpuBotName | 'gemini-free' | 'gemini';
+export type BriscolaOpponentName =
+  | CpuBotName
+  | 'gemini-free'
+  | 'gemini'
+  | 'openai'
+  | 'claude';
 
 export type BriscolaGameMode = 'play' | 'watch';
 
@@ -49,6 +66,16 @@ const BOT_INFO: Record<BriscolaOpponentName, { icon: string; name: string; descr
     name: 'Gemini',
     description: 'Google Gemini using your own API key. Pick a model from the dropdown.',
   },
+  openai: {
+    icon: '⬡',
+    name: 'GPT',
+    description: 'OpenAI GPT using your own API key. Server-side conversation state across turns.',
+  },
+  claude: {
+    icon: '🔮',
+    name: 'Claude',
+    description: 'Anthropic Claude using your own API key. Extended thinking when supported.',
+  },
 };
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
@@ -59,6 +86,10 @@ interface StartScreenProps {
   /** Chosen Gemini model id (when opponentName === 'gemini'). */
   geminiModel: string;
   onSetGeminiModel: (modelId: string) => void;
+  openaiModel: string;
+  onSetOpenAIModel: (modelId: string) => void;
+  claudeModel: string;
+  onSetClaudeModel: (modelId: string) => void;
   watchBots: { player1: CpuBotName; player2: CpuBotName };
   onSetWatchBot: (player: 'player1' | 'player2', name: CpuBotName) => void;
   defaultBestOf: number;
@@ -72,26 +103,42 @@ export function StartScreen({
   onSetOpponentName,
   geminiModel,
   onSetGeminiModel,
+  openaiModel,
+  onSetOpenAIModel,
+  claudeModel,
+  onSetClaudeModel,
   watchBots,
   onSetWatchBot,
   defaultBestOf,
   onStartGame,
 }: StartScreenProps) {
-  // Gemini model list (lazy fetched once when the Gemini option is chosen).
+  // Model lists per provider (lazy fetched when their option is selected).
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>(
     () => getCachedGeminiModels()
+  );
+  const [openaiModels, setOpenAIModels] = useState<OpenAIModelInfo[]>(
+    () => getCachedOpenAIModels()
+  );
+  const [claudeModels, setClaudeModels] = useState<ClaudeModelInfo[]>(
+    () => getCachedClaudeModels()
   );
   useEffect(() => {
     if (opponentName === 'gemini' && geminiModels.length === 0 && isGeminiAvailable()) {
       let cancelled = false;
-      fetchGeminiModels().then((models) => {
-        if (!cancelled) setGeminiModels(models);
-      });
-      return () => {
-        cancelled = true;
-      };
+      fetchGeminiModels().then((m) => !cancelled && setGeminiModels(m));
+      return () => { cancelled = true; };
     }
-  }, [opponentName, geminiModels.length]);
+    if (opponentName === 'openai' && openaiModels.length === 0 && isOpenAIAvailable()) {
+      let cancelled = false;
+      fetchOpenAIModels().then((m) => !cancelled && setOpenAIModels(m));
+      return () => { cancelled = true; };
+    }
+    if (opponentName === 'claude' && claudeModels.length === 0 && isClaudeAvailable()) {
+      let cancelled = false;
+      fetchClaudeModels().then((m) => !cancelled && setClaudeModels(m));
+      return () => { cancelled = true; };
+    }
+  }, [opponentName, geminiModels.length, openaiModels.length, claudeModels.length]);
   const [bestOf, setBestOf] = useState<number>(defaultBestOf);
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
   const isPreset = (PRESET_BEST_OF as readonly number[]).includes(bestOf);
@@ -188,6 +235,16 @@ export function StartScreen({
                     {BOT_INFO.gemini.icon} {BOT_INFO.gemini.name}
                   </option>
                 )}
+                {isOpenAIAvailable() && (
+                  <option value="openai">
+                    {BOT_INFO.openai.icon} {BOT_INFO.openai.name}
+                  </option>
+                )}
+                {isClaudeAvailable() && (
+                  <option value="claude">
+                    {BOT_INFO.claude.icon} {BOT_INFO.claude.name}
+                  </option>
+                )}
               </select>
             </div>
             {opponentName === 'gemini' && (
@@ -200,6 +257,42 @@ export function StartScreen({
                   {(geminiModels.length > 0
                     ? geminiModels
                     : [{ id: geminiModel, displayName: geminiModel }]
+                  ).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {opponentName === 'openai' && (
+              <div className={styles.dropdownRow} style={{ marginTop: '0.5rem' }}>
+                <select
+                  className={styles.dropdown}
+                  value={openaiModel}
+                  onChange={(e) => onSetOpenAIModel(e.target.value)}
+                >
+                  {(openaiModels.length > 0
+                    ? openaiModels
+                    : [{ id: openaiModel, displayName: openaiModel }]
+                  ).map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {opponentName === 'claude' && (
+              <div className={styles.dropdownRow} style={{ marginTop: '0.5rem' }}>
+                <select
+                  className={styles.dropdown}
+                  value={claudeModel}
+                  onChange={(e) => onSetClaudeModel(e.target.value)}
+                >
+                  {(claudeModels.length > 0
+                    ? claudeModels
+                    : [{ id: claudeModel, displayName: claudeModel }]
                   ).map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.displayName}
