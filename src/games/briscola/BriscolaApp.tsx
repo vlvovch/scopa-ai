@@ -578,24 +578,33 @@ function BriscolaApp() {
   }, []);
   const stats = useBriscolaStats();
 
-  // Adapt Briscola's per-bot stats to the generic StatsModal shape.
-  const ALL_BOTS: CpuBotName[] = ['random', 'heuristic', 'expert'];
-  const BOT_INFO: Record<CpuBotName, { icon: string; name: string }> = {
-    random: { icon: '🐒', name: 'Scimmietta' },
-    heuristic: { icon: '🦊', name: 'Furbo' },
-    expert: { icon: '🐍', name: 'Esperto' },
-  };
+  // Resolve the chosen model id for an opponent name (undefined for non-LLMs).
+  const modelFor = useCallback(
+    (name: BriscolaOpponentName): string | undefined => {
+      if (name === 'gemini') return geminiModel;
+      if (name === 'openai') return openaiModel;
+      if (name === 'claude') return claudeModel;
+      if (name === 'gemini-free') return 'gemini-3-flash-preview';
+      return undefined;
+    },
+    [geminiModel, openaiModel, claudeModel]
+  );
+
+  // Build the StatsModal opponent list from the stats store: always shows
+  // the three CPU bots, plus every distinct (type, model) LLM opponent the
+  // player has actually played. Keyed by `${type}::${model ?? ''}` so a
+  // click round-trips through getStatsModalGames cleanly.
   const statsModalOpponents: StatsModalOpponent[] = useMemo(() => {
-    return ALL_BOTS.map((bot) => {
-      const info = BOT_INFO[bot];
-      const s = stats.getBotSummary(bot);
+    return stats.getAllDisplayOpponents().map(({ type, model }) => {
+      const s = stats.getBotSummary(type, model);
       return {
-        key: bot,
+        key: `${type}::${model ?? ''}`,
         label: (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4em' }}>
-            <span style={{ fontSize: '1.1em' }}>{info.icon}</span>
-            <span>{info.name}</span>
-          </span>
+          <AIPlayerLabel
+            aiType={type as ExtendedAIType}
+            model={model}
+            showModeIndicator={false}
+          />
         ),
         summary: {
           gamesPlayed: s.gamesPlayed,
@@ -606,13 +615,13 @@ function BriscolaApp() {
         },
       };
     });
-    // ALL_BOTS / BOT_INFO are constants defined above; only stats deps matter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats.getBotSummary]);
+  }, [stats]);
 
   const getStatsModalGames = useCallback(
     (key: string): StatsModalGame[] => {
-      const rounds = stats.getRoundsAgainst(key as CpuBotName);
+      const [type, modelPart] = key.split('::');
+      const model = modelPart || undefined;
+      const rounds = stats.getRoundsAgainst(type as BriscolaOpponentName, model);
       return rounds.map((r) => ({
         id: r.id,
         timestamp: r.timestamp,
@@ -632,28 +641,19 @@ function BriscolaApp() {
     // Don't track watch-mode (CPU vs CPU) matches — they're not the user's
     // games, and conflating them with real play would skew win rates.
     if (gameMode === 'watch') return;
-    // LLM opponents aren't yet first-class in the stats store (it keys on
-    // CpuBotName). Skip tracking until we extend the store.
-    if (
-      opponentName === 'gemini-free' ||
-      opponentName === 'gemini' ||
-      opponentName === 'openai' ||
-      opponentName === 'claude'
-    ) {
-      return;
-    }
     // De-duplicate per match: build a stable id from the round-end snapshot.
     const matchId = `${state.game.roundNumber}-${state.game.scores.human}-${state.game.scores.cpu}-${state.game.targetScore}`;
     if (matchRecordedRef.current === matchId) return;
     matchRecordedRef.current = matchId;
     stats.recordMatch(
       opponentName,
+      modelFor(opponentName),
       state.game.scores.human,
       state.game.scores.cpu,
       bestOf,
       state.game.roundHistory
     );
-  }, [state, opponentName, bestOf, stats, gameMode]);
+  }, [state, opponentName, bestOf, stats, gameMode, modelFor]);
 
   // Clear the dedup id whenever a new match starts.
   useEffect(() => {
@@ -892,18 +892,6 @@ function BriscolaApp() {
 
   // Which player's captured pile is currently open as a modal (null = closed)
   const [openPile, setOpenPile] = useState<PlayerId | null>(null);
-
-  // Resolve the chosen model id for an opponent name (undefined for non-LLMs).
-  const modelFor = useCallback(
-    (name: BriscolaOpponentName): string | undefined => {
-      if (name === 'gemini') return geminiModel;
-      if (name === 'openai') return openaiModel;
-      if (name === 'claude') return claudeModel;
-      if (name === 'gemini-free') return 'gemini-3-flash-preview';
-      return undefined;
-    },
-    [geminiModel, openaiModel, claudeModel]
-  );
 
   // Build a display label that includes the model when available — so every
   // UI surface (scoreboard, pile, modal title) agrees on "Claude Opus 4.7"
@@ -1489,6 +1477,8 @@ function BriscolaBoard({
           roundHistory={state.game.roundHistory}
           cpuLabel={cpuBotLabel}
           humanLabel={humanLabel}
+          cpuLabelNode={seatLabelNode('cpu')}
+          humanLabelNode={seatLabelNode('human')}
           autoAdvance={isWatchMode && autoAdvanceSpectator}
           onNextRound={onNextRound}
           onRestart={onRestart}
@@ -2146,6 +2136,8 @@ function RoundEndOverlay({
   roundHistory,
   cpuLabel,
   humanLabel,
+  cpuLabelNode,
+  humanLabelNode,
   autoAdvance,
   onNextRound,
   onRestart,
@@ -2161,6 +2153,10 @@ function RoundEndOverlay({
   roundHistory: Array<{ playerPoints: number; cpuPoints: number }>;
   cpuLabel: string;
   humanLabel: string;
+  /** Same labels rendered as JSX (proper AIPlayerLabel for LLM opponents)
+   *  so brand-icon SVGs show inline in headings / summary text. */
+  cpuLabelNode: React.ReactNode;
+  humanLabelNode: React.ReactNode;
   /** Auto-advance to the next round after a short delay (watch mode). */
   autoAdvance: boolean;
   onNextRound: () => void;
@@ -2194,26 +2190,53 @@ function RoundEndOverlay({
   }, [autoAdvance, matchOver, onNextRound]);
 
   // "You take/win" reads naturally for the local user; bot names take third-
-  // person verbs ("Furbo takes the round").
+  // person verbs ("Furbo takes the round"). Render the labels as JSX nodes
+  // (with proper brand-icon SVG via AIPlayerLabel) and stitch the verbs in
+  // around them.
   const youAreLocal = humanLabel === 'You';
-  const humanTakes = youAreLocal ? 'You take' : `${humanLabel} takes`;
-  const humanWins = youAreLocal ? 'You win' : `${humanLabel} wins`;
+  const headingRow = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.35em',
+    flexWrap: 'wrap' as const,
+    justifyContent: 'center',
+  };
 
-  const roundLine =
-    roundWinner === 'human'
-      ? `${humanTakes} the round`
-      : roundWinner === 'cpu'
-        ? `${cpuLabel} takes the round`
-        : 'Tied at 60';
+  const roundLine: React.ReactNode =
+    roundWinner === 'human' ? (
+      <span style={headingRow}>
+        {humanLabelNode} <span>{youAreLocal ? 'take' : 'takes'} the round</span>
+      </span>
+    ) : roundWinner === 'cpu' ? (
+      <span style={headingRow}>
+        {cpuLabelNode} <span>takes the round</span>
+      </span>
+    ) : (
+      <span>Tied at 60</span>
+    );
 
-  // Match outcome only shown when matchOver
-  const matchOutcome = !matchOver
+  const matchOutcome: React.ReactNode = !matchOver
     ? null
-    : matchScore.human > matchScore.cpu
-      ? `${humanWins} the match (${matchScore.human}–${matchScore.cpu})`
-      : matchScore.cpu > matchScore.human
-        ? `${cpuLabel} wins the match (${matchScore.cpu}–${matchScore.human})`
-        : `Match drawn (${matchScore.human}–${matchScore.cpu})`;
+    : matchScore.human > matchScore.cpu ? (
+        <span style={headingRow}>
+          {humanLabelNode}{' '}
+          <span>
+            {youAreLocal ? 'win' : 'wins'} the match ({matchScore.human}–
+            {matchScore.cpu})
+          </span>
+        </span>
+      ) : matchScore.cpu > matchScore.human ? (
+        <span style={headingRow}>
+          {cpuLabelNode}{' '}
+          <span>
+            wins the match ({matchScore.cpu}–{matchScore.human})
+          </span>
+        </span>
+      ) : (
+        <span>
+          Match drawn ({matchScore.human}–{matchScore.cpu})
+        </span>
+      );
 
   // For best-of-1, the match score line is redundant with the round line
   const showMatchScore = matchTarget > 1 && !matchOver;
@@ -2227,8 +2250,18 @@ function RoundEndOverlay({
             <p style={{ fontSize: '1.5rem', margin: '0.5rem 0' }}>
               <strong>{humanPts}</strong> — <strong>{cpuPts}</strong>
             </p>
-            <p style={{ opacity: 0.7, margin: '0 0 1rem 0' }}>
-              {humanLabel} vs {cpuLabel} (out of 120)
+            <p
+              style={{
+                opacity: 0.7,
+                margin: '0 0 1rem 0',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35em',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              {humanLabelNode} <span>vs</span> {cpuLabelNode} <span>(out of 120)</span>
             </p>
             {showMatchScore && (
               <p style={{ opacity: 0.85, margin: '0 0 1rem 0', fontSize: '0.95rem' }}>

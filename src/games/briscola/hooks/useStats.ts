@@ -1,14 +1,26 @@
 // Briscola match-statistics hook. Persists every finished match to
-// localStorage and exposes per-bot summary queries.
+// localStorage and exposes per-opponent summary queries.
+//
+// Schema:
+//   - `opponentType`: a wide BriscolaOpponentName covering both sync CPU
+//     bots (random/heuristic/expert) and async LLM opponents (gemini /
+//     gemini-free / openai / claude).
+//   - `opponentModel`: the model id for LLM opponents (e.g.
+//     "claude-opus-4-7-20251015"). Empty for CPU bots. Lets the player
+//     see "Claude Opus 4.7" stats separately from "Claude Sonnet 4.5".
+//   - Legacy records use `cpuBot` (narrow CpuBotName). We migrate them
+//     on load so the rest of the code only deals with the new shape.
 
 import { useState, useEffect, useCallback } from 'react';
-import type { CpuBotName } from '../StartScreen';
+import type { CpuBotName, BriscolaOpponentName } from '../StartScreen';
 
 /** One finished match (best-of-N round wins ⇒ a single MatchRecord) */
 export interface MatchRecord {
   id: string;
-  /** Which CPU bot the player faced */
-  cpuBot: CpuBotName;
+  /** Which opponent the player faced — CPU bot or async LLM. */
+  opponentType: BriscolaOpponentName;
+  /** Specific model id (LLM opponents only; undefined for CPU bots). */
+  opponentModel?: string;
   /** Player's cumulative round wins */
   playerWins: number;
   /** CPU's cumulative round wins */
@@ -24,27 +36,24 @@ export interface MatchRecord {
   timestamp: number;
 }
 
-/** Per-bot summary, computed at ROUND granularity — i.e. each 120-point
- *  round counts as one "game" toward gamesPlayed/wins/losses/ties.
- *  This matches the user-facing model that a "game of Briscola" is one
- *  round, not a best-of-N match. */
+/** Per-opponent summary at ROUND granularity (each 120-pt round = one game). */
 export interface BotSummary {
-  cpuBot: CpuBotName;
-  /** Total rounds played against this bot */
+  opponentType: BriscolaOpponentName;
+  opponentModel?: string;
   gamesPlayed: number;
   wins: number;
   losses: number;
   ties: number;
-  /** Wins / gamesPlayed (0–1), or 0 if no rounds played yet */
   winRate: number;
 }
 
-/** A single 120-point round, flattened out of its parent match for the
+/** A single 120-pt round, flattened out of its parent match for the
  *  per-opponent detail view. */
 export interface RoundEntry {
   id: string;
   timestamp: number;
-  cpuBot: CpuBotName;
+  opponentType: BriscolaOpponentName;
+  opponentModel?: string;
   playerPoints: number;
   cpuPoints: number;
   outcome: 'win' | 'loss' | 'tie';
@@ -56,9 +65,35 @@ interface StatsStore {
 }
 
 const STORAGE_KEY = 'briscola-game-stats';
+const CPU_BOT_NAMES: CpuBotName[] = ['random', 'heuristic', 'expert'];
 
 function newId(): string {
   return `match-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/**
+ * Migrate legacy records (with `cpuBot` instead of `opponentType`) so the
+ * rest of the code only deals with the new shape. Idempotent.
+ */
+function migrate(raw: unknown): MatchRecord[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const arr = (raw as { matches?: unknown }).matches;
+  if (!Array.isArray(arr)) return [];
+  return arr.map((m: Record<string, unknown>) => {
+    const opponentType = (m.opponentType ?? m.cpuBot) as BriscolaOpponentName;
+    const opponentModel = m.opponentModel as string | undefined;
+    return {
+      id: (m.id as string) ?? newId(),
+      opponentType,
+      opponentModel,
+      playerWins: (m.playerWins as number) ?? 0,
+      cpuWins: (m.cpuWins as number) ?? 0,
+      winner: (m.winner as MatchRecord['winner']) ?? 'tie',
+      rounds: Array.isArray(m.rounds) ? (m.rounds as MatchRecord['rounds']) : [],
+      bestOf: (m.bestOf as number) ?? 1,
+      timestamp: (m.timestamp as number) ?? Date.now(),
+    } satisfies MatchRecord;
+  });
 }
 
 function load(): StatsStore {
@@ -67,7 +102,7 @@ function load(): StatsStore {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        matches: Array.isArray(parsed.matches) ? parsed.matches : [],
+        matches: migrate(parsed),
         lastUpdated: parsed.lastUpdated ?? Date.now(),
       };
     }
@@ -85,6 +120,18 @@ function save(s: StatsStore): void {
   }
 }
 
+/** Records key on (type, model). model is treated as part of identity for
+ *  LLMs but ignored for CPU bots (they have no model). */
+function recordMatches(
+  m: MatchRecord,
+  type: BriscolaOpponentName,
+  model?: string
+): boolean {
+  if (m.opponentType !== type) return false;
+  if (model !== undefined && m.opponentModel !== model) return false;
+  return true;
+}
+
 export function useBriscolaStats() {
   const [store, setStore] = useState<StatsStore>(load);
 
@@ -94,7 +141,8 @@ export function useBriscolaStats() {
 
   const recordMatch = useCallback(
     (
-      cpuBot: CpuBotName,
+      opponentType: BriscolaOpponentName,
+      opponentModel: string | undefined,
       playerWins: number,
       cpuWins: number,
       bestOf: number,
@@ -104,7 +152,8 @@ export function useBriscolaStats() {
         playerWins > cpuWins ? 'human' : cpuWins > playerWins ? 'cpu' : 'tie';
       const record: MatchRecord = {
         id: newId(),
-        cpuBot,
+        opponentType,
+        opponentModel,
         playerWins,
         cpuWins,
         winner,
@@ -121,13 +170,14 @@ export function useBriscolaStats() {
     []
   );
 
-  /** Round-level summary for one bot. Each 120-point round counts as a
-   *  game; we don't bucket by match here. */
+  /** Round-level summary for one opponent (type + optional model). */
   const getBotSummary = useCallback(
-    (cpuBot: CpuBotName): BotSummary => {
-      let wins = 0, losses = 0, ties = 0;
+    (opponentType: BriscolaOpponentName, opponentModel?: string): BotSummary => {
+      let wins = 0,
+        losses = 0,
+        ties = 0;
       for (const m of store.matches) {
-        if (m.cpuBot !== cpuBot) continue;
+        if (!recordMatches(m, opponentType, opponentModel)) continue;
         for (const r of m.rounds ?? []) {
           if (r.playerPoints > r.cpuPoints) wins++;
           else if (r.cpuPoints > r.playerPoints) losses++;
@@ -136,7 +186,8 @@ export function useBriscolaStats() {
       }
       const gamesPlayed = wins + losses + ties;
       return {
-        cpuBot,
+        opponentType,
+        opponentModel,
         gamesPlayed,
         wins,
         losses,
@@ -147,14 +198,16 @@ export function useBriscolaStats() {
     [store.matches]
   );
 
-  /** Flatten matches against `cpuBot` into a list of individual rounds,
-   *  sorted by timestamp descending (newest first), then within a match
-   *  by round-position descending (last round of a match first). */
+  /** Flatten matches against an opponent into a list of individual rounds,
+   *  newest first. */
   const getRoundsAgainst = useCallback(
-    (cpuBot: CpuBotName): RoundEntry[] => {
+    (
+      opponentType: BriscolaOpponentName,
+      opponentModel?: string
+    ): RoundEntry[] => {
       const out: RoundEntry[] = [];
       for (const m of store.matches) {
-        if (m.cpuBot !== cpuBot) continue;
+        if (!recordMatches(m, opponentType, opponentModel)) continue;
         const rs = m.rounds ?? [];
         for (let i = 0; i < rs.length; i++) {
           const r = rs[i];
@@ -166,10 +219,9 @@ export function useBriscolaStats() {
                 : 'tie';
           out.push({
             id: `${m.id}-r${i}`,
-            // Within a match all rounds share a timestamp, so add a tiny
-            // per-round offset so they sort in play order.
             timestamp: m.timestamp + i,
-            cpuBot,
+            opponentType: m.opponentType,
+            opponentModel: m.opponentModel,
             playerPoints: r.playerPoints,
             cpuPoints: r.cpuPoints,
             outcome,
@@ -181,6 +233,37 @@ export function useBriscolaStats() {
     [store.matches]
   );
 
+  /** Distinct (type, model) pairs that have been played against. */
+  const getPlayedOpponents = useCallback((): Array<{
+    type: BriscolaOpponentName;
+    model?: string;
+  }> => {
+    const seen = new Map<string, { type: BriscolaOpponentName; model?: string }>();
+    for (const m of store.matches) {
+      const key = `${m.opponentType}::${m.opponentModel ?? ''}`;
+      if (!seen.has(key)) {
+        seen.set(key, { type: m.opponentType, model: m.opponentModel });
+      }
+    }
+    return Array.from(seen.values());
+  }, [store.matches]);
+
+  /** What to show in the StatsModal opponent list: CPU bots always, plus
+   *  every LLM (type, model) pair the player has played. */
+  const getAllDisplayOpponents = useCallback((): Array<{
+    type: BriscolaOpponentName;
+    model?: string;
+  }> => {
+    const result: Array<{ type: BriscolaOpponentName; model?: string }> = [];
+    for (const cpu of CPU_BOT_NAMES) result.push({ type: cpu });
+    for (const op of getPlayedOpponents()) {
+      if (!CPU_BOT_NAMES.includes(op.type as CpuBotName)) {
+        result.push(op);
+      }
+    }
+    return result;
+  }, [getPlayedOpponents]);
+
   const clearStats = useCallback(() => {
     setStore({ matches: [], lastUpdated: Date.now() });
   }, []);
@@ -190,6 +273,8 @@ export function useBriscolaStats() {
     recordMatch,
     getBotSummary,
     getRoundsAgainst,
+    getPlayedOpponents,
+    getAllDisplayOpponents,
     clearStats,
   };
 }
