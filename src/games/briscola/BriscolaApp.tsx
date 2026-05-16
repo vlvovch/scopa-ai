@@ -1714,10 +1714,15 @@ function TrickCard({
 // of one corner of the trump.
 function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
   if (deckCount === 0) {
+    // Deck exhausted — the trump card itself has been drawn. Keep it
+    // visible (dimmed) in the same slot so the player still has a visual
+    // reminder of the trump suit through the end of the round.
     return (
       <div style={deckContainer}>
-        <div style={emptyDeck}>
-          <span style={emptyDeckLabel}>Empty</span>
+        <div style={deckTrumpArrangement}>
+          <div style={{ ...trumpStickOut, opacity: 0.45 }} title="Trump suit (deck empty)">
+            <Card card={trump} />
+          </div>
         </div>
       </div>
     );
@@ -2523,22 +2528,6 @@ const deckCountPill: React.CSSProperties = {
   borderRadius: '10px',
 };
 
-const emptyDeck: React.CSSProperties = {
-  width: 'var(--card-width)',
-  height: 'var(--card-height)',
-  border: '2px dashed var(--dashed-border-color, rgba(255, 255, 255, 0.2))',
-  borderRadius: '6px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'var(--empty-area-bg, transparent)',
-};
-
-const emptyDeckLabel: React.CSSProperties = {
-  fontSize: '10px',
-  color: 'var(--empty-label-color, var(--color-text-secondary))',
-  opacity: 0.5,
-};
 
 // ---- Modals + buttons ----
 const primaryButton: React.CSSProperties = {
