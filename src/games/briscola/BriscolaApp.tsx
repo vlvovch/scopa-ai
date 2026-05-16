@@ -822,12 +822,29 @@ function BriscolaApp() {
             : opponentName;
         const reasoning = (bot as { lastReasoning?: string }).lastReasoning ?? '';
         const opp: PlayerId = current === 'human' ? 'cpu' : 'human';
+        // For Briscola, the "table" at the moment of the play is just the
+        // opponent's lead card (if the bot was following) or empty (if the
+        // bot was leading). If the bot's follow won the trick, mark the
+        // lead as captured so the modal highlights it as taken.
+        const leadAtPlay = g.round.trick.leadCard;
+        const tableCards = leadAtPlay ? [leadAtPlay] : [];
+        const capturedCards =
+          leadAtPlay &&
+          trickWinner(
+            leadAtPlay,
+            g.round.trick.leader,
+            move.cardPlayed,
+            current,
+            g.round.trumpSuit
+          ) === current
+            ? [leadAtPlay]
+            : [];
         setLastMoveData((prev) => ({
           ...prev,
           [current]: {
             cardPlayed: move.cardPlayed,
-            tableCards: [],
-            capturedCards: [],
+            tableCards,
+            capturedCards,
             reasoning,
             player: current,
             aiName: bot.name || (seatOpponent ? BOT_LABELS[seatOpponent] : undefined),
