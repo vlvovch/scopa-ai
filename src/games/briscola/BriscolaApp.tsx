@@ -1285,6 +1285,24 @@ function BriscolaApp() {
       multiplayer.continueToNextRound();
     };
 
+    // onRestart fires from two places that don't overlap in time:
+    //  - GameControls' "New Game" button mid-game → leave the room
+    //  - RoundEndOverlay's "Play Again" at match-over → request rematch
+    // Differentiate on whether the server has sent gameEndData.
+    const handleMultiplayerRestart = () => {
+      if (multiplayer.gameEndData) {
+        multiplayer.requestNewGame();
+      } else {
+        handleLeaveMultiplayer();
+      }
+    };
+
+    const opponentRequestedRematch =
+      multiplayer.newGameRequestedBy !== null && multiplayer.newGameRequestedBy !== myId;
+    const iRequestedRematch = multiplayer.newGameRequestedBy === myId;
+    const waitingForNextRound = multiplayer.nextRoundRequests.has(myId)
+      && !multiplayer.nextRoundRequests.has(oppId);
+
     return (
       <DeckProvider deck={settings.deck}>
         <BriscolaBoard
@@ -1317,7 +1335,7 @@ function BriscolaApp() {
           cpuIsLLM={false}
           humanIsLLM={false}
           onNextRound={handleMultiplayerNextRound}
-          onRestart={handleLeaveMultiplayer}
+          onRestart={handleMultiplayerRestart}
           onOpenPile={setOpenPile}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenStats={() => setIsStatsOpen(true)}
@@ -1338,6 +1356,27 @@ function BriscolaApp() {
             canForceMove={multiplayer.canForceMove}
             onForceMove={multiplayer.forceMove}
           />
+        )}
+        {/* Multiplayer status banners: rematch requests + waiting-for-opponent
+            for the next round. Rendered as a small fixed-position bar so they
+            don't obscure the game board. */}
+        {(opponentRequestedRematch || iRequestedRematch || waitingForNextRound) && (
+          <div style={mpBannerStyle}>
+            {opponentRequestedRematch && (
+              <span>
+                {opponentLabel} wants a rematch.{' '}
+                <button style={mpBannerButton} onClick={multiplayer.requestNewGame}>
+                  Accept
+                </button>
+              </span>
+            )}
+            {iRequestedRematch && !opponentRequestedRematch && (
+              <span>Waiting for {opponentLabel} to accept the rematch…</span>
+            )}
+            {waitingForNextRound && (
+              <span>Waiting for {opponentLabel} to continue…</span>
+            )}
+          </div>
         )}
         {openPile && (
           <BriscolaCapturedModal
@@ -2859,6 +2898,35 @@ const turnLabelStyle: React.CSSProperties = {
   padding: '0.5rem 1rem',
   borderRadius: '8px',
   fontStyle: 'italic',
+};
+
+// Small fixed banner for multiplayer status messages (rematch request,
+// waiting-for-opponent). Sits at the top of the viewport, doesn't block
+// interaction with the board below.
+const mpBannerStyle: React.CSSProperties = {
+  position: 'fixed',
+  top: 'var(--space-3)',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  background: 'rgba(0,0,0,0.7)',
+  color: 'var(--color-text-primary)',
+  padding: '0.5rem 1rem',
+  borderRadius: '8px',
+  fontSize: '14px',
+  zIndex: 100,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.5rem',
+};
+
+const mpBannerButton: React.CSSProperties = {
+  background: 'var(--color-accent)',
+  color: 'white',
+  border: 'none',
+  padding: '0.25rem 0.75rem',
+  borderRadius: '4px',
+  fontSize: '13px',
+  cursor: 'pointer',
 };
 
 // 3-column grid: spacer | play area (centered) | deck slot.
