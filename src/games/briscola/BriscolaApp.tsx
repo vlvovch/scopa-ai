@@ -599,6 +599,18 @@ function BriscolaApp() {
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
   const multiplayer = useBriscolaMultiplayer();
 
+  // Trick-resolution overlay for multiplayer. When a follow move completes
+  // a trick, we hold the BEFORE state visible (so the lead card is still
+  // on the table) and inject the just-played follow card into the trick
+  // area for a beat before the captured cards sweep to the winner's pile.
+  // Without this, server's MOVE_PLAYED arrives and immediately replaces
+  // the board with the post-trick state — no animation moment at all.
+  const [mpTrickAnim, setMpTrickAnim] = useState<{
+    followCard: BriscolaCard;
+    follower: PlayerId;
+    winner: PlayerId;
+  } | null>(null);
+
   // Per-game accumulated round history for the multiplayer match. Server only
   // sends per-round scores at ROUND_END, so we maintain our own list here and
   // feed it into the bridged AppState.roundHistory for the RoundEndOverlay.
@@ -1139,24 +1151,44 @@ function BriscolaApp() {
   // Multiplayer bridging effects
   // ---------------------------------------------------------------------------
 
-  // When the server reports a move, fire the sound and apply the pending
-  // state. For trick-completing moves (the second card of a pair), pause
-  // briefly so the two-card trick is visible before it gets swept into the
-  // winner's pile — otherwise the capture is instantaneous and players
-  // can't see what just won. Lead plays apply immediately (nothing to
-  // resolve yet, the played card just appears in the trick area).
+  // When the server reports a move, fire a sound and apply the pending
+  // state. For trick-completing moves we render an `animatingTrick`
+  // bridged state for TRICK_VISIBLE_MS so both cards are visible together
+  // before the capture sweeps them into the winner's pile. Lead plays
+  // commit immediately — the played card just appears in the trick area.
   useEffect(() => {
-    if (!multiplayer.lastMove) return;
-    const wasFollow = multiplayer.gameState?.round?.trick.leadCard !== null;
+    if (!multiplayer.lastMove || !multiplayer.playerId) return;
+    const beforeState = multiplayer.gameState;
+    const round = beforeState?.round;
+    const wasFollow = round?.trick.leadCard != null;
     play(wasFollow ? 'capture' : 'play');
-    if (!wasFollow) {
+    if (!wasFollow || !beforeState || !round) {
       multiplayer.applyPendingState();
       return;
     }
-    const t = setTimeout(() => multiplayer.applyPendingState(), dur(TRICK_VISIBLE_MS));
+    // Identify who follows + who wins. Map multiplayer ids to local
+    // human/cpu first so trickWinner (typed for PlayerId) is happy.
+    const myId = multiplayer.playerId;
+    const leader: PlayerId = round.trick.leader === myId ? 'human' : 'cpu';
+    const follower: PlayerId =
+      multiplayer.lastMove.move.player === myId ? 'human' : 'cpu';
+    const followCard = multiplayer.lastMove.move.cardPlayed;
+    const leadCard = round.trick.leadCard!;
+    const winner = trickWinner(
+      leadCard,
+      leader,
+      followCard,
+      follower,
+      round.trumpSuit
+    );
+    setMpTrickAnim({ followCard, follower, winner });
+    const t = setTimeout(() => {
+      setMpTrickAnim(null);
+      multiplayer.applyPendingState();
+    }, dur(TRICK_VISIBLE_MS));
     return () => clearTimeout(t);
-    // Intentionally only depends on lastMove identity — applyPendingState
-    // and dur are stable, gameState is read once at trigger time.
+    // Intentionally only depends on lastMove identity — applyPendingState,
+    // play, dur are stable; gameState/playerId are read once at trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [multiplayer.lastMove]);
 
@@ -1267,6 +1299,26 @@ function BriscolaApp() {
         finalPoints: { human: finalHuman, cpu: finalCpu },
         roundWinner: winner,
         matchOver: !!multiplayer.gameEndData,
+      };
+    } else if (mpTrickAnim && patchedGame.round.trick.leadCard) {
+      // Render the just-completed trick: two cards visible in the trick
+      // area with a winner highlight. After TRICK_VISIBLE_MS the
+      // lastMove effect clears mpTrickAnim and calls applyPendingState,
+      // which fast-forwards to the next playing state.
+      bridgedState = {
+        status: 'animatingTrick',
+        game: patchedGame,
+        trick: {
+          leadCard: patchedGame.round.trick.leadCard,
+          leader: patchedGame.round.trick.leader,
+          followCard: mpTrickAnim.followCard,
+          follower: mpTrickAnim.follower,
+          winner: mpTrickAnim.winner,
+          // `resolved` is only consumed by the reducer's RESOLVE_TRICK
+          // case (which we never dispatch in multiplayer) — use the
+          // current game as a placeholder.
+          resolved: patchedGame,
+        },
       };
     } else {
       bridgedState = { status: 'playing', game: patchedGame };
