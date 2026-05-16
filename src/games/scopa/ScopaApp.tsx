@@ -2662,6 +2662,13 @@ function ScopaApp() {
             connectionStatus={multiplayer.connectionStatus}
             connectionError={multiplayer.connectionError}
             initialJoinCode={initialJoinCode}
+            config={{
+              gameName: 'Scopa',
+              gameCodePrefix: 'SCOPA',
+              presetScores: [11, 16, 21],
+              defaultScore: 11,
+              scoreLabel: 'Target Score',
+            }}
             onCreateRoom={multiplayer.createRoom}
             onJoinRoom={multiplayer.joinRoom}
             onBack={() => {

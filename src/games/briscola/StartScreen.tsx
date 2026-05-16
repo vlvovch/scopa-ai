@@ -42,7 +42,7 @@ export type BriscolaOpponentName =
   | 'openai'
   | 'claude';
 
-export type BriscolaGameMode = 'play' | 'watch';
+export type BriscolaGameMode = 'play' | 'watch' | 'multiplayer';
 
 type OpponentCategory = 'cpu' | 'free-ai' | 'ai';
 type AIProvider = 'gemini' | 'openai' | 'claude';
@@ -121,6 +121,7 @@ interface StartScreenProps {
   onSetWatchOpponent: (player: 'player1' | 'player2', name: BriscolaOpponentName) => void;
   defaultBestOf: number;
   onStartGame: (bestOf: number, gameMode: BriscolaGameMode) => void;
+  onStartMultiplayer: () => void;
 }
 
 export function StartScreen({
@@ -140,6 +141,7 @@ export function StartScreen({
   onSetWatchOpponent,
   defaultBestOf,
   onStartGame,
+  onStartMultiplayer,
 }: StartScreenProps) {
   const [bestOf, setBestOf] = useState<number>(defaultBestOf);
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
@@ -440,48 +442,58 @@ export function StartScreen({
             >
               Watch
             </button>
+            <button
+              className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'multiplayer' ? styles.selected : ''}`}
+              onClick={() => setGameMode('multiplayer')}
+            >
+              Multiplayer
+            </button>
           </div>
           <p className={styles.aiDescription}>
             {gameMode === 'play'
               ? 'Play against the CPU or an AI.'
-              : 'Watch two opponents play against each other.'}
+              : gameMode === 'watch'
+                ? 'Watch two opponents play against each other.'
+                : 'Play against a friend online.'}
           </p>
         </div>
 
-        <div className={styles.scoreSelection}>
-          <label className={styles.label}>First To</label>
-          <div className={styles.scoreOptions}>
-            {PRESET_BEST_OF.map((n) => (
-              <button
-                key={n}
-                className={`${styles.scoreOption} ${bestOf === n ? styles.selected : ''}`}
-                onClick={() => setBestOf(n)}
-              >
-                {n}
-              </button>
-            ))}
-            <input
-              type="number"
-              min="1"
-              max="99"
-              className={`${styles.customScoreInput} ${!isPreset ? styles.selected : ''}`}
-              value={!isPreset ? bestOf : ''}
-              placeholder="..."
-              onChange={(e) => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 1) setBestOf(val);
-              }}
-              title="Enter a custom number of round wins to take the match"
-            />
+        {gameMode !== 'multiplayer' && (
+          <div className={styles.scoreSelection}>
+            <label className={styles.label}>First To</label>
+            <div className={styles.scoreOptions}>
+              {PRESET_BEST_OF.map((n) => (
+                <button
+                  key={n}
+                  className={`${styles.scoreOption} ${bestOf === n ? styles.selected : ''}`}
+                  onClick={() => setBestOf(n)}
+                >
+                  {n}
+                </button>
+              ))}
+              <input
+                type="number"
+                min="1"
+                max="99"
+                className={`${styles.customScoreInput} ${!isPreset ? styles.selected : ''}`}
+                value={!isPreset ? bestOf : ''}
+                placeholder="..."
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1) setBestOf(val);
+                }}
+                title="Enter a custom number of round wins to take the match"
+              />
+            </div>
+            <p className={styles.aiDescription}>
+              {bestOf === 1
+                ? 'Single round — whoever has more points (out of 120) wins.'
+                : `First to ${bestOf} round wins takes the match.`}
+            </p>
           </div>
-          <p className={styles.aiDescription}>
-            {bestOf === 1
-              ? 'Single round — whoever has more points (out of 120) wins.'
-              : `First to ${bestOf} round wins takes the match.`}
-          </p>
-        </div>
+        )}
 
-        {gameMode === 'play'
+        {gameMode === 'multiplayer' ? null : gameMode === 'play'
           ? renderOpponentSelector(
               opponentName,
               onSetOpponentName,
@@ -531,9 +543,19 @@ export function StartScreen({
 
         <button
           className={styles.startButton}
-          onClick={() => onStartGame(bestOf, gameMode)}
+          onClick={() => {
+            if (gameMode === 'multiplayer') {
+              onStartMultiplayer();
+            } else {
+              onStartGame(bestOf, gameMode);
+            }
+          }}
         >
-          {gameMode === 'watch' ? 'Start Watching' : 'Start Game'}
+          {gameMode === 'multiplayer'
+            ? 'Open Multiplayer Lobby'
+            : gameMode === 'watch'
+              ? 'Start Watching'
+              : 'Start Game'}
         </button>
 
         <div className={styles.rulesHint}>

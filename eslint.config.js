@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   // .claude/worktrees are agent scratch checkouts and shouldn't be linted
   // (they'd be double-linted against the main checkout).
-  { ignores: ['dist', 'scopa-server', '.claude'] },
+  { ignores: ['dist', 'scopa-server', 'briscola-server', '.claude'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

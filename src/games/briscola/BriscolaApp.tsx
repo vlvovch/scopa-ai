@@ -56,6 +56,8 @@ import { ThinkingBubble } from '../../components/UI/ThinkingBubble';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
+import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
+import { useBriscolaMultiplayer } from '../../hooks/useBriscolaMultiplayer';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
 import { expertAI } from './ai/expert';
@@ -449,6 +451,13 @@ function BriscolaApp() {
     player1: BriscolaOpponentName;
     player2: BriscolaOpponentName;
   }>({ player1: 'heuristic', player2: 'expert' });
+
+  // Multiplayer: separate flag (not part of gameMode) since the lobby
+  // replaces the StartScreen UI flow entirely. Hook auto-reconnects on
+  // mount if a stored session exists, so we wake into multiplayer mode
+  // when the user returns to a /join/CODE URL or has an active room.
+  const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
+  const multiplayer = useBriscolaMultiplayer();
 
   // Single thinking toggle applied to Gemini + Claude (OpenAI uses its own
   // server-side reasoning). Mirrors Scopa's behavior.
@@ -1005,6 +1014,33 @@ function BriscolaApp() {
     [modelFor]
   );
 
+  // Multiplayer lobby: shown when the user is in MP mode but not yet in
+  // a room (no gameState from server). Once gameState arrives, fall
+  // through to the in-game render below. NOTE: in-game multiplayer
+  // rendering is wired in Phase 3b — for now we fall back to the lobby
+  // until the game-render branch is added.
+  if (isMultiplayerMode && !multiplayer.gameState) {
+    return (
+      <MultiplayerLobby
+        connectionStatus={multiplayer.connectionStatus}
+        connectionError={multiplayer.connectionError}
+        config={{
+          gameName: 'Briscola',
+          gameCodePrefix: 'BRISCOLA',
+          presetScores: [1, 3, 5],
+          defaultScore: 1,
+          scoreLabel: 'Best of N rounds (wins)',
+        }}
+        onCreateRoom={multiplayer.createRoom}
+        onJoinRoom={multiplayer.joinRoom}
+        onBack={() => {
+          multiplayer.leaveRoom();
+          setIsMultiplayerMode(false);
+        }}
+      />
+    );
+  }
+
   if (state.status === 'idle') {
     return (
       <>
@@ -1042,6 +1078,11 @@ function BriscolaApp() {
             setBestOf(n);
             setGameMode(mode);
             dispatch({ type: 'START', bestOf: n });
+          }}
+          onStartMultiplayer={() => {
+            // Switch to multiplayer mode. The hook auto-connects only when
+            // createRoom/joinRoom is called from the lobby.
+            setIsMultiplayerMode(true);
           }}
         />
         <SettingsModal
