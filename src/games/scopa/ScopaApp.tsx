@@ -17,6 +17,7 @@ import { SetteBelloCelebration } from '../../components/UI/SetteBelloCelebration
 import { SettingsModal } from '../../components/UI/SettingsModal';
 import { StatsModal, type StatsModalOpponent, type StatsModalGame } from '../../components/UI/StatsModal';
 import { AIPlayerLabel } from '../../components/UI/AIPlayerLabel';
+import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { RulesModal } from '../../components/UI/RulesModal';
 import { GameControls } from '../../components/UI/GameControls';
 import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
@@ -2879,68 +2880,14 @@ function ScopaApp() {
           }
         }}
       />
-      {/* New Game Confirmation Dialog */}
-      {confirmNewGame && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 160,
-          }}
-          onClick={() => setConfirmNewGame(false)}
-        >
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%)',
-              border: '2px solid var(--color-accent)',
-              borderRadius: '12px',
-              padding: '24px',
-              textAlign: 'center',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: '0 0 16px', color: 'var(--color-text-primary)' }}>
-              Start New Game?
-            </h3>
-            <p style={{ margin: '0 0 20px', color: 'var(--color-text-secondary)' }}>
-              Current game progress will be lost.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button
-                onClick={() => setConfirmNewGame(false)}
-                style={{
-                  padding: '8px 20px',
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '6px',
-                  color: 'var(--color-text-secondary)',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmAndStartNewGame}
-                style={{
-                  padding: '8px 20px',
-                  background: 'var(--color-accent)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#000',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                New Game
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        isOpen={confirmNewGame}
+        title="Start New Game?"
+        message="Current game progress will be lost."
+        confirmLabel="New Game"
+        onConfirm={confirmAndStartNewGame}
+        onCancel={() => setConfirmNewGame(false)}
+      />
       <GameLayout
         scoreBoard={
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>

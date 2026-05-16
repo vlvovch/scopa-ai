@@ -28,7 +28,7 @@ export interface GameSettings {
   /** CPU AI type (Scopa) */
   cpuAI: ExtendedAIType;
   /** Default Briscola CPU bot */
-  briscolaCpuBot: 'random' | 'heuristic';
+  briscolaCpuBot: 'random' | 'heuristic' | 'expert';
   /** Card deck style */
   deck: DeckType;
   /** Table background style */

@@ -213,12 +213,12 @@ function BriscolaRules() {
       </section>
 
       <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>Match (Best of N)</h3>
+        <h3 className={styles.sectionTitle}>Match (First to N)</h3>
         <p>
-          A match is a set of rounds. Whoever wins more than half of them
-          first takes the match — best of 3 needs 2 round wins, best of 5
-          needs 3, and so on. Best of 1 is just a single round. Tied rounds
-          don't count toward either side.
+          A match runs until one side has won the chosen number of rounds.
+          First to 1 is a single round; first to 2 is up to three rounds;
+          first to 3 is up to five; and so on. Tied rounds don't count
+          toward either side.
         </p>
       </section>
     </>

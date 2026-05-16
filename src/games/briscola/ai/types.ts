@@ -22,6 +22,14 @@ export interface AIContext {
   leadCard: Card | null;
   /** Number of cards remaining in the draw pile (includes trump at bottom) */
   deckCount: number;
+  /**
+   * Cards this player has captured so far this round. Used by the expert
+   * bot to determinize the unseen card pool. Optional — random/heuristic
+   * ignore it.
+   */
+  myCaptured?: Card[];
+  /** Cards the opponent has captured so far this round. */
+  oppCaptured?: Card[];
 }
 
 /** Synchronous AI player (CPU bots) */

@@ -10,6 +10,7 @@ import type { GameState, PlayerId } from '../types';
 import type { AIPlayer } from './types';
 import { randomAI } from './random';
 import { heuristicAI } from './heuristic';
+import { expertAI } from './expert';
 
 function playOneRound(
   humanBot: AIPlayer,
@@ -43,6 +44,7 @@ function playOneRound(
   let safety = 200;
   while (state.status === 'playing' && safety-- > 0) {
     const p = state.round.currentPlayer;
+    const opp: PlayerId = p === 'human' ? 'cpu' : 'human';
     const move = bots[p].selectMove({
       hand: state.players[p].hand,
       player: p,
@@ -50,6 +52,8 @@ function playOneRound(
       trumpSuit: state.round.trumpSuit,
       leadCard: state.round.trick.leadCard,
       deckCount: state.round.deck.length,
+      myCaptured: state.players[p].captured,
+      oppCaptured: state.players[opp].captured,
     });
     state = applyMove(state, move);
   }
@@ -81,6 +85,30 @@ describe('bot vs bot integration', () => {
       const { humanPoints, cpuPoints } = playOneRound(heuristicAI, heuristicAI);
       expect(humanPoints + cpuPoints).toBe(120);
     }
+  });
+
+  it('expert vs expert: every round ends with point totals summing to 120', () => {
+    for (let i = 0; i < 10; i++) {
+      const { humanPoints, cpuPoints } = playOneRound(expertAI, expertAI);
+      expect(humanPoints + cpuPoints).toBe(120);
+    }
+  });
+
+  it('expert beats heuristic more often than not over 60 rounds', () => {
+    // Expert should outperform the greedy heuristic via lookahead. Margin
+    // isn't huge in Briscola, so we use a modest threshold to avoid flakes.
+    let expertWins = 0;
+    let heuristicWins = 0;
+    let ties = 0;
+    const games = 60;
+    for (let i = 0; i < games; i++) {
+      const { humanPoints, cpuPoints } = playOneRound(heuristicAI, expertAI);
+      if (cpuPoints > humanPoints) expertWins++;
+      else if (humanPoints > cpuPoints) heuristicWins++;
+      else ties++;
+    }
+    expect(expertWins).toBeGreaterThan(heuristicWins);
+    expect(expertWins + heuristicWins + ties).toBe(games);
   });
 
   it('heuristic beats random more often than not over 100 rounds', () => {

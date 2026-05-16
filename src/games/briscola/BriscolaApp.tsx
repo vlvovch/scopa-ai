@@ -37,7 +37,7 @@ import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
 import { POINT_VALUES } from './constants';
-import { StartScreen, type CpuBotName } from './StartScreen';
+import { StartScreen, type CpuBotName, type BriscolaGameMode } from './StartScreen';
 import { SettingsModal } from '../../components/UI/SettingsModal';
 import {
   StatsModal,
@@ -45,11 +45,13 @@ import {
   type StatsModalGame,
 } from '../../components/UI/StatsModal';
 import { RulesModal } from '../../components/UI/RulesModal';
+import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
 import { heuristicAI } from './ai/heuristic';
 import { randomAI } from './ai/random';
+import { expertAI } from './ai/expert';
 import type { AIPlayer } from './ai/types';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, Move, PlayerId } from './types';
@@ -112,6 +114,7 @@ type AppState =
 
 type Action =
   | { type: 'START'; bestOf: number }
+  | { type: 'RESET' }
   | { type: 'DEAL_COMPLETE' }
   | { type: 'HUMAN_PLAY'; move: Move }
   | { type: 'CPU_START'; move: Move }
@@ -230,15 +233,16 @@ function reducer(state: AppState, action: Action): AppState {
     case 'START':
       return { status: 'dealing', game: newRound(action.bestOf) };
 
+    case 'RESET':
+      return { status: 'idle' };
+
     case 'NEXT_ROUND': {
       if (state.status !== 'roundEnd' || state.matchOver) return state;
       const prev = state.game;
       // Alternate dealer each round
       const nextDealer: PlayerId = prev.round.dealer === 'human' ? 'cpu' : 'human';
-      // bestOf was packed into targetScore via winsNeeded; reconstruct an
-      // equivalent bestOf so newRound recomputes the same targetScore.
-      // (For our purposes any value with winsNeeded(x) === prev.targetScore works.)
-      const bestOf = prev.targetScore * 2 - 1;
+      // bestOf now equals targetScore (both are "wins needed").
+      const bestOf = prev.targetScore;
       return {
         status: 'dealing',
         game: newRound(bestOf, prev.scores, prev.roundNumber + 1, nextDealer, prev.roundHistory),
@@ -330,16 +334,19 @@ function reducer(state: AppState, action: Action): AppState {
 const CPU_BOTS: Record<CpuBotName, AIPlayer> = {
   random: randomAI,
   heuristic: heuristicAI,
+  expert: expertAI,
 };
 const BOT_LABELS: Record<CpuBotName, string> = {
-  random: 'Random',
-  heuristic: 'Heuristic',
+  random: 'Scimmietta',
+  heuristic: 'Furbo',
+  expert: 'Esperto',
 };
 
-// Round wins needed to win the match for a given "best of N" setting.
-// For Best-of-1: 1 win. Best-of-2: 2 (a tie is still possible). Best-of-3: 2.
+// The "best of" value now directly represents wins needed to take the
+// match — i.e. it's a "first to N" number. This avoids the pre-rename
+// confusion where best-of-2 and best-of-3 both meant "first to 2 wins."
 function winsNeeded(bestOf: number): number {
-  return Math.floor(bestOf / 2) + 1;
+  return bestOf;
 }
 
 function BriscolaApp() {
@@ -359,6 +366,25 @@ function BriscolaApp() {
   }, [settings.tableStyle]);
   const [cpuBotName, setCpuBotName] = useState<CpuBotName>(settings.briscolaCpuBot);
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
+  // Game mode + watch-mode bots. In 'play' the local user is 'human' and
+  // `cpuBotName` drives the 'cpu' side. In 'watch' both sides are bots —
+  // we use watchBots.player1 for 'human' and watchBots.player2 for 'cpu'.
+  const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
+  const [watchBots, setWatchBots] = useState<{
+    player1: CpuBotName;
+    player2: CpuBotName;
+  }>({ player1: 'heuristic', player2: 'expert' });
+
+  // Resolve which bot drives a given player based on the active mode.
+  const botFor = useCallback(
+    (player: PlayerId): AIPlayer => {
+      if (gameMode === 'watch') {
+        return CPU_BOTS[player === 'human' ? watchBots.player1 : watchBots.player2];
+      }
+      return CPU_BOTS[cpuBotName];
+    },
+    [gameMode, watchBots, cpuBotName]
+  );
 
   // Animation speed scales every timer-driven duration by a multiplier.
   // 'instant' collapses to near-zero; 'normal' is the unscaled baseline.
@@ -367,14 +393,32 @@ function BriscolaApp() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
+  const [confirmNewGame, setConfirmNewGame] = useState(false);
+
+  // "New Game" sends us back to the StartScreen (idle) so the player can
+  // re-pick opponent / best-of before the next match. Only confirm when a
+  // match is actually in progress; from idle or after a finished match we
+  // can drop back to the lobby without prompting.
+  const handleRestartRequest = useCallback(() => {
+    const inProgress =
+      state.status !== 'idle' &&
+      !(state.status === 'roundEnd' && state.matchOver);
+    if (inProgress) setConfirmNewGame(true);
+    else dispatch({ type: 'RESET' });
+  }, [state]);
+
+  const confirmRestart = useCallback(() => {
+    setConfirmNewGame(false);
+    dispatch({ type: 'RESET' });
+  }, []);
   const stats = useBriscolaStats();
-  const cpuBot = CPU_BOTS[cpuBotName];
 
   // Adapt Briscola's per-bot stats to the generic StatsModal shape.
-  const ALL_BOTS: CpuBotName[] = ['random', 'heuristic'];
+  const ALL_BOTS: CpuBotName[] = ['random', 'heuristic', 'expert'];
   const BOT_INFO: Record<CpuBotName, { icon: string; name: string }> = {
-    random: { icon: '🎲', name: 'Random' },
-    heuristic: { icon: '🦊', name: 'Heuristic' },
+    random: { icon: '🐒', name: 'Scimmietta' },
+    heuristic: { icon: '🦊', name: 'Furbo' },
+    expert: { icon: '🐍', name: 'Esperto' },
   };
   const statsModalOpponents: StatsModalOpponent[] = useMemo(() => {
     return ALL_BOTS.map((bot) => {
@@ -420,6 +464,9 @@ function BriscolaApp() {
   const matchRecordedRef = useRef<string | null>(null);
   useEffect(() => {
     if (state.status !== 'roundEnd' || !state.matchOver) return;
+    // Don't track watch-mode (CPU vs CPU) matches — they're not the user's
+    // games, and conflating them with real play would skew win rates.
+    if (gameMode === 'watch') return;
     // De-duplicate per match: build a stable id from the round-end snapshot.
     const matchId = `${state.game.roundNumber}-${state.game.scores.human}-${state.game.scores.cpu}-${state.game.targetScore}`;
     if (matchRecordedRef.current === matchId) return;
@@ -431,7 +478,7 @@ function BriscolaApp() {
       bestOf,
       state.game.roundHistory
     );
-  }, [state, cpuBotName, bestOf, stats]);
+  }, [state, cpuBotName, bestOf, stats, gameMode]);
 
   // Clear the dedup id whenever a new match starts.
   useEffect(() => {
@@ -440,26 +487,32 @@ function BriscolaApp() {
     }
   }, [state.status]);
 
-  // CPU decision → CPU_START
+  // CPU decision → CPU_START. Fires whenever the current player is bot-
+  // controlled: always 'cpu' in Play mode, both 'human' and 'cpu' in Watch.
   useEffect(() => {
     if (state.status !== 'playing') return;
-    if (state.game.round.currentPlayer !== 'cpu') return;
-    if (state.game.players.cpu.hand.length === 0) return;
+    const current = state.game.round.currentPlayer;
+    const isBot = gameMode === 'watch' || current === 'cpu';
+    if (!isBot) return;
+    if (state.game.players[current].hand.length === 0) return;
 
     const g = state.game;
+    const opp: PlayerId = current === 'human' ? 'cpu' : 'human';
     const t = setTimeout(() => {
-      const move = cpuBot.selectMove({
-        hand: g.players.cpu.hand,
-        player: 'cpu',
+      const move = botFor(current).selectMove({
+        hand: g.players[current].hand,
+        player: current,
         trump: g.round.trump,
         trumpSuit: g.round.trumpSuit,
         leadCard: g.round.trick.leadCard,
         deckCount: g.round.deck.length,
+        myCaptured: g.players[current].captured,
+        oppCaptured: g.players[opp].captured,
       });
       dispatch({ type: 'CPU_START', move });
     }, dur(CPU_DECISION_DELAY_MS));
     return () => clearTimeout(t);
-  }, [state, cpuBot, dur]);
+  }, [state, botFor, gameMode, dur]);
 
   // cpuAnimating: reveal → moving → apply. The 'play' sound fires when
   // the card actually LANDS in the play area (end of the moving phase),
@@ -492,13 +545,9 @@ function BriscolaApp() {
 
   // dealing: play a single 'deal' card-fan sound (matches Scopa, which
   // uses one play('deal') per dealing phase), then transition to playing.
-  // Only on the FIRST round of a match — subsequent rounds' re-deals
-  // are visual-only to avoid repetition in best-of-N play.
   useEffect(() => {
     if (state.status !== 'dealing') return;
-    if (state.game.roundNumber === 1) {
-      play('deal');
-    }
+    play('deal');
     // Slight buffer beyond the animation duration so cards fully settle
     const t = setTimeout(() => dispatch({ type: 'DEAL_COMPLETE' }), dur(DEALING_HANDS_DURATION + 100));
     return () => clearTimeout(t);
@@ -517,10 +566,13 @@ function BriscolaApp() {
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
       if (state.game.round.currentPlayer !== 'human') return;
+      // Watch mode: the 'human' seat is bot-controlled — ignore clicks so
+      // we don't double-play.
+      if (gameMode === 'watch') return;
       play('play');
       dispatch({ type: 'HUMAN_PLAY', move: { player: 'human', cardPlayed: card } });
     },
-    [state, play]
+    [state, play, gameMode]
   );
 
   // Which player's captured pile is currently open as a modal (null = closed)
@@ -532,9 +584,16 @@ function BriscolaApp() {
         <StartScreen
           cpuBotName={cpuBotName}
           onSetCpuBotName={setCpuBotName}
-          defaultBestOf={bestOf}
-          onStartGame={(n) => {
+          watchBots={watchBots}
+          onSetWatchBot={(p, name) =>
+            setWatchBots((prev) => ({ ...prev, [p]: name }))
+          }
+          // Pull the default directly from settings so changes in the
+          // Settings modal flow through to the start screen live.
+          defaultBestOf={settings.defaultBestOf}
+          onStartGame={(n, mode) => {
             setBestOf(n);
+            setGameMode(mode);
             dispatch({ type: 'START', bestOf: n });
           }}
         />
@@ -554,6 +613,14 @@ function BriscolaApp() {
           onClearStats={stats.clearStats}
         />
         <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} game="briscola" />
+        <ConfirmDialog
+          isOpen={confirmNewGame}
+          title="Start New Game?"
+          message="Current game progress will be lost."
+          confirmLabel="New Game"
+          onConfirm={confirmRestart}
+          onCancel={() => setConfirmNewGame(false)}
+        />
       </>
     );
   }
@@ -562,10 +629,18 @@ function BriscolaApp() {
     <DeckProvider deck={settings.deck}>
       <BriscolaBoard
         state={state}
-        cpuBotLabel={BOT_LABELS[cpuBotName]}
+        cpuBotLabel={
+          gameMode === 'watch' ? BOT_LABELS[watchBots.player2] : BOT_LABELS[cpuBotName]
+        }
+        cpuBotName={gameMode === 'watch' ? watchBots.player2 : cpuBotName}
+        humanLabel={gameMode === 'watch' ? BOT_LABELS[watchBots.player1] : 'You'}
+        humanBotName={gameMode === 'watch' ? watchBots.player1 : null}
+        isWatchMode={gameMode === 'watch'}
+        autoAdvanceSpectator={settings.autoAdvanceSpectator}
+        showPileStats={settings.showPileStats}
         onCardClick={onPlayerCardClick}
         onNextRound={() => dispatch({ type: 'NEXT_ROUND' })}
-        onRestart={() => dispatch({ type: 'START', bestOf })}
+        onRestart={handleRestartRequest}
         onOpenPile={setOpenPile}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenStats={() => setIsStatsOpen(true)}
@@ -578,7 +653,15 @@ function BriscolaApp() {
               ? state.preDrawGame.players[openPile].captured
               : state.game.players[openPile].captured
           }
-          playerName={openPile === 'human' ? 'You' : BOT_LABELS[cpuBotName]}
+          playerName={
+            openPile === 'human'
+              ? gameMode === 'watch'
+                ? BOT_LABELS[watchBots.player1]
+                : 'You'
+              : gameMode === 'watch'
+                ? BOT_LABELS[watchBots.player2]
+                : BOT_LABELS[cpuBotName]
+          }
           onClose={() => setOpenPile(null)}
         />
       )}
@@ -598,6 +681,14 @@ function BriscolaApp() {
         onClearStats={stats.clearStats}
       />
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} game="briscola" />
+      <ConfirmDialog
+        isOpen={confirmNewGame}
+        title="Start New Game?"
+        message="Current game progress will be lost."
+        confirmLabel="New Game"
+        onConfirm={confirmRestart}
+        onCancel={() => setConfirmNewGame(false)}
+      />
     </DeckProvider>
   );
 }
@@ -611,6 +702,12 @@ export default BriscolaApp;
 function BriscolaBoard({
   state,
   cpuBotLabel,
+  cpuBotName,
+  humanLabel,
+  humanBotName,
+  isWatchMode,
+  autoAdvanceSpectator,
+  showPileStats,
   onCardClick,
   onNextRound,
   onRestart,
@@ -621,6 +718,13 @@ function BriscolaBoard({
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   cpuBotLabel: string;
+  cpuBotName: CpuBotName;
+  humanLabel: string;
+  /** When in watch mode, the bot name driving the bottom seat (else null). */
+  humanBotName: CpuBotName | null;
+  isWatchMode: boolean;
+  autoAdvanceSpectator: boolean;
+  showPileStats: boolean;
   onCardClick: (card: BriscolaCard) => void;
   onNextRound: () => void;
   onRestart: () => void;
@@ -730,12 +834,20 @@ function BriscolaBoard({
   // in the DealingAnimation overlay represent them landing in the hands.
   // After deal completes, the real hand cards appear (PlayerHand's
   // AnimatePresence handles the entry).
+  // While a bot's play is animating, filter the played card out of *that
+  // player's* visible hand — in watch mode the animation may be coming from
+  // the bottom (human) seat, not always 'cpu'.
+  const animPlayer = cpuAnim?.cpuMove.player;
   const cpuHand = isDealing
     ? []
-    : cpuAnim
-      ? g.players.cpu.hand.filter(c => c.id !== cpuAnim.cpuMove.cardPlayed.id)
+    : cpuAnim && animPlayer === 'cpu'
+      ? g.players.cpu.hand.filter((c) => c.id !== cpuAnim.cpuMove.cardPlayed.id)
       : g.players.cpu.hand;
-  const humanHand = isDealing ? [] : g.players.human.hand;
+  const humanHand = isDealing
+    ? []
+    : cpuAnim && animPlayer === 'human'
+      ? g.players.human.hand.filter((c) => c.id !== cpuAnim.cpuMove.cardPlayed.id)
+      : g.players.human.hand;
 
   const leadCard = g.round.trick.leadCard;
   const followCard = animTrick ? animTrick.followCard : null;
@@ -753,7 +865,9 @@ function BriscolaBoard({
               targetScore={g.targetScore}
               currentPlayer={g.round.currentPlayer}
               cpuName={cpuBotLabel}
-              humanName="You"
+              player2AIType={cpuBotName}
+              humanName={humanLabel}
+              player1AIType={humanBotName ?? undefined}
             />
             <GameControls
               onNewGame={onRestart}
@@ -768,6 +882,7 @@ function BriscolaBoard({
             captured={g.players.cpu.captured}
             label={cpuBotLabel}
             onClick={() => onOpenPile('cpu')}
+            showStats={showPileStats}
           />
         }
         cpuHand={<PlayerHand cards={cpuHand} isHuman={false} />}
@@ -797,27 +912,43 @@ function BriscolaBoard({
         humanPile={
           <BriscolaPile
             captured={g.players.human.captured}
-            label="You"
+            label={humanLabel}
             onClick={() => onOpenPile('human')}
+            showStats={showPileStats}
           />
         }
         controls={
           <div style={turnLabelStyle}>
-            {state.status === 'playing' && (isHumanTurn ? 'Your turn' : 'CPU thinking…')}
-            {state.status === 'cpuAnimating' && 'CPU plays…'}
+            {state.status === 'playing' &&
+              (isHumanTurn
+                ? humanLabel === 'You'
+                  ? 'Your turn'
+                  : `${humanLabel} thinking…`
+                : `${cpuBotLabel} thinking…`)}
+            {state.status === 'cpuAnimating' && `${
+              state.game.round.currentPlayer === 'human' ? humanLabel : cpuBotLabel
+            } plays…`}
             {state.status === 'animatingTrick' &&
-              (winner === 'human' ? 'You take it' : 'CPU takes it')}
+              `${
+                winner === 'human' ? humanLabel : cpuBotLabel
+              } ${
+                (winner === 'human' ? humanLabel : cpuBotLabel) === 'You'
+                  ? 'take'
+                  : 'takes'
+              } it`}
             {state.status === 'roundEnd' && 'Round over'}
           </div>
         }
       />
 
-      {/* CPU reveal/move overlay (same component Scopa uses) */}
+      {/* Bot reveal/move overlay (same component Scopa uses). In watch
+          mode the 'human' seat is also bot-controlled, so we anchor the
+          animation to whichever side actually played — not always 'cpu'. */}
       <CpuCardAnimation
         card={cpuAnim?.cpuMove.cardPlayed ?? null}
         phase={cpuAnim?.phase ?? null}
         capturedCardIds={[]}
-        player={cpuAnim ? 'cpu' : undefined}
+        player={cpuAnim?.cpuMove.player}
       />
 
       {/* Deal animation: 3 cards to each player, alternating, from the
@@ -839,11 +970,16 @@ function BriscolaBoard({
         <RoundEndOverlay
           humanPts={state.finalPoints.human}
           cpuPts={state.finalPoints.cpu}
+          humanCaptured={state.game.players.human.captured}
+          cpuCaptured={state.game.players.cpu.captured}
           roundWinner={state.roundWinner}
           matchOver={state.matchOver}
           matchScore={state.game.scores}
           matchTarget={state.game.targetScore}
+          roundHistory={state.game.roundHistory}
           cpuLabel={cpuBotLabel}
+          humanLabel={humanLabel}
+          autoAdvance={isWatchMode && autoAdvanceSpectator}
           onNextRound={onNextRound}
           onRestart={onRestart}
         />
@@ -1069,17 +1205,35 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
   );
 }
 
+// Star icon for the points pill in the pile stats row — matches the visual
+// weight of Scopa's DenariIcon so the two games look consistent.
+function StarIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="var(--color-accent)"
+      aria-hidden="true"
+    >
+      <path d="M12 2.5 14.6 9 21.5 9.5 16.2 14 17.8 20.7 12 17 6.2 20.7 7.8 14 2.5 9.5 9.4 9z" />
+    </svg>
+  );
+}
+
 // Captured pile — uses Scopa's CapturedPile CSS module verbatim so it looks
-// identical, but its stats row is replaced with a count + point-total pill
-// (Briscola has no denari/scopa/sette bello to display).
+// identical, but its stats row shows a card count and a points total (Briscola
+// has no denari/scopa/sette bello to display).
 function BriscolaPile({
   captured,
   label,
   onClick,
+  showStats,
 }: {
   captured: BriscolaCard[];
   label: string;
   onClick?: () => void;
+  showStats: boolean;
 }) {
   const count = captured.length;
   const points = sumPoints(captured);
@@ -1121,11 +1275,17 @@ function BriscolaPile({
           ))
         )}
       </div>
-      <div className={pileStyles.pileInfo}>
-        <span className={pileStyles.cardCount}>
-          {count} · {points} pts
-        </span>
-      </div>
+      {showStats && (
+        <div className={pileStyles.pileInfo}>
+          <span className={pileStyles.cardCount}>{count} cards</span>
+          <div className={pileStyles.statsRow}>
+            <div className={pileStyles.stat} title="Points captured">
+              <StarIcon />
+              <span>{points}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1205,30 +1365,329 @@ function BriscolaCapturedModal({
   );
 }
 
+/**
+ * Per-player captured-cards strip for the round-end summary. Point cards
+ * (Ace/3/K/Knight/Knave) get a gold ring and a point-value badge; scartine
+ * (0-pt cards) are muted so the eye lands on what actually moved the score.
+ */
+function CapturedSummaryRow({
+  label,
+  captured,
+  points,
+  totalCards,
+}: {
+  label: string;
+  captured: BriscolaCard[];
+  points: number;
+  totalCards: number;
+}) {
+  // Show every captured card; scoring cards (Ace/3/K/Knight/Knave) get a
+  // gold ring + value badge, scartine render plain. A subtle brightness
+  // filter knocks the card paper down a notch so it doesn't fight the dark
+  // overlay background.
+  const sorted = [...captured].sort((a, b) => {
+    const pv = POINT_VALUES[b.value] - POINT_VALUES[a.value];
+    if (pv !== 0) return pv;
+    if (a.suit !== b.suit) return a.suit.localeCompare(b.suit);
+    return b.value - a.value;
+  });
+
+  return (
+    <div style={{ margin: '0.5rem 0', textAlign: 'left' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: '0.5rem',
+          marginBottom: '0.35rem',
+          fontSize: '0.95rem',
+        }}
+      >
+        <strong>{label}</strong>
+        <span style={{ opacity: 0.85 }}>
+          {points} pts · {totalCards} cards
+        </span>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'flex-start',
+          gap: '6px',
+          // Sized to fit exactly 3 rows of cards (3 × 76px + 2 × 6px gap + 12px
+          // vertical padding ≈ 252) without triggering the scrollbar.
+          maxHeight: 260,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          // Leave room for the gold value badge that sticks out at top/right
+          // (it's positioned at top: -6, right: -6 on each card).
+          padding: '8px 4px 4px 4px',
+          margin: '-8px -4px -4px -4px',
+          scrollbarWidth: 'thin',
+        }}
+      >
+        {sorted.length === 0 ? (
+          <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>
+            No cards captured
+          </span>
+        ) : (
+          sorted.map((c) => {
+            const v = POINT_VALUES[c.value];
+            const scoring = v > 0;
+            return (
+              <div
+                key={c.id}
+                style={{
+                  position: 'relative',
+                  flex: '0 0 auto',
+                  width: 52,
+                  height: 76,
+                  // Match Scopa's RoundEndScreen treatment: scartine fade
+                  // back so the eye lands on the point-contributing cards.
+                  opacity: scoring ? 1 : 0.3,
+                  filter: scoring ? undefined : 'grayscale(50%)',
+                }}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 4,
+                    // The card WebPs have transparent backgrounds — the rest
+                    // of the app gets its white card paper from Card.module.css.
+                    // We're using CardImage directly, so we provide it here.
+                    background: '#fff',
+                    overflow: 'hidden',
+                    boxShadow: scoring
+                      ? '0 0 0 2px var(--color-accent), 0 2px 6px rgba(0,0,0,0.4)'
+                      : '0 2px 4px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  <CardImage
+                    card={c}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </div>
+                {scoring && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: -6,
+                      right: -6,
+                      background: 'var(--color-accent)',
+                      color: '#000',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      minWidth: 16,
+                      height: 16,
+                      padding: '0 4px',
+                      borderRadius: 8,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    {v}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Match-end table: one row per round with player/cpu points, the round
+ * winner highlighted, and a running "rounds won" tally on the right. Only
+ * shown for matches with more than one round played (best-of-1 falls back
+ * to the per-card summary, which is more informative).
+ */
+function RoundHistoryTable({
+  roundHistory,
+  cpuLabel,
+  humanLabel,
+}: {
+  roundHistory: Array<{ playerPoints: number; cpuPoints: number }>;
+  cpuLabel: string;
+  humanLabel: string;
+}) {
+  const cellTd: React.CSSProperties = {
+    padding: '6px 10px',
+    fontVariantNumeric: 'tabular-nums',
+  };
+  const winCell: React.CSSProperties = {
+    color: 'var(--color-accent)',
+    fontWeight: 700,
+  };
+
+  let runningHuman = 0;
+  let runningCpu = 0;
+
+  return (
+    <div style={{ margin: '1rem 0', textAlign: 'left' }}>
+      <h3
+        style={{
+          fontSize: '0.85rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: 'var(--color-accent)',
+          margin: '0 0 0.5rem',
+          textAlign: 'center',
+        }}
+      >
+        Round History
+      </h3>
+      <div
+        style={{
+          maxHeight: 320,
+          overflowY: 'auto',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 6,
+        }}
+      >
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '0.9rem',
+          }}
+        >
+          <thead>
+            <tr style={{ background: 'rgba(0,0,0,0.25)' }}>
+              <th style={{ ...cellTd, textAlign: 'left' }}>Round</th>
+              <th style={{ ...cellTd, textAlign: 'right' }}>{humanLabel}</th>
+              <th style={{ ...cellTd, textAlign: 'right' }}>{cpuLabel}</th>
+              <th style={{ ...cellTd, textAlign: 'right' }}>Rounds Won</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roundHistory.map((r, i) => {
+              const humanWon = r.playerPoints > r.cpuPoints;
+              const cpuWon = r.cpuPoints > r.playerPoints;
+              if (humanWon) runningHuman += 1;
+              else if (cpuWon) runningCpu += 1;
+              return (
+                <tr
+                  key={i}
+                  style={{
+                    borderTop:
+                      i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <td style={cellTd}>#{i + 1}</td>
+                  <td
+                    style={{
+                      ...cellTd,
+                      textAlign: 'right',
+                      ...(humanWon ? winCell : {}),
+                    }}
+                  >
+                    {r.playerPoints}
+                  </td>
+                  <td
+                    style={{
+                      ...cellTd,
+                      textAlign: 'right',
+                      ...(cpuWon ? winCell : {}),
+                    }}
+                  >
+                    {r.cpuPoints}
+                  </td>
+                  <td
+                    style={{
+                      ...cellTd,
+                      textAlign: 'right',
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {runningHuman} – {runningCpu}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function RoundEndOverlay({
   humanPts,
   cpuPts,
+  humanCaptured,
+  cpuCaptured,
   roundWinner,
   matchOver,
   matchScore,
   matchTarget,
+  roundHistory,
   cpuLabel,
+  humanLabel,
+  autoAdvance,
   onNextRound,
   onRestart,
 }: {
   humanPts: number;
   cpuPts: number;
+  humanCaptured: BriscolaCard[];
+  cpuCaptured: BriscolaCard[];
   roundWinner: PlayerId | 'tie';
   matchOver: boolean;
   matchScore: Record<PlayerId, number>;
   matchTarget: number;
+  roundHistory: Array<{ playerPoints: number; cpuPoints: number }>;
   cpuLabel: string;
+  humanLabel: string;
+  /** Auto-advance to the next round after a short delay (watch mode). */
+  autoAdvance: boolean;
   onNextRound: () => void;
   onRestart: () => void;
 }) {
+  // Two-step match-end flow: at match-over with >1 rounds, show the last
+  // round's card summary first, then a "View Match Summary" button reveals
+  // the round-by-round table. Best-of-1 collapses to a single card view.
+  const [matchSummaryView, setMatchSummaryView] = useState(false);
+  const hasMatchSummary = matchOver && roundHistory.length > 1;
+
+  // Watch-mode auto-advance: between rounds, show a 3-2-1 countdown and
+  // then fire onNextRound automatically. Disabled at match-over (the user
+  // should see the final result and click Play Again themselves).
+  const AUTO_ADVANCE_MS = 3000;
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (!autoAdvance || matchOver) {
+      setCountdown(null);
+      return;
+    }
+    setCountdown(Math.ceil(AUTO_ADVANCE_MS / 1000));
+    const tick = setInterval(() => {
+      setCountdown((prev) => (prev === null || prev <= 1 ? null : prev - 1));
+    }, 1000);
+    const advance = setTimeout(onNextRound, AUTO_ADVANCE_MS);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(advance);
+    };
+  }, [autoAdvance, matchOver, onNextRound]);
+
+  // "You take/win" reads naturally for the local user; bot names take third-
+  // person verbs ("Furbo takes the round").
+  const youAreLocal = humanLabel === 'You';
+  const humanTakes = youAreLocal ? 'You take' : `${humanLabel} takes`;
+  const humanWins = youAreLocal ? 'You win' : `${humanLabel} wins`;
+
   const roundLine =
     roundWinner === 'human'
-      ? 'You take the round'
+      ? `${humanTakes} the round`
       : roundWinner === 'cpu'
         ? `${cpuLabel} takes the round`
         : 'Tied at 60';
@@ -1237,7 +1696,7 @@ function RoundEndOverlay({
   const matchOutcome = !matchOver
     ? null
     : matchScore.human > matchScore.cpu
-      ? `You win the match (${matchScore.human}–${matchScore.cpu})`
+      ? `${humanWins} the match (${matchScore.human}–${matchScore.cpu})`
       : matchScore.cpu > matchScore.human
         ? `${cpuLabel} wins the match (${matchScore.cpu}–${matchScore.human})`
         : `Match drawn (${matchScore.human}–${matchScore.cpu})`;
@@ -1249,33 +1708,81 @@ function RoundEndOverlay({
     <div style={overlay}>
       <div style={overlayCard}>
         <h2 style={{ marginTop: 0 }}>{matchOver ? matchOutcome : roundLine}</h2>
-        <p style={{ fontSize: '1.5rem', margin: '0.5rem 0' }}>
-          <strong>{humanPts}</strong> — <strong>{cpuPts}</strong>
-        </p>
-        <p style={{ opacity: 0.7, margin: '0 0 1rem 0' }}>
-          You vs {cpuLabel} (out of 120)
-        </p>
-        {showMatchScore && (
-          <p style={{ opacity: 0.85, margin: '0 0 1.5rem 0', fontSize: '0.95rem' }}>
-            Match: <strong>{matchScore.human}</strong> — <strong>{matchScore.cpu}</strong>{' '}
-            (first to {matchTarget})
+        {!matchSummaryView && (
+          <>
+            <p style={{ fontSize: '1.5rem', margin: '0.5rem 0' }}>
+              <strong>{humanPts}</strong> — <strong>{cpuPts}</strong>
+            </p>
+            <p style={{ opacity: 0.7, margin: '0 0 1rem 0' }}>
+              {humanLabel} vs {cpuLabel} (out of 120)
+            </p>
+            {showMatchScore && (
+              <p style={{ opacity: 0.85, margin: '0 0 1rem 0', fontSize: '0.95rem' }}>
+                Match: <strong>{matchScore.human}</strong> — <strong>{matchScore.cpu}</strong>{' '}
+                (first to {matchTarget})
+              </p>
+            )}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '1rem',
+                margin: '0.5rem 0',
+              }}
+            >
+              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                <CapturedSummaryRow
+                  label={humanLabel}
+                  captured={humanCaptured}
+                  points={humanPts}
+                  totalCards={humanCaptured.length}
+                />
+              </div>
+              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+                <CapturedSummaryRow
+                  label={cpuLabel}
+                  captured={cpuCaptured}
+                  points={cpuPts}
+                  totalCards={cpuCaptured.length}
+                />
+              </div>
+            </div>
+          </>
+        )}
+        {matchSummaryView && (
+          <RoundHistoryTable
+            roundHistory={roundHistory}
+            cpuLabel={cpuLabel}
+            humanLabel={humanLabel}
+          />
+        )}
+        {!matchOver && matchTarget === 1 && roundWinner === 'tie' && (
+          // Edge case: best-of-1 with a tied round → no winner, replay
+          <p style={{ opacity: 0.7, margin: '0 0 1.25rem 0', fontStyle: 'italic' }}>
+            Replay the round.
           </p>
         )}
-        {!matchOver && matchTarget === 1 && (
-          // Edge case: best-of-1 with a tied round → no winner, replay
-          roundWinner === 'tie' && (
-            <p style={{ opacity: 0.7, margin: '0 0 1.5rem 0', fontStyle: 'italic' }}>
-              Replay the round.
-            </p>
-          )
-        )}
         {matchOver ? (
-          <button style={primaryButton} onClick={onRestart}>
-            Play Again
-          </button>
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {hasMatchSummary && (
+              <button
+                style={
+                  matchSummaryView
+                    ? { ...primaryButton, background: 'transparent', color: 'var(--color-accent)', border: '1px solid var(--color-accent)' }
+                    : { ...primaryButton, background: 'transparent', color: 'var(--color-accent)', border: '1px solid var(--color-accent)' }
+                }
+                onClick={() => setMatchSummaryView((v) => !v)}
+              >
+                {matchSummaryView ? 'Back to Round' : 'View Match Summary'}
+              </button>
+            )}
+            <button style={primaryButton} onClick={onRestart}>
+              Play Again
+            </button>
+          </div>
         ) : (
           <button style={primaryButton} onClick={onNextRound}>
-            Next Round
+            {countdown !== null ? `Next Round (${countdown})` : 'Next Round'}
           </button>
         )}
       </div>
@@ -1434,8 +1941,8 @@ const emptyDeckLabel: React.CSSProperties = {
 
 // ---- Modals + buttons ----
 const primaryButton: React.CSSProperties = {
-  background: 'var(--color-accent, #FFD600)',
-  color: 'var(--color-background, #1A237E)',
+  background: 'var(--color-accent)',
+  color: '#000',
   border: 'none',
   padding: '0.75rem 2rem',
   borderRadius: '6px',
@@ -1455,11 +1962,15 @@ const overlay: React.CSSProperties = {
 };
 
 const overlayCard: React.CSSProperties = {
-  background: '#283593',
-  color: 'white',
-  padding: '2.5rem',
+  background: 'linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%)',
+  border: '2px solid var(--color-accent)',
+  color: 'var(--color-text-primary)',
+  padding: '2rem',
   borderRadius: '12px',
   textAlign: 'center',
   minWidth: '320px',
-  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+  maxWidth: 'min(640px, 92vw)',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
 };

@@ -30,7 +30,7 @@ interface SettingsModalProps {
   onUpdateSetting: <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => void;
   onResetSettings: () => void;
   /** Which game's settings are being shown. Controls the "Default ..."
-   *  section (Target Score for Scopa vs Best Of for Briscola) and which
+   *  section (Target Score for Scopa vs First To for Briscola) and which
    *  game-specific sections are visible. Defaults to 'scopa'. */
   game?: 'scopa' | 'briscola';
 }
@@ -221,7 +221,7 @@ export function SettingsModal({
 
             {game === 'briscola' ? (
               <div className={styles.setting}>
-                <label className={styles.label}>Default Best Of</label>
+                <label className={styles.label}>Default First To</label>
                 <div className={styles.options}>
                   {PRESET_BEST_OF.map((n) => (
                     <button
@@ -324,28 +324,25 @@ export function SettingsModal({
               </div>
             </div>
 
-            {/* Watch Mode — Scopa's spectator-mode setting. Hidden for
-                Briscola until a spectator mode is built. */}
-            {game === 'scopa' && (
-              <div className={styles.setting}>
-                <label className={styles.label}>Watch Mode</label>
-                <div className={styles.toggleRow}>
-                  <span className={styles.toggleLabel}>Auto-advance rounds</span>
-                  <button
-                    className={`${styles.toggle} ${settings.autoAdvanceSpectator ? styles.on : ''}`}
-                    onClick={() => onUpdateSetting('autoAdvanceSpectator', !settings.autoAdvanceSpectator)}
-                    title={settings.autoAdvanceSpectator ? 'Auto-advance enabled (2s delay)' : 'Manual advance'}
-                  >
-                    <span className={styles.toggleKnob} />
-                  </button>
-                </div>
-                <p className={styles.settingHint}>
-                  {settings.autoAdvanceSpectator
-                    ? 'Round summary shows for 2 seconds, then auto-continues'
-                    : 'Wait for manual click to proceed between rounds'}
-                </p>
+            {/* Watch Mode: auto-advance rounds when both players are bots. */}
+            <div className={styles.setting}>
+              <label className={styles.label}>Watch Mode</label>
+              <div className={styles.toggleRow}>
+                <span className={styles.toggleLabel}>Auto-advance rounds</span>
+                <button
+                  className={`${styles.toggle} ${settings.autoAdvanceSpectator ? styles.on : ''}`}
+                  onClick={() => onUpdateSetting('autoAdvanceSpectator', !settings.autoAdvanceSpectator)}
+                  title={settings.autoAdvanceSpectator ? 'Auto-advance enabled' : 'Manual advance'}
+                >
+                  <span className={styles.toggleKnob} />
+                </button>
               </div>
-            )}
+              <p className={styles.settingHint}>
+                {settings.autoAdvanceSpectator
+                  ? 'Round summary shows briefly, then auto-continues'
+                  : 'Wait for manual click to proceed between rounds'}
+              </p>
+            </div>
 
             <div className={styles.setting}>
               <label className={styles.label}>Sound</label>

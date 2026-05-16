@@ -5,3 +5,4 @@ export { isAsyncAI } from './types';
 
 export { randomAI, createRandomAI } from './random';
 export { heuristicAI, createHeuristicAI, scoreCandidate } from './heuristic';
+export { expertAI, createExpertAI } from './expert';

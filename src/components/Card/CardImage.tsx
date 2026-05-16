@@ -8,6 +8,8 @@ import type { DeckType } from '../../hooks/useSettings';
 
 interface CardImageProps {
   card: Card;
+  /** Optional style overrides — e.g. to force the img to fill its container. */
+  style?: React.CSSProperties;
 }
 
 // Get the path to the individual card WebP file
@@ -16,7 +18,7 @@ function getCardImagePath(deck: DeckType, suit: Card['suit'], value: number): st
   return `/cards/${deck}/${suit}-${value}.webp`;
 }
 
-export function CardImage({ card }: CardImageProps) {
+export function CardImage({ card, style }: CardImageProps) {
   const deck = useDeck();
   const { suit, value } = card;
   const [imageError, setImageError] = useState(false);
@@ -49,7 +51,7 @@ export function CardImage({ card }: CardImageProps) {
     <img
       src={imagePath}
       alt={`${value} of ${suit}`}
-      style={{ display: 'block', pointerEvents: 'none' }}
+      style={{ display: 'block', pointerEvents: 'none', ...style }}
       draggable={false}
       onError={() => setImageError(true)}
     />
