@@ -59,6 +59,9 @@ export interface GameSettings {
   claudeKeyValid: boolean;
   /** Whether to show pile stats (coins count, sette bello, scopas) */
   showPileStats: boolean;
+  /** Briscola analysis: show live win-odds (Esperto self-play estimate).
+   *  Off by default; single-player Play mode only (never multiplayer). */
+  showWinOdds: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -85,6 +88,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   openaiKeyValid: false,
   claudeKeyValid: false,
   showPileStats: true,
+  showWinOdds: false,
 };
 
 function loadSettings(): GameSettings {

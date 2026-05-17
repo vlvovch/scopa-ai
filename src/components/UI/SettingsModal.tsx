@@ -388,6 +388,26 @@ export function SettingsModal({
                     : 'Show coins count, sette bello, and scopas near piles'
                   : 'Hide pile statistics for a cleaner view'}
               </p>
+
+              {game === 'briscola' && (
+                <>
+                  <div className={styles.toggleRow}>
+                    <span className={styles.toggleLabel}>Win odds (analysis)</span>
+                    <button
+                      className={`${styles.toggle} ${settings.showWinOdds ? styles.on : ''}`}
+                      onClick={() => onUpdateSetting('showWinOdds', !settings.showWinOdds)}
+                      title={settings.showWinOdds ? 'Win odds shown' : 'Win odds hidden'}
+                    >
+                      <span className={styles.toggleKnob} />
+                    </button>
+                  </div>
+                  <p className={styles.settingHint}>
+                    {settings.showWinOdds
+                      ? 'Estimated chance to win the round, from an Esperto self-play simulation. Single-player only.'
+                      : 'Hide the win-odds estimate'}
+                  </p>
+                </>
+              )}
             </div>
 
             {/* API Keys — Briscola supports Gemini today (slice 9), OpenAI

@@ -110,7 +110,9 @@ import {
   AIPlayerLabel,
 } from '../../components/UI/AIPlayerLabel';
 import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
-import type { AIPlayer } from './ai/types';
+import type { AIPlayer, AIContext } from './ai/types';
+import { useWinOdds } from './hooks/useWinOdds';
+import type { WinOdds } from './ai/winOdds';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, GameStatus, Move, PlayerId } from './types';
 
@@ -728,6 +730,34 @@ function BriscolaApp() {
   // round; cleared after the deal animation duration.
   const [mpDealing, setMpDealing] = useState(false);
   const mpWasFreshRef = useRef(false);
+
+  // ── Win-odds analysis (single-player Play only; off by default) ──────
+  // Build the human's information-set view only when it's genuinely the
+  // human's decision in a normal game. Memoised on `state` (stable
+  // between renders until a move is dispatched) so the worker isn't
+  // re-kicked every render. Never built in watch or multiplayer.
+  const winOddsView = useMemo<AIContext | null>(() => {
+    if (!settings.showWinOdds || gameMode !== 'play') return null;
+    if (state.status !== 'playing') return null;
+    const g = state.game;
+    if (g.round.currentPlayer !== 'human') return null;
+    if (g.players.human.hand.length === 0) return null;
+    return {
+      hand: g.players.human.hand,
+      player: 'human',
+      trump: g.round.trump,
+      trumpSuit: g.round.trumpSuit,
+      leadCard: g.round.trick.leadCard,
+      deckCount: g.round.deck.length,
+      myCaptured: g.players.human.captured,
+      oppCaptured: g.players.cpu.captured,
+    };
+  }, [state, gameMode, settings.showWinOdds]);
+
+  const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
+    enabled: settings.showWinOdds && gameMode === 'play',
+    view: winOddsView,
+  });
 
   // Per-game accumulated round history for the multiplayer match. Server only
   // sends per-round scores at ROUND_END, so we maintain our own list here and
@@ -1938,11 +1968,102 @@ function BriscolaApp() {
         }
         onClose={() => setReasoningModal({ isOpen: false, player: null })}
       />
+      {settings.showWinOdds && gameMode === 'play' && (
+        <WinOddsPanel odds={winOdds} computing={winOddsComputing} />
+      )}
     </DeckProvider>
   );
 }
 
 export default BriscolaApp;
+
+// ---------------------------------------------------------------------------
+// Win-odds panel (analysis mode)
+// ---------------------------------------------------------------------------
+
+/**
+ * Unobtrusive bottom-left readout of the round win/tie/loss estimate.
+ * Only mounted in single-player Play mode with the setting on. Shows a
+ * faint shimmer + the settling number while the worker streams, and a
+ * ± CI once it stabilises. Honest caption: it's an Esperto self-play
+ * estimate, not ground truth.
+ */
+function WinOddsPanel({
+  odds,
+  computing,
+}: {
+  odds: WinOdds | null;
+  computing: boolean;
+}) {
+  if (!odds && !computing) return null;
+  const pct = (n: number) => `${Math.round(n)}%`;
+  return (
+    <div style={winOddsPanel} aria-live="polite">
+      <div style={winOddsTitle}>
+        Win odds{' '}
+        {computing && <span style={winOddsSpinner}>·computing·</span>}
+      </div>
+      {odds ? (
+        <>
+          <div style={winOddsRow}>
+            <span>
+              <strong style={{ color: 'var(--color-accent)' }}>
+                {pct(odds.winPct)}
+              </strong>{' '}
+              win
+            </span>
+            <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} tie</span>
+            <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} loss</span>
+          </div>
+          <div style={winOddsFoot}>
+            ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples} sims
+            · Esperto self-play estimate
+          </div>
+        </>
+      ) : (
+        <div style={winOddsFoot}>simulating…</div>
+      )}
+    </div>
+  );
+}
+
+const winOddsPanel: React.CSSProperties = {
+  position: 'fixed',
+  left: 'var(--space-3)',
+  bottom: 'var(--space-3)',
+  background: 'rgba(0,0,0,0.62)',
+  color: 'var(--color-text-primary)',
+  padding: '0.5rem 0.75rem',
+  borderRadius: '10px',
+  fontSize: '13px',
+  lineHeight: 1.35,
+  zIndex: 90,
+  pointerEvents: 'none',
+  maxWidth: '15rem',
+  backdropFilter: 'blur(2px)',
+};
+const winOddsTitle: React.CSSProperties = {
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.06em',
+  opacity: 0.7,
+  marginBottom: '2px',
+};
+const winOddsSpinner: React.CSSProperties = {
+  fontStyle: 'italic',
+  opacity: 0.6,
+};
+const winOddsRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '0.6rem',
+  alignItems: 'baseline',
+  fontVariantNumeric: 'tabular-nums',
+};
+const winOddsFoot: React.CSSProperties = {
+  fontSize: '10px',
+  opacity: 0.55,
+  marginTop: '3px',
+};
 
 // ---------------------------------------------------------------------------
 // Screens
