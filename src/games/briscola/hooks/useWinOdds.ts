@@ -113,6 +113,14 @@ export function useWinOdds({
       return;
     }
 
+    // Position / tuning changed. Supersede any in-flight job IMMEDIATELY
+    // (not when the debounced run finally fires) so its still-streaming
+    // 'progress' messages can't briefly paint stale odds during the
+    // debounce window, and tell the worker to stop wasting cycles on it.
+    const supersededId = jobIdRef.current;
+    jobIdRef.current++;
+    worker.postMessage({ type: 'cancel', jobId: supersededId });
+
     const t = setTimeout(() => {
       const jobId = ++jobIdRef.current;
       setComputing(true);
