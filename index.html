@@ -3,8 +3,13 @@
 
 <head>
   <meta charset="UTF-8" />
+  <!-- PNG icons first so Android home-screen / shortcut selection uses
+       the raster app icon (the card-fan PNG) rather than falling back
+       to the small SVG favicon. SVG is kept for crisp browser tabs. -->
+  <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192.png" />
   <link rel="icon" type="image/svg+xml" href="%VITE_ICON_PATH%" />
-  <link rel="apple-touch-icon" href="/pwa-192.png" />
+  <link rel="apple-touch-icon" sizes="192x192" href="/pwa-192.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="%VITE_THEME_COLOR%" />
