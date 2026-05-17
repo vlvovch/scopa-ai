@@ -92,12 +92,7 @@ export function CaptureChoiceModal({
                           opacity: isBest ? 1 : 0.8,
                         }}
                       >
-                        {Math.round(odds.winPct)}% win
-                        <span style={{ opacity: 0.6, fontSize: '11px' }}>
-                          {' '}
-                          · {Math.round(odds.tiePct)}% tie ·{' '}
-                          {Math.round(odds.lossPct)}% loss
-                        </span>
+                        {Math.round(odds.winPct)}%
                       </div>
                     )}
                   </motion.button>
