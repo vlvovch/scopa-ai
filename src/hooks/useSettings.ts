@@ -96,7 +96,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   claudeKeyValid: false,
   showPileStats: true,
   showWinOdds: false,
-  showWinOddsPerCard: false,
+  showWinOddsPerCard: true,
   winOddsSamples: 300,
 };
 
