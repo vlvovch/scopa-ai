@@ -2031,7 +2031,9 @@ function WinOddsPanel({
 const winOddsPanel: React.CSSProperties = {
   position: 'fixed',
   left: '50%',
-  bottom: 'var(--space-3)',
+  // Sit just above the fixed page footer (footer is at var(--space-1)
+  // with a ~0.7rem line) so the two don't overlap.
+  bottom: 'calc(var(--space-1) + 1.9rem)',
   transform: 'translateX(-50%)',
   textAlign: 'center',
   background: 'rgba(0,0,0,0.62)',
