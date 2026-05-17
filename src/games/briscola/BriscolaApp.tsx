@@ -494,14 +494,21 @@ function mpToBriscolaAppState(
     { length: mp.opponent.handCount },
     (_, i) => mpPlaceholderCard(MP_PLACEHOLDER_OPP_PREFIX, i)
   );
-  const myCaptured: BriscolaCard[] = Array.from(
-    { length: mp.self.capturedCount },
-    (_, i) => mpPlaceholderCard(`${MP_PLACEHOLDER_CAP_PREFIX}h-`, i)
-  );
-  const oppCaptured: BriscolaCard[] = Array.from(
-    { length: mp.opponent.capturedCount },
-    (_, i) => mpPlaceholderCard(`${MP_PLACEHOLDER_CAP_PREFIX}c-`, i)
-  );
+  // Captured piles are public info in Briscola — the server sends the real
+  // cards. Fall back to count-sized placeholders only if (defensively) the
+  // arrays are missing, so the pile thickness still renders.
+  const myCaptured: BriscolaCard[] =
+    mp.self.captured.length > 0 || mp.self.capturedCount === 0
+      ? mp.self.captured
+      : Array.from({ length: mp.self.capturedCount }, (_, i) =>
+          mpPlaceholderCard(`${MP_PLACEHOLDER_CAP_PREFIX}h-`, i)
+        );
+  const oppCaptured: BriscolaCard[] =
+    mp.opponent.captured.length > 0 || mp.opponent.capturedCount === 0
+      ? mp.opponent.captured
+      : Array.from({ length: mp.opponent.capturedCount }, (_, i) =>
+          mpPlaceholderCard(`${MP_PLACEHOLDER_CAP_PREFIX}c-`, i)
+        );
 
   // mp.round is null only when the room is still waiting for the second
   // player. The caller (render branch) gates on mp.round before calling
@@ -1426,9 +1433,10 @@ function BriscolaApp() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenStats={() => setIsStatsOpen(true)}
           onOpenRules={() => setIsRulesOpen(true)}
-          // Authoritative running points from the server (captured piles
-          // are face-down placeholders, so they can't be summed locally).
+          // Authoritative running points from the server.
           pilePoints={{ human: mp.self.points, cpu: mp.opponent.points }}
+          // Host option: pile-review modal on/off.
+          pilesClickable={multiplayer.pileViewEnabled}
         />
         {/* Opponent-disconnected overlay (server reports OPPONENT_DISCONNECTED) */}
         {!multiplayer.isOpponentConnected && (
@@ -1469,14 +1477,20 @@ function BriscolaApp() {
         )}
         {openPile && (
           <BriscolaCapturedModal
+            // Server now sends the live captured piles (public info in
+            // Briscola). Fall back to round/game-end payloads if needed.
             cards={
               openPile === 'human'
-                ? (multiplayer.roundEndData?.capturedCards[myId] ??
-                  multiplayer.gameEndData?.capturedCards[myId] ??
-                  [])
-                : (multiplayer.roundEndData?.capturedCards[oppId] ??
-                  multiplayer.gameEndData?.capturedCards[oppId] ??
-                  [])
+                ? (mp.self.captured.length > 0
+                    ? mp.self.captured
+                    : multiplayer.roundEndData?.capturedCards[myId] ??
+                      multiplayer.gameEndData?.capturedCards[myId] ??
+                      [])
+                : (mp.opponent.captured.length > 0
+                    ? mp.opponent.captured
+                    : multiplayer.roundEndData?.capturedCards[oppId] ??
+                      multiplayer.gameEndData?.capturedCards[oppId] ??
+                      [])
             }
             playerName={openPile === 'human' ? youLabel : opponentLabel}
             onClose={() => setOpenPile(null)}
@@ -1575,6 +1589,12 @@ function BriscolaApp() {
           presetScores: [1, 3, 5],
           defaultScore: 1,
           scoreLabel: 'Best of N rounds (wins)',
+          pileViewToggle: {
+            label: 'Captured-pile review',
+            hintOn: 'Players can open a pile to review captured cards',
+            hintOff: 'Play from memory — piles can’t be opened',
+            defaultValue: true,
+          },
         }}
         onCreateRoom={multiplayer.createRoom}
         onJoinRoom={multiplayer.joinRoom}
@@ -1804,6 +1824,7 @@ function BriscolaBoard({
   onOpenStats,
   onOpenRules,
   pilePoints,
+  pilesClickable = true,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   /** Plain-text fallback (used by ReasoningModal title etc.). */
@@ -1849,6 +1870,9 @@ function BriscolaBoard({
   onOpenSettings: () => void;
   onOpenStats: () => void;
   onOpenRules: () => void;
+  /** When false, captured piles aren't clickable (multiplayer host
+   *  disabled pile review). Defaults true — single-player is unaffected. */
+  pilesClickable?: boolean;
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
@@ -2015,7 +2039,7 @@ function BriscolaBoard({
             <BriscolaPile
               captured={g.players.cpu.captured}
               label={seatLabelNode('cpu')}
-              onClick={() => onOpenPile('cpu')}
+              onClick={pilesClickable ? () => onOpenPile('cpu') : undefined}
               showStats={showPileStats}
               pointsOverride={pilePoints?.cpu}
             />
@@ -2068,7 +2092,7 @@ function BriscolaBoard({
             <BriscolaPile
               captured={g.players.human.captured}
               label={seatLabelNode('human')}
-              onClick={() => onOpenPile('human')}
+              onClick={pilesClickable ? () => onOpenPile('human') : undefined}
               showStats={showPileStats}
               pointsOverride={pilePoints?.human}
             />

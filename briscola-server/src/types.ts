@@ -39,6 +39,10 @@ export interface RoomState {
   player2: PlayerSession | null;
   gameState: MultiplayerGameState | null;
   turnTimerEnabled: boolean;
+  /** Host option: when true, players may open the captured-pile review
+   *  modal. Briscola piles are public info so the data is always sent;
+   *  this only gates the UI affordance ("play from memory" if false). */
+  pileViewEnabled: boolean;
   turnTimerSeconds: number;
   currentTurnStartedAt: number | null;
   newGameRequests: Set<MultiplayerPlayerId>;
@@ -111,6 +115,7 @@ export type ClientMessage =
         nickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -170,15 +175,21 @@ export interface PlayerVisibleGameState {
     capturedCount: number;
     /** Running point total from captured pile (0–120) */
     points: number;
+    /** Full captured pile. Briscola tricks are face-up so this is public
+     *  info for both players — sent for the pile-review modal. */
+    captured: Card[];
   };
   opponent: {
     handCount: number;
     capturedCount: number;
     points: number;
+    captured: Card[];
   };
   scores: Record<MultiplayerPlayerId, number>;
   roundNumber: number;
   targetScore: number;
+  /** Host option mirrored to clients (gates the pile-review UI). */
+  pileViewEnabled: boolean;
 }
 
 export type ServerMessage =
@@ -199,6 +210,7 @@ export type ServerMessage =
         opponentNickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -254,6 +266,7 @@ export type ServerMessage =
         opponentConnected: boolean;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
         state: PlayerVisibleGameState | null;
       };
     }

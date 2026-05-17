@@ -64,6 +64,7 @@ export function createRoom(
   nickname: string,
   targetScore: number,
   turnTimerEnabled: boolean,
+  pileViewEnabled: boolean,
   ws: WebSocket
 ): { room: RoomState; sessionToken: string } {
   const code = generateRoomCode();
@@ -94,6 +95,7 @@ export function createRoom(
       targetScore,
     },
     turnTimerEnabled,
+    pileViewEnabled,
     turnTimerSeconds: DEFAULT_TURN_TIMER_SECONDS,
     currentTurnStartedAt: null,
     newGameRequests: new Set(),
@@ -470,15 +472,21 @@ export function getPlayerVisibleState(
       hand: state.players[playerId].hand,
       capturedCount: selfCaptured.length,
       points: sumPoints(selfCaptured),
+      // Briscola tricks are face-up — captured piles are public info, so
+      // both sides are always sent. The pileViewEnabled flag only gates
+      // the client UI affordance, not data visibility.
+      captured: selfCaptured,
     },
     opponent: {
       handCount: state.players[opponentId].hand.length,
       capturedCount: opponentCaptured.length,
       points: sumPoints(opponentCaptured),
+      captured: opponentCaptured,
     },
     scores: state.scores,
     roundNumber: state.roundNumber,
     targetScore: state.targetScore,
+    pileViewEnabled: room.pileViewEnabled,
   };
 }
 

@@ -72,15 +72,20 @@ export interface PlayerVisibleGameState {
     capturedCount: number;
     /** Running point total from captured pile (0–120) */
     points: number;
+    /** Full captured pile (Briscola tricks are face-up = public info). */
+    captured: Card[];
   };
   opponent: {
     handCount: number;
     capturedCount: number;
     points: number;
+    captured: Card[];
   };
   scores: Record<MultiplayerPlayerId, number>;
   roundNumber: number;
   targetScore: number;
+  /** Host option: gates the pile-review UI (data is always present). */
+  pileViewEnabled: boolean;
 }
 
 // ============================================================================
@@ -94,6 +99,7 @@ export type ClientMessage =
         nickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -151,6 +157,7 @@ export type ServerMessage =
         opponentNickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -206,6 +213,7 @@ export type ServerMessage =
         opponentConnected: boolean;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
         state: PlayerVisibleGameState | null;
       };
     }
@@ -303,6 +311,7 @@ export interface MultiplayerState {
   // Game settings
   targetScore: number;
   turnTimerEnabled: boolean;
+  pileViewEnabled: boolean;
 
   // Game state
   gameState: PlayerVisibleGameState | null;

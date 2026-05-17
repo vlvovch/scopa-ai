@@ -26,6 +26,18 @@ export interface LobbyGameConfig {
   defaultScore: number;
   /** Label shown above the score picker ('Target Score', 'Best of N'). */
   scoreLabel: string;
+  /** Optional extra create-game toggle (Briscola uses it for the
+   *  captured-pile review option). Omitted by games that don't need it
+   *  (e.g. Scopa) so the shared lobby stays game-agnostic. */
+  pileViewToggle?: {
+    /** Toggle row label, e.g. "Captured-pile review". */
+    label: string;
+    /** Helper text shown under the toggle (on/off variants). */
+    hintOn: string;
+    hintOff: string;
+    /** Initial state of the toggle. */
+    defaultValue: boolean;
+  };
 }
 
 interface MultiplayerLobbyProps {
@@ -40,7 +52,12 @@ interface MultiplayerLobbyProps {
   config: LobbyGameConfig;
 
   // Actions
-  onCreateRoom: (nickname: string, targetScore: number, turnTimerEnabled: boolean) => void;
+  onCreateRoom: (
+    nickname: string,
+    targetScore: number,
+    turnTimerEnabled: boolean,
+    pileViewEnabled: boolean
+  ) => void;
   onJoinRoom: (code: string, nickname: string) => void;
   onBack: () => void;
 }
@@ -79,6 +96,9 @@ export function MultiplayerLobby({
   const [joinCode, setJoinCode] = useState(initialJoinCode || codePrefix);
   const [targetScore, setTargetScore] = useState(config.defaultScore);
   const [turnTimerEnabled, setTurnTimerEnabled] = useState(false);
+  const [pileViewEnabled, setPileViewEnabled] = useState(
+    config.pileViewToggle?.defaultValue ?? true
+  );
 
   // Save nickname when it changes
   useEffect(() => {
@@ -94,7 +114,7 @@ export function MultiplayerLobby({
 
   const handleCreateRoom = () => {
     if (!nickname.trim()) return;
-    onCreateRoom(nickname.trim(), targetScore, turnTimerEnabled);
+    onCreateRoom(nickname.trim(), targetScore, turnTimerEnabled, pileViewEnabled);
   };
 
   const handleJoinRoom = () => {
@@ -222,6 +242,29 @@ export function MultiplayerLobby({
                 : 'No time limit per turn'}
             </p>
           </div>
+
+          {config.pileViewToggle && (
+            <div className={styles.formGroup}>
+              <label className={styles.toggleRow}>
+                <span className={styles.toggleLabel}>
+                  {config.pileViewToggle.label}
+                </span>
+                <button
+                  className={`${styles.toggle} ${pileViewEnabled ? styles.toggleEnabled : ''}`}
+                  onClick={() => setPileViewEnabled(!pileViewEnabled)}
+                  disabled={isDisabled}
+                  type="button"
+                >
+                  <span className={styles.toggleSlider} />
+                </button>
+              </label>
+              <p className={styles.toggleHint}>
+                {pileViewEnabled
+                  ? config.pileViewToggle.hintOn
+                  : config.pileViewToggle.hintOff}
+              </p>
+            </div>
+          )}
 
           {connectionError && (
             <div className={styles.error}>{connectionError}</div>
