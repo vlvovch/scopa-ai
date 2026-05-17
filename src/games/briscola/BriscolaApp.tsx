@@ -1373,7 +1373,11 @@ function BriscolaApp() {
       // Make sure the card is actually in our hand (defensive — UI might fire
       // a click on a placeholder card if state shapes ever diverge).
       if (!mp.self.hand.some((c) => c.id === card.id)) return;
-      play('play');
+      // NOTE: no optimistic click sound. All multiplayer audio is driven
+      // by the MOVE_PLAYED echo in the lastMove effect, so both players
+      // hear it from the same server event and stay in sync. Playing a
+      // sound here would (a) double up for the mover (click + echo) and
+      // (b) fire a full round-trip earlier than the opponent hears it.
       multiplayer.playMove({ player: myId, cardPlayed: card });
     };
 
