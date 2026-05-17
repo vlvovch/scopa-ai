@@ -24,6 +24,11 @@ export interface UseBriscolaMultiplayerReturn {
   // Connection state
   connectionStatus: ConnectionStatus;
   connectionError: string | null;
+  /** True from when a RECONNECT is sent until RECONNECT_SUCCESS or a
+   *  terminal failure. connectionStatus flips to 'connected' as soon as
+   *  the WS handshake completes (before the room is restored), so this is
+   *  the reliable "still restoring the game" signal for the UI. */
+  isReconnecting: boolean;
 
   // Room state
   roomCode: string | null;
@@ -98,6 +103,12 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
   // Connection state
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  // True between sending RECONNECT and its resolution. Lets the ERROR
+  // handler tell a reconnect-rejection (stale room) apart from an
+  // in-game error (e.g. an invalid move) so only the former tears down
+  // the session and falls back to the lobby.
+  const reconnectPendingRef = useRef(false);
 
   // Room state
   const [roomCode, setRoomCode] = useState<string | null>(null);
@@ -267,6 +278,8 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
 
       case 'RECONNECT_SUCCESS':
         // Restore all state after successful reconnection
+        reconnectPendingRef.current = false;
+        setIsReconnecting(false);
         setPlayerId(message.payload.playerId);
         setOpponentNickname(message.payload.opponentNickname);
         setIsOpponentConnected(message.payload.opponentConnected);
@@ -347,17 +360,45 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
         }
         break;
 
-      case 'ERROR':
+      case 'ERROR': {
+        const code = message.payload.code;
+        const isReconnectRejection =
+          reconnectPendingRef.current &&
+          (code === 'ROOM_NOT_FOUND' || code === 'INVALID_SESSION');
+
+        if (isReconnectRejection) {
+          // The room is gone (server restarted, or it expired). Tear the
+          // stale session down and fall back to the lobby with a clear,
+          // persistent message instead of hanging on a "Reconnecting…"
+          // screen forever. clearSession() makes the ws.onclose handler's
+          // loadSession() return null, so it won't loop-retry either.
+          reconnectPendingRef.current = false;
+          setIsReconnecting(false);
+          clearSession();
+          setRoomCode(null);
+          setPlayerId(null);
+          setGameState(null);
+          setRoundEndData(null);
+          setGameEndData(null);
+          setConnectionStatus('disconnected');
+          setConnectionError(
+            'Your previous game is no longer available — it may have ended or the server restarted.'
+          );
+          // Persistent: no auto-clear, the lobby keeps showing it.
+          break;
+        }
+
         setConnectionError(message.payload.message);
-        // Clear error after 5 seconds
+        // Transient in-game error (e.g. rejected move) — clear after 5s.
         setTimeout(() => setConnectionError(null), 5000);
         break;
+      }
 
       case 'PONG':
         // Keep-alive response, nothing to do
         break;
     }
-  }, [nickname, playerId, saveSession]);
+  }, [nickname, playerId, saveSession, clearSession]);
 
   // Keep the ref updated with the latest callback
   handleServerMessageRef.current = handleServerMessage;
@@ -399,6 +440,8 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
       // If we have a stored session and this is a reconnection, try to restore it
       const session = loadSession();
       if (attemptReconnect && session) {
+        reconnectPendingRef.current = true;
+        setIsReconnecting(true);
         sendMessage({
           type: 'RECONNECT',
           payload: {
@@ -655,6 +698,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
     // Connection state
     connectionStatus,
     connectionError,
+    isReconnecting,
 
     // Room state
     roomCode,

@@ -1506,15 +1506,18 @@ function BriscolaApp() {
     );
   }
 
-  // Reconnecting after a page refresh / transient socket drop. The hook
-  // sets connectionStatus to 'reconnecting' and restores roomCode from
-  // the stored session before gameState arrives via RECONNECT_SUCCESS.
-  // Show a dedicated reconnect screen rather than the WaitingForOpponent
-  // room (which would misleadingly say "share this code — nobody joined").
+  // Reconnecting after a page refresh / transient socket drop. Gate on
+  // the hook's isReconnecting (true from RECONNECT sent until
+  // RECONNECT_SUCCESS / terminal failure) — connectionStatus flips to
+  // 'connected' the instant the WS handshake completes, well before the
+  // room is restored, so it can't drive this screen. Without this we'd
+  // show the WaitingForOpponent room ("share this code — nobody joined").
+  // On terminal failure the hook clears the session + roomCode, so this
+  // falls through to the lobby with a persistent error message.
   if (
     isMultiplayerMode &&
     !multiplayer.gameState &&
-    multiplayer.connectionStatus === 'reconnecting'
+    multiplayer.isReconnecting
   ) {
     return (
       <div style={overlay}>
