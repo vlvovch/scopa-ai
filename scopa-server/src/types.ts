@@ -39,6 +39,11 @@ export interface RoomState {
   player2: PlayerSession | null;
   gameState: MultiplayerGameState | null;
   turnTimerEnabled: boolean;
+  /** Host option: when true, players may open the captured-pile review
+   *  modal. Scopa captures are face-up so captured piles are public info
+   *  and the data is always sent; this only gates the UI affordance
+   *  ("play from memory" if false). */
+  pileViewEnabled: boolean;
   turnTimerSeconds: number;
   currentTurnStartedAt: number | null;
   newGameRequests: Set<MultiplayerPlayerId>;
@@ -101,6 +106,7 @@ export type ClientMessage =
         nickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -156,6 +162,9 @@ export interface PlayerVisibleGameState {
     scopaCount: number;
     coinsCount: number; // Number of coins (denari) captured
     hasSetteBello: boolean; // Whether player has the 7 of coins
+    /** Full captured pile. Scopa captures are face-up so this is public
+     *  info for both players — sent for the pile-review modal. */
+    captured: Card[];
   };
   opponent: {
     handCount: number; // Only count, not actual cards
@@ -163,10 +172,13 @@ export interface PlayerVisibleGameState {
     scopaCount: number;
     coinsCount: number; // Number of coins (denari) captured
     hasSetteBello: boolean; // Whether opponent has the 7 of coins
+    captured: Card[];
   };
   scores: Record<MultiplayerPlayerId, number>;
   roundNumber: number;
   targetScore: number;
+  /** Host option mirrored to clients (gates the pile-review UI). */
+  pileViewEnabled: boolean;
 }
 
 export type ServerMessage =
@@ -187,6 +199,7 @@ export type ServerMessage =
         opponentNickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -247,6 +260,7 @@ export type ServerMessage =
         opponentConnected: boolean;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
         state: PlayerVisibleGameState | null;
       };
     }

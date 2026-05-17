@@ -1593,7 +1593,7 @@ function BriscolaApp() {
             label: 'Captured-pile review',
             hintOn: 'Players can open a pile to review captured cards',
             hintOff: 'Play from memory — piles can’t be opened',
-            defaultValue: true,
+            defaultValue: false,
           },
         }}
         onCreateRoom={multiplayer.createRoom}

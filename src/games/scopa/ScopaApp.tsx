@@ -239,6 +239,8 @@ function ScopaApp() {
   const [showStats, setShowStats] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showCapturedCards, setShowCapturedCards] = useState(false);
+  // Multiplayer captured-pile review: which seat's pile is open (host opt-in).
+  const [mpOpenPile, setMpOpenPile] = useState<'self' | 'opponent' | null>(null);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
   // Spectator mode: track which hands are shown face-up (toggled by clicking)
@@ -2405,13 +2407,20 @@ function ScopaApp() {
           }
           cpuPile={
             <CapturedPile
-              cards={[]}
+              cards={mpState.opponent.captured ?? []}
               scopaCount={mpState.opponent.scopaCount}
               player="cpu"
               capturedCount={mpState.opponent.capturedCount}
               coinsCount={mpState.opponent.coinsCount}
               hasSetteBello={mpState.opponent.hasSetteBello}
               showStats={settings.showPileStats}
+              // Host option: pile review only when enabled ("play from
+              // memory" default keeps piles non-clickable).
+              onClick={
+                multiplayer.pileViewEnabled
+                  ? () => setMpOpenPile('opponent')
+                  : undefined
+              }
             />
           }
           tableCards={
@@ -2449,13 +2458,20 @@ function ScopaApp() {
           }
           humanPile={
             <CapturedPile
-              cards={[]}
+              cards={mpState.self.captured ?? []}
               scopaCount={mpState.self.scopaCount}
               player="human"
               capturedCount={mpState.self.capturedCount}
               coinsCount={mpState.self.coinsCount}
               hasSetteBello={mpState.self.hasSetteBello}
               showStats={settings.showPileStats}
+              // Host option: pile review only when enabled ("play from
+              // memory" default keeps piles non-clickable).
+              onClick={
+                multiplayer.pileViewEnabled
+                  ? () => setMpOpenPile('self')
+                  : undefined
+              }
             />
           }
           humanHand={
@@ -2627,6 +2643,23 @@ function ScopaApp() {
           isOpen={showRules}
           onClose={() => setShowRules(false)}
         />
+        {/* Captured-pile review (host opt-in). Captured cards are public
+            info — server always sends them; the modal only opens when the
+            host enabled pile review and a pile was clicked. */}
+        <CapturedCardsModal
+          isOpen={mpOpenPile !== null}
+          onClose={() => setMpOpenPile(null)}
+          cards={
+            mpOpenPile === 'self'
+              ? (mpState.self.captured ?? [])
+              : (mpState.opponent.captured ?? [])
+          }
+          playerName={
+            mpOpenPile === 'self'
+              ? multiplayer.nickname
+              : multiplayer.opponentNickname || 'Opponent'
+          }
+        />
       </DeckProvider>
     );
   }
@@ -2668,6 +2701,12 @@ function ScopaApp() {
               presetScores: [11, 16, 21],
               defaultScore: 11,
               scoreLabel: 'Target Score',
+              pileViewToggle: {
+                label: 'Captured-pile review',
+                hintOn: 'Players can open a pile to review captured cards',
+                hintOff: 'Play from memory — piles can’t be opened',
+                defaultValue: false,
+              },
             }}
             onCreateRoom={multiplayer.createRoom}
             onJoinRoom={multiplayer.joinRoom}

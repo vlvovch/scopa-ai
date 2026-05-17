@@ -127,8 +127,9 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
   const [targetScore, setTargetScore] = useState(1);
   const [turnTimerEnabled, setTurnTimerEnabled] = useState(false);
   // Host option: whether the captured-pile review modal is available.
-  // Default true so it works out of the box and matches single-player.
-  const [pileViewEnabled, setPileViewEnabled] = useState(true);
+  // Default OFF — between two humans, captured piles are public but you
+  // play from memory (authentic table behaviour); hosts can opt in.
+  const [pileViewEnabled, setPileViewEnabled] = useState(false);
 
   // Game state
   const [gameState, setGameState] = useState<PlayerVisibleGameState | null>(null);

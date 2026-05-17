@@ -89,9 +89,14 @@ function handleMessage(ws: AuthenticatedWebSocket, message: ClientMessage): void
  */
 function handleCreateRoom(
   ws: AuthenticatedWebSocket,
-  payload: { nickname: string; targetScore: number; turnTimerEnabled: boolean }
+  payload: {
+    nickname: string;
+    targetScore: number;
+    turnTimerEnabled: boolean;
+    pileViewEnabled: boolean;
+  }
 ): void {
-  const { nickname, targetScore, turnTimerEnabled } = payload;
+  const { nickname, targetScore, turnTimerEnabled, pileViewEnabled } = payload;
 
   // Validate inputs
   if (!nickname || nickname.trim().length === 0) {
@@ -109,6 +114,7 @@ function handleCreateRoom(
     nickname,
     targetScore,
     turnTimerEnabled,
+    pileViewEnabled,
     ws
   );
 
@@ -176,6 +182,7 @@ function handleJoinRoom(
       opponentNickname: room.player1!.nickname,
       targetScore: room.gameState!.targetScore,
       turnTimerEnabled: room.turnTimerEnabled,
+      pileViewEnabled: room.pileViewEnabled,
     },
   };
   ws.send(JSON.stringify(joinResponse));
@@ -253,6 +260,7 @@ function handleReconnect(
       opponentConnected,
       targetScore: room.gameState?.targetScore ?? 11,
       turnTimerEnabled: room.turnTimerEnabled,
+      pileViewEnabled: room.pileViewEnabled,
       state,
     },
   };

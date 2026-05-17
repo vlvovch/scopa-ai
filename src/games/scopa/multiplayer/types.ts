@@ -55,6 +55,8 @@ export interface PlayerVisibleGameState {
     scopaCount: number;
     coinsCount: number; // Number of coins (denari) captured
     hasSetteBello: boolean; // Whether player has the 7 of coins
+    /** Full captured pile (Scopa captures are face-up = public info). */
+    captured: Card[];
   };
   opponent: {
     handCount: number;
@@ -62,10 +64,13 @@ export interface PlayerVisibleGameState {
     scopaCount: number;
     coinsCount: number; // Number of coins (denari) captured
     hasSetteBello: boolean; // Whether opponent has the 7 of coins
+    captured: Card[];
   };
   scores: Record<MultiplayerPlayerId, number>;
   roundNumber: number;
   targetScore: number;
+  /** Host option: gates the pile-review UI (data is always present). */
+  pileViewEnabled: boolean;
 }
 
 // ============================================================================
@@ -79,6 +84,7 @@ export type ClientMessage =
         nickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -136,6 +142,7 @@ export type ServerMessage =
         opponentNickname: string;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
       };
     }
   | {
@@ -196,6 +203,7 @@ export type ServerMessage =
         opponentConnected: boolean;
         targetScore: number;
         turnTimerEnabled: boolean;
+        pileViewEnabled: boolean;
         state: PlayerVisibleGameState | null;
       };
     }
@@ -293,6 +301,7 @@ export interface MultiplayerState {
   // Game settings
   targetScore: number;
   turnTimerEnabled: boolean;
+  pileViewEnabled: boolean;
 
   // Game state
   gameState: PlayerVisibleGameState | null;
