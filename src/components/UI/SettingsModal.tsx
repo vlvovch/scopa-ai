@@ -408,10 +408,17 @@ export function SettingsModal({
                   </p>
 
                   {settings.showWinOdds && (
-                    <>
+                    <div
+                      style={{
+                        marginTop: '0.5rem',
+                        paddingLeft: '0.85rem',
+                        borderLeft: '2px solid var(--color-accent)',
+                        opacity: 0.95,
+                      }}
+                    >
                       <div className={styles.toggleRow}>
                         <span className={styles.toggleLabel}>
-                          · Per-card odds
+                          Per-card odds
                         </span>
                         <button
                           className={`${styles.toggle} ${settings.showWinOddsPerCard ? styles.on : ''}`}
@@ -472,7 +479,7 @@ export function SettingsModal({
                           settle (runs off-thread, streams as it goes).
                         </p>
                       </div>
-                    </>
+                    </div>
                   )}
                 </>
               )}
