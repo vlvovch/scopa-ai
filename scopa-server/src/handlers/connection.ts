@@ -94,9 +94,11 @@ function handleCreateRoom(
     targetScore: number;
     turnTimerEnabled: boolean;
     pileViewEnabled: boolean;
+    pileStatsEnabled: boolean;
   }
 ): void {
-  const { nickname, targetScore, turnTimerEnabled, pileViewEnabled } = payload;
+  const { nickname, targetScore, turnTimerEnabled, pileViewEnabled, pileStatsEnabled } =
+    payload;
 
   // Validate inputs
   if (!nickname || nickname.trim().length === 0) {
@@ -115,6 +117,7 @@ function handleCreateRoom(
     targetScore,
     turnTimerEnabled,
     pileViewEnabled,
+    pileStatsEnabled,
     ws
   );
 
@@ -183,6 +186,7 @@ function handleJoinRoom(
       targetScore: room.gameState!.targetScore,
       turnTimerEnabled: room.turnTimerEnabled,
       pileViewEnabled: room.pileViewEnabled,
+      pileStatsEnabled: room.pileStatsEnabled,
     },
   };
   ws.send(JSON.stringify(joinResponse));
@@ -261,6 +265,7 @@ function handleReconnect(
       targetScore: room.gameState?.targetScore ?? 11,
       turnTimerEnabled: room.turnTimerEnabled,
       pileViewEnabled: room.pileViewEnabled,
+      pileStatsEnabled: room.pileStatsEnabled,
       state,
     },
   };

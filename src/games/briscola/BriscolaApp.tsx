@@ -1411,7 +1411,7 @@ function BriscolaApp() {
           humanBotName={null}
           isWatchMode={false}
           autoAdvanceSpectator={false}
-          showPileStats={settings.showPileStats}
+          showPileStats={settings.showPileStats && multiplayer.pileStatsEnabled}
           onCardClick={handleMultiplayerCardClick}
           onOpenReasoning={() => {
             /* no LLM reasoning in multiplayer */
@@ -1589,12 +1589,22 @@ function BriscolaApp() {
           presetScores: [1, 3, 5],
           defaultScore: 1,
           scoreLabel: 'Best of N rounds (wins)',
-          pileViewToggle: {
-            label: 'Captured-pile review',
-            hintOn: 'Players can open a pile to review captured cards',
-            hintOff: 'Play from memory — piles can’t be opened',
-            defaultValue: false,
-          },
+          extraToggles: [
+            {
+              key: 'pileView',
+              label: 'Captured-pile review',
+              hintOn: 'Players can open a pile to review captured cards',
+              hintOff: 'Play from memory — piles can’t be opened',
+              defaultValue: false,
+            },
+            {
+              key: 'pileStats',
+              label: 'Pile stats during play',
+              hintOn: 'Show captured count / points / categories mid-game',
+              hintOff: 'Hidden during play — revealed at round end',
+              defaultValue: false,
+            },
+          ],
         }}
         onCreateRoom={multiplayer.createRoom}
         onJoinRoom={multiplayer.joinRoom}

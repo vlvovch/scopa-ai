@@ -44,6 +44,10 @@ export interface RoomState {
    *  and the data is always sent; this only gates the UI affordance
    *  ("play from memory" if false). */
   pileViewEnabled: boolean;
+  /** Host option: when true, the mid-game captured-pile stats badge
+   *  (cards / points / scopa categories) is shown during play. When
+   *  false stats are hidden until the round-end / game-end summary. */
+  pileStatsEnabled: boolean;
   turnTimerSeconds: number;
   currentTurnStartedAt: number | null;
   newGameRequests: Set<MultiplayerPlayerId>;
@@ -107,6 +111,7 @@ export type ClientMessage =
         targetScore: number;
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
+        pileStatsEnabled: boolean;
       };
     }
   | {
@@ -179,6 +184,8 @@ export interface PlayerVisibleGameState {
   targetScore: number;
   /** Host option mirrored to clients (gates the pile-review UI). */
   pileViewEnabled: boolean;
+  /** Host option mirrored to clients (gates the mid-game stats badge). */
+  pileStatsEnabled: boolean;
 }
 
 export type ServerMessage =
@@ -200,6 +207,7 @@ export type ServerMessage =
         targetScore: number;
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
+        pileStatsEnabled: boolean;
       };
     }
   | {
@@ -261,6 +269,7 @@ export type ServerMessage =
         targetScore: number;
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
+        pileStatsEnabled: boolean;
         state: PlayerVisibleGameState | null;
       };
     }

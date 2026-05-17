@@ -65,6 +65,7 @@ export function createRoom(
   targetScore: number,
   turnTimerEnabled: boolean,
   pileViewEnabled: boolean,
+  pileStatsEnabled: boolean,
   ws: WebSocket
 ): { room: RoomState; sessionToken: string } {
   const code = generateRoomCode();
@@ -101,6 +102,7 @@ export function createRoom(
     },
     turnTimerEnabled,
     pileViewEnabled,
+    pileStatsEnabled,
     turnTimerSeconds: DEFAULT_TURN_TIMER_SECONDS,
     currentTurnStartedAt: null,
     newGameRequests: new Set(),
@@ -539,6 +541,7 @@ export function getPlayerVisibleState(
     roundNumber: state.roundNumber,
     targetScore: state.targetScore,
     pileViewEnabled: room.pileViewEnabled,
+    pileStatsEnabled: room.pileStatsEnabled,
   };
 }
 

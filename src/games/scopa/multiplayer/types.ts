@@ -71,6 +71,8 @@ export interface PlayerVisibleGameState {
   targetScore: number;
   /** Host option: gates the pile-review UI (data is always present). */
   pileViewEnabled: boolean;
+  /** Host option: gates the mid-game captured-pile stats badge. */
+  pileStatsEnabled: boolean;
 }
 
 // ============================================================================
@@ -85,6 +87,7 @@ export type ClientMessage =
         targetScore: number;
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
+        pileStatsEnabled: boolean;
       };
     }
   | {
@@ -143,6 +146,7 @@ export type ServerMessage =
         targetScore: number;
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
+        pileStatsEnabled: boolean;
       };
     }
   | {
@@ -204,6 +208,7 @@ export type ServerMessage =
         targetScore: number;
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
+        pileStatsEnabled: boolean;
         state: PlayerVisibleGameState | null;
       };
     }
@@ -302,6 +307,7 @@ export interface MultiplayerState {
   targetScore: number;
   turnTimerEnabled: boolean;
   pileViewEnabled: boolean;
+  pileStatsEnabled: boolean;
 
   // Game state
   gameState: PlayerVisibleGameState | null;

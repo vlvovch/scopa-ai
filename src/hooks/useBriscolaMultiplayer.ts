@@ -41,6 +41,7 @@ export interface UseBriscolaMultiplayerReturn {
   targetScore: number;
   turnTimerEnabled: boolean;
   pileViewEnabled: boolean;
+  pileStatsEnabled: boolean;
 
   // Game state
   gameState: PlayerVisibleGameState | null;
@@ -85,7 +86,7 @@ export interface UseBriscolaMultiplayerReturn {
     nickname: string,
     targetScore: number,
     turnTimerEnabled: boolean,
-    pileViewEnabled: boolean
+    roomOptions: Record<string, boolean>
   ) => void;
   joinRoom: (code: string, nickname: string) => void;
   playMove: (move: MultiplayerMove) => void;
@@ -130,6 +131,9 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
   // Default OFF — between two humans, captured piles are public but you
   // play from memory (authentic table behaviour); hosts can opt in.
   const [pileViewEnabled, setPileViewEnabled] = useState(false);
+  // Host option: whether the mid-game captured-pile stats badge is shown.
+  // Default OFF — stats are revealed at the round-end summary instead.
+  const [pileStatsEnabled, setPileStatsEnabled] = useState(false);
 
   // Game state
   const [gameState, setGameState] = useState<PlayerVisibleGameState | null>(null);
@@ -220,6 +224,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
         setTargetScore(message.payload.targetScore);
         setTurnTimerEnabled(message.payload.turnTimerEnabled);
         setPileViewEnabled(message.payload.pileViewEnabled);
+        setPileStatsEnabled(message.payload.pileStatsEnabled);
         saveSession({
           sessionToken: message.payload.sessionToken,
           roomCode: message.payload.roomCode,
@@ -297,6 +302,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
         setTargetScore(message.payload.targetScore);
         setTurnTimerEnabled(message.payload.turnTimerEnabled);
         setPileViewEnabled(message.payload.pileViewEnabled);
+        setPileStatsEnabled(message.payload.pileStatsEnabled);
         if (message.payload.state) {
           setGameState(message.payload.state);
         }
@@ -536,8 +542,11 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
     playerNickname: string,
     score: number,
     timerEnabled: boolean,
-    pileView: boolean
+    roomOptions: Record<string, boolean>
   ) => {
+    const pileView = roomOptions.pileView ?? false;
+    const pileStats = roomOptions.pileStats ?? false;
+
     // Clear any existing session when creating a new game
     clearSession();
 
@@ -545,6 +554,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
     setTargetScore(score);
     setTurnTimerEnabled(timerEnabled);
     setPileViewEnabled(pileView);
+    setPileStatsEnabled(pileStats);
     connect();
 
     // Wait for connection then send create room message
@@ -558,6 +568,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
             targetScore: score,
             turnTimerEnabled: timerEnabled,
             pileViewEnabled: pileView,
+            pileStatsEnabled: pileStats,
           },
         });
       }
@@ -726,6 +737,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
     targetScore,
     turnTimerEnabled,
     pileViewEnabled,
+    pileStatsEnabled,
 
     // Game state
     gameState,

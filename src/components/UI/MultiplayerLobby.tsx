@@ -26,18 +26,25 @@ export interface LobbyGameConfig {
   defaultScore: number;
   /** Label shown above the score picker ('Target Score', 'Best of N'). */
   scoreLabel: string;
-  /** Optional extra create-game toggle (Briscola uses it for the
-   *  captured-pile review option). Omitted by games that don't need it
-   *  (e.g. Scopa) so the shared lobby stays game-agnostic. */
-  pileViewToggle?: {
-    /** Toggle row label, e.g. "Captured-pile review". */
-    label: string;
-    /** Helper text shown under the toggle (on/off variants). */
-    hintOn: string;
-    hintOff: string;
-    /** Initial state of the toggle. */
-    defaultValue: boolean;
-  };
+  /** Optional extra create-game toggles (e.g. captured-pile review,
+   *  pile stats). Game-agnostic: each game declares whatever it needs;
+   *  the lobby renders a switch per entry and reports their states back
+   *  through onCreateRoom's roomOptions record (keyed by `key`). */
+  extraToggles?: ExtraToggle[];
+}
+
+/** One host-configurable create-game switch. */
+export interface ExtraToggle {
+  /** Stable identifier; the boolean is reported under this key in the
+   *  roomOptions record passed to onCreateRoom. */
+  key: string;
+  /** Toggle row label, e.g. "Captured-pile review". */
+  label: string;
+  /** Helper text shown under the toggle (on/off variants). */
+  hintOn: string;
+  hintOff: string;
+  /** Initial state of the toggle. */
+  defaultValue: boolean;
 }
 
 interface MultiplayerLobbyProps {
@@ -56,7 +63,9 @@ interface MultiplayerLobbyProps {
     nickname: string,
     targetScore: number,
     turnTimerEnabled: boolean,
-    pileViewEnabled: boolean
+    /** Booleans for each config.extraToggles entry, keyed by toggle key.
+     *  Final, future-proof arg — new toggles need no signature change. */
+    roomOptions: Record<string, boolean>
   ) => void;
   onJoinRoom: (code: string, nickname: string) => void;
   onBack: () => void;
@@ -96,8 +105,13 @@ export function MultiplayerLobby({
   const [joinCode, setJoinCode] = useState(initialJoinCode || codePrefix);
   const [targetScore, setTargetScore] = useState(config.defaultScore);
   const [turnTimerEnabled, setTurnTimerEnabled] = useState(false);
-  const [pileViewEnabled, setPileViewEnabled] = useState(
-    config.pileViewToggle?.defaultValue ?? true
+  // One boolean per extra toggle, keyed by toggle.key, seeded from
+  // each toggle's defaultValue.
+  const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(
+    () =>
+      Object.fromEntries(
+        (config.extraToggles ?? []).map((t) => [t.key, t.defaultValue])
+      )
   );
 
   // Save nickname when it changes
@@ -114,7 +128,7 @@ export function MultiplayerLobby({
 
   const handleCreateRoom = () => {
     if (!nickname.trim()) return;
-    onCreateRoom(nickname.trim(), targetScore, turnTimerEnabled, pileViewEnabled);
+    onCreateRoom(nickname.trim(), targetScore, turnTimerEnabled, toggleStates);
   };
 
   const handleJoinRoom = () => {
@@ -243,28 +257,29 @@ export function MultiplayerLobby({
             </p>
           </div>
 
-          {config.pileViewToggle && (
-            <div className={styles.formGroup}>
-              <label className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>
-                  {config.pileViewToggle.label}
-                </span>
-                <button
-                  className={`${styles.toggle} ${pileViewEnabled ? styles.toggleEnabled : ''}`}
-                  onClick={() => setPileViewEnabled(!pileViewEnabled)}
-                  disabled={isDisabled}
-                  type="button"
-                >
-                  <span className={styles.toggleSlider} />
-                </button>
-              </label>
-              <p className={styles.toggleHint}>
-                {pileViewEnabled
-                  ? config.pileViewToggle.hintOn
-                  : config.pileViewToggle.hintOff}
-              </p>
-            </div>
-          )}
+          {(config.extraToggles ?? []).map((t) => {
+            const on = toggleStates[t.key] ?? t.defaultValue;
+            return (
+              <div className={styles.formGroup} key={t.key}>
+                <label className={styles.toggleRow}>
+                  <span className={styles.toggleLabel}>{t.label}</span>
+                  <button
+                    className={`${styles.toggle} ${on ? styles.toggleEnabled : ''}`}
+                    onClick={() =>
+                      setToggleStates((prev) => ({ ...prev, [t.key]: !on }))
+                    }
+                    disabled={isDisabled}
+                    type="button"
+                  >
+                    <span className={styles.toggleSlider} />
+                  </button>
+                </label>
+                <p className={styles.toggleHint}>
+                  {on ? t.hintOn : t.hintOff}
+                </p>
+              </div>
+            );
+          })}
 
           {connectionError && (
             <div className={styles.error}>{connectionError}</div>

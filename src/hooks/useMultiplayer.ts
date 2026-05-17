@@ -36,6 +36,7 @@ export interface UseMultiplayerReturn {
   targetScore: number;
   turnTimerEnabled: boolean;
   pileViewEnabled: boolean;
+  pileStatsEnabled: boolean;
 
   // Game state
   gameState: PlayerVisibleGameState | null;
@@ -85,7 +86,7 @@ export interface UseMultiplayerReturn {
     nickname: string,
     targetScore: number,
     turnTimerEnabled: boolean,
-    pileViewEnabled: boolean
+    roomOptions: Record<string, boolean>
   ) => void;
   joinRoom: (code: string, nickname: string) => void;
   playMove: (move: MultiplayerMove) => void;
@@ -124,6 +125,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
   // Default OFF — between two humans piles are public info but you play
   // from memory; hosts opt in.
   const [pileViewEnabled, setPileViewEnabled] = useState(false);
+  // Host option: whether the mid-game captured-pile stats badge is shown.
+  // Default OFF — stats are revealed at the round-end summary instead.
+  const [pileStatsEnabled, setPileStatsEnabled] = useState(false);
 
   // Game state
   const [gameState, setGameState] = useState<PlayerVisibleGameState | null>(null);
@@ -214,6 +218,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
         setTargetScore(message.payload.targetScore);
         setTurnTimerEnabled(message.payload.turnTimerEnabled);
         setPileViewEnabled(message.payload.pileViewEnabled);
+        setPileStatsEnabled(message.payload.pileStatsEnabled);
         saveSession({
           sessionToken: message.payload.sessionToken,
           roomCode: message.payload.roomCode,
@@ -292,6 +297,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
         setTargetScore(message.payload.targetScore);
         setTurnTimerEnabled(message.payload.turnTimerEnabled);
         setPileViewEnabled(message.payload.pileViewEnabled);
+        setPileStatsEnabled(message.payload.pileStatsEnabled);
         if (message.payload.state) {
           setGameState(message.payload.state);
         }
@@ -501,8 +507,11 @@ export function useMultiplayer(): UseMultiplayerReturn {
     playerNickname: string,
     score: number,
     timerEnabled: boolean,
-    pileView: boolean
+    roomOptions: Record<string, boolean>
   ) => {
+    const pileView = roomOptions.pileView ?? false;
+    const pileStats = roomOptions.pileStats ?? false;
+
     // Clear any existing session when creating a new game
     clearSession();
 
@@ -510,6 +519,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setTargetScore(score);
     setTurnTimerEnabled(timerEnabled);
     setPileViewEnabled(pileView);
+    setPileStatsEnabled(pileStats);
     connect();
 
     // Wait for connection then send create room message
@@ -523,6 +533,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
             targetScore: score,
             turnTimerEnabled: timerEnabled,
             pileViewEnabled: pileView,
+            pileStatsEnabled: pileStats,
           },
         });
       }
@@ -690,6 +701,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     targetScore,
     turnTimerEnabled,
     pileViewEnabled,
+    pileStatsEnabled,
 
     // Game state
     gameState,

@@ -2413,7 +2413,7 @@ function ScopaApp() {
               capturedCount={mpState.opponent.capturedCount}
               coinsCount={mpState.opponent.coinsCount}
               hasSetteBello={mpState.opponent.hasSetteBello}
-              showStats={settings.showPileStats}
+              showStats={settings.showPileStats && multiplayer.pileStatsEnabled}
               // Host option: pile review only when enabled ("play from
               // memory" default keeps piles non-clickable).
               onClick={
@@ -2464,7 +2464,7 @@ function ScopaApp() {
               capturedCount={mpState.self.capturedCount}
               coinsCount={mpState.self.coinsCount}
               hasSetteBello={mpState.self.hasSetteBello}
-              showStats={settings.showPileStats}
+              showStats={settings.showPileStats && multiplayer.pileStatsEnabled}
               // Host option: pile review only when enabled ("play from
               // memory" default keeps piles non-clickable).
               onClick={
@@ -2701,12 +2701,22 @@ function ScopaApp() {
               presetScores: [11, 16, 21],
               defaultScore: 11,
               scoreLabel: 'Target Score',
-              pileViewToggle: {
-                label: 'Captured-pile review',
-                hintOn: 'Players can open a pile to review captured cards',
-                hintOff: 'Play from memory — piles can’t be opened',
-                defaultValue: false,
-              },
+              extraToggles: [
+                {
+                  key: 'pileView',
+                  label: 'Captured-pile review',
+                  hintOn: 'Players can open a pile to review captured cards',
+                  hintOff: 'Play from memory — piles can’t be opened',
+                  defaultValue: false,
+                },
+                {
+                  key: 'pileStats',
+                  label: 'Pile stats during play',
+                  hintOn: 'Show captured count / points / categories mid-game',
+                  hintOff: 'Hidden during play — revealed at round end',
+                  defaultValue: false,
+                },
+              ],
             }}
             onCreateRoom={multiplayer.createRoom}
             onJoinRoom={multiplayer.joinRoom}
