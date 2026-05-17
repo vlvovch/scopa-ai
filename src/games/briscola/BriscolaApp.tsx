@@ -732,12 +732,14 @@ function BriscolaApp() {
   const mpWasFreshRef = useRef(false);
 
   // ── Win-odds analysis (single-player Play only; off by default) ──────
-  // Build the human's information-set view only when it's genuinely the
-  // human's decision in a normal game. Memoised on `state` (stable
-  // between renders until a move is dispatched) so the worker isn't
-  // re-kicked every render. Never built in watch or multiplayer.
+  // Build the bottom seat's information-set view. Play OR watch mode
+  // (never multiplayer). It is always the bottom seat ('human' / watch
+  // player 1) and only on that seat's turn — on the opponent's turn we
+  // show nothing rather than flip perspective. Memoised on `state`
+  // (stable between renders until a move is dispatched) so the worker
+  // isn't re-kicked every render.
   const winOddsView = useMemo<AIContext | null>(() => {
-    if (!settings.showWinOdds || gameMode !== 'play') return null;
+    if (!settings.showWinOdds || inMultiplayer) return null;
     if (state.status !== 'playing') return null;
     const g = state.game;
     if (g.round.currentPlayer !== 'human') return null;
@@ -752,10 +754,10 @@ function BriscolaApp() {
       myCaptured: g.players.human.captured,
       oppCaptured: g.players.cpu.captured,
     };
-  }, [state, gameMode, settings.showWinOdds]);
+  }, [state, inMultiplayer, settings.showWinOdds]);
 
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
-    enabled: settings.showWinOdds && gameMode === 'play',
+    enabled: settings.showWinOdds && !inMultiplayer,
     view: winOddsView,
     totalSamples: settings.winOddsSamples,
   });
@@ -2000,7 +2002,7 @@ function BriscolaApp() {
         }
         onClose={() => setReasoningModal({ isOpen: false, player: null })}
       />
-      {settings.showWinOdds && gameMode === 'play' && (
+      {settings.showWinOdds && !inMultiplayer && (
         <WinOddsPanel
           odds={winOdds}
           computing={winOddsComputing}
