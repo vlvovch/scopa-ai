@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Flat, poster-style Scopa card fan for the Android TWA icon.
+       Full-bleed solid background (maskable-safe: the OS mask only ever
+       reveals green) + flat colour regions only (no gradients/texture),
+       so Bubblewrap's generated splash/launcher PNGs compress to a few
+       KB at every density — robust against bubblewrap update/build. -->
+  <rect width="512" height="512" fill="#1B5E20"/>
+  <g stroke="#0E3D14" stroke-width="6" stroke-linejoin="round">
+    <!-- left card -->
+    <g transform="rotate(-20 256 452)">
+      <rect x="178" y="150" width="156" height="232" rx="16" fill="#F7F4EC"/>
+      <circle cx="256" cy="212" r="25" fill="#E6B422" stroke="#B8860B" stroke-width="4"/>
+    </g>
+    <!-- right card -->
+    <g transform="rotate(20 256 452)">
+      <rect x="178" y="150" width="156" height="232" rx="16" fill="#F7F4EC"/>
+      <circle cx="256" cy="212" r="25" fill="#E6B422" stroke="#B8860B" stroke-width="4"/>
+    </g>
+    <!-- middle (front) card -->
+    <g>
+      <rect x="178" y="138" width="156" height="246" rx="16" fill="#FFFFFF"/>
+      <circle cx="256" cy="261" r="58" fill="#E6B422" stroke="#B8860B" stroke-width="6"/>
+      <circle cx="256" cy="261" r="40" fill="#F4D03F" stroke="#B8860B" stroke-width="3"/>
+      <circle cx="256" cy="261" r="20" fill="#E6B422"/>
+    </g>
+  </g>
+</svg>
