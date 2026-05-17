@@ -58,6 +58,7 @@ import { useBriscolaStats } from './hooks/useStats';
 import { GameControls } from '../../components/UI/GameControls';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
+import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
 import { WaitingForOpponent } from '../../components/UI/WaitingForOpponent';
 import { useBriscolaMultiplayer } from '../../hooks/useBriscolaMultiplayer';
@@ -1586,12 +1587,29 @@ function BriscolaApp() {
           // exactly when it mattered).
           mpNextRound={mpNextRound}
           mpRematch={mpRematch}
+          mpControls={{
+            onRequestRestart: multiplayer.requestRestart,
+            onQuitGame: handleLeaveMultiplayer,
+          }}
         />
         {/* Opponent-disconnected overlay (server reports OPPONENT_DISCONNECTED) */}
         {!multiplayer.isOpponentConnected && (
           <OpponentDisconnected
             opponentNickname={multiplayer.opponentNickname}
             onLeaveRoom={handleLeaveMultiplayer}
+          />
+        )}
+        {/* Mid-game restart proposal handshake (two-sided). */}
+        {multiplayer.restartRequestedBy && (
+          <RestartOverlay
+            requestedBy={
+              multiplayer.restartRequestedBy === multiplayer.playerId
+                ? 'self'
+                : 'opponent'
+            }
+            opponentNickname={multiplayer.opponentNickname || 'Opponent'}
+            onRequestRestart={multiplayer.requestRestart}
+            onCancel={multiplayer.requestRestart}
           />
         )}
         {/* Turn timer (only shown when the room enabled timed turns) */}
@@ -1959,6 +1977,7 @@ function BriscolaBoard({
   pilesClickable = true,
   mpNextRound,
   mpRematch,
+  mpControls,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   /** Plain-text fallback (used by ReasoningModal title etc.). */
@@ -2020,6 +2039,13 @@ function BriscolaBoard({
     iRequested: boolean;
     opponentRequested: boolean;
     opponentLabel: string;
+  };
+  /** Multiplayer only: switches GameControls into MP mode (Restart
+   *  proposes a two-sided restart to the opponent; Quit leaves the
+   *  room). Omitted in single-player/watch (uses onRestart as New Game). */
+  mpControls?: {
+    onRequestRestart: () => void;
+    onQuitGame: () => void;
   };
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
@@ -2179,6 +2205,9 @@ function BriscolaBoard({
               onOpenSettings={onOpenSettings}
               onOpenStats={onOpenStats}
               onOpenRules={onOpenRules}
+              isMultiplayer={!!mpControls}
+              onRequestRestart={mpControls?.onRequestRestart}
+              onQuitGame={mpControls?.onQuitGame}
             />
           </div>
         }

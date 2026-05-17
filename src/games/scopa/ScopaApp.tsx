@@ -2672,6 +2672,40 @@ function ScopaApp() {
   if (activeState.status === 'idle') {
     // Multiplayer mode - show lobby or waiting screen
     if (isMultiplayerMode || initialJoinCode) {
+      // Reconnecting after a refresh / transient drop. Gate on the hook's
+      // isReconnecting (true from RECONNECT sent until success/terminal
+      // failure) — connectionStatus flips to 'connected' the instant the
+      // WS handshake completes, before the room is restored, so it can't
+      // drive this. On terminal failure the hook clears the session +
+      // roomCode, so this falls through to the lobby with a persistent
+      // error rather than the misleading "share this code" waiting room.
+      if (!multiplayer.gameState && multiplayer.isReconnecting) {
+        return (
+          <DeckProvider deck={settings.deck}>
+            <div style={{
+              minHeight: '100vh', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', flexDirection: 'column', gap: '1.25rem',
+              color: 'var(--color-text-primary)', textAlign: 'center', padding: '1rem',
+            }}>
+              <h2 style={{ margin: 0 }}>Reconnecting…</h2>
+              <p style={{ opacity: 0.75, margin: 0 }}>
+                Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
+              </p>
+              <button
+                onClick={handleLeaveMultiplayer}
+                style={{
+                  padding: '0.6rem 1.5rem', borderRadius: '8px', border: 'none',
+                  background: 'var(--color-accent)', color: 'white',
+                  fontSize: '1rem', cursor: 'pointer',
+                }}
+              >
+                Leave Game
+              </button>
+            </div>
+          </DeckProvider>
+        );
+      }
+
       // If we have a room and are waiting for opponent (gameState not yet set)
       if (multiplayer.roomCode && !multiplayer.gameState) {
         return (
