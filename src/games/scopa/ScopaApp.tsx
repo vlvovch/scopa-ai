@@ -992,23 +992,27 @@ function ScopaApp() {
   }, []);
 
   // ---------------------------------------------------------------------
-  // Win odds (analysis mode) — single-player Play only, never MP /
-  // spectator / instant-worker. Mirrors Briscola; tallied per MOVE
-  // (a Scopa card can have several capture options).
+  // Win odds (analysis mode). Single-player Play OR watch (spectator)
+  // mode. Never multiplayer, and never the instant no-animation worker
+  // blitz (positions change far too fast to read and would thrash the
+  // worker). Mirrors Briscola; tallied per MOVE (a Scopa card can have
+  // several capture options).
   // ---------------------------------------------------------------------
   const winOddsActive =
-    settings.showWinOdds &&
-    !isMultiplayerMode &&
-    !isSpectatorMode &&
-    !useWorkerMode;
+    settings.showWinOdds && !isMultiplayerMode && !useWorkerMode;
 
   const winOddsView = useMemo<ScopaWinOddsView | null>(() => {
     if (!winOddsActive) return null;
-    if (state.status !== 'playing') return null;
-    if (state.round.currentPlayer !== 'human') return null;
-    if (state.players.human.hand.length === 0) return null;
-    return { game: state, player: 'human' };
-  }, [state, winOddsActive]);
+    if (activeState.status !== 'playing') return null;
+    // Analyse whichever seat is about to move. In single-player that is
+    // the human; in watch mode it alternates, so the panel reads "the
+    // side to move's" round odds (from that bot's own info-set — the
+    // hidden opponent hand is resampled even though the spectator can
+    // see it).
+    const mover = activeState.round.currentPlayer;
+    if (activeState.players[mover].hand.length === 0) return null;
+    return { game: activeState, player: mover };
+  }, [activeState, winOddsActive]);
 
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
     enabled: winOddsActive,
@@ -1029,6 +1033,14 @@ function ScopaApp() {
   >(() => {
     const pm = winOdds?.perMove;
     if (!settings.showWinOddsPerCard || !pm || !winOddsView) return undefined;
+    // The per-card captions render under the bottom hand, which always
+    // shows the 'human' seat. Only annotate when that seat is the
+    // analysed mover (in watch mode the top/'cpu' seat's odds keys
+    // wouldn't match the bottom hand's card ids anyway).
+    const seat = winOddsView.player;
+    if (seat !== 'human') return undefined;
+    // In watch mode don't reveal face-down hand strengths.
+    if (isSpectatorMode && !spectatorHandsVisible.human) return undefined;
     const hand = winOddsView.game.players.human.hand;
     const table = winOddsView.game.round.table;
     const perCardBest: Record<string, number> = {};
@@ -1062,7 +1074,13 @@ function ScopaApp() {
       );
     }
     return out;
-  }, [winOdds, winOddsView, settings.showWinOddsPerCard]);
+  }, [
+    winOdds,
+    winOddsView,
+    settings.showWinOddsPerCard,
+    isSpectatorMode,
+    spectatorHandsVisible.human,
+  ]);
 
   // Auto-execute single card capture when table card is clicked (with brief delay for visual feedback)
   useEffect(() => {
@@ -3321,7 +3339,11 @@ function ScopaApp() {
         <WinOddsPanel
           odds={winOdds}
           computing={winOddsComputing}
-          caption="Expert self-play estimate"
+          caption={
+            isSpectatorMode && winOddsView
+              ? `${AI_INFO[getAIForPlayer(winOddsView.player)].name} to move · self-play estimate`
+              : 'Expert self-play estimate'
+          }
         />
       )}
     </DeckProvider>
