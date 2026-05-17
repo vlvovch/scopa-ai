@@ -114,6 +114,23 @@ function getRandomSound(type: SoundType): string {
   return files[Math.floor(Math.random() * files.length)];
 }
 
+/**
+ * Fire a decoded buffer immediately — no awaits. Pulled out so both the
+ * synchronous fast path and the async fallback share identical playback.
+ */
+function startBuffer(
+  context: AudioContext,
+  buffer: AudioBuffer,
+  active: Set<AudioBufferSourceNode>
+): void {
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.connect(context.destination);
+  active.add(source);
+  source.onended = () => active.delete(source);
+  source.start(0);
+}
+
 // --- Hook Implementation ---
 
 export interface UseSoundOptions {
@@ -156,44 +173,66 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
     document.addEventListener('mousedown', handleInteraction, { once: false });
     document.addEventListener('keydown', handleInteraction, { once: false });
 
+    // Safari suspends the AudioContext when the tab is hidden; resume on
+    // return so the next sound takes the synchronous fast path instead of
+    // the slow resume-then-play fallback.
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') resumeContext();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       document.removeEventListener('touchstart', handleInteraction);
       document.removeEventListener('mousedown', handleInteraction);
       document.removeEventListener('keydown', handleInteraction);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
   /**
-   * Play a single sound using Web Audio API
+   * Play a single sound using Web Audio API.
+   *
+   * Latency-critical. The common case (sound preloaded + AudioContext
+   * already running, which holds after the first user gesture) takes a
+   * fully synchronous path: no awaits between the call and source.start(),
+   * so there's zero perceptible delay — important on Safari, where
+   * `await context.resume()` can take hundreds of ms to a second+ to
+   * resolve and Safari aggressively suspends the context. Only the first
+   * sound, or one right after Safari suspended/interrupted the context,
+   * takes the async fallback.
    */
-  const play = useCallback(async (type: SoundType) => {
+  const play = useCallback((type: SoundType) => {
     if (!enabled) return;
 
-    try {
-      const src = getRandomSound(type);
-      const buffer = await loadAndDecodeAudio(src);
-      const context = getAudioContext();
+    const src = getRandomSound(type);
+    const context = getAudioContext();
+    const cached = bufferCache.get(src);
 
-      // Always try to resume context to ensure it's active
-      if (context.state === 'suspended') {
-        await context.resume();
+    // Fast path — fire now, no awaits.
+    if (cached && context.state === 'running') {
+      try {
+        startBuffer(context, cached, activeSources.current);
+      } catch (err) {
+        console.debug('Sound play failed:', err);
       }
-
-      // Create and configure source node
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(context.destination);
-
-      // Track source
-      activeSources.current.add(source);
-      source.onended = () => {
-        activeSources.current.delete(source);
-      };
-
-      source.start(0);
-    } catch (err) {
-      console.debug('Sound play failed:', err);
+      return;
     }
+
+    // Fallback — context suspended/interrupted (Safari) or buffer not yet
+    // decoded. Resume + decode off the hot path so it never delays the
+    // common case above.
+    (async () => {
+      try {
+        // Safari uses 'interrupted' as well as 'suspended'.
+        if (context.state !== 'running') {
+          await context.resume().catch(() => {});
+        }
+        const buffer = cached ?? (await loadAndDecodeAudio(src));
+        startBuffer(context, buffer, activeSources.current);
+      } catch (err) {
+        console.debug('Sound play failed:', err);
+      }
+    })();
   }, [enabled]);
 
   /**
