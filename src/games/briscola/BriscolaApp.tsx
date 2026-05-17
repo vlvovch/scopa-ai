@@ -757,6 +757,7 @@ function BriscolaApp() {
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
     enabled: settings.showWinOdds && gameMode === 'play',
     view: winOddsView,
+    totalSamples: 1000,
   });
 
   // Per-game accumulated round history for the multiplayer match. Server only
@@ -2029,17 +2030,19 @@ function WinOddsPanel({
 
 const winOddsPanel: React.CSSProperties = {
   position: 'fixed',
-  left: 'var(--space-3)',
+  left: '50%',
   bottom: 'var(--space-3)',
+  transform: 'translateX(-50%)',
+  textAlign: 'center',
   background: 'rgba(0,0,0,0.62)',
   color: 'var(--color-text-primary)',
-  padding: '0.5rem 0.75rem',
+  padding: '0.5rem 0.9rem',
   borderRadius: '10px',
   fontSize: '13px',
   lineHeight: 1.35,
   zIndex: 90,
   pointerEvents: 'none',
-  maxWidth: '15rem',
+  maxWidth: '20rem',
   backdropFilter: 'blur(2px)',
 };
 const winOddsTitle: React.CSSProperties = {
@@ -2057,6 +2060,7 @@ const winOddsRow: React.CSSProperties = {
   display: 'flex',
   gap: '0.6rem',
   alignItems: 'baseline',
+  justifyContent: 'center',
   fontVariantNumeric: 'tabular-nums',
 };
 const winOddsFoot: React.CSSProperties = {
