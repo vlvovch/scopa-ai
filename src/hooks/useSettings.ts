@@ -65,6 +65,10 @@ export interface GameSettings {
   /** Briscola analysis: also show per-card win odds (≈hand-size× more
    *  simulation). Only meaningful when showWinOdds is on. Off by default. */
   showWinOddsPerCard: boolean;
+  /** Briscola analysis: number of determinizations the win-odds engine
+   *  simulates. Higher = tighter confidence interval but slower to
+   *  settle. Default 300. */
+  winOddsSamples: number;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -93,6 +97,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   showPileStats: true,
   showWinOdds: false,
   showWinOddsPerCard: false,
+  winOddsSamples: 300,
 };
 
 function loadSettings(): GameSettings {

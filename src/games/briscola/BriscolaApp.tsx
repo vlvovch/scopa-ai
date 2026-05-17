@@ -757,7 +757,7 @@ function BriscolaApp() {
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
     enabled: settings.showWinOdds && gameMode === 'play',
     view: winOddsView,
-    totalSamples: 1000,
+    totalSamples: settings.winOddsSamples,
   });
 
   // Per-card win% rendered under each hand card (best one accented).

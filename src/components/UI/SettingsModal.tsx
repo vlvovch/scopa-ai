@@ -435,6 +435,43 @@ export function SettingsModal({
                           ? 'Show win % under each hand card. The headline is the best card’s odds.'
                           : 'Overall odds only (headline is still the best card)'}
                       </p>
+
+                      <div className={styles.setting}>
+                        <label className={styles.label}>Simulations</label>
+                        <div className={styles.options}>
+                          {[100, 300, 600, 1000].map((n) => (
+                            <button
+                              key={n}
+                              className={`${styles.option} ${settings.winOddsSamples === n ? styles.selected : ''}`}
+                              onClick={() => onUpdateSetting('winOddsSamples', n)}
+                            >
+                              {n}
+                            </button>
+                          ))}
+                          <input
+                            type="number"
+                            min="20"
+                            max="5000"
+                            step="50"
+                            className={`${styles.customInput} ${![100, 300, 600, 1000].includes(settings.winOddsSamples) ? styles.selected : ''}`}
+                            value={settings.winOddsSamples}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val)) {
+                                onUpdateSetting(
+                                  'winOddsSamples',
+                                  Math.max(20, Math.min(5000, val))
+                                );
+                              }
+                            }}
+                            title="Determinizations per estimate"
+                          />
+                        </div>
+                        <p className={styles.settingHint}>
+                          More simulations = tighter estimate but slower to
+                          settle (runs off-thread, streams as it goes).
+                        </p>
+                      </div>
                     </>
                   )}
                 </>
