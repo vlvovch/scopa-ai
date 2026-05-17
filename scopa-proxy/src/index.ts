@@ -5,7 +5,10 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 // Configuration
 const PORT = parseInt(process.env.PORT || '3101', 10);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || '*')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const GAMES_PER_DAY = 3;
 const MODEL = 'gemini-3-flash-preview';
@@ -52,11 +55,19 @@ interface MoveRequest {
 }
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
+  const allowAnyOrigin = ALLOWED_ORIGINS.includes('*');
+  const allowedOrigin = allowAnyOrigin
+    ? '*'
+    : origin && ALLOWED_ORIGINS.includes(origin)
+      ? origin
+      : ALLOWED_ORIGINS[0] || 'null';
+
   return {
-    'Access-Control-Allow-Origin': origin && (ALLOWED_ORIGIN === '*' || origin === ALLOWED_ORIGIN) ? origin : ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
   };
 }
 
@@ -212,7 +223,7 @@ if (!GEMINI_API_KEY) {
 server.listen(PORT, () => {
   console.log(`Scopa AI Proxy running on port ${PORT}`);
   console.log(`Rate limit: ${GAMES_PER_DAY} games/day per user`);
-  console.log(`CORS origin: ${ALLOWED_ORIGIN}`);
+  console.log(`CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
 });
 
 // Graceful shutdown
