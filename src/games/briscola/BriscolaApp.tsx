@@ -1393,11 +1393,18 @@ function BriscolaApp() {
       }
     };
 
-    const opponentRequestedRematch =
-      multiplayer.newGameRequestedBy !== null && multiplayer.newGameRequestedBy !== myId;
-    const iRequestedRematch = multiplayer.newGameRequestedBy === myId;
-    const waitingForNextRound = multiplayer.nextRoundRequests.has(myId)
-      && !multiplayer.nextRoundRequests.has(oppId);
+    const mpNextRound = {
+      iRequested: multiplayer.nextRoundRequests.has(myId),
+      opponentRequested: multiplayer.nextRoundRequests.has(oppId),
+      opponentLabel,
+    };
+    const mpRematch = {
+      iRequested: multiplayer.newGameRequestedBy === myId,
+      opponentRequested:
+        multiplayer.newGameRequestedBy !== null &&
+        multiplayer.newGameRequestedBy !== myId,
+      opponentLabel,
+    };
 
     return (
       <DeckProvider deck={settings.deck}>
@@ -1437,6 +1444,12 @@ function BriscolaApp() {
           pilePoints={{ human: mp.self.points, cpu: mp.opponent.points }}
           // Host option: pile-review modal on/off.
           pilesClickable={multiplayer.pileViewEnabled}
+          // Two-sided "ready" handshakes, shown inside the round-end /
+          // match-over overlay (the old fixed banner sat behind it at
+          // z-index 100 vs the overlay's 1000, so it was never visible
+          // exactly when it mattered).
+          mpNextRound={mpNextRound}
+          mpRematch={mpRematch}
         />
         {/* Opponent-disconnected overlay (server reports OPPONENT_DISCONNECTED) */}
         {!multiplayer.isOpponentConnected && (
@@ -1454,27 +1467,11 @@ function BriscolaApp() {
             onForceMove={multiplayer.forceMove}
           />
         )}
-        {/* Multiplayer status banners: rematch requests + waiting-for-opponent
-            for the next round. Rendered as a small fixed-position bar so they
-            don't obscure the game board. */}
-        {(opponentRequestedRematch || iRequestedRematch || waitingForNextRound) && (
-          <div style={mpBannerStyle}>
-            {opponentRequestedRematch && (
-              <span>
-                {opponentLabel} wants a rematch.{' '}
-                <button style={mpBannerButton} onClick={multiplayer.requestNewGame}>
-                  Accept
-                </button>
-              </span>
-            )}
-            {iRequestedRematch && !opponentRequestedRematch && (
-              <span>Waiting for {opponentLabel} to accept the rematch…</span>
-            )}
-            {waitingForNextRound && (
-              <span>Waiting for {opponentLabel} to continue…</span>
-            )}
-          </div>
-        )}
+        {/* The next-round / rematch "ready" handshakes are rendered
+            INSIDE RoundEndOverlay (see mpNextRound / mpRematch). A
+            separate fixed banner used to live here but the round-end
+            overlay (z-index 1000) covered it (z-index 100), so it was
+            invisible exactly when those messages mattered. */}
         {openPile && (
           <BriscolaCapturedModal
             // Server now sends the live captured piles (public info in
@@ -1835,6 +1832,8 @@ function BriscolaBoard({
   onOpenRules,
   pilePoints,
   pilesClickable = true,
+  mpNextRound,
+  mpRematch,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   /** Plain-text fallback (used by ReasoningModal title etc.). */
@@ -1883,6 +1882,20 @@ function BriscolaBoard({
   /** When false, captured piles aren't clickable (multiplayer host
    *  disabled pile review). Defaults true — single-player is unaffected. */
   pilesClickable?: boolean;
+  /** Multiplayer next-round handshake state, forwarded to RoundEndOverlay
+   *  so the "ready / waiting" status shows inside the overlay (a separate
+   *  banner would render behind it). Omitted in single-player / watch. */
+  mpNextRound?: {
+    iRequested: boolean;
+    opponentRequested: boolean;
+    opponentLabel: string;
+  };
+  /** Forwarded to RoundEndOverlay's match-over rematch handshake. */
+  mpRematch?: {
+    iRequested: boolean;
+    opponentRequested: boolean;
+    opponentLabel: string;
+  };
 }) {
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
@@ -2220,6 +2233,8 @@ function BriscolaBoard({
           autoAdvance={isWatchMode && autoAdvanceSpectator}
           onNextRound={onNextRound}
           onRestart={onRestart}
+          mpNextRound={mpNextRound}
+          mpRematch={mpRematch}
         />
       )}
     </>
@@ -2884,6 +2899,8 @@ function RoundEndOverlay({
   autoAdvance,
   onNextRound,
   onRestart,
+  mpNextRound,
+  mpRematch,
 }: {
   humanPts: number;
   cpuPts: number;
@@ -2904,6 +2921,21 @@ function RoundEndOverlay({
   autoAdvance: boolean;
   onNextRound: () => void;
   onRestart: () => void;
+  /** Multiplayer only: surfaces the two-sided "ready for next round"
+   *  handshake inside the overlay (a fixed banner would sit behind it).
+   *  Omitted in single-player / watch. */
+  mpNextRound?: {
+    iRequested: boolean;
+    opponentRequested: boolean;
+    opponentLabel: string;
+  };
+  /** Multiplayer only: rematch handshake at match-over, shown next to
+   *  "Play Again" (same reason — a banner would sit behind the overlay). */
+  mpRematch?: {
+    iRequested: boolean;
+    opponentRequested: boolean;
+    opponentLabel: string;
+  };
 }) {
   // Two-step match-end flow: at match-over with >1 rounds, show the last
   // round's card summary first, then a "View Match Summary" button reveals
@@ -3053,27 +3085,76 @@ function RoundEndOverlay({
           </p>
         )}
         {matchOver ? (
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            {hasMatchSummary && (
+          <>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              {hasMatchSummary && (
+                <button
+                  style={
+                    matchSummaryView
+                      ? { ...primaryButton, background: 'transparent', color: 'var(--color-accent)', border: '1px solid var(--color-accent)' }
+                      : { ...primaryButton, background: 'transparent', color: 'var(--color-accent)', border: '1px solid var(--color-accent)' }
+                  }
+                  onClick={() => setMatchSummaryView((v) => !v)}
+                >
+                  {matchSummaryView ? 'Back to Round' : 'View Match Summary'}
+                </button>
+              )}
               <button
                 style={
-                  matchSummaryView
-                    ? { ...primaryButton, background: 'transparent', color: 'var(--color-accent)', border: '1px solid var(--color-accent)' }
-                    : { ...primaryButton, background: 'transparent', color: 'var(--color-accent)', border: '1px solid var(--color-accent)' }
+                  mpRematch?.iRequested
+                    ? { ...primaryButton, opacity: 0.6 }
+                    : primaryButton
                 }
-                onClick={() => setMatchSummaryView((v) => !v)}
+                onClick={onRestart}
+                disabled={mpRematch?.iRequested}
               >
-                {matchSummaryView ? 'Back to Round' : 'View Match Summary'}
+                {mpRematch?.iRequested
+                  ? `Waiting for ${mpRematch.opponentLabel}…`
+                  : 'Play Again'}
               </button>
+            </div>
+            {mpRematch?.opponentRequested && !mpRematch.iRequested && (
+              <p
+                style={{
+                  color: 'var(--color-accent)',
+                  margin: '0.75rem 0 0',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                }}
+              >
+                {mpRematch.opponentLabel} wants a rematch — Play Again to accept.
+              </p>
             )}
-            <button style={primaryButton} onClick={onRestart}>
-              Play Again
+          </>
+        ) : mpNextRound?.iRequested ? (
+          // I already clicked — wait for the opponent (button would be a
+          // no-op; show a clear waiting state instead).
+          <div>
+            <button style={{ ...primaryButton, opacity: 0.6 }} disabled>
+              Waiting for {mpNextRound.opponentLabel}…
             </button>
+            <p style={{ opacity: 0.7, margin: '0.75rem 0 0', fontSize: '0.9rem' }}>
+              You’re ready for the next round.
+            </p>
           </div>
         ) : (
-          <button style={primaryButton} onClick={onNextRound}>
-            {countdown !== null ? `Next Round (${countdown})` : 'Next Round'}
-          </button>
+          <div>
+            <button style={primaryButton} onClick={onNextRound}>
+              {countdown !== null ? `Next Round (${countdown})` : 'Next Round'}
+            </button>
+            {mpNextRound?.opponentRequested && (
+              <p
+                style={{
+                  color: 'var(--color-accent)',
+                  margin: '0.75rem 0 0',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                }}
+              >
+                {mpNextRound.opponentLabel} is ready — click to continue.
+              </p>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -3091,35 +3172,6 @@ const turnLabelStyle: React.CSSProperties = {
   padding: '0.5rem 1rem',
   borderRadius: '8px',
   fontStyle: 'italic',
-};
-
-// Small fixed banner for multiplayer status messages (rematch request,
-// waiting-for-opponent). Sits at the top of the viewport, doesn't block
-// interaction with the board below.
-const mpBannerStyle: React.CSSProperties = {
-  position: 'fixed',
-  top: 'var(--space-3)',
-  left: '50%',
-  transform: 'translateX(-50%)',
-  background: 'rgba(0,0,0,0.7)',
-  color: 'var(--color-text-primary)',
-  padding: '0.5rem 1rem',
-  borderRadius: '8px',
-  fontSize: '14px',
-  zIndex: 100,
-  display: 'flex',
-  alignItems: 'center',
-  gap: '0.5rem',
-};
-
-const mpBannerButton: React.CSSProperties = {
-  background: 'var(--color-accent)',
-  color: 'white',
-  border: 'none',
-  padding: '0.25rem 0.75rem',
-  borderRadius: '4px',
-  fontSize: '13px',
-  cursor: 'pointer',
 };
 
 // 3-column grid: spacer | play area (centered) | deck slot.
