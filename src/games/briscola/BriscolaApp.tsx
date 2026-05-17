@@ -905,11 +905,20 @@ function BriscolaApp() {
 
   // Record the match into stats exactly once, when matchOver first becomes true.
   // Triggered by the state.status === 'roundEnd' transition.
+  //
+  // SCOPE: single-player only, by design. This effect keys off the local
+  // reducer `state`; the multiplayer branch bypasses the reducer entirely
+  // (renders from a server-bridged state) and deliberately never calls
+  // stats.recordMatch — multiplayer matches are intentionally NOT tracked.
+  // The stats model is keyed by bot opponent type (BriscolaOpponentName);
+  // a remote human is a transient nickname that doesn't fit those buckets,
+  // and folding them in would skew the per-bot win rates. Watch mode
+  // (CPU vs CPU) is excluded for the same "not the user's real games"
+  // reason. If MP tracking is ever wanted, add a dedicated 'online'
+  // bucket rather than reusing this path.
   const matchRecordedRef = useRef<string | null>(null);
   useEffect(() => {
     if (state.status !== 'roundEnd' || !state.matchOver) return;
-    // Don't track watch-mode (CPU vs CPU) matches — they're not the user's
-    // games, and conflating them with real play would skew win rates.
     if (gameMode === 'watch') return;
     // De-duplicate per match: build a stable id from the round-end snapshot.
     const matchId = `${state.game.roundNumber}-${state.game.scores.human}-${state.game.scores.cpu}-${state.game.targetScore}`;
