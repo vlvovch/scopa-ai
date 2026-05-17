@@ -60,6 +60,15 @@ export interface WinOddsOptions {
   maxPlies?: number;
 }
 
+/** Raw outcome counts from a batch of determinizations. Accumulatable
+ *  across chunks (the Web Worker sums these to stream a settling estimate). */
+export interface WinOddsTally {
+  wins: number;
+  ties: number;
+  losses: number;
+  played: number;
+}
+
 /** mulberry32 — tiny, fast, deterministic PRNG. */
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -73,42 +82,26 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
- * Estimate round win/tie/loss odds for `ctx.player` (the analysed seat,
- * normally 'human') given only that player's information set.
+ * Run a batch of `samples` determinizations and return raw outcome
+ * counts. Pure and deterministic under `seed`. The degenerate "round
+ * already finished" case is handled by the caller (estimateWinOdds) — by
+ * the time this is called there is at least one card to play.
  *
- * `ctx` is the standard Briscola info-set view — the same shape the bots
- * receive — so callers must pass a player-1-visible context (own hand,
- * trump, lead card, deck count, both captured piles). It never sees the
- * real opponent hand or deck order; those are sampled.
+ * Exposed so the Web Worker can run the work in chunks (each chunk a
+ * separate seed) and accumulate the tallies into a settling estimate.
  */
-export function estimateWinOdds(
+export function tallyWinOdds(
   ctx: AIContext,
   options: WinOddsOptions = {}
-): WinOdds {
+): WinOddsTally {
   const samples = Math.max(1, options.samples ?? 200);
   const rng = mulberry32(options.seed ?? 0x9e3779b9);
 
   const me = ctx.player;
   const opp = otherPlayer(me);
 
-  // Points already banked this round (POINT_VALUES sum of each pile).
   const myPoints0 = sumPoints(ctx.myCaptured ?? []);
   const oppPoints0 = sumPoints(ctx.oppCaptured ?? []);
-
-  // Degenerate guard: nothing left to decide — outcome is whatever's banked
-  // (plus any single lead card already on the table is ignored; this path
-  // only triggers at a fully-finished round).
-  if (ctx.hand.length === 0) {
-    const win = myPoints0 > 60;
-    const tie = myPoints0 === 60;
-    return {
-      winPct: win ? 100 : 0,
-      tiePct: tie ? 100 : 0,
-      lossPct: !win && !tie ? 100 : 0,
-      samples: 0,
-      ciHalfWidth: 0,
-    };
-  }
 
   const unseen = buildUnseen(ctx);
   // Same opponent-hand-size logic Esperto uses: if a card is led, the
@@ -165,14 +158,54 @@ export function estimateWinOdds(
     played++;
   }
 
-  const winP = wins / played;
-  const ciHalfWidth = 1.96 * Math.sqrt((winP * (1 - winP)) / played) * 100;
+  return { wins, ties, losses: played - wins - ties, played };
+}
 
+/** Turn raw tallies into the displayable WinOdds (percentages + 95% CI
+ *  half-width on winPct). Shared by estimateWinOdds and the worker so the
+ *  pct/CI math has a single home. */
+export function formatWinOdds(tally: WinOddsTally): WinOdds {
+  const { wins, ties, losses, played } = tally;
+  if (played === 0) {
+    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
+  }
+  const winP = wins / played;
   return {
     winPct: (wins / played) * 100,
     tiePct: (ties / played) * 100,
-    lossPct: ((played - wins - ties) / played) * 100,
+    lossPct: (losses / played) * 100,
     samples: played,
-    ciHalfWidth,
+    ciHalfWidth: 1.96 * Math.sqrt((winP * (1 - winP)) / played) * 100,
   };
+}
+
+/**
+ * Estimate round win/tie/loss odds for `ctx.player` (the analysed seat,
+ * normally 'human') given only that player's information set.
+ *
+ * `ctx` is the standard Briscola info-set view — the same shape the bots
+ * receive — so callers must pass a player-1-visible context (own hand,
+ * trump, lead card, deck count, both captured piles). It never sees the
+ * real opponent hand or deck order; those are sampled.
+ */
+export function estimateWinOdds(
+  ctx: AIContext,
+  options: WinOddsOptions = {}
+): WinOdds {
+  // Degenerate guard: nothing left to decide — outcome is whatever's
+  // banked. Only triggers at a fully-finished round.
+  if (ctx.hand.length === 0) {
+    const myPoints0 = sumPoints(ctx.myCaptured ?? []);
+    const win = myPoints0 > 60;
+    const tie = myPoints0 === 60;
+    return {
+      winPct: win ? 100 : 0,
+      tiePct: tie ? 100 : 0,
+      lossPct: !win && !tie ? 100 : 0,
+      samples: 0,
+      ciHalfWidth: 0,
+    };
+  }
+
+  return formatWinOdds(tallyWinOdds(ctx, options));
 }

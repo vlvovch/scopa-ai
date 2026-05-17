@@ -1,0 +1,107 @@
+// Web Worker: runs the Briscola win-odds simulation off the main thread.
+//
+// Work is done in small chunks (each a separate seed) so we can:
+//   - stream a "settling" estimate to the UI after every chunk, and
+//   - yield between chunks so a newer 'run' or a 'cancel' interrupts a
+//     stale job instead of blocking behind a long synchronous loop.
+//
+// Determinism: the per-chunk seeds are derived from the job's baseSeed,
+// so the same position + baseSeed reproduces the same stream.
+
+import type { AIContext } from '../ai/types';
+import {
+  tallyWinOdds,
+  formatWinOdds,
+  type WinOdds,
+  type WinOddsTally,
+} from '../ai/winOdds';
+
+export type WinOddsWorkerMessage =
+  | {
+      type: 'run';
+      jobId: number;
+      ctx: AIContext;
+      totalSamples: number;
+      chunkSize: number;
+      baseSeed: number;
+      maxPlies?: number;
+    }
+  | { type: 'cancel'; jobId: number };
+
+export type WinOddsWorkerResponse =
+  | { type: 'progress'; jobId: number; odds: WinOdds }
+  | { type: 'done'; jobId: number; odds: WinOdds }
+  | { type: 'error'; jobId: number; message: string };
+
+let currentJobId: number | null = null;
+
+const tick = () => new Promise<void>((r) => setTimeout(r, 0));
+
+function post(msg: WinOddsWorkerResponse) {
+  (self as unknown as Worker).postMessage(msg);
+}
+
+async function runJob(
+  jobId: number,
+  ctx: AIContext,
+  totalSamples: number,
+  chunkSize: number,
+  baseSeed: number,
+  maxPlies?: number
+): Promise<void> {
+  const acc: WinOddsTally = { wins: 0, ties: 0, losses: 0, played: 0 };
+  let done = 0;
+  let chunkIndex = 0;
+
+  while (done < totalSamples) {
+    // A newer run / cancel arrived while we were yielding — abandon.
+    if (jobId !== currentJobId) return;
+
+    const n = Math.min(chunkSize, totalSamples - done);
+    // Distinct, deterministic seed per chunk.
+    const seed = (baseSeed + chunkIndex * 0x9e3779b9) | 0;
+    const t = tallyWinOdds(ctx, { samples: n, seed, maxPlies });
+
+    acc.wins += t.wins;
+    acc.ties += t.ties;
+    acc.losses += t.losses;
+    acc.played += t.played;
+    done += n;
+    chunkIndex++;
+
+    if (jobId !== currentJobId) return;
+    const odds = formatWinOdds(acc);
+    if (done >= totalSamples) {
+      post({ type: 'done', jobId, odds });
+      return;
+    }
+    post({ type: 'progress', jobId, odds });
+    await tick(); // let queued messages (newer run / cancel) run
+  }
+}
+
+self.onmessage = (e: MessageEvent<WinOddsWorkerMessage>) => {
+  const msg = e.data;
+
+  if (msg.type === 'cancel') {
+    if (currentJobId === msg.jobId) currentJobId = null;
+    return;
+  }
+
+  // 'run' — supersede any in-flight job.
+  currentJobId = msg.jobId;
+  void runJob(
+    msg.jobId,
+    msg.ctx,
+    msg.totalSamples,
+    msg.chunkSize,
+    msg.baseSeed,
+    msg.maxPlies
+  ).catch((err) => {
+    post({
+      type: 'error',
+      jobId: msg.jobId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  });
+};
