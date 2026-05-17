@@ -36,7 +36,7 @@ import modalStyles from '../../components/UI/CapturedCardsModal.module.css';
 import { applyMove, trickWinner } from './rules';
 import { calculateRoundScore, sumPoints } from './scoring';
 import { createDeck, shuffleDeck, dealInitialHands } from './deck';
-import { POINT_VALUES } from './constants';
+import { POINT_VALUES, CARDS_PER_HAND } from './constants';
 import {
   StartScreen,
   type CpuBotName,
@@ -639,6 +639,14 @@ function BriscolaApp() {
     follower: PlayerId;
     winner: PlayerId;
   } | null>(null);
+
+  // Transient "dealing" phase for multiplayer. The server sends a fully
+  // dealt round (GAME_START / NEXT_ROUND_STARTED); without this the
+  // hands would just pop in with no fan animation or 'deal' sound (the
+  // bridge maps straight to 'playing'). Edge-triggered once per fresh
+  // round; cleared after the deal animation duration.
+  const [mpDealing, setMpDealing] = useState(false);
+  const mpWasFreshRef = useRef(false);
 
   // Per-game accumulated round history for the multiplayer match. Server only
   // sends per-round scores at ROUND_END, so we maintain our own list here and
@@ -1260,6 +1268,38 @@ function BriscolaApp() {
     }
   }, [multiplayer.gameState]);
 
+  // Multiplayer deal animation + sound. The server delivers a fully dealt
+  // round, so we synthesize the dealing phase locally: edge-detect the
+  // transition INTO a freshly-dealt round (full hands, no trick, no
+  // captures) and run a 'dealing' bridged state for the animation's
+  // duration, mirroring single-player's idle→dealing→playing flow.
+  useEffect(() => {
+    const gs = multiplayer.gameState;
+    const isFresh =
+      !!gs &&
+      !!gs.round &&
+      gs.round.trick.leadCard === null &&
+      gs.self.hand.length === CARDS_PER_HAND &&
+      gs.self.capturedCount === 0 &&
+      gs.opponent.capturedCount === 0;
+
+    if (isFresh && !mpWasFreshRef.current) {
+      mpWasFreshRef.current = true;
+      setMpDealing(true);
+      play('deal');
+      const t = setTimeout(
+        () => setMpDealing(false),
+        dur(DEALING_HANDS_DURATION + 100)
+      );
+      return () => clearTimeout(t);
+    }
+    if (!isFresh) {
+      // Left the fresh state (first move played, or round/game ended) —
+      // re-arm so the next round's deal triggers again.
+      mpWasFreshRef.current = false;
+    }
+  }, [multiplayer.gameState, play, dur]);
+
   const onPlayerCardClick = useCallback(
     (card: BriscolaCard) => {
       if (state.status !== 'playing') return;
@@ -1356,6 +1396,12 @@ function BriscolaApp() {
           resolved: patchedGame,
         },
       };
+    } else if (mpDealing) {
+      // Fresh round just arrived from the server — show the deal fan
+      // animation (DealingAnimation triggers on status === 'dealing').
+      // The deal-effect's timeout clears mpDealing, falling through to
+      // 'playing'.
+      bridgedState = { status: 'dealing', game: patchedGame };
     } else {
       bridgedState = { status: 'playing', game: patchedGame };
     }
