@@ -266,7 +266,10 @@ export function startGame(room: RoomState): void {
  */
 export function shouldEndRound(room: RoomState): boolean {
   const state = room.gameState;
-  if (!state || !state.round || state.status !== 'playing') return false;
+  if (!state || !state.round) return false;
+  // `applyMove` flips status to 'roundEnd' on the final trick, so the
+  // round-just-ended state must also be recognized here — not only 'playing'.
+  if (state.status !== 'playing' && state.status !== 'roundEnd') return false;
 
   return (
     state.players.player1.hand.length === 0 &&

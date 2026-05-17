@@ -295,6 +295,17 @@ function handleDisconnect(ws: AuthenticatedWebSocket): void {
     return;
   }
 
+  // Only tear down if the socket that closed is still the player's active
+  // socket. If they already reconnected (a new ws was installed) or were
+  // already marked disconnected (ws is null), this is a stale close — ignore
+  // it so we don't kill the live connection or double-notify the opponent.
+  if (room[ws.playerId]?.ws !== ws) {
+    console.log(
+      `Stale socket close for ${ws.playerId} in room ${ws.roomCode}; ignoring`
+    );
+    return;
+  }
+
   // Mark player as disconnected
   disconnectPlayer(ws.roomCode, ws.playerId);
 

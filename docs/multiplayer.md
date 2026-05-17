@@ -198,7 +198,8 @@ npm run dev
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_WS_URL` | WebSocket server URL (client) | `ws://localhost:8080` |
+| `VITE_WS_URL` | Scopa WebSocket server URL (client) | `ws://localhost:8080` |
+| `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL (client; separate build) | `ws://localhost:8081` |
 | `PORT` | Server port | `8080` |
 
 ## Known Limitations

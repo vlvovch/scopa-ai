@@ -179,6 +179,14 @@ The server runs on port 8080 by default. Configure the client to connect via:
 VITE_WS_URL=ws://localhost:8080
 ```
 
+Briscola is a separate build with its own multiplayer server (`briscola-server`,
+default port 8081). Its client reads a **different** env var — a Briscola build
+that only sets `VITE_WS_URL` will silently fall back to `ws://localhost:8081`:
+
+```bash
+VITE_BRISCOLA_WS_URL=ws://localhost:8081
+```
+
 ---
 
 ## Technology Stack

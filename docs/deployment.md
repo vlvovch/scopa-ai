@@ -270,7 +270,8 @@ sudo systemctl restart caddy
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_WS_URL` | WebSocket server URL | `wss://your-domain.com/ws` |
+| `VITE_WS_URL` | Scopa WebSocket server URL | `wss://your-domain.com/ws` |
+| `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL (separate build; falls back to `ws://localhost:8081` if unset) | `wss://briscola.your-domain.com/ws` |
 | `VITE_PROXY_URL` | AI proxy server URL | `https://your-domain.com` |
 | `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.example.com/script.js` |
 | `VITE_UMAMI_WEBSITE_ID` | Umami website ID (optional) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
