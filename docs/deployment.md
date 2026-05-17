@@ -43,7 +43,7 @@ On your local machine:
 
 ```bash
 # Build with production URLs
-VITE_WS_URL=wss://your-domain.com/ws VITE_PROXY_URL=https://your-domain.com npm run build
+VITE_WS_URL=wss://scopa-ai.vovchenko.net/ws VITE_PROXY_URL=https://scopa-ai.vovchenko.net npm run build
 
 # Upload (replace YOUR_SERVER_IP)
 rsync -avz dist/ user@YOUR_SERVER_IP:/var/www/scopa-ai/
@@ -128,7 +128,7 @@ Restart=on-failure
 RestartSec=10
 Environment=PORT=3101
 Environment=GEMINI_API_KEY=your-gemini-api-key-here
-Environment=ALLOWED_ORIGIN=https://your-domain.com
+Environment=ALLOWED_ORIGIN=https://scopa-ai.vovchenko.net
 
 [Install]
 WantedBy=multi-user.target
@@ -148,7 +148,7 @@ sudo systemctl status scopa-server scopa-proxy
 Add to your `/etc/caddy/Caddyfile`:
 
 ```caddyfile
-your-domain.com {
+scopa-ai.vovchenko.net {
     # WebSocket proxy for /ws path
     handle /ws {
         reverse_proxy localhost:3100
@@ -185,7 +185,7 @@ Caddy will automatically provision an SSL certificate from Let's Encrypt.
 
 ## Verification
 
-1. Visit `https://your-domain.com` - should load the game
+1. Visit `https://scopa-ai.vovchenko.net` - should load the game
 2. Create a multiplayer room - should connect via WebSocket
 3. Select "Free AI" opponent and start a game - should play against Gemini
 4. Check server logs: `sudo journalctl -u scopa-server -f` / `sudo journalctl -u scopa-proxy -f`
@@ -196,7 +196,7 @@ Caddy will automatically provision an SSL certificate from Let's Encrypt.
 
 ```bash
 # Local: rebuild and upload
-VITE_WS_URL=wss://your-domain.com/ws VITE_PROXY_URL=https://your-domain.com npm run build
+VITE_WS_URL=wss://scopa-ai.vovchenko.net/ws VITE_PROXY_URL=https://scopa-ai.vovchenko.net npm run build
 rsync -avz dist/ user@YOUR_SERVER_IP:/var/www/scopa-ai/
 ```
 
@@ -230,7 +230,7 @@ ssh user@YOUR_SERVER_IP "sudo systemctl restart scopa-proxy"
 
 Briscola ships from the same repo as a **separate static build** and its
 **own multiplayer WebSocket server**, on its own domain
-(`briscola-ai.example.com`). It **reuses the existing Scopa AI proxy**
+(`briscola-ai.vovchenko.net`). It **reuses the existing Scopa AI proxy**
 (`scopa-proxy`, one process serves both games) — only its CORS origin
 list needs widening.
 
@@ -257,8 +257,8 @@ Briscola domain — same-origin, so the request carries that Origin; the
 proxy must allow it (Step B4).
 
 ```bash
-VITE_BRISCOLA_WS_URL=wss://briscola-ai.example.com/ws \
-VITE_PROXY_URL=https://briscola-ai.example.com \
+VITE_BRISCOLA_WS_URL=wss://briscola-ai.vovchenko.net/ws \
+VITE_PROXY_URL=https://briscola-ai.vovchenko.net \
   npm run build:briscola
 
 rsync -avz dist-briscola/ user@YOUR_SERVER_IP:/var/www/briscola-ai/
@@ -310,7 +310,7 @@ sudo systemctl status briscola-server
 Edit `/etc/systemd/system/scopa-proxy.service`:
 
 ```ini
-Environment=ALLOWED_ORIGIN=https://scopa-ai.example.com,https://briscola-ai.example.com
+Environment=ALLOWED_ORIGIN=https://scopa-ai.vovchenko.net,https://briscola-ai.vovchenko.net
 ```
 
 ```bash
@@ -329,7 +329,7 @@ unchanged). Note `/ws` → `:3102` (Briscola's own server) but `/api/*`
 → `:3101` (the **shared** proxy):
 
 ```caddyfile
-briscola-ai.example.com {
+briscola-ai.vovchenko.net {
     handle /ws {
         reverse_proxy localhost:3102
     }
@@ -357,8 +357,8 @@ auto-provisions the TLS cert on first request.
 
 ```bash
 # Frontend
-VITE_BRISCOLA_WS_URL=wss://briscola-ai.example.com/ws \
-VITE_PROXY_URL=https://briscola-ai.example.com \
+VITE_BRISCOLA_WS_URL=wss://briscola-ai.vovchenko.net/ws \
+VITE_PROXY_URL=https://briscola-ai.vovchenko.net \
   npm run build:briscola
 rsync -avz dist-briscola/ user@YOUR_SERVER_IP:/var/www/briscola-ai/
 
@@ -370,7 +370,7 @@ ssh user@YOUR_SERVER_IP "sudo systemctl restart briscola-server"
 
 ### Verify
 
-1. `https://briscola-ai.example.com` loads Briscola.
+1. `https://briscola-ai.vovchenko.net` loads Briscola.
 2. Create a multiplayer room → second browser joins via the
    `BRISCOLA-XXXX` code or the shared `/join/BRISCOLA-XXXX` link.
 3. "Gemini Free" opponent plays (shared proxy; rate limit is global
@@ -395,7 +395,7 @@ ssh user@YOUR_SERVER_IP "sudo systemctl restart briscola-server"
 
 3. Verify Caddy is proxying correctly:
    ```bash
-   curl -i https://your-domain.com/ws
+   curl -i https://scopa-ai.vovchenko.net/ws
    ```
 
 ### Static files not loading
@@ -425,10 +425,10 @@ sudo systemctl restart caddy
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_WS_URL` | Scopa WebSocket server URL (`npm run build`) | `wss://scopa-ai.example.com/ws` |
-| `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL (`npm run build:briscola`) | `wss://briscola-ai.example.com/ws` |
-| `VITE_PROXY_URL` | AI proxy server URL (per build) | `https://scopa-ai.example.com` |
-| `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.example.com/script.js` |
+| `VITE_WS_URL` | Scopa WebSocket server URL (`npm run build`) | `wss://scopa-ai.vovchenko.net/ws` |
+| `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL (`npm run build:briscola`) | `wss://briscola-ai.vovchenko.net/ws` |
+| `VITE_PROXY_URL` | AI proxy server URL (per build) | `https://scopa-ai.vovchenko.net` |
+| `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.vovchenko.net/script.js` |
 | `VITE_UMAMI_WEBSITE_ID` | Umami website ID (optional) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 
 Each game is a separate build artifact: `npm run build` → `dist/`
@@ -448,4 +448,4 @@ Each game is a separate build artifact: `npm run build` → `dist/`
 |----------|-------------|---------|
 | `PORT` | AI proxy server port | `3101` |
 | `GEMINI_API_KEY` | Google Gemini API key | (required) |
-| `ALLOWED_ORIGIN` | CORS allowed origin(s) — `*`, or a **comma-separated** list (e.g. `https://scopa-ai.example.com,https://briscola-ai.example.com`) | `*` |
+| `ALLOWED_ORIGIN` | CORS allowed origin(s) — `*`, or a **comma-separated** list (e.g. `https://scopa-ai.vovchenko.net,https://briscola-ai.vovchenko.net`) | `*` |
