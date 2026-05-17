@@ -416,6 +416,45 @@ function hasStoredMpSession(): boolean {
   }
 }
 
+// Parse a join code from the URL on initial load: either `/join/CODE`
+// or `?join=CODE`. Mirrors Scopa's getInitialJoinCode so a shared link
+// (e.g. http://host/join/BRISCOLA-XXXX) drops the visitor straight into
+// the join lobby with the code prefilled. Side effect: if there's a
+// stored session for a DIFFERENT room, clear it so we join the linked
+// room rather than auto-reconnecting to the old one.
+function getInitialJoinCode(): string | undefined {
+  let joinCode: string | undefined;
+
+  const params = new URLSearchParams(window.location.search);
+  const joinFromParam = params.get('join');
+  if (joinFromParam) {
+    joinCode = joinFromParam.toUpperCase();
+  } else {
+    const pathMatch = window.location.pathname.match(/^\/join\/([A-Z0-9-]+)$/i);
+    if (pathMatch) {
+      joinCode = pathMatch[1].toUpperCase();
+    }
+  }
+
+  if (joinCode) {
+    try {
+      const stored = localStorage.getItem(MP_SESSION_KEY);
+      if (stored) {
+        const session = JSON.parse(stored);
+        if (session.roomCode !== joinCode) {
+          localStorage.removeItem(MP_SESSION_KEY);
+        }
+        // Same room → keep the session so auto-reconnect works.
+      }
+    } catch {
+      try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
+    }
+    return joinCode;
+  }
+
+  return undefined;
+}
+
 const BOT_LABELS: Record<BriscolaOpponentName, string> = {
   random: 'Scimmietta',
   heuristic: 'Furbo',
@@ -626,7 +665,48 @@ function BriscolaApp() {
   // session. If the reconnect ultimately fails the hook surfaces an
   // error in the lobby (which this flag still routes to).
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(hasStoredMpSession);
+  // Join code parsed from a shared /join/CODE (or ?join=CODE) URL. When
+  // set, the MP render branches activate even without a stored session
+  // (a fresh visitor following a friend's link), and the lobby opens in
+  // join mode with the code prefilled.
+  const [initialJoinCode, setInitialJoinCode] = useState(getInitialJoinCode);
+  // Master gate for the multiplayer UI: an explicit mode toggle, a
+  // restored session, or an inbound join link.
+  const inMultiplayer = isMultiplayerMode || initialJoinCode !== undefined;
   const multiplayer = useBriscolaMultiplayer();
+
+  // Fully leave multiplayer: drop the room, clear both entry signals
+  // (explicit toggle + inbound join link), and scrub the /join/CODE URL
+  // so we don't immediately re-enter MP from it.
+  const exitMultiplayer = useCallback(() => {
+    multiplayer.leaveRoom();
+    setIsMultiplayerMode(false);
+    setInitialJoinCode(undefined);
+    if (
+      window.location.pathname.startsWith('/join/') ||
+      window.location.search.includes('join=')
+    ) {
+      window.history.replaceState({}, '', '/');
+    }
+    // multiplayer.leaveRoom is stable; setters are stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the URL in sync with the room so the link is shareable and a
+  // refresh stays on /join/CODE. Mirrors Scopa.
+  useEffect(() => {
+    if (multiplayer.roomCode) {
+      const joinPath = `/join/${multiplayer.roomCode}`;
+      if (window.location.pathname !== joinPath) {
+        window.history.replaceState({}, '', joinPath);
+      }
+    } else if (
+      window.location.pathname.startsWith('/join/') ||
+      window.location.search.includes('join=')
+    ) {
+      window.history.replaceState({}, '', '/');
+    }
+  }, [multiplayer.roomCode]);
 
   // Trick-resolution overlay for multiplayer. When a follow move completes
   // a trick, we hold the BEFORE state visible (so the lead card is still
@@ -1342,7 +1422,7 @@ function BriscolaApp() {
   // once the server has sent a game state. Reuses BriscolaBoard but driven
   // by a bridged AppState built from the server payload.
   if (
-    isMultiplayerMode &&
+    inMultiplayer &&
     multiplayer.gameState &&
     multiplayer.gameState.round &&
     multiplayer.playerId
@@ -1418,10 +1498,7 @@ function BriscolaApp() {
     const opponentLabel = multiplayer.opponentNickname || 'Opponent';
     const youLabel = multiplayer.nickname || 'You';
 
-    const handleLeaveMultiplayer = () => {
-      multiplayer.leaveRoom();
-      setIsMultiplayerMode(false);
-    };
+    const handleLeaveMultiplayer = exitMultiplayer;
 
     const handleMultiplayerCardClick = (card: BriscolaCard) => {
       if (!isMyTurn) return;
@@ -1585,7 +1662,7 @@ function BriscolaApp() {
   // On terminal failure the hook clears the session + roomCode, so this
   // falls through to the lobby with a persistent error message.
   if (
-    isMultiplayerMode &&
+    inMultiplayer &&
     !multiplayer.gameState &&
     multiplayer.isReconnecting
   ) {
@@ -1596,13 +1673,7 @@ function BriscolaApp() {
           <p style={{ opacity: 0.75, margin: '0.5rem 0 1.25rem' }}>
             Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
           </p>
-          <button
-            style={primaryButton}
-            onClick={() => {
-              multiplayer.leaveRoom();
-              setIsMultiplayerMode(false);
-            }}
-          >
+          <button style={primaryButton} onClick={exitMultiplayer}>
             Leave Game
           </button>
         </div>
@@ -1614,7 +1685,7 @@ function BriscolaApp() {
   // before the second player has joined (room exists, no gameState yet).
   // Without this branch the lobby form keeps showing — the user clicks
   // Create Game repeatedly thinking nothing happened.
-  if (isMultiplayerMode && multiplayer.roomCode && !multiplayer.gameState) {
+  if (inMultiplayer && multiplayer.roomCode && !multiplayer.gameState) {
     return (
       <WaitingForOpponent
         roomCode={multiplayer.roomCode}
@@ -1622,10 +1693,7 @@ function BriscolaApp() {
         targetScore={multiplayer.targetScore}
         turnTimerEnabled={multiplayer.turnTimerEnabled}
         onUpdateNickname={multiplayer.updateNickname}
-        onLeaveRoom={() => {
-          multiplayer.leaveRoom();
-          setIsMultiplayerMode(false);
-        }}
+        onLeaveRoom={exitMultiplayer}
       />
     );
   }
@@ -1634,11 +1702,12 @@ function BriscolaApp() {
   // a room (no gameState from server, no roomCode either). Once a room is
   // created (CREATE_ROOM acknowledged) the waiting-room branch above
   // takes over; once gameState arrives, the in-game render takes over.
-  if (isMultiplayerMode && !multiplayer.gameState) {
+  if (inMultiplayer && !multiplayer.gameState) {
     return (
       <MultiplayerLobby
         connectionStatus={multiplayer.connectionStatus}
         connectionError={multiplayer.connectionError}
+        initialJoinCode={initialJoinCode}
         config={{
           gameName: 'Briscola',
           gameCodePrefix: 'BRISCOLA',
@@ -1664,10 +1733,7 @@ function BriscolaApp() {
         }}
         onCreateRoom={multiplayer.createRoom}
         onJoinRoom={multiplayer.joinRoom}
-        onBack={() => {
-          multiplayer.leaveRoom();
-          setIsMultiplayerMode(false);
-        }}
+        onBack={exitMultiplayer}
       />
     );
   }
