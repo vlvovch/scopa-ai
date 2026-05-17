@@ -443,9 +443,23 @@ export function SettingsModal({
                           : 'Overall odds only (headline is still the best card)'}
                       </p>
 
-                      <div className={styles.setting}>
+                      {/* NOTE: deliberately NOT styles.setting / styles.options.
+                          The stylesheet has `.setting:has(.options)
+                          { flex-direction: row }` and :has() matches ANY
+                          ancestor — using .options here would flip the whole
+                          parent Display setting into a row (broken columnar
+                          layout). Plain elements + inline flex keep it scoped. */}
+                      <div style={{ marginTop: '0.6rem' }}>
                         <label className={styles.label}>Simulations</label>
-                        <div className={styles.options}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.4rem',
+                            alignItems: 'center',
+                            marginTop: '0.35rem',
+                          }}
+                        >
                           {[100, 300, 600, 1000].map((n) => (
                             <button
                               key={n}
