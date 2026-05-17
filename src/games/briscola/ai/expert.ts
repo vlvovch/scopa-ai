@@ -28,19 +28,26 @@ const DETERMINIZATIONS = 14;
 // Mid-game depth. With alpha-beta the work per ply drops a lot, so we can
 // go deeper than the original depth-4 search. Endgame uses an exact, deeper
 // search instead (see ENDGAME_PLIES).
-const SEARCH_PLIES = 6;
+// Exported so the win-odds engine (winOdds.ts) reuses Esperto's exact
+// search depths rather than guessing its own.
+export const SEARCH_PLIES = 6;
 // Generous cap that always reaches a terminal node when the deck is empty
 // and hands are short (max 3 cards each → at most 6 plies left).
-const ENDGAME_PLIES = 12;
+export const ENDGAME_PLIES = 12;
 const TIME_BUDGET_MS = 250;
 
-function otherPlayer(p: PlayerId): PlayerId {
+export function otherPlayer(p: PlayerId): PlayerId {
   return p === 'human' ? 'cpu' : 'human';
 }
 
-function shuffleInPlace<T>(arr: T[]): T[] {
+/**
+ * Fisher-Yates shuffle. `rng` defaults to Math.random (Esperto's existing
+ * behaviour is unchanged); winOdds.ts passes a seeded RNG for
+ * deterministic, testable simulations.
+ */
+function shuffleInPlace<T>(arr: T[], rng: () => number = Math.random): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -53,7 +60,7 @@ function now(): number {
   return Date.now();
 }
 
-interface SimState {
+export interface SimState {
   me: PlayerId;
   trumpSuit: Suit;
   myHand: Card[];
@@ -68,7 +75,7 @@ interface SimState {
 }
 
 /** Apply one play. If a card was already led, the trick resolves and both draw. */
-function playCard(s: SimState, card: Card): SimState {
+export function playCard(s: SimState, card: Card): SimState {
   const meIsMover = s.toMove === s.me;
   const myHand = meIsMover ? s.myHand.filter((c) => c.id !== card.id) : s.myHand;
   const oppHand = meIsMover ? s.oppHand : s.oppHand.filter((c) => c.id !== card.id);
@@ -157,7 +164,7 @@ function leafBonus(s: SimState): number {
  * `alpha` is the best-so-far for the maximizer; `beta` for the minimizer.
  * Cut off the moment our window collapses.
  */
-function search(
+export function search(
   s: SimState,
   plies: number,
   alpha: number,
@@ -197,10 +204,37 @@ function search(
 }
 
 /**
+ * Pick the Esperto move on a **fully-determinized** (perfect-information)
+ * SimState at a capped search depth — used to roll a sampled world out to
+ * the end of the round in the win-odds engine.
+ *
+ * `search` maximizes for `s.me` and minimizes for the other seat, so the
+ * side to move picks the child that's best *for itself*: argmax when it's
+ * `s.me`'s turn, argmin otherwise. Iteration order matches the hand array
+ * so ties resolve deterministically (important for seeded tests). This is
+ * Esperto's core (capped alpha-beta) minus the per-mover re-determinization
+ * — correct here because the world is already determinized.
+ */
+export function pickMovePerfectInfo(s: SimState, plies: number): Card {
+  const moverHand = s.toMove === s.me ? s.myHand : s.oppHand;
+  const maximizing = s.toMove === s.me;
+  let best = moverHand[0];
+  let bestV = maximizing ? -Infinity : Infinity;
+  for (const c of moverHand) {
+    const v = search(playCard(s, c), plies - 1, -Infinity, Infinity);
+    if (maximizing ? v > bestV : v < bestV) {
+      bestV = v;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/**
  * Build the pool of cards we haven't seen yet (i.e. cards that are either in
  * the opponent's hand or still in the deck).
  */
-function buildUnseen(ctx: AIContext): Card[] {
+export function buildUnseen(ctx: AIContext): Card[] {
   const seen = new Set<string>();
   for (const c of ctx.hand) seen.add(c.id);
   for (const c of ctx.myCaptured ?? []) seen.add(c.id);
@@ -212,16 +246,17 @@ function buildUnseen(ctx: AIContext): Card[] {
   return createDeck().filter((c) => !seen.has(c.id));
 }
 
-interface Determinization {
+export interface Determinization {
   oppHand: Card[];
   deckQueue: Card[];
 }
 
-function sampleDeterminization(
+export function sampleDeterminization(
   unseen: Card[],
   oppHandSize: number,
   trumpCard: Card,
-  deckCount: number
+  deckCount: number,
+  rng: () => number = Math.random
 ): Determinization {
   // While the deck has cards, the trump is at the bottom — it must be the
   // last card drawn, not in the opp's hand. Pull it aside and append after
@@ -231,14 +266,14 @@ function sampleDeterminization(
 
   if (trumpKnownInDeck) {
     const rest = unseen.filter((c) => c.id !== trumpCard.id);
-    shuffleInPlace(rest);
+    shuffleInPlace(rest, rng);
     const oppHand = rest.slice(0, oppHandSize);
     const deckQueue = rest.slice(oppHandSize);
     return { oppHand, deckQueue: [...deckQueue, trumpCard] };
   }
 
   const copy = [...unseen];
-  shuffleInPlace(copy);
+  shuffleInPlace(copy, rng);
   return {
     oppHand: copy.slice(0, oppHandSize),
     deckQueue: copy.slice(oppHandSize),
