@@ -28,6 +28,10 @@ interface PlayerHandProps {
   playedCardId?: string | null;
   /** Called when the hand area is clicked (for spectator mode toggle) */
   onHandClick?: () => void;
+  /** Optional caption rendered directly under each card, keyed by card
+   *  id (Briscola win-odds per-card analysis). Omitted everywhere else
+   *  so Scopa / the CPU hand are unaffected. */
+  cardAnnotations?: Record<string, React.ReactNode>;
 }
 
 export function PlayerHand({
@@ -41,6 +45,7 @@ export function PlayerHand({
   disabled = false,
   showFaceUp = false,
   onHandClick,
+  cardAnnotations,
 }: PlayerHandProps) {
   const handClasses = [
     styles.hand,
@@ -84,6 +89,20 @@ export function PlayerHand({
               onDragStart={isHuman && onCardDragStart ? () => onCardDragStart(card) : undefined}
               onDragEnd={isHuman && onCardDragEnd ? (_e, info: PanInfo) => onCardDragEnd(card, info) : undefined}
             />
+            {cardAnnotations?.[card.id] != null && (
+              <div
+                style={{
+                  textAlign: 'center',
+                  marginTop: '3px',
+                  fontSize: '12px',
+                  lineHeight: 1.1,
+                  fontVariantNumeric: 'tabular-nums',
+                  pointerEvents: 'none',
+                }}
+              >
+                {cardAnnotations[card.id]}
+              </div>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>
