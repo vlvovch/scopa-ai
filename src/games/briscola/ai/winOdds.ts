@@ -33,11 +33,19 @@ import {
 import { sumPoints } from '../scoring';
 
 export interface WinOdds {
-  /** Probability player 1 takes the round (>60 pts), as a 0–100 percentage. */
+  /**
+   * Probability player 1 takes the round (>60 pts), 0–100. This is the
+   * **best card's** win% — i.e. odds assuming you play the strongest
+   * card and then both seats continue as Esperto. It equals
+   * max(perCard[*].winPct) by construction (so the headline always
+   * matches the best card), and is computed the honest way Esperto
+   * itself decides: commit to ONE card, then average over sampled
+   * worlds — never re-choosing the first move per world.
+   */
   winPct: number;
-  /** Probability of a 60–60 tie, 0–100. */
+  /** Tie (60–60) % for the best card, 0–100. */
   tiePct: number;
-  /** Probability player 1 loses the round (<60 pts), 0–100. */
+  /** Loss (<60 pts) % for the best card, 0–100. */
   lossPct: number;
   /** Number of determinizations actually simulated. */
   samples: number;
@@ -45,11 +53,11 @@ export interface WinOdds {
    *  points). Shrinks as samples grow; useful for a "still computing" UI. */
   ciHalfWidth: number;
   /**
-   * Per-card win odds — present only when the per-card option is on.
-   * Keyed by card id; each value is the odds *if you play that card now*
-   * (then both seats continue as Esperto), measured in the **same**
-   * sampled worlds as every other card (common random numbers ⇒ a fair,
-   * low-variance ranking).
+   * Per-card win odds, keyed by card id — the odds *if you play that
+   * card now* then both seats continue as Esperto, measured in the
+   * **same** sampled worlds as every other card (common random numbers
+   * ⇒ a fair, low-variance ranking). Always present; the UI decides
+   * whether to surface it.
    */
   perCard?: Record<string, WinOdds>;
 }
@@ -66,33 +74,25 @@ export interface WinOddsOptions {
    * cheaply). Lower = faster / rougher.
    */
   maxPlies?: number;
-  /**
-   * Also compute per-card odds (each hand card forced as the first move,
-   * in the same sampled worlds). ~hand-size× more rollouts per sample —
-   * opt-in. Does not change the RNG stream, so the overall figure is
-   * identical with it on or off.
-   */
-  perCard?: boolean;
 }
 
-/** Raw outcome counts from a batch of determinizations. Accumulatable
- *  across chunks (the Web Worker sums these to stream a settling estimate). */
-export interface WinOddsTally {
-  wins: number;
-  ties: number;
-  losses: number;
-  played: number;
-  /** Per-card raw tallies (present only when the per-card option is on).
-   *  Keyed by card id; merged across chunks by the worker. */
-  perCard?: Record<string, OutcomeTally>;
-}
-
-/** Bare win/tie/loss/played counts (one card, or the overall figure). */
+/** Bare win/tie/loss/played counts for a single committed card. */
 export interface OutcomeTally {
   wins: number;
   ties: number;
   losses: number;
   played: number;
+}
+
+/** Per-card raw counts from a batch of determinizations. Accumulatable
+ *  across chunks (the Web Worker sums these to stream a settling
+ *  estimate). One determinization per sample is reused for every card
+ *  (common random numbers). */
+export interface WinOddsTally {
+  /** Number of determinizations simulated (each card played once each). */
+  played: number;
+  /** Per-card outcome counts, keyed by card id. */
+  perCard: Record<string, OutcomeTally>;
 }
 
 /** mulberry32 — tiny, fast, deterministic PRNG. */
@@ -168,16 +168,17 @@ export function tallyWinOdds(
       : ctx.hand.length;
   const drawableOppHandSize = Math.min(oppHandSize, unseen.length);
 
-  const overall = emptyTally();
-  const perCard: Record<string, OutcomeTally> | undefined = options.perCard
-    ? Object.fromEntries(ctx.hand.map((c) => [c.id, emptyTally()]))
-    : undefined;
+  // Every hand card gets its own running tally. Each sample draws ONE
+  // determinization and plays every card through it (common random
+  // numbers ⇒ a fair, low-variance comparison). The first move is the
+  // forced card — never re-chosen per world — so there's no
+  // value-of-clairvoyance inflation; this is exactly how Esperto
+  // decides (commit one card, then average over sampled worlds).
+  const perCard: Record<string, OutcomeTally> = Object.fromEntries(
+    ctx.hand.map((c) => [c.id, emptyTally()])
+  );
 
   for (let i = 0; i < samples; i++) {
-    // ONE determinization per sample — reused for the overall figure and
-    // every candidate card (common random numbers ⇒ fair comparison).
-    // This single rng-consuming call keeps the stream independent of the
-    // perCard flag, so the overall result is identical either way.
     const det = sampleDeterminization(
       unseen,
       drawableOppHandSize,
@@ -199,26 +200,13 @@ export function tallyWinOdds(
       oppPoints: oppPoints0,
     };
 
-    // Overall: both seats play Esperto from here (Esperto picks our move).
-    bucket(overall, rolloutToEnd(base, options.maxPlies).myPoints);
-
-    // Per-card: force each hand card as our move now, then continue as
-    // Esperto for both — same sampled world.
-    if (perCard) {
-      for (const c of ctx.hand) {
-        const after = playCard(base, c);
-        bucket(perCard[c.id], rolloutToEnd(after, options.maxPlies).myPoints);
-      }
+    for (const c of ctx.hand) {
+      const after = playCard(base, c);
+      bucket(perCard[c.id], rolloutToEnd(after, options.maxPlies).myPoints);
     }
   }
 
-  return {
-    wins: overall.wins,
-    ties: overall.ties,
-    losses: overall.losses,
-    played: overall.played,
-    ...(perCard ? { perCard } : {}),
-  };
+  return { played: samples, perCard };
 }
 
 function formatOutcome(t: OutcomeTally): WinOdds {
@@ -235,17 +223,30 @@ function formatOutcome(t: OutcomeTally): WinOdds {
   };
 }
 
-/** Turn raw tallies into the displayable WinOdds (percentages + 95% CI
- *  half-width on winPct), including per-card if present. Shared by
- *  estimateWinOdds and the worker so the pct/CI math has a single home. */
+/**
+ * Turn raw per-card tallies into displayable WinOdds. The headline
+ * (winPct/tiePct/lossPct/CI) is the **best card's** outcome — the card
+ * with the highest win rate, ties broken by hand order for determinism.
+ * `perCard` carries every card's odds. Shared by estimateWinOdds and
+ * the worker so the math has a single home.
+ */
 export function formatWinOdds(tally: WinOddsTally): WinOdds {
-  const base = formatOutcome(tally);
-  if (!tally.perCard) return base;
-  const perCard: Record<string, WinOdds> = {};
-  for (const [id, t] of Object.entries(tally.perCard)) {
-    perCard[id] = formatOutcome(t);
+  const entries = Object.entries(tally.perCard);
+  if (entries.length === 0) {
+    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
   }
-  return { ...base, perCard };
+  const perCard: Record<string, WinOdds> = {};
+  let best: OutcomeTally | null = null;
+  let bestRate = -1;
+  for (const [id, t] of entries) {
+    perCard[id] = formatOutcome(t);
+    const rate = t.played > 0 ? t.wins / t.played : 0;
+    if (rate > bestRate) {
+      bestRate = rate;
+      best = t;
+    }
+  }
+  return { ...formatOutcome(best!), perCard };
 }
 
 /**

@@ -67,7 +67,7 @@ describe('estimateWinOdds', () => {
     expect(c.samples).toBe(24);
   });
 
-  it('per-card: one entry per hand card, valid, and overall is unchanged', () => {
+  it('per-card always present; overall equals the best card; deterministic', () => {
     const ctx: AIContext = {
       hand: [byId('coins-1'), byId('cups-8'), byId('swords-5')],
       player: 'human',
@@ -78,39 +78,32 @@ describe('estimateWinOdds', () => {
       myCaptured: [],
       oppCaptured: [],
     };
-    const off = estimateWinOdds(ctx, { samples: 16, seed: 5, maxPlies: 2 });
-    const on = estimateWinOdds(ctx, {
-      samples: 16,
-      seed: 5,
-      maxPlies: 2,
-      perCard: true,
-    });
-
-    // The RNG stream is independent of the perCard flag → overall figure
-    // must be byte-identical.
-    expect(on.winPct).toBe(off.winPct);
-    expect(on.tiePct).toBe(off.tiePct);
-    expect(on.lossPct).toBe(off.lossPct);
-    expect(off.perCard).toBeUndefined();
+    const odds = estimateWinOdds(ctx, { samples: 16, seed: 5, maxPlies: 2 });
 
     // One per-card entry per hand card, each a valid distribution.
-    expect(on.perCard).toBeDefined();
-    expect(Object.keys(on.perCard!).sort()).toEqual(
+    expect(odds.perCard).toBeDefined();
+    expect(Object.keys(odds.perCard!).sort()).toEqual(
       ['coins-1', 'cups-8', 'swords-5'].sort()
     );
-    for (const o of Object.values(on.perCard!)) {
+    for (const o of Object.values(odds.perCard!)) {
       expect(o.winPct + o.tiePct + o.lossPct).toBeCloseTo(100, 6);
       expect(o.samples).toBe(16);
     }
 
+    // The headline IS the best card's outcome (max win%).
+    const bestWin = Math.max(
+      ...Object.values(odds.perCard!).map((o) => o.winPct)
+    );
+    expect(odds.winPct).toBe(bestWin);
+    const bestCard = Object.values(odds.perCard!).find(
+      (o) => o.winPct === bestWin
+    )!;
+    expect(odds.tiePct).toBe(bestCard.tiePct);
+    expect(odds.lossPct).toBe(bestCard.lossPct);
+
     // Deterministic under a fixed seed.
-    const on2 = estimateWinOdds(ctx, {
-      samples: 16,
-      seed: 5,
-      maxPlies: 2,
-      perCard: true,
-    });
-    expect(on2).toEqual(on);
+    const again = estimateWinOdds(ctx, { samples: 16, seed: 5, maxPlies: 2 });
+    expect(again).toEqual(odds);
   });
 
   it('returns a valid distribution for a fresh mid-deal position', () => {

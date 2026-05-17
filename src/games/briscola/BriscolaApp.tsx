@@ -758,7 +758,6 @@ function BriscolaApp() {
     enabled: settings.showWinOdds && gameMode === 'play',
     view: winOddsView,
     totalSamples: 1000,
-    perCard: settings.showWinOddsPerCard,
   });
 
   // Per-card win% rendered under each hand card (best one accented).

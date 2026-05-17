@@ -432,8 +432,8 @@ export function SettingsModal({
                       </div>
                       <p className={styles.settingHint}>
                         {settings.showWinOddsPerCard
-                          ? 'Also show win % for each card in hand (same simulated deals — slower).'
-                          : 'Overall odds only'}
+                          ? 'Show win % under each hand card. The headline is the best card’s odds.'
+                          : 'Overall odds only (headline is still the best card)'}
                       </p>
                     </>
                   )}
