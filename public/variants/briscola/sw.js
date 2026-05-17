@@ -2,7 +2,7 @@
 // Briscola variant of public/sw.js. The copyVariantAssets Vite plugin
 // overlays this over dist-briscola/sw.js so the Briscola build ships
 // the right cache name + icon (the base sw.js precaches Scopa's icon).
-const CACHE_NAME = 'briscola-v1';
+const CACHE_NAME = 'briscola-v2';
 
 // Assets to cache on install - essential for offline play.
 // Using absolute paths for SPA routing compatibility with /join/CODE paths.
