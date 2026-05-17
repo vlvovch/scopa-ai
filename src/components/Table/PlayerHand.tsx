@@ -75,7 +75,12 @@ export function PlayerHand({
               damping: 35,
               mass: 0.4,
             }}
-            style={{ touchAction: isHuman ? 'none' as const : 'auto' as const }}
+            style={{
+              touchAction: isHuman ? 'none' as const : 'auto' as const,
+              // Anchor for the absolutely-positioned per-card caption so
+              // it never reflows the hand (no wiggle when odds arrive).
+              position: 'relative',
+            }}
           >
             <Card
               card={card}
@@ -92,8 +97,14 @@ export function PlayerHand({
             {cardAnnotations?.[card.id] != null && (
               <div
                 style={{
+                  // Out of flow → appearing/updating never resizes the
+                  // hand. Sits just below the card, centered on it.
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  marginTop: '4px',
                   textAlign: 'center',
-                  marginTop: '3px',
                   fontSize: '12px',
                   lineHeight: 1.1,
                   fontVariantNumeric: 'tabular-nums',
