@@ -112,7 +112,7 @@ import {
 import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
 import type { AIPlayer, AIContext } from './ai/types';
 import { useWinOdds } from './hooks/useWinOdds';
-import type { WinOdds } from './ai/winOdds';
+import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, GameStatus, Move, PlayerId } from './types';
 
@@ -2001,107 +2001,17 @@ function BriscolaApp() {
         onClose={() => setReasoningModal({ isOpen: false, player: null })}
       />
       {settings.showWinOdds && gameMode === 'play' && (
-        <WinOddsPanel odds={winOdds} computing={winOddsComputing} />
+        <WinOddsPanel
+          odds={winOdds}
+          computing={winOddsComputing}
+          caption="Esperto self-play estimate"
+        />
       )}
     </DeckProvider>
   );
 }
 
 export default BriscolaApp;
-
-// ---------------------------------------------------------------------------
-// Win-odds panel (analysis mode)
-// ---------------------------------------------------------------------------
-
-/**
- * Unobtrusive bottom-left readout of the round win/tie/loss estimate.
- * Only mounted in single-player Play mode with the setting on. Shows a
- * faint shimmer + the settling number while the worker streams, and a
- * ± CI once it stabilises. Honest caption: it's an Esperto self-play
- * estimate, not ground truth.
- */
-function WinOddsPanel({
-  odds,
-  computing,
-}: {
-  odds: WinOdds | null;
-  computing: boolean;
-}) {
-  if (!odds && !computing) return null;
-  const pct = (n: number) => `${Math.round(n)}%`;
-
-  return (
-    <div style={winOddsPanel} aria-live="polite">
-      <div style={winOddsTitle}>
-        Win odds{' '}
-        {computing && <span style={winOddsSpinner}>·computing·</span>}
-      </div>
-      {odds ? (
-        <>
-          <div style={winOddsRow}>
-            <span>
-              <strong style={{ color: 'var(--color-accent)' }}>
-                {pct(odds.winPct)}
-              </strong>{' '}
-              win
-            </span>
-            <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} tie</span>
-            <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} loss</span>
-          </div>
-          <div style={winOddsFoot}>
-            ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples} sims
-            · Esperto self-play estimate
-          </div>
-        </>
-      ) : (
-        <div style={winOddsFoot}>simulating…</div>
-      )}
-    </div>
-  );
-}
-
-const winOddsPanel: React.CSSProperties = {
-  position: 'fixed',
-  left: '50%',
-  // Sit just above the fixed page footer (footer is at var(--space-1)
-  // with a ~0.7rem line) so the two don't overlap.
-  bottom: 'calc(var(--space-1) + 1.9rem)',
-  transform: 'translateX(-50%)',
-  textAlign: 'center',
-  background: 'rgba(0,0,0,0.62)',
-  color: 'var(--color-text-primary)',
-  padding: '0.5rem 0.9rem',
-  borderRadius: '10px',
-  fontSize: '13px',
-  lineHeight: 1.35,
-  zIndex: 90,
-  pointerEvents: 'none',
-  maxWidth: '20rem',
-  backdropFilter: 'blur(2px)',
-};
-const winOddsTitle: React.CSSProperties = {
-  fontSize: '11px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  opacity: 0.7,
-  marginBottom: '2px',
-};
-const winOddsSpinner: React.CSSProperties = {
-  fontStyle: 'italic',
-  opacity: 0.6,
-};
-const winOddsRow: React.CSSProperties = {
-  display: 'flex',
-  gap: '0.6rem',
-  alignItems: 'baseline',
-  justifyContent: 'center',
-  fontVariantNumeric: 'tabular-nums',
-};
-const winOddsFoot: React.CSSProperties = {
-  fontSize: '10px',
-  opacity: 0.55,
-  marginTop: '3px',
-};
 
 // ---------------------------------------------------------------------------
 // Screens

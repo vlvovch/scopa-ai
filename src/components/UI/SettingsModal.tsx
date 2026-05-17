@@ -389,7 +389,7 @@ export function SettingsModal({
                   : 'Hide pile statistics for a cleaner view'}
               </p>
 
-              {game === 'briscola' && (
+              {(game === 'briscola' || game === 'scopa') && (
                 <>
                   <div className={styles.toggleRow}>
                     <span className={styles.toggleLabel}>Win odds (analysis)</span>
@@ -403,7 +403,9 @@ export function SettingsModal({
                   </div>
                   <p className={styles.settingHint}>
                     {settings.showWinOdds
-                      ? 'Estimated chance to win the round, from an Esperto self-play simulation. Single-player only.'
+                      ? `Estimated chance to win the round, from ${
+                          game === 'briscola' ? 'an Esperto' : 'an Expert'
+                        } self-play simulation. Single-player only.`
                       : 'Hide the win-odds estimate'}
                   </p>
 
@@ -439,8 +441,10 @@ export function SettingsModal({
                       </div>
                       <p className={styles.settingHint}>
                         {settings.showWinOddsPerCard
-                          ? 'Show win % under each hand card. The headline is the best card’s odds.'
-                          : 'Overall odds only (headline is still the best card)'}
+                          ? game === 'briscola'
+                            ? 'Show win % under each hand card. The headline is the best card’s odds.'
+                            : 'Show the best move’s win % under each hand card; every option’s odds also appear in the capture chooser. Headline is the best move.'
+                          : 'Overall odds only (headline is still the best play)'}
                       </p>
 
                       {/* NOTE: deliberately NOT styles.setting / styles.options.

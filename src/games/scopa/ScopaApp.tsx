@@ -39,6 +39,11 @@ import { ReasoningModal, type LastMoveData } from '../../components/UI/Reasoning
 import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './types';
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
+import { useWinOdds } from './hooks/useWinOdds';
+import { moveKey } from './ai/winOdds';
+import type { ScopaWinOddsView } from './ai/winOdds';
+import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
+import type { ReactNode } from 'react';
 
 // Storage keys for persistence
 const SPECTATOR_AIS_KEY = 'scopa-spectator-ais';
@@ -985,6 +990,79 @@ function ScopaApp() {
   const handleCancelCaptureChoice = useCallback(() => {
     setCaptureChoiceModal({ isOpen: false, playedCard: null, captureOptions: [] });
   }, []);
+
+  // ---------------------------------------------------------------------
+  // Win odds (analysis mode) — single-player Play only, never MP /
+  // spectator / instant-worker. Mirrors Briscola; tallied per MOVE
+  // (a Scopa card can have several capture options).
+  // ---------------------------------------------------------------------
+  const winOddsActive =
+    settings.showWinOdds &&
+    !isMultiplayerMode &&
+    !isSpectatorMode &&
+    !useWorkerMode;
+
+  const winOddsView = useMemo<ScopaWinOddsView | null>(() => {
+    if (!winOddsActive) return null;
+    if (state.status !== 'playing') return null;
+    if (state.round.currentPlayer !== 'human') return null;
+    if (state.players.human.hand.length === 0) return null;
+    return { game: state, player: 'human' };
+  }, [state, winOddsActive]);
+
+  const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
+    enabled: winOddsActive,
+    view: winOddsView,
+    totalSamples: settings.winOddsSamples,
+  });
+
+  // Per-move odds for the capture-choice modal (only when the setting is
+  // on). Keyed by Expert's moveKey, exactly what the modal looks up.
+  const winOddsPerMove =
+    settings.showWinOdds && winOdds?.perMove ? winOdds.perMove : undefined;
+
+  // Best-move % under each hand card (the strongest play that card can
+  // make). The overall-best card is accented. Out of flow in PlayerHand
+  // so it never reflows the hand.
+  const winOddsHandAnnotations = useMemo<
+    Record<string, ReactNode> | undefined
+  >(() => {
+    const pm = winOdds?.perMove;
+    if (!settings.showWinOddsPerCard || !pm || !winOddsView) return undefined;
+    const hand = winOddsView.game.players.human.hand;
+    const table = winOddsView.game.round.table;
+    const perCardBest: Record<string, number> = {};
+    for (const card of hand) {
+      let best = -1;
+      for (const mv of getValidMoves(card, table, 'human')) {
+        const o = pm[moveKey(mv)];
+        if (o && o.winPct > best) best = o.winPct;
+      }
+      if (best >= 0) perCardBest[card.id] = best;
+    }
+    const cardIds = Object.keys(perCardBest);
+    if (cardIds.length === 0) return undefined;
+    const overallBest = Math.max(...cardIds.map((id) => perCardBest[id]));
+    const out: Record<string, ReactNode> = {};
+    for (const id of cardIds) {
+      const w = perCardBest[id];
+      const isBest = w === overallBest;
+      out[id] = (
+        <span
+          style={{
+            color: isBest
+              ? 'var(--color-accent)'
+              : 'var(--color-text-primary)',
+            fontWeight: isBest ? 700 : 500,
+            opacity: isBest ? 1 : 0.75,
+          }}
+        >
+          {Math.round(w)}%
+        </span>
+      );
+    }
+    return out;
+  }, [winOdds, winOddsView, settings.showWinOddsPerCard]);
 
   // Auto-execute single card capture when table card is clicked (with brief delay for visual feedback)
   useEffect(() => {
@@ -2953,6 +3031,7 @@ function ScopaApp() {
         captureOptions={captureChoiceModal.captureOptions}
         onSelectCapture={handleCaptureChoice}
         onCancel={handleCancelCaptureChoice}
+        perMoveOdds={winOddsPerMove}
       />
       <CapturedCardsModal
         isOpen={showCapturedCards}
@@ -3150,6 +3229,7 @@ function ScopaApp() {
             disabled={isSpectatorMode || !isHumanTurn || isAnimationBlocking}
             showFaceUp={isSpectatorMode && spectatorHandsVisible.human}
             onHandClick={isSpectatorMode ? () => setSpectatorHandsVisible(prev => ({ ...prev, human: !prev.human })) : undefined}
+            cardAnnotations={winOddsHandAnnotations}
           />
         }
         controls={
@@ -3237,6 +3317,13 @@ function ScopaApp() {
           </div>
         }
       />
+      {winOddsActive && (
+        <WinOddsPanel
+          odds={winOdds}
+          computing={winOddsComputing}
+          caption="Expert self-play estimate"
+        />
+      )}
     </DeckProvider>
   );
 }

@@ -30,7 +30,7 @@ const DEFAULT_ROLLOUT_DEPTH = 6;
 // Random Number Generator
 // ============================================================================
 
-interface Rng {
+export interface Rng {
   nextInt(max: number): number;
 }
 
@@ -59,13 +59,13 @@ const isSetteBello = (card: Card): boolean =>
 const sortIds = (cards: Card[] | undefined): string[] =>
   (cards ?? []).map((card) => card.id).sort();
 
-const moveKey = (move: Move): string =>
+export const moveKey = (move: Move): string =>
   `${move.cardPlayed.id}:${sortIds(move.capturedCards).join('+')}`;
 
 const countCoins = (cards: Card[]): number =>
   cards.reduce((count, card) => count + (card.suit === 'coins' ? 1 : 0), 0);
 
-const getOpponent = (player: PlayerId): PlayerId =>
+export const getOpponent = (player: PlayerId): PlayerId =>
   player === 'human' ? 'cpu' : 'human';
 
 // ============================================================================
@@ -130,7 +130,7 @@ const drawRandomCards = (pool: Card[], count: number, rng: Rng): Card[] => {
 // State Determinization
 // ============================================================================
 
-const determinizeState = (state: GameState, player: PlayerId, rng: Rng): GameState => {
+export const determinizeState = (state: GameState, player: PlayerId, rng: Rng): GameState => {
   const opponent = getOpponent(player);
   const unknownCards = getUnknownCards(state, player);
   const opponentHandSize = state.players[opponent].hand.length;
@@ -306,7 +306,7 @@ const evaluateWithRollouts = (
 // Move Ordering
 // ============================================================================
 
-const orderMoves = (state: GameState, moves: Move[]): Move[] => {
+export const orderMoves = (state: GameState, moves: Move[]): Move[] => {
   const scoreMove = (move: Move): number => {
     if (move.capturedCards.length === 0) {
       return -5;
@@ -397,7 +397,7 @@ const alphaBeta = (
 /**
  * Get all legal moves for the current player
  */
-function getAllMoves(state: GameState): Move[] {
+export function getAllMoves(state: GameState): Move[] {
   const player = state.round.currentPlayer;
   const hand = state.players[player].hand;
   const table = state.round.table;

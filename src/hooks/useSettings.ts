@@ -59,15 +59,17 @@ export interface GameSettings {
   claudeKeyValid: boolean;
   /** Whether to show pile stats (coins count, sette bello, scopas) */
   showPileStats: boolean;
-  /** Briscola analysis: show live win-odds (Esperto self-play estimate).
-   *  Off by default; single-player Play mode only (never multiplayer). */
+  /** Scopa & Briscola analysis: show live win-odds (Expert/Esperto
+   *  self-play estimate). Off by default; single-player Play mode only
+   *  (never multiplayer / spectator). */
   showWinOdds: boolean;
-  /** Briscola analysis: also show per-card win odds (≈hand-size× more
-   *  simulation). Only meaningful when showWinOdds is on. Off by default. */
+  /** Scopa & Briscola analysis: also show per-card odds (Scopa: the
+   *  best move's % under each card + every option in the capture
+   *  chooser). Only meaningful when showWinOdds is on. */
   showWinOddsPerCard: boolean;
-  /** Briscola analysis: number of determinizations the win-odds engine
-   *  simulates. Higher = tighter confidence interval but slower to
-   *  settle. Default 300. */
+  /** Scopa & Briscola analysis: number of determinizations the
+   *  win-odds engine simulates. Higher = tighter confidence interval
+   *  but slower to settle. Default 300. */
   winOddsSamples: number;
 }
 
