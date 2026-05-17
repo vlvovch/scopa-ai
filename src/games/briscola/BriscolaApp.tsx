@@ -456,9 +456,12 @@ const MP_PLACEHOLDER_DECK_PREFIX = 'mp-deck-';
 const MP_PLACEHOLDER_CAP_PREFIX = 'mp-cap-';
 
 function mpPlaceholderCard(prefix: string, i: number): BriscolaCard {
-  // Suit/value choice is arbitrary — these cards are only rendered face-down
-  // (CardBack in PlayerHand / pile stack). React keys come from the unique id.
-  return { id: `${prefix}${i}`, suit: 'coins', value: 1 };
+  // Rendered face-down only (CardBack in PlayerHand / pile stack); React
+  // keys come from the unique id. value: 2 is a "scartina" worth 0 points
+  // (POINT_VALUES[2] === 0) so any accidental sumPoints() over a synthetic
+  // captured pile is 0 rather than a bogus total — the real running points
+  // are passed explicitly via BriscolaBoard's `pilePoints` override.
+  return { id: `${prefix}${i}`, suit: 'coins', value: 2 };
 }
 
 function mpToBriscolaAppState(
@@ -1423,6 +1426,9 @@ function BriscolaApp() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenStats={() => setIsStatsOpen(true)}
           onOpenRules={() => setIsRulesOpen(true)}
+          // Authoritative running points from the server (captured piles
+          // are face-down placeholders, so they can't be summed locally).
+          pilePoints={{ human: mp.self.points, cpu: mp.opponent.points }}
         />
         {/* Opponent-disconnected overlay (server reports OPPONENT_DISCONNECTED) */}
         {!multiplayer.isOpponentConnected && (
@@ -1794,10 +1800,16 @@ function BriscolaBoard({
   onOpenSettings,
   onOpenStats,
   onOpenRules,
+  pilePoints,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   /** Plain-text fallback (used by ReasoningModal title etc.). */
   cpuBotLabel: string;
+  /** Multiplayer: authoritative running point totals per seat. The bridged
+   *  captured piles are face-down placeholders (the server only sends
+   *  counts mid-round), so the pile badge can't sum cards — when set, these
+   *  values are shown instead. Omitted in single-player (piles sum normally). */
+  pilePoints?: { human: number; cpu: number };
   /** null = the cpu seat is a remote human player (multiplayer) and the
    *  AIPlayerLabel/brand-icon path must be skipped — use cpuBotLabel instead. */
   opponentName: BriscolaOpponentName | null;
@@ -2002,6 +2014,7 @@ function BriscolaBoard({
               label={seatLabelNode('cpu')}
               onClick={() => onOpenPile('cpu')}
               showStats={showPileStats}
+              pointsOverride={pilePoints?.cpu}
             />
             {cpuIsLLM && (
               <div style={{ position: 'relative' }}>
@@ -2054,6 +2067,7 @@ function BriscolaBoard({
               label={seatLabelNode('human')}
               onClick={() => onOpenPile('human')}
               showStats={showPileStats}
+              pointsOverride={pilePoints?.human}
             />
             {isWatchMode && humanIsLLM && (
               <div style={{ position: 'relative' }}>
@@ -2423,6 +2437,7 @@ function BriscolaPile({
   label,
   onClick,
   showStats,
+  pointsOverride,
 }: {
   captured: BriscolaCard[];
   /** Accepts JSX so callers can pass AIPlayerLabel (proper brand-icon SVG)
@@ -2430,9 +2445,13 @@ function BriscolaPile({
   label: React.ReactNode;
   onClick?: () => void;
   showStats: boolean;
+  /** Multiplayer: the captured array is face-down placeholders (server
+   *  only sends counts mid-round), so the point total can't be summed
+   *  from cards. When set, this authoritative value is shown instead. */
+  pointsOverride?: number;
 }) {
   const count = captured.length;
-  const points = sumPoints(captured);
+  const points = pointsOverride ?? sumPoints(captured);
   const stackLayers = Math.min(6, Math.max(1, Math.ceil(count / 4)));
   const clickable = !!onClick && count > 0;
 
