@@ -31,6 +31,17 @@ import {
   ENDGAME_PLIES,
 } from './expert';
 import { sumPoints } from '../scoring';
+import {
+  mulberry32,
+  emptyTally,
+  formatOutcome,
+  bucketOutcome,
+  type OutcomeTally,
+} from '../../shared/winOddsCore';
+
+// Re-exported so the Briscola worker's existing
+// `import { type OutcomeTally } from '../ai/winOdds'` keeps resolving.
+export type { OutcomeTally };
 
 export interface WinOdds {
   /**
@@ -76,14 +87,6 @@ export interface WinOddsOptions {
   maxPlies?: number;
 }
 
-/** Bare win/tie/loss/played counts for a single committed card. */
-export interface OutcomeTally {
-  wins: number;
-  ties: number;
-  losses: number;
-  played: number;
-}
-
 /** Per-card raw counts from a batch of determinizations. Accumulatable
  *  across chunks (the Web Worker sums these to stream a settling
  *  estimate). One determinization per sample is reused for every card
@@ -93,18 +96,6 @@ export interface WinOddsTally {
   played: number;
   /** Per-card outcome counts, keyed by card id. */
   perCard: Record<string, OutcomeTally>;
-}
-
-/** mulberry32 — tiny, fast, deterministic PRNG. */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /**
@@ -131,20 +122,6 @@ function rolloutToEnd(start: SimState, maxPlies?: number): SimState {
   }
   return s;
 }
-
-function bucket(t: OutcomeTally, myPoints: number): void {
-  if (myPoints > 60) t.wins++;
-  else if (myPoints === 60) t.ties++;
-  else t.losses++;
-  t.played++;
-}
-
-const emptyTally = (): OutcomeTally => ({
-  wins: 0,
-  ties: 0,
-  losses: 0,
-  played: 0,
-});
 
 export function tallyWinOdds(
   ctx: AIContext,
@@ -202,25 +179,17 @@ export function tallyWinOdds(
 
     for (const c of ctx.hand) {
       const after = playCard(base, c);
-      bucket(perCard[c.id], rolloutToEnd(after, options.maxPlies).myPoints);
+      // bucketOutcome(t, mine, theirs): theirs=60 reproduces the exact
+      // >60 win / ===60 tie / <60 loss buckets the old local helper used.
+      bucketOutcome(
+        perCard[c.id],
+        rolloutToEnd(after, options.maxPlies).myPoints,
+        60
+      );
     }
   }
 
   return { played: samples, perCard };
-}
-
-function formatOutcome(t: OutcomeTally): WinOdds {
-  if (t.played === 0) {
-    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
-  }
-  const winP = t.wins / t.played;
-  return {
-    winPct: (t.wins / t.played) * 100,
-    tiePct: (t.ties / t.played) * 100,
-    lossPct: (t.losses / t.played) * 100,
-    samples: t.played,
-    ciHalfWidth: 1.96 * Math.sqrt((winP * (1 - winP)) / t.played) * 100,
-  };
 }
 
 /**
