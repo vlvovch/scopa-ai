@@ -758,6 +758,7 @@ function BriscolaApp() {
     enabled: settings.showWinOdds && gameMode === 'play',
     view: winOddsView,
     totalSamples: 1000,
+    perCard: settings.showWinOddsPerCard,
   });
 
   // Per-game accumulated round history for the multiplayer match. Server only
@@ -1970,7 +1971,11 @@ function BriscolaApp() {
         onClose={() => setReasoningModal({ isOpen: false, player: null })}
       />
       {settings.showWinOdds && gameMode === 'play' && (
-        <WinOddsPanel odds={winOdds} computing={winOddsComputing} />
+        <WinOddsPanel
+          odds={winOdds}
+          computing={winOddsComputing}
+          hand={winOddsView?.hand ?? null}
+        />
       )}
     </DeckProvider>
   );
@@ -1989,15 +1994,62 @@ export default BriscolaApp;
  * ± CI once it stabilises. Honest caption: it's an Esperto self-play
  * estimate, not ground truth.
  */
+// Compact card label for the per-card list: rank letter/number + a
+// single-letter Italian suit (Ori / coPpe / Spade / Bastoni — P avoids
+// clashing with the C of Cavallo).
+const RANK_LABEL: Record<number, string> = { 1: 'A', 8: 'F', 9: 'C', 10: 'R' };
+const SUIT_LABEL: Record<string, string> = {
+  coins: 'O',
+  cups: 'P',
+  swords: 'S',
+  clubs: 'B',
+};
+function cardLabel(c: BriscolaCard): string {
+  return `${RANK_LABEL[c.value] ?? c.value}${SUIT_LABEL[c.suit] ?? '?'}`;
+}
+
 function WinOddsPanel({
   odds,
   computing,
+  hand,
 }: {
   odds: WinOdds | null;
   computing: boolean;
+  hand: BriscolaCard[] | null;
 }) {
   if (!odds && !computing) return null;
   const pct = (n: number) => `${Math.round(n)}%`;
+
+  // Per-card rows (only when the engine returned them). Highlight the
+  // best card; order follows the hand.
+  let perCardRows: React.ReactNode = null;
+  if (odds?.perCard && hand && hand.length > 0) {
+    const entries = hand
+      .map((c) => ({ card: c, o: odds.perCard![c.id] }))
+      .filter((e) => e.o);
+    if (entries.length > 0) {
+      const bestWin = Math.max(...entries.map((e) => e.o.winPct));
+      perCardRows = (
+        <div style={winOddsPerCard}>
+          {entries.map(({ card, o }) => {
+            const best = o.winPct === bestWin;
+            return (
+              <span
+                key={card.id}
+                style={{
+                  ...winOddsCardChip,
+                  ...(best ? winOddsCardChipBest : null),
+                }}
+              >
+                {cardLabel(card)} {pct(o.winPct)}
+              </span>
+            );
+          })}
+        </div>
+      );
+    }
+  }
+
   return (
     <div style={winOddsPanel} aria-live="polite">
       <div style={winOddsTitle}>
@@ -2016,6 +2068,7 @@ function WinOddsPanel({
             <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} tie</span>
             <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} loss</span>
           </div>
+          {perCardRows}
           <div style={winOddsFoot}>
             ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples} sims
             · Esperto self-play estimate
@@ -2069,6 +2122,27 @@ const winOddsFoot: React.CSSProperties = {
   fontSize: '10px',
   opacity: 0.55,
   marginTop: '3px',
+};
+const winOddsPerCard: React.CSSProperties = {
+  display: 'flex',
+  gap: '0.35rem',
+  justifyContent: 'center',
+  flexWrap: 'wrap',
+  marginTop: '4px',
+  fontVariantNumeric: 'tabular-nums',
+};
+const winOddsCardChip: React.CSSProperties = {
+  fontSize: '11px',
+  padding: '1px 6px',
+  borderRadius: '6px',
+  background: 'rgba(255,255,255,0.08)',
+  opacity: 0.8,
+};
+const winOddsCardChipBest: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.16)',
+  color: 'var(--color-accent)',
+  fontWeight: 700,
+  opacity: 1,
 };
 
 // ---------------------------------------------------------------------------

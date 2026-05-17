@@ -24,6 +24,8 @@ export interface UseWinOddsOptions {
   debounceMs?: number;
   /** Capped rollout depth (forwarded to the engine). */
   maxPlies?: number;
+  /** Also compute per-card odds (≈hand-size× more work). */
+  perCard?: boolean;
 }
 
 export interface UseWinOddsResult {
@@ -64,6 +66,7 @@ export function useWinOdds({
   chunkSize = 25,
   debounceMs = 200,
   maxPlies,
+  perCard = false,
 }: UseWinOddsOptions): UseWinOddsResult {
   const [odds, setOdds] = useState<WinOdds | null>(null);
   const [computing, setComputing] = useState(false);
@@ -124,13 +127,23 @@ export function useWinOdds({
         chunkSize,
         baseSeed: hashSeed(key),
         maxPlies,
+        perCard,
       };
       worker.postMessage(runMsg);
     }, debounceMs);
 
     return () => clearTimeout(t);
     // key encodes the position; the numeric tuning knobs are deps too.
-  }, [enabled, view, key, totalSamples, chunkSize, debounceMs, maxPlies]);
+  }, [
+    enabled,
+    view,
+    key,
+    totalSamples,
+    chunkSize,
+    debounceMs,
+    maxPlies,
+    perCard,
+  ]);
 
   return { odds, computing };
 }

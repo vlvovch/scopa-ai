@@ -62,6 +62,9 @@ export interface GameSettings {
   /** Briscola analysis: show live win-odds (Esperto self-play estimate).
    *  Off by default; single-player Play mode only (never multiplayer). */
   showWinOdds: boolean;
+  /** Briscola analysis: also show per-card win odds (≈hand-size× more
+   *  simulation). Only meaningful when showWinOdds is on. Off by default. */
+  showWinOddsPerCard: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -89,6 +92,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   claudeKeyValid: false,
   showPileStats: true,
   showWinOdds: false,
+  showWinOddsPerCard: false,
 };
 
 function loadSettings(): GameSettings {

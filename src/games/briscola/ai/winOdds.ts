@@ -44,6 +44,14 @@ export interface WinOdds {
   /** ±half-width of the 95% confidence interval on winPct (percentage
    *  points). Shrinks as samples grow; useful for a "still computing" UI. */
   ciHalfWidth: number;
+  /**
+   * Per-card win odds — present only when the per-card option is on.
+   * Keyed by card id; each value is the odds *if you play that card now*
+   * (then both seats continue as Esperto), measured in the **same**
+   * sampled worlds as every other card (common random numbers ⇒ a fair,
+   * low-variance ranking).
+   */
+  perCard?: Record<string, WinOdds>;
 }
 
 export interface WinOddsOptions {
@@ -58,11 +66,29 @@ export interface WinOddsOptions {
    * cheaply). Lower = faster / rougher.
    */
   maxPlies?: number;
+  /**
+   * Also compute per-card odds (each hand card forced as the first move,
+   * in the same sampled worlds). ~hand-size× more rollouts per sample —
+   * opt-in. Does not change the RNG stream, so the overall figure is
+   * identical with it on or off.
+   */
+  perCard?: boolean;
 }
 
 /** Raw outcome counts from a batch of determinizations. Accumulatable
  *  across chunks (the Web Worker sums these to stream a settling estimate). */
 export interface WinOddsTally {
+  wins: number;
+  ties: number;
+  losses: number;
+  played: number;
+  /** Per-card raw tallies (present only when the per-card option is on).
+   *  Keyed by card id; merged across chunks by the worker. */
+  perCard?: Record<string, OutcomeTally>;
+}
+
+/** Bare win/tie/loss/played counts (one card, or the overall figure). */
+export interface OutcomeTally {
   wins: number;
   ties: number;
   losses: number;
@@ -90,6 +116,36 @@ function mulberry32(seed: number): () => number {
  * Exposed so the Web Worker can run the work in chunks (each chunk a
  * separate seed) and accumulate the tallies into a settling estimate.
  */
+/** Play a determinized world to the end of the round, both seats acting
+ *  as capped-depth Esperto, and return the final SimState. */
+function rolloutToEnd(start: SimState, maxPlies?: number): SimState {
+  let s = start;
+  let guard = 0;
+  while (
+    !(s.myHand.length === 0 && s.oppHand.length === 0 && s.leadCard === null)
+  ) {
+    const plies =
+      maxPlies ?? (s.deckQueue.length === 0 ? ENDGAME_PLIES : SEARCH_PLIES);
+    s = playCard(s, pickMovePerfectInfo(s, plies));
+    if (++guard > 80) break; // safety; a round is ≤40 plies
+  }
+  return s;
+}
+
+function bucket(t: OutcomeTally, myPoints: number): void {
+  if (myPoints > 60) t.wins++;
+  else if (myPoints === 60) t.ties++;
+  else t.losses++;
+  t.played++;
+}
+
+const emptyTally = (): OutcomeTally => ({
+  wins: 0,
+  ties: 0,
+  losses: 0,
+  played: 0,
+});
+
 export function tallyWinOdds(
   ctx: AIContext,
   options: WinOddsOptions = {}
@@ -112,11 +168,16 @@ export function tallyWinOdds(
       : ctx.hand.length;
   const drawableOppHandSize = Math.min(oppHandSize, unseen.length);
 
-  let wins = 0;
-  let ties = 0;
-  let played = 0;
+  const overall = emptyTally();
+  const perCard: Record<string, OutcomeTally> | undefined = options.perCard
+    ? Object.fromEntries(ctx.hand.map((c) => [c.id, emptyTally()]))
+    : undefined;
 
   for (let i = 0; i < samples; i++) {
+    // ONE determinization per sample — reused for the overall figure and
+    // every candidate card (common random numbers ⇒ fair comparison).
+    // This single rng-consuming call keeps the stream independent of the
+    // perCard flag, so the overall result is identical either way.
     const det = sampleDeterminization(
       unseen,
       drawableOppHandSize,
@@ -125,7 +186,7 @@ export function tallyWinOdds(
       rng
     );
 
-    let s: SimState = {
+    const base: SimState = {
       me,
       trumpSuit: ctx.trumpSuit,
       myHand: ctx.hand,
@@ -138,45 +199,53 @@ export function tallyWinOdds(
       oppPoints: oppPoints0,
     };
 
-    // Roll out to the end of the round. Once the deck is empty the round
-    // is short enough that the deeper endgame depth still reaches terminal
-    // cheaply (mirrors Esperto's own depth choice).
-    let guard = 0;
-    while (
-      !(s.myHand.length === 0 && s.oppHand.length === 0 && s.leadCard === null)
-    ) {
-      const plies =
-        options.maxPlies ??
-        (s.deckQueue.length === 0 ? ENDGAME_PLIES : SEARCH_PLIES);
-      const card = pickMovePerfectInfo(s, plies);
-      s = playCard(s, card);
-      if (++guard > 80) break; // safety; a round is ≤40 plies
-    }
+    // Overall: both seats play Esperto from here (Esperto picks our move).
+    bucket(overall, rolloutToEnd(base, options.maxPlies).myPoints);
 
-    if (s.myPoints > 60) wins++;
-    else if (s.myPoints === 60) ties++;
-    played++;
+    // Per-card: force each hand card as our move now, then continue as
+    // Esperto for both — same sampled world.
+    if (perCard) {
+      for (const c of ctx.hand) {
+        const after = playCard(base, c);
+        bucket(perCard[c.id], rolloutToEnd(after, options.maxPlies).myPoints);
+      }
+    }
   }
 
-  return { wins, ties, losses: played - wins - ties, played };
+  return {
+    wins: overall.wins,
+    ties: overall.ties,
+    losses: overall.losses,
+    played: overall.played,
+    ...(perCard ? { perCard } : {}),
+  };
+}
+
+function formatOutcome(t: OutcomeTally): WinOdds {
+  if (t.played === 0) {
+    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
+  }
+  const winP = t.wins / t.played;
+  return {
+    winPct: (t.wins / t.played) * 100,
+    tiePct: (t.ties / t.played) * 100,
+    lossPct: (t.losses / t.played) * 100,
+    samples: t.played,
+    ciHalfWidth: 1.96 * Math.sqrt((winP * (1 - winP)) / t.played) * 100,
+  };
 }
 
 /** Turn raw tallies into the displayable WinOdds (percentages + 95% CI
- *  half-width on winPct). Shared by estimateWinOdds and the worker so the
- *  pct/CI math has a single home. */
+ *  half-width on winPct), including per-card if present. Shared by
+ *  estimateWinOdds and the worker so the pct/CI math has a single home. */
 export function formatWinOdds(tally: WinOddsTally): WinOdds {
-  const { wins, ties, losses, played } = tally;
-  if (played === 0) {
-    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
+  const base = formatOutcome(tally);
+  if (!tally.perCard) return base;
+  const perCard: Record<string, WinOdds> = {};
+  for (const [id, t] of Object.entries(tally.perCard)) {
+    perCard[id] = formatOutcome(t);
   }
-  const winP = wins / played;
-  return {
-    winPct: (wins / played) * 100,
-    tiePct: (ties / played) * 100,
-    lossPct: (losses / played) * 100,
-    samples: played,
-    ciHalfWidth: 1.96 * Math.sqrt((winP * (1 - winP)) / played) * 100,
-  };
+  return { ...base, perCard };
 }
 
 /**

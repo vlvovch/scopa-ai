@@ -406,6 +406,37 @@ export function SettingsModal({
                       ? 'Estimated chance to win the round, from an Esperto self-play simulation. Single-player only.'
                       : 'Hide the win-odds estimate'}
                   </p>
+
+                  {settings.showWinOdds && (
+                    <>
+                      <div className={styles.toggleRow}>
+                        <span className={styles.toggleLabel}>
+                          · Per-card odds
+                        </span>
+                        <button
+                          className={`${styles.toggle} ${settings.showWinOddsPerCard ? styles.on : ''}`}
+                          onClick={() =>
+                            onUpdateSetting(
+                              'showWinOddsPerCard',
+                              !settings.showWinOddsPerCard
+                            )
+                          }
+                          title={
+                            settings.showWinOddsPerCard
+                              ? 'Per-card odds shown'
+                              : 'Per-card odds hidden'
+                          }
+                        >
+                          <span className={styles.toggleKnob} />
+                        </button>
+                      </div>
+                      <p className={styles.settingHint}>
+                        {settings.showWinOddsPerCard
+                          ? 'Also show win % for each card in hand (same simulated deals — slower).'
+                          : 'Overall odds only'}
+                      </p>
+                    </>
+                  )}
                 </>
               )}
             </div>

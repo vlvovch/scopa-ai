@@ -14,6 +14,7 @@ import {
   formatWinOdds,
   type WinOdds,
   type WinOddsTally,
+  type OutcomeTally,
 } from '../ai/winOdds';
 
 export type WinOddsWorkerMessage =
@@ -25,6 +26,7 @@ export type WinOddsWorkerMessage =
       chunkSize: number;
       baseSeed: number;
       maxPlies?: number;
+      perCard?: boolean;
     }
   | { type: 'cancel'; jobId: number };
 
@@ -41,13 +43,37 @@ function post(msg: WinOddsWorkerResponse) {
   (self as unknown as Worker).postMessage(msg);
 }
 
+function mergeInto(acc: WinOddsTally, t: WinOddsTally): void {
+  acc.wins += t.wins;
+  acc.ties += t.ties;
+  acc.losses += t.losses;
+  acc.played += t.played;
+  if (t.perCard) {
+    acc.perCard ??= {};
+    for (const [id, p] of Object.entries(t.perCard)) {
+      const a: OutcomeTally =
+        acc.perCard[id] ?? (acc.perCard[id] = {
+          wins: 0,
+          ties: 0,
+          losses: 0,
+          played: 0,
+        });
+      a.wins += p.wins;
+      a.ties += p.ties;
+      a.losses += p.losses;
+      a.played += p.played;
+    }
+  }
+}
+
 async function runJob(
   jobId: number,
   ctx: AIContext,
   totalSamples: number,
   chunkSize: number,
   baseSeed: number,
-  maxPlies?: number
+  maxPlies?: number,
+  perCard?: boolean
 ): Promise<void> {
   const acc: WinOddsTally = { wins: 0, ties: 0, losses: 0, played: 0 };
   let done = 0;
@@ -60,12 +86,7 @@ async function runJob(
     const n = Math.min(chunkSize, totalSamples - done);
     // Distinct, deterministic seed per chunk.
     const seed = (baseSeed + chunkIndex * 0x9e3779b9) | 0;
-    const t = tallyWinOdds(ctx, { samples: n, seed, maxPlies });
-
-    acc.wins += t.wins;
-    acc.ties += t.ties;
-    acc.losses += t.losses;
-    acc.played += t.played;
+    mergeInto(acc, tallyWinOdds(ctx, { samples: n, seed, maxPlies, perCard }));
     done += n;
     chunkIndex++;
 
@@ -96,7 +117,8 @@ self.onmessage = (e: MessageEvent<WinOddsWorkerMessage>) => {
     msg.totalSamples,
     msg.chunkSize,
     msg.baseSeed,
-    msg.maxPlies
+    msg.maxPlies,
+    msg.perCard
   ).catch((err) => {
     post({
       type: 'error',
