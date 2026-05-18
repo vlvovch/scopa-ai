@@ -7,52 +7,89 @@
 
 import type React from 'react';
 
-/** Minimal shape the panel needs — both games' WinOdds satisfy it
- *  (Scopa adds perMove, Briscola perCard; neither is read here). */
+/** Minimal shape the panel needs. Briscola supplies win/tie/loss;
+ *  Scopa additionally supplies expectedDiff/diffCi (metric="diff"). */
 export interface WinOddsLike {
   winPct: number;
   tiePct: number;
   lossPct: number;
   samples: number;
   ciHalfWidth: number;
+  /** Expected round-score margin (Scopa, metric="diff"). */
+  expectedDiff?: number;
+  /** ±95% CI half-width on expectedDiff, points. */
+  diffCi?: number;
 }
+
+const signed = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}`;
 
 export function WinOddsPanel({
   odds,
   computing,
   caption = 'self-play estimate',
+  metric = 'win',
+  title,
 }: {
   odds: WinOddsLike | null;
   computing: boolean;
   /** Trailing footer caption, e.g. "Esperto self-play estimate". */
   caption?: string;
+  /** 'win' = win/tie/loss% (Briscola); 'diff' = expected score margin
+   *  (Scopa). Defaults to 'win'. */
+  metric?: 'win' | 'diff';
+  /** Panel title; defaults per metric. */
+  title?: string;
 }) {
   if (!odds && !computing) return null;
   const pct = (n: number) => `${Math.round(n)}%`;
+  const heading =
+    title ?? (metric === 'diff' ? 'Expected margin' : 'Win odds');
 
   return (
     <div style={winOddsPanel} aria-live="polite">
       <div style={winOddsTitle}>
-        Win odds{' '}
+        {heading}{' '}
         {computing && <span style={winOddsSpinner}>·computing·</span>}
       </div>
       {odds ? (
-        <>
-          <div style={winOddsRow}>
-            <span>
-              <strong style={{ color: 'var(--color-accent)' }}>
-                {pct(odds.winPct)}
-              </strong>{' '}
-              win
-            </span>
-            <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} tie</span>
-            <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} loss</span>
-          </div>
-          <div style={winOddsFoot}>
-            ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples} sims
-            · {caption}
-          </div>
-        </>
+        metric === 'diff' ? (
+          <>
+            <div style={winOddsRow}>
+              <strong
+                style={{
+                  color:
+                    (odds.expectedDiff ?? 0) >= 0
+                      ? 'var(--color-accent)'
+                      : '#e57373',
+                  fontSize: '16px',
+                }}
+              >
+                {signed(odds.expectedDiff ?? 0)}
+              </strong>
+              <span style={{ opacity: 0.8 }}>pts/round</span>
+            </div>
+            <div style={winOddsFoot}>
+              ±{(odds.diffCi ?? 0).toFixed(1)} · {odds.samples} sims · {caption}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={winOddsRow}>
+              <span>
+                <strong style={{ color: 'var(--color-accent)' }}>
+                  {pct(odds.winPct)}
+                </strong>{' '}
+                win
+              </span>
+              <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} tie</span>
+              <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} loss</span>
+            </div>
+            <div style={winOddsFoot}>
+              ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples}{' '}
+              sims · {caption}
+            </div>
+          </>
+        )
       ) : (
         <div style={winOddsFoot}>simulating…</div>
       )}

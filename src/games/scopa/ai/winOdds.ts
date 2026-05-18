@@ -52,16 +52,56 @@ import {
 export { moveKey };
 export type { OutcomeOdds, OutcomeTally };
 
-export interface WinOdds extends OutcomeOdds {
+/** Odds for one move: the shared win/tie/loss view PLUS the expected
+ *  round-score margin (my round total − opponent's, averaged over the
+ *  sampled worlds) and its 95% CI. Scopa surfaces the margin rather
+ *  than win% — in a cumulative race-to-target game the point spread is
+ *  more actionable than a binary win flag. */
+export interface MoveOdds extends OutcomeOdds {
+  /** E[my round total − opponent round total] over the sampled worlds. */
+  expectedDiff: number;
+  /** ±half-width of the 95% CI on expectedDiff (points). */
+  diffCi: number;
+}
+
+export interface WinOdds extends MoveOdds {
   /**
-   * Per-move odds keyed by Expert's `moveKey` — the round odds *if you
-   * make that move now* then both seats continue greedily, measured in
-   * the **same** sampled worlds as every other move (common random
+   * Per-move odds keyed by Expert's `moveKey` — the round outlook *if
+   * you make that move now* then both seats continue greedily, measured
+   * in the **same** sampled worlds as every other move (common random
    * numbers ⇒ a fair, low-variance ranking). Always present; the UI
    * decides whether to surface it (under-card best move + capture
-   * modal). The headline above equals the best move's odds.
+   * modal). The headline above equals the best move's outlook.
    */
-  perMove?: Record<string, OutcomeOdds>;
+  perMove?: Record<string, MoveOdds>;
+}
+
+/** Per-move raw stats: shared win/tie/loss counts PLUS running sums for
+ *  the score-margin mean & its variance. Accumulatable across chunks. */
+export interface MoveTally extends OutcomeTally {
+  /** Σ (my round total − opponent round total). */
+  sumDiff: number;
+  /** Σ (my round total − opponent round total)². */
+  sumSqDiff: number;
+}
+
+const emptyMoveTally = (): MoveTally => ({
+  ...emptyTally(),
+  sumDiff: 0,
+  sumSqDiff: 0,
+});
+
+/** Mean margin + 95% CI from the running sums. */
+function formatMove(t: MoveTally): MoveOdds {
+  const base = formatOutcome(t);
+  if (t.played === 0) return { ...base, expectedDiff: 0, diffCi: 0 };
+  const mean = t.sumDiff / t.played;
+  const variance = Math.max(0, t.sumSqDiff / t.played - mean * mean);
+  return {
+    ...base,
+    expectedDiff: mean,
+    diffCi: 1.96 * Math.sqrt(variance / t.played),
+  };
 }
 
 export interface WinOddsOptions {
@@ -75,8 +115,8 @@ export interface WinOddsOptions {
 export interface WinOddsTally {
   /** Determinizations simulated (each root move played once each). */
   played: number;
-  /** Per-move outcome counts, keyed by Expert's moveKey. */
-  perMove: Record<string, OutcomeTally>;
+  /** Per-move raw stats, keyed by Expert's moveKey. */
+  perMove: Record<string, MoveTally>;
 }
 
 /** The human's information-set view: the live single-player game state
@@ -149,8 +189,8 @@ export function tallyWinOdds(
   const { game, player } = view;
 
   const roots = rootMoves(game, player);
-  const perMove: Record<string, OutcomeTally> = {};
-  for (const m of roots) perMove[moveKey(m)] = emptyTally();
+  const perMove: Record<string, MoveTally> = {};
+  for (const m of roots) perMove[moveKey(m)] = emptyMoveTally();
 
   for (let i = 0; i < samples; i++) {
     // One determinization per sample; every root move is evaluated in
@@ -164,37 +204,51 @@ export function tallyWinOdds(
         payload: { move: m },
       });
       const { mine, theirs } = rolloutOutcome(after, player);
-      bucketOutcome(perMove[moveKey(m)], mine, theirs);
+      const t = perMove[moveKey(m)];
+      bucketOutcome(t, mine, theirs);
+      const d = mine - theirs;
+      t.sumDiff += d;
+      t.sumSqDiff += d * d;
     }
   }
 
   return { played: samples, perMove };
 }
 
+const ZERO: WinOdds = {
+  winPct: 0,
+  tiePct: 0,
+  lossPct: 0,
+  samples: 0,
+  ciHalfWidth: 0,
+  expectedDiff: 0,
+  diffCi: 0,
+};
+
 /**
- * Turn raw per-move tallies into displayable WinOdds. The headline
- * (winPct/tiePct/lossPct/CI) is the **best move's** outcome — the move
- * with the highest win rate, ties broken by enumeration order for
- * determinism. `perMove` carries every move's odds. Shared by
- * estimateWinOdds and the worker so the math has a single home.
+ * Turn raw per-move tallies into displayable WinOdds. The headline is
+ * the **best move's** outlook — the move with the highest expected
+ * score margin (ties broken by enumeration order for determinism), the
+ * same criterion the engine itself would pick by, so the headline never
+ * disagrees with the per-move numbers. `perMove` carries every move's
+ * outlook (margin + win/tie/loss). Shared by estimateWinOdds and the
+ * worker so the math has a single home.
  */
 export function formatWinOdds(tally: WinOddsTally): WinOdds {
   const entries = Object.entries(tally.perMove);
-  if (entries.length === 0) {
-    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
-  }
-  const perMove: Record<string, OutcomeOdds> = {};
-  let best: OutcomeTally | null = null;
-  let bestRate = -1;
+  if (entries.length === 0) return ZERO;
+  const perMove: Record<string, MoveOdds> = {};
+  let best: MoveTally | null = null;
+  let bestDiff = -Infinity;
   for (const [key, t] of entries) {
-    perMove[key] = formatOutcome(t);
-    const rate = t.played > 0 ? t.wins / t.played : 0;
-    if (rate > bestRate) {
-      bestRate = rate;
+    perMove[key] = formatMove(t);
+    const mean = t.played > 0 ? t.sumDiff / t.played : 0;
+    if (mean > bestDiff) {
+      bestDiff = mean;
       best = t;
     }
   }
-  return { ...formatOutcome(best!), perMove };
+  return { ...formatMove(best!), perMove };
 }
 
 /**
@@ -213,7 +267,7 @@ export function estimateWinOdds(
     game.round.currentPlayer !== player ||
     game.players[player].hand.length === 0
   ) {
-    return { winPct: 0, tiePct: 0, lossPct: 0, samples: 0, ciHalfWidth: 0 };
+    return ZERO;
   }
   return formatWinOdds(tallyWinOdds(view, options));
 }

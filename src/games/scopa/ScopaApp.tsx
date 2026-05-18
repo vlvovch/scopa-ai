@@ -1024,9 +1024,9 @@ function ScopaApp() {
   const winOddsPerMove =
     settings.showWinOdds && winOdds?.perMove ? winOdds.perMove : undefined;
 
-  // Best-move % under each hand card (the strongest play that card can
-  // make). The overall-best card is accented. Out of flow in PlayerHand
-  // so it never reflows the hand.
+  // Best-move expected score margin under each hand card (the strongest
+  // play that card can make). The overall-best card is accented. Out of
+  // flow in PlayerHand so it never reflows the hand.
   const winOddsHandAnnotations = useMemo<
     Record<string, ReactNode> | undefined
   >(() => {
@@ -1040,31 +1040,34 @@ function ScopaApp() {
     const table = winOddsView.game.round.table;
     const perCardBest: Record<string, number> = {};
     for (const card of hand) {
-      let best = -1;
+      let best = -Infinity;
       for (const mv of getValidMoves(card, table, 'human')) {
         const o = pm[moveKey(mv)];
-        if (o && o.winPct > best) best = o.winPct;
+        if (o && o.expectedDiff > best) best = o.expectedDiff;
       }
-      if (best >= 0) perCardBest[card.id] = best;
+      if (best > -Infinity) perCardBest[card.id] = best;
     }
     const cardIds = Object.keys(perCardBest);
     if (cardIds.length === 0) return undefined;
     const overallBest = Math.max(...cardIds.map((id) => perCardBest[id]));
     const out: Record<string, ReactNode> = {};
     for (const id of cardIds) {
-      const w = perCardBest[id];
-      const isBest = w === overallBest;
+      const d = perCardBest[id];
+      const isBest = d === overallBest;
       out[id] = (
         <span
           style={{
             color: isBest
               ? 'var(--color-accent)'
-              : 'var(--color-text-primary)',
+              : d >= 0
+                ? 'var(--color-text-primary)'
+                : '#e57373',
             fontWeight: isBest ? 700 : 500,
             opacity: isBest ? 1 : 0.75,
           }}
         >
-          {Math.round(w)}%
+          {d >= 0 ? '+' : ''}
+          {d.toFixed(1)}
         </span>
       );
     }
@@ -3334,6 +3337,7 @@ function ScopaApp() {
         <WinOddsPanel
           odds={winOdds}
           computing={winOddsComputing}
+          metric="diff"
           caption="Expert self-play estimate"
         />
       )}

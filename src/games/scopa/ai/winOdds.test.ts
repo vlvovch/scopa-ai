@@ -109,13 +109,16 @@ describe('estimateWinOdds (Scopa)', () => {
     for (const o of Object.values(odds.perMove!)) {
       expect(valid(o)).toBeCloseTo(100, 6);
       expect(o.samples).toBe(12);
+      expect(Number.isFinite(o.expectedDiff)).toBe(true);
+      expect(o.diffCi).toBeGreaterThanOrEqual(0);
     }
 
-    // Headline IS the best move's outcome (max win%).
-    const bestWin = Math.max(
-      ...Object.values(odds.perMove!).map((o) => o.winPct)
+    // Headline IS the best move's outcome — selected by max expected
+    // score margin (the engine's own criterion).
+    const bestDiff = Math.max(
+      ...Object.values(odds.perMove!).map((o) => o.expectedDiff)
     );
-    expect(odds.winPct).toBe(bestWin);
+    expect(odds.expectedDiff).toBe(bestDiff);
 
     const again = estimateWinOdds(view, { samples: 12, seed: 5 });
     expect(again).toEqual(odds);

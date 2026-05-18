@@ -13,7 +13,7 @@ import {
   formatWinOdds,
   type WinOdds,
   type WinOddsTally,
-  type OutcomeTally,
+  type MoveTally,
   type ScopaWinOddsView,
 } from '../ai/winOdds';
 
@@ -44,13 +44,22 @@ function post(msg: WinOddsWorkerResponse) {
 function mergeInto(acc: WinOddsTally, t: WinOddsTally): void {
   acc.played += t.played;
   for (const [key, p] of Object.entries(t.perMove)) {
-    const a: OutcomeTally =
+    const a: MoveTally =
       acc.perMove[key] ??
-      (acc.perMove[key] = { wins: 0, ties: 0, losses: 0, played: 0 });
+      (acc.perMove[key] = {
+        wins: 0,
+        ties: 0,
+        losses: 0,
+        played: 0,
+        sumDiff: 0,
+        sumSqDiff: 0,
+      });
     a.wins += p.wins;
     a.ties += p.ties;
     a.losses += p.losses;
     a.played += p.played;
+    a.sumDiff += p.sumDiff;
+    a.sumSqDiff += p.sumSqDiff;
   }
 }
 

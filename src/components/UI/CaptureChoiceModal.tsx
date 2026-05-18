@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Card, Move } from '../../games/scopa/types';
 import { moveKey } from '../../games/scopa/ai/winOdds';
-import type { OutcomeOdds } from '../../games/scopa/ai/winOdds';
+import type { MoveOdds } from '../../games/scopa/ai/winOdds';
 import { CardImage } from '../Card/CardImage';
 import styles from './CaptureChoiceModal.module.css';
 
@@ -13,9 +13,9 @@ interface CaptureChoiceModalProps {
   captureOptions: Move[];
   onSelectCapture: (move: Move) => void;
   onCancel: () => void;
-  /** Optional win-odds per move (keyed by Expert moveKey), shown under
-   *  each option when the Win-odds analysis setting is on. */
-  perMoveOdds?: Record<string, OutcomeOdds>;
+  /** Optional per-move odds (keyed by Expert moveKey). Shows each
+   *  option's expected score margin when the analysis setting is on. */
+  perMoveOdds?: Record<string, MoveOdds>;
 }
 
 export function CaptureChoiceModal({
@@ -28,13 +28,13 @@ export function CaptureChoiceModal({
 }: CaptureChoiceModalProps) {
   if (!isOpen || !playedCard) return null;
 
-  // Best option (highest win%) among the ones we have odds for — used to
-  // accent the strongest capture.
-  let bestWin = -1;
+  // Best option (highest expected score margin) among the ones we have
+  // odds for — used to accent the strongest capture.
+  let bestDiff = -Infinity;
   if (perMoveOdds) {
     for (const move of captureOptions) {
       const o = perMoveOdds[moveKey(move)];
-      if (o && o.winPct > bestWin) bestWin = o.winPct;
+      if (o && o.expectedDiff > bestDiff) bestDiff = o.expectedDiff;
     }
   }
 
@@ -61,7 +61,9 @@ export function CaptureChoiceModal({
               {captureOptions.map((move, index) => {
                 const odds = perMoveOdds?.[moveKey(move)];
                 const isBest =
-                  odds != null && bestWin >= 0 && odds.winPct === bestWin;
+                  odds != null &&
+                  bestDiff > -Infinity &&
+                  odds.expectedDiff === bestDiff;
                 return (
                   <motion.button
                     key={index}
@@ -87,12 +89,15 @@ export function CaptureChoiceModal({
                           fontVariantNumeric: 'tabular-nums',
                           color: isBest
                             ? 'var(--color-accent)'
-                            : 'var(--color-text-primary)',
+                            : odds.expectedDiff >= 0
+                              ? 'var(--color-text-primary)'
+                              : '#e57373',
                           fontWeight: isBest ? 700 : 500,
                           opacity: isBest ? 1 : 0.8,
                         }}
                       >
-                        {Math.round(odds.winPct)}%
+                        {odds.expectedDiff >= 0 ? '+' : ''}
+                        {odds.expectedDiff.toFixed(1)}
                       </div>
                     )}
                   </motion.button>
