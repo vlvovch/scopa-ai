@@ -37,6 +37,7 @@ import {
   getOpponent,
   moveKey,
   alphaBeta,
+  endgameValue,
   type Rng,
   type ExpertOptions,
 } from './expert';
@@ -227,59 +228,13 @@ function rolloutOutcome(
 }
 
 // ---------------------------------------------------------------------
-// Perfect-information endgame solver (always on, regardless of `deep`).
-//
-// When the deck is empty AND the unseen pool exactly equals the
-// opponent's hand size, every card is known to the analysing seat — the
-// world is forced, no sampling needed. We then compute the EXACT
-// game-theoretic round margin under optimal play from both sides via
-// alpha-beta to terminal, dispatching END_ROUND at the leaf so the
-// table-residue rule is honoured (Expert's own `evaluateState` skips
-// the residue, so we don't reuse it here).
+// Perfect-information endgame: when the deck is empty AND the unseen
+// pool exactly equals the opponent's hand size, the world is forced —
+// no sampling needed. We then compute the EXACT game-theoretic round
+// margin under optimal play via Expert's exported `endgameValue`
+// (shared with selectExpertMove so Esperto's actual play and the
+// win-odds estimate agree exactly in the endgame).
 // ---------------------------------------------------------------------
-
-function finalMargin(state: GameState, analyser: PlayerId): number {
-  const after = gameReducer(state, { type: 'END_ROUND' });
-  const rs = after.lastRoundScores;
-  if (!rs) return 0;
-  return rs[analyser].total - rs[getOpponent(analyser)].total;
-}
-
-/** Exact minimax (with alpha-beta) value of `state` for `analyser`
- *  through round end. Endgame trees are tiny (≤ ~6 plies, ≤ ~5
- *  branching) so a full search is well under a millisecond. */
-function endgameValue(
-  state: GameState,
-  analyser: PlayerId,
-  alpha: number,
-  beta: number
-): number {
-  if (state.status !== 'playing') return finalMargin(state, analyser);
-  const moves = getAllMoves(state);
-  if (moves.length === 0) return finalMargin(state, analyser);
-  const mover = state.round.currentPlayer;
-  const ordered = orderMoves(state, moves);
-  if (mover === analyser) {
-    let best = -Infinity;
-    for (const m of ordered) {
-      const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
-      const v = endgameValue(ns, analyser, alpha, beta);
-      if (v > best) best = v;
-      if (best > alpha) alpha = best;
-      if (alpha >= beta) break;
-    }
-    return best;
-  }
-  let best = Infinity;
-  for (const m of ordered) {
-    const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
-    const v = endgameValue(ns, analyser, alpha, beta);
-    if (v < best) best = v;
-    if (best < beta) beta = best;
-    if (beta <= alpha) break;
-  }
-  return best;
-}
 
 function isPerfectInfoEndgame(game: GameState, player: PlayerId): boolean {
   if (game.round.deck.length !== 0) return false;

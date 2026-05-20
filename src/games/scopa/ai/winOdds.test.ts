@@ -5,6 +5,12 @@ import {
   OVERALL_KEY,
   type ScopaWinOddsView,
 } from './winOdds';
+import {
+  selectExpertMove,
+  endgameValue,
+  getAllMoves,
+} from './expert';
+import { gameReducer } from '../reducer';
 import { createDeck } from '../deck';
 import { getValidMoves } from '../rules';
 import type { Card, GameState, PlayerId } from '../types';
@@ -273,6 +279,56 @@ describe('estimateWinOdds (Scopa)', () => {
       expect(o.diffCi).toBe(0);
       expect(Number.isInteger(o.expectedDiff)).toBe(true);
     }
+  });
+
+  it('selectExpertMove picks a game-theoretically optimal move in the perfect-info endgame', () => {
+    // Regression: Esperto's endgame branch used to leaf on the
+    // heuristic evaluateState (alphaBeta) — which ignores the
+    // table-residue → lastCapture rule AND the last-hand-scopa rule,
+    // so it occasionally gave up scopas / cards. Now it uses the
+    // exact endgameValue solver. This test passes Esperto a perfect-
+    // info endgame state and asserts the move it chooses matches the
+    // game-theoretic optimum (max over the endgame solver's values).
+    const game = makeState({
+      humanHand: ['coins-1', 'cups-2'],
+      table: ['swords-3', 'clubs-4'],
+      cpuHand: ['coins-5', 'cups-6'],
+      deck: [],
+      humanCaptured: ALL.filter(
+        (c) =>
+          (c.suit === 'coins' || c.suit === 'cups') &&
+          !['coins-1', 'cups-2', 'coins-5', 'cups-6'].includes(c.id)
+      ).map((c) => c.id),
+      cpuCaptured: ALL.filter(
+        (c) =>
+          (c.suit === 'swords' || c.suit === 'clubs') &&
+          !['swords-3', 'clubs-4'].includes(c.id)
+      ).map((c) => c.id),
+      currentPlayer: 'cpu',
+    });
+
+    const player = game.round.currentPlayer;
+    const moves = getAllMoves(game);
+    expect(moves.length).toBeGreaterThan(0);
+    const bestScore = Math.max(
+      ...moves.map((m) =>
+        endgameValue(
+          gameReducer(game, { type: 'PLAY_CARD', payload: { move: m } }),
+          player,
+          -Infinity,
+          Infinity
+        )
+      )
+    );
+
+    const chosen = selectExpertMove(game, moves);
+    const chosenScore = endgameValue(
+      gameReducer(game, { type: 'PLAY_CARD', payload: { move: chosen } }),
+      player,
+      -Infinity,
+      Infinity
+    );
+    expect(chosenScore).toBe(bestScore);
   });
 
   it('deep policy is a valid distribution and deterministic', () => {

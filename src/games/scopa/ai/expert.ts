@@ -5,6 +5,7 @@ import type { Card, GameState, Move, PlayerId } from '../types';
 import type { AIPlayer, AIContext } from './types';
 import { getValidMoves } from '../rules';
 import { executeMove } from '../rules';
+import { gameReducer } from '../reducer';
 import { PRIME_VALUES, SUITS } from '../constants';
 import { createDeck } from '../deck';
 
@@ -411,6 +412,67 @@ export function getAllMoves(state: GameState): Move[] {
 }
 
 // ============================================================================
+// Exact Endgame Solver
+//
+// True game-theoretic round-margin minimax (with alpha-beta) for the
+// perfect-information endgame — i.e. deck empty + opponent hand fully
+// inferred. Used by:
+//
+//   • selectExpertMove's endgame branch (replaces an alphaBeta call
+//     that leafed on the heuristic evaluateState, which both ignored
+//     the table-residue → lastCapture rule AND missed the last-hand-
+//     scopa rule, occasionally costing Esperto a point or a scopa).
+//   • The Scopa win-odds engine (winOdds.ts), so its endgame estimate
+//     and Esperto's actual play agree exactly.
+//
+// We use gameReducer (not raw executeMove) so handlePlayCard's last-
+// hand-scopa-undo + status transitions fire, and END_ROUND on the
+// leaf so the residue gets awarded to lastCapture. Endgame trees are
+// tiny (≤ ~6 plies, ≤ ~5 branching) so a full search is well under a
+// millisecond.
+// ============================================================================
+
+export function finalMargin(state: GameState, analyser: PlayerId): number {
+  const after = gameReducer(state, { type: 'END_ROUND' });
+  const rs = after.lastRoundScores;
+  if (!rs) return 0;
+  return rs[analyser].total - rs[getOpponent(analyser)].total;
+}
+
+export function endgameValue(
+  state: GameState,
+  analyser: PlayerId,
+  alpha: number,
+  beta: number
+): number {
+  if (state.status !== 'playing') return finalMargin(state, analyser);
+  const moves = getAllMoves(state);
+  if (moves.length === 0) return finalMargin(state, analyser);
+  const mover = state.round.currentPlayer;
+  const ordered = orderMoves(state, moves);
+  if (mover === analyser) {
+    let best = -Infinity;
+    for (const m of ordered) {
+      const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
+      const v = endgameValue(ns, analyser, alpha, beta);
+      if (v > best) best = v;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+  let best = Infinity;
+  for (const m of ordered) {
+    const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
+    const v = endgameValue(ns, analyser, alpha, beta);
+    if (v < best) best = v;
+    if (best < beta) beta = best;
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+
+// ============================================================================
 // Main Expert Move Selection
 // ============================================================================
 
@@ -447,7 +509,11 @@ export const selectExpertMove = (
   const deadline = now() + (options.timeBudgetMs ?? DEFAULT_TIME_BUDGET_MS);
   const orderedMoves = orderMoves(state, legalMoves);
 
-  // Endgame with perfect information
+  // Endgame with perfect information — exact game-theoretic minimax.
+  // We use endgameValue (above), which dispatches through gameReducer
+  // so the table-residue and last-hand-scopa rules fire correctly,
+  // rather than the heuristic alphaBeta leaf that occasionally cost
+  // Esperto a scopa / cards point in tight endgames.
   if (endgamePerfectInfo) {
     const determinized: GameState = {
       ...state,
@@ -467,17 +533,11 @@ export const selectExpertMove = (
     let bestMove = orderedMoves[0];
     let bestScore = -Infinity;
     for (const move of orderedMoves) {
-      const nextState = executeMove(determinized, move);
-      const score = alphaBeta(
-        nextState,
-        depth - 1,
-        -Infinity,
-        Infinity,
-        player,
-        rng,
-        deadline,
-        options
-      );
+      const nextState = gameReducer(determinized, {
+        type: 'PLAY_CARD',
+        payload: { move },
+      });
+      const score = endgameValue(nextState, player, -Infinity, Infinity);
       if (score > bestScore) {
         bestScore = score;
         bestMove = move;
