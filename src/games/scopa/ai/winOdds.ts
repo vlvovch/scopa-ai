@@ -36,8 +36,11 @@ import {
   getAllMoves,
   getOpponent,
   moveKey,
+  alphaBeta,
   type Rng,
+  type ExpertOptions,
 } from './expert';
+import { createDeck } from '../deck';
 import {
   type OutcomeOdds,
   type OutcomeTally,
@@ -105,10 +108,15 @@ function formatMove(t: MoveTally): MoveOdds {
 }
 
 export interface WinOddsOptions {
-  /** Number of determinizations to simulate. Default 200. */
+  /** Number of determinizations to simulate. Default 200. Ignored in
+   *  the perfect-information endgame (single deterministic solve). */
   samples?: number;
   /** RNG seed (any integer). Same seed + same view ⇒ identical result. */
   seed?: number;
+  /** Use a 1-ply alpha-beta rollout policy instead of the fast greedy
+   *  one (mid-round only). Stronger but ~3-5× slower; settle time
+   *  similar to Briscola's. Endgame is always exact regardless. */
+  deep?: boolean;
 }
 
 /** Per-move raw counts from a batch. Accumulatable across worker chunks. */
@@ -144,25 +152,56 @@ function rootMoves(game: GameState, player: PlayerId): Move[] {
   return out;
 }
 
+type Policy = (state: GameState) => Move | null;
+
 /** Fast deterministic playout policy: Expert's own move-ordering top
  *  pick (captures > scopa > sette bello > coins > primiera > trail). */
-function greedy(state: GameState): Move | null {
+const greedy: Policy = (state) => {
   const moves = getAllMoves(state);
   if (moves.length === 0) return null;
   return orderMoves(state, moves)[0];
+};
+
+/** Stronger playout policy: for the current mover, evaluate each legal
+ *  move with a 1-ply alpha-beta lookahead (rollouts disabled, leaf =
+ *  Expert's evaluateState). Roughly ~3-5× slower than greedy per ply
+ *  but materially stronger; used when the `deep` option is on. Each
+ *  side plays for its OWN payoff (alphaBeta's `player` is the mover). */
+function deepPick(state: GameState): Move | null {
+  const moves = getAllMoves(state);
+  if (moves.length === 0) return null;
+  const ordered = orderMoves(state, moves);
+  const mover = state.round.currentPlayer;
+  const noRng: Rng = { nextInt: () => 0 };
+  const opts: ExpertOptions = { rollouts: 0 };
+  let best = ordered[0];
+  let bestScore = -Infinity;
+  for (const m of ordered) {
+    const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
+    // depth 0 ⇒ alphaBeta returns evaluateWithRollouts which (with
+    // rollouts:0) is just evaluateState — i.e. a leaf eval after this
+    // ONE move, giving us 1-ply lookahead.
+    const sc = alphaBeta(ns, 0, -Infinity, Infinity, mover, noRng, Infinity, opts);
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = m;
+    }
+  }
+  return best;
 }
 
-/** Play a determinized world to round end with both seats greedy, award
- *  the table residue (END_ROUND), and return the analysed seat's round
- *  total vs the opponent's. */
+/** Play a determinized world to round end with both seats using
+ *  `policy`, award the table residue (END_ROUND), and return the
+ *  analysed seat's round total vs the opponent's. */
 function rolloutOutcome(
   start: GameState,
-  player: PlayerId
+  player: PlayerId,
+  policy: Policy
 ): { mine: number; theirs: number } {
   let s = start;
   let guard = 0;
   while (s.status === 'playing' && guard++ < 120) {
-    const mv = greedy(s);
+    const mv = policy(s);
     if (!mv) break;
     s = gameReducer(s, { type: 'PLAY_CARD', payload: { move: mv } });
   }
@@ -172,6 +211,74 @@ function rolloutOutcome(
   if (!rs) return { mine: 0, theirs: 0 };
   const opp = getOpponent(player);
   return { mine: rs[player].total, theirs: rs[opp].total };
+}
+
+// ---------------------------------------------------------------------
+// Perfect-information endgame solver (always on, regardless of `deep`).
+//
+// When the deck is empty AND the unseen pool exactly equals the
+// opponent's hand size, every card is known to the analysing seat — the
+// world is forced, no sampling needed. We then compute the EXACT
+// game-theoretic round margin under optimal play from both sides via
+// alpha-beta to terminal, dispatching END_ROUND at the leaf so the
+// table-residue rule is honoured (Expert's own `evaluateState` skips
+// the residue, so we don't reuse it here).
+// ---------------------------------------------------------------------
+
+function finalMargin(state: GameState, analyser: PlayerId): number {
+  const after = gameReducer(state, { type: 'END_ROUND' });
+  const rs = after.lastRoundScores;
+  if (!rs) return 0;
+  return rs[analyser].total - rs[getOpponent(analyser)].total;
+}
+
+/** Exact minimax (with alpha-beta) value of `state` for `analyser`
+ *  through round end. Endgame trees are tiny (≤ ~6 plies, ≤ ~5
+ *  branching) so a full search is well under a millisecond. */
+function endgameValue(
+  state: GameState,
+  analyser: PlayerId,
+  alpha: number,
+  beta: number
+): number {
+  if (state.status !== 'playing') return finalMargin(state, analyser);
+  const moves = getAllMoves(state);
+  if (moves.length === 0) return finalMargin(state, analyser);
+  const mover = state.round.currentPlayer;
+  const ordered = orderMoves(state, moves);
+  if (mover === analyser) {
+    let best = -Infinity;
+    for (const m of ordered) {
+      const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
+      const v = endgameValue(ns, analyser, alpha, beta);
+      if (v > best) best = v;
+      if (best > alpha) alpha = best;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+  let best = Infinity;
+  for (const m of ordered) {
+    const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
+    const v = endgameValue(ns, analyser, alpha, beta);
+    if (v < best) best = v;
+    if (best < beta) beta = best;
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+
+function isPerfectInfoEndgame(game: GameState, player: PlayerId): boolean {
+  if (game.round.deck.length !== 0) return false;
+  const opp = getOpponent(player);
+  const known = new Set<string>([
+    ...game.round.table.map((c) => c.id),
+    ...game.players[player].hand.map((c) => c.id),
+    ...game.players.human.captured.map((c) => c.id),
+    ...game.players.cpu.captured.map((c) => c.id),
+  ]);
+  const unseen = createDeck().filter((c) => !known.has(c.id)).length;
+  return unseen === game.players[opp].hand.length;
 }
 
 /**
@@ -184,26 +291,54 @@ export function tallyWinOdds(
   view: ScopaWinOddsView,
   options: WinOddsOptions = {}
 ): WinOddsTally {
-  const samples = Math.max(1, options.samples ?? 200);
-  const rng = rngFrom(mulberry32(options.seed ?? 0x9e3779b9));
   const { game, player } = view;
-
   const roots = rootMoves(game, player);
   const perMove: Record<string, MoveTally> = {};
   for (const m of roots) perMove[moveKey(m)] = emptyMoveTally();
 
+  // ── Perfect-information endgame: the world is forced, no sampling
+  // needed. For each root move we compute the EXACT game-theoretic
+  // round margin under optimal play. samples = 1 (deterministic),
+  // variance = 0, displayed margin is an exact integer with ±0.
+  if (isPerfectInfoEndgame(game, player)) {
+    // Determinize once (any forced assignment of the unseen cards into
+    // the opponent's hand — alpha-beta explores all permutations).
+    const det = determinizeState(
+      game,
+      player,
+      rngFrom(mulberry32(options.seed ?? 0))
+    );
+    for (const m of roots) {
+      const after = gameReducer(det, {
+        type: 'PLAY_CARD',
+        payload: { move: m },
+      });
+      const margin = endgameValue(after, player, -Infinity, Infinity);
+      const t = perMove[moveKey(m)];
+      // bucketOutcome buckets by mine>theirs; theirs=0 makes the sign of
+      // `margin` the win/tie/loss criterion (consistent with mid-round).
+      bucketOutcome(t, margin, 0);
+      t.sumDiff += margin;
+      t.sumSqDiff += margin * margin;
+    }
+    return { played: 1, perMove };
+  }
+
+  // ── Mid-round (sampling). Greedy by default; `deep` uses a 1-ply
+  // alpha-beta playout policy (~3-5× slower per ply, materially
+  // stronger). Common random numbers across root moves per sample.
+  const samples = Math.max(1, options.samples ?? 200);
+  const rng = rngFrom(mulberry32(options.seed ?? 0x9e3779b9));
+  const policy: Policy = options.deep ? deepPick : greedy;
+
   for (let i = 0; i < samples; i++) {
-    // One determinization per sample; every root move is evaluated in
-    // the SAME sampled world (common random numbers). The reducer/
-    // executeMove never mutate their input, so reusing `det` as the
-    // base for each root move is safe.
     const det = determinizeState(game, player, rng);
     for (const m of roots) {
       const after = gameReducer(det, {
         type: 'PLAY_CARD',
         payload: { move: m },
       });
-      const { mine, theirs } = rolloutOutcome(after, player);
+      const { mine, theirs } = rolloutOutcome(after, player, policy);
       const t = perMove[moveKey(m)];
       bucketOutcome(t, mine, theirs);
       const d = mine - theirs;

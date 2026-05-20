@@ -198,4 +198,71 @@ describe('estimateWinOdds (Scopa)', () => {
     });
     expect(emptyHand.samples).toBe(0);
   });
+
+  it('perfect-info endgame: exact integer margin, samples=1, ±0', () => {
+    // Deck empty, human has 2 cards, cpu has 2 cards, the table has
+    // some cards — unseen pool equals opp.handSize exactly, so the
+    // engine short-circuits to a single deterministic alpha-beta solve.
+    const game = makeState({
+      humanHand: ['coins-1', 'cups-2'],
+      table: ['swords-3', 'clubs-4'],
+      cpuHand: ['coins-5', 'cups-6'],
+      deck: [],
+      humanCaptured: ALL.filter((c) =>
+        ['coins', 'cups'].includes(c.suit) &&
+        ![
+          'coins-1', 'cups-2', 'coins-5', 'cups-6',
+        ].includes(c.id)
+      ).map((c) => c.id),
+      cpuCaptured: ALL.filter((c) =>
+        ['swords', 'clubs'].includes(c.suit) &&
+        ![
+          'swords-3', 'clubs-4',
+        ].includes(c.id)
+      ).map((c) => c.id),
+    });
+    // Sanity: unseen pool truly equals cpu hand size (=2), deck=0.
+    // human captured 16 - 2 + 16 - 2? Let me just trust makeState built
+    // it; the engine's isPerfectInfoEndgame check verifies it.
+    const odds = estimateWinOdds({ game, player: 'human' });
+    expect(odds.samples).toBe(1);
+    expect(odds.diffCi).toBe(0);
+    expect(odds.ciHalfWidth).toBe(0);
+    // Exact integer margin (the alpha-beta solver returns integer
+    // round-score differentials).
+    expect(Number.isInteger(odds.expectedDiff)).toBe(true);
+    // perMove entries are also exact integers with samples=1.
+    for (const o of Object.values(odds.perMove!)) {
+      expect(o.samples).toBe(1);
+      expect(o.diffCi).toBe(0);
+      expect(Number.isInteger(o.expectedDiff)).toBe(true);
+    }
+  });
+
+  it('deep policy is a valid distribution and deterministic', () => {
+    const game = makeState({
+      humanHand: ['coins-1', 'cups-8', 'swords-5'],
+      table: ['coins-4', 'cups-6', 'swords-2'],
+      cpuHand: ['clubs-1', 'clubs-2', 'clubs-3'],
+      deck: ALL.filter(
+        (c) =>
+          ![
+            'coins-1', 'cups-8', 'swords-5',
+            'coins-4', 'cups-6', 'swords-2',
+            'clubs-1', 'clubs-2', 'clubs-3',
+          ].includes(c.id)
+      ).map((c) => c.id),
+    });
+    const view: ScopaWinOddsView = { game, player: 'human' };
+
+    const a = estimateWinOdds(view, { samples: 8, seed: 9, deep: true });
+    const b = estimateWinOdds(view, { samples: 8, seed: 9, deep: true });
+    expect(b).toEqual(a);
+    expect(a.samples).toBe(8);
+    expect(valid(a)).toBeCloseTo(100, 6);
+    for (const o of Object.values(a.perMove!)) {
+      expect(valid(o)).toBeCloseTo(100, 6);
+      expect(Number.isFinite(o.expectedDiff)).toBe(true);
+    }
+  });
 });

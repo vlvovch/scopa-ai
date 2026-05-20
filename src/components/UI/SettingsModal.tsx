@@ -443,9 +443,40 @@ export function SettingsModal({
                         {settings.showWinOddsPerCard
                           ? game === 'briscola'
                             ? 'Show win % under each hand card. The headline is the best card’s odds.'
-                            : 'Show the best move’s win % under each hand card; every option’s odds also appear in the capture chooser. Headline is the best move.'
+                            : 'Show the best move’s expected point margin under each hand card; every option’s margin also appears in the capture chooser. Headline is the best move.'
                           : 'Overall odds only (headline is still the best play)'}
                       </p>
+
+                      {game === 'scopa' && (
+                        <>
+                          <div className={styles.toggleRow}>
+                            <span className={styles.toggleLabel}>
+                              Deep search
+                            </span>
+                            <button
+                              className={`${styles.toggle} ${settings.winOddsDeep ? styles.on : ''}`}
+                              onClick={() =>
+                                onUpdateSetting(
+                                  'winOddsDeep',
+                                  !settings.winOddsDeep
+                                )
+                              }
+                              title={
+                                settings.winOddsDeep
+                                  ? 'Deep (1-ply alpha-beta) rollout on'
+                                  : 'Greedy rollout (fast)'
+                              }
+                            >
+                              <span className={styles.toggleKnob} />
+                            </button>
+                          </div>
+                          <p className={styles.settingHint}>
+                            {settings.winOddsDeep
+                              ? 'Mid-round playout uses a 1-ply lookahead instead of greedy — materially stronger but ~3-5× slower to settle. Endgame is always exact regardless.'
+                              : 'Fast greedy mid-round playout (default). Endgame is always solved exactly.'}
+                          </p>
+                        </>
+                      )}
 
                       {/* NOTE: deliberately NOT styles.setting / styles.options.
                           The stylesheet has `.setting:has(.options)

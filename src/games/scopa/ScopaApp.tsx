@@ -1017,6 +1017,7 @@ function ScopaApp() {
     enabled: winOddsActive,
     view: winOddsView,
     totalSamples: settings.winOddsSamples,
+    deep: settings.winOddsDeep,
   });
 
   // Per-move odds for the capture-choice modal (only when the setting is

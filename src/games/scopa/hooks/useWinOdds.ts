@@ -21,6 +21,8 @@ export interface UseWinOddsOptions {
   totalSamples?: number;
   chunkSize?: number;
   debounceMs?: number;
+  /** Use the deeper (1-ply alpha-beta) playout policy mid-round. */
+  deep?: boolean;
 }
 
 export interface UseWinOddsResult {
@@ -70,6 +72,7 @@ export function useWinOdds({
   totalSamples = 200,
   chunkSize = 20,
   debounceMs = 200,
+  deep = false,
 }: UseWinOddsOptions): UseWinOddsResult {
   const [odds, setOdds] = useState<WinOdds | null>(null);
   const [computing, setComputing] = useState(false);
@@ -137,13 +140,14 @@ export function useWinOdds({
         totalSamples,
         chunkSize,
         baseSeed: hashSeed(key),
+        deep,
       };
       worker.postMessage(runMsg);
     }, debounceMs);
 
     return () => clearTimeout(t);
     // key encodes the position; the numeric tuning knobs are deps too.
-  }, [enabled, view, key, totalSamples, chunkSize, debounceMs]);
+  }, [enabled, view, key, totalSamples, chunkSize, debounceMs, deep]);
 
   return { odds, computing };
 }

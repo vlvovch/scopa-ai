@@ -71,6 +71,10 @@ export interface GameSettings {
    *  win-odds engine simulates. Higher = tighter confidence interval
    *  but slower to settle. Default 300. */
   winOddsSamples: number;
+  /** Scopa-only: use the deeper (1-ply alpha-beta) playout policy
+   *  mid-round (~3-5× slower per ply, materially stronger). The
+   *  perfect-information endgame is always exact regardless. */
+  winOddsDeep: boolean;
 }
 
 const STORAGE_KEY = 'scopa-settings';
@@ -100,6 +104,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   showWinOdds: false,
   showWinOddsPerCard: true,
   winOddsSamples: 300,
+  winOddsDeep: false,
 };
 
 function loadSettings(): GameSettings {

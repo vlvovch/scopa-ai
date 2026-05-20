@@ -337,7 +337,7 @@ export const orderMoves = (state: GameState, moves: Move[]): Move[] => {
 // Alpha-Beta Search
 // ============================================================================
 
-const alphaBeta = (
+export const alphaBeta = (
   state: GameState,
   depth: number,
   alpha: number,

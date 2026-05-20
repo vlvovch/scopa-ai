@@ -25,6 +25,8 @@ export type WinOddsWorkerMessage =
       totalSamples: number;
       chunkSize: number;
       baseSeed: number;
+      /** Use the deeper (1-ply alpha-beta) playout policy mid-round. */
+      deep?: boolean;
     }
   | { type: 'cancel'; jobId: number };
 
@@ -68,7 +70,8 @@ async function runJob(
   view: ScopaWinOddsView,
   totalSamples: number,
   chunkSize: number,
-  baseSeed: number
+  baseSeed: number,
+  deep?: boolean
 ): Promise<void> {
   const acc: WinOddsTally = { played: 0, perMove: {} };
   let done = 0;
@@ -81,8 +84,12 @@ async function runJob(
     const n = Math.min(chunkSize, totalSamples - done);
     // Distinct, deterministic seed per chunk.
     const seed = (baseSeed + chunkIndex * 0x9e3779b9) | 0;
-    mergeInto(acc, tallyWinOdds(view, { samples: n, seed }));
-    done += n;
+    const tally = tallyWinOdds(view, { samples: n, seed, deep });
+    mergeInto(acc, tally);
+    // Endgame short-circuit: tallyWinOdds returned played=1 (a single
+    // exact solve, no sampling). Don't keep looping: emit done and stop.
+    const endgame = tally.played === 1 && n > 1;
+    done = endgame ? totalSamples : done + n;
     chunkIndex++;
 
     if (jobId !== currentJobId) return;
@@ -111,7 +118,8 @@ self.onmessage = (e: MessageEvent<WinOddsWorkerMessage>) => {
     msg.view,
     msg.totalSamples,
     msg.chunkSize,
-    msg.baseSeed
+    msg.baseSeed,
+    msg.deep
   ).catch((err) => {
     post({
       type: 'error',
