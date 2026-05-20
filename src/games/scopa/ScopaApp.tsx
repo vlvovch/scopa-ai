@@ -1094,20 +1094,39 @@ function ScopaApp() {
   // headline (the post-play OVERALL == the cached perMove entry by
   // construction) and freeze the worker until the opponent's
   // animation completes. Skipped in spectator/watch mode.
+  //
+  // Cross-round/game guard: the same human→cpu flip ALSO happens at
+  // a round/game start where the new dealer makes the CPU lead — but
+  // there was no human play and the previous-round perMove is stale.
+  // We gate on:
+  //   • same roundNumber as the previous render (no fresh deal), and
+  //   • the played card is no longer in the human's hand (a real play
+  //     actually happened, vs. a state-replacement transition).
   const prevCurrentPlayer = useRef<PlayerId>(activeState.round.currentPlayer);
+  const winOddsPrevRound = useRef<number>(state.roundNumber);
   useEffect(() => {
     const curr = activeState.round.currentPlayer;
+    const currRound = state.roundNumber;
     const prev = prevCurrentPlayer.current;
+    const prevRound = winOddsPrevRound.current;
     prevCurrentPlayer.current = curr;
+    winOddsPrevRound.current = currRound;
     if (
       !isSpectatorMode &&
       winOddsActive &&
       activeState.status === 'playing' &&
       prev === 'human' &&
-      curr === 'cpu'
+      curr === 'cpu' &&
+      prevRound === currRound
     ) {
       const m = lastMoves.current.human;
-      const cached = m && displayedWinOdds?.perMove?.[moveKey(m)];
+      const playedReallyHappened =
+        !!m &&
+        !activeState.players.human.hand.some((c) => c.id === m.cardPlayed.id);
+      const cached =
+        playedReallyHappened && m
+          ? displayedWinOdds?.perMove?.[moveKey(m)]
+          : undefined;
       if (cached) {
         setDisplayedWinOdds({
           winPct: cached.winPct,
@@ -1127,6 +1146,8 @@ function ScopaApp() {
   }, [
     activeState.round.currentPlayer,
     activeState.status,
+    activeState.players.human.hand,
+    state.roundNumber,
     winOddsActive,
     isSpectatorMode,
     displayedWinOdds,
