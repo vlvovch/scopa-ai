@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { estimateWinOdds, moveKey, type ScopaWinOddsView } from './winOdds';
+import {
+  estimateWinOdds,
+  moveKey,
+  OVERALL_KEY,
+  type ScopaWinOddsView,
+} from './winOdds';
 import { createDeck } from '../deck';
 import { getValidMoves } from '../rules';
 import type { Card, GameState, PlayerId } from '../types';
@@ -183,20 +188,51 @@ describe('estimateWinOdds (Scopa)', () => {
       ).map((c) => c.id),
     };
 
-    // Not the human's turn.
-    const cpuTurn = estimateWinOdds({
-      game: makeState({ ...base, currentPlayer: 'cpu' }),
-      player: 'human',
-    });
-    expect(cpuTurn.samples).toBe(0);
-    expect(cpuTurn.winPct).toBe(0);
-
-    // Empty hand.
+    // Empty hand → still zero (nothing to analyse, no rollouts to run).
     const emptyHand = estimateWinOdds({
       game: makeState({ ...base, humanHand: [] }),
       player: 'human',
     });
     expect(emptyHand.samples).toBe(0);
+  });
+
+  it('opponent-turn produces a single OVERALL estimate (no per-card)', () => {
+    // Same valid mid-round position, but it's the CPU's turn. The
+    // engine now computes an "if they play optimally from here" overall
+    // outcome so the panel can show an intermediate glance before the
+    // opponent plays (right after a deal, for instance).
+    const game = makeState({
+      humanHand: ['coins-1', 'coins-2', 'coins-3'],
+      table: ['coins-4', 'coins-5'],
+      cpuHand: ['coins-6', 'coins-7', 'coins-8'],
+      deck: ALL.filter(
+        (c) =>
+          ![
+            'coins-1', 'coins-2', 'coins-3',
+            'coins-4', 'coins-5',
+            'coins-6', 'coins-7', 'coins-8',
+          ].includes(c.id)
+      ).map((c) => c.id),
+      currentPlayer: 'cpu',
+    });
+    const odds = estimateWinOdds(
+      { game, player: 'human' },
+      { samples: 8, seed: 11 }
+    );
+    expect(odds.samples).toBe(8);
+    expect(valid(odds)).toBeCloseTo(100, 6);
+    expect(Number.isFinite(odds.expectedDiff)).toBe(true);
+    // perMove has exactly one synthetic OVERALL_KEY entry — no card-id
+    // keys leak (the UI's per-card lookup keys off real card ids).
+    expect(Object.keys(odds.perMove!).length).toBe(1);
+    expect(odds.perMove![OVERALL_KEY]).toBeDefined();
+
+    // Deterministic under fixed seed.
+    const again = estimateWinOdds(
+      { game, player: 'human' },
+      { samples: 8, seed: 11 }
+    );
+    expect(again).toEqual(odds);
   });
 
   it('perfect-info endgame: exact integer margin, samples=1, ±0', () => {

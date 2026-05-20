@@ -1017,11 +1017,13 @@ function ScopaApp() {
     // numbers while the cards are still being shuffled in.
     if (isDealing) return null;
     if (cpuMoveAnimating) return null; // wait for the played card to land
-    // Always the bottom seat ('human' / spectator player 1). On the
-    // opponent's turn we hold off computing — the panel keeps showing
-    // the last estimate (see displayedWinOdds below) and refreshes
-    // once the turn comes back to us.
-    if (activeState.round.currentPlayer !== 'human') return null;
+    // Always the bottom seat ('human' / spectator player 1). NOTE we
+    // intentionally do NOT gate on currentPlayer === 'human' here:
+    // when it's the opponent's turn (e.g. fresh deal where the CPU
+    // leads), the engine returns an OVERALL estimate so the panel can
+    // surface an intermediate "what's my outlook before they play"
+    // glance. It re-computes after their card lands (cpuMoveAnimating
+    // gate above pauses computation through the animation).
     if (activeState.players.human.hand.length === 0) return null;
     return { game: activeState, player: 'human' };
   }, [activeState, winOddsActive, cpuMoveAnimating, isDealing]);

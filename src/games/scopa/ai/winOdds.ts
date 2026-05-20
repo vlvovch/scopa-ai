@@ -55,6 +55,12 @@ import {
 export { moveKey };
 export type { OutcomeOdds, OutcomeTally };
 
+/** Synthetic perMove key used when it's NOT the analysed seat's turn:
+ *  the engine then tallies a single OVERALL outcome (no root-move
+ *  breakdown), so the headline still has data to drive the panel. The
+ *  UI's per-card lookup keys off real card ids so this never collides. */
+export const OVERALL_KEY = '__overall__';
+
 /** Odds for one move: the shared win/tie/loss view PLUS the expected
  *  round-score margin (my round total − opponent's, averaged over the
  *  sampled worlds) and its 95% CI. Scopa surfaces the margin rather
@@ -294,46 +300,60 @@ function isPerfectInfoEndgame(game: GameState, player: PlayerId): boolean {
  * Worker can run the work in chunks (each chunk a separate seed) and
  * accumulate a settling estimate.
  */
+/** Add one outcome (margin = mine − theirs) into a MoveTally. */
+function recordOutcome(t: MoveTally, mine: number, theirs: number): void {
+  bucketOutcome(t, mine, theirs);
+  const d = mine - theirs;
+  t.sumDiff += d;
+  t.sumSqDiff += d * d;
+}
+
 export function tallyWinOdds(
   view: ScopaWinOddsView,
   options: WinOddsOptions = {}
 ): WinOddsTally {
   const { game, player } = view;
-  const roots = rootMoves(game, player);
+  // On the analysed seat's turn we tally one entry PER root move; on
+  // the opponent's turn we tally a single OVERALL outcome (the policy
+  // plays the opponent's move and continues both sides), which lets
+  // the panel surface a glance at the position before the opponent
+  // plays — useful right after a deal when the opponent goes first.
+  const isPlayerTurn = game.round.currentPlayer === player;
+  const roots = isPlayerTurn ? rootMoves(game, player) : [];
   const perMove: Record<string, MoveTally> = {};
   for (const m of roots) perMove[moveKey(m)] = emptyMoveTally();
+  if (!isPlayerTurn) perMove[OVERALL_KEY] = emptyMoveTally();
 
   // ── Perfect-information endgame: the world is forced, no sampling
-  // needed. For each root move we compute the EXACT game-theoretic
-  // round margin under optimal play. samples = 1 (deterministic),
-  // variance = 0, displayed margin is an exact integer with ±0.
+  // needed. For each root move (or for the overall outcome on the
+  // opponent's turn) we compute the EXACT game-theoretic round margin
+  // under optimal play. samples = 1 (deterministic), variance = 0,
+  // displayed margin is an exact integer with ±0.
   if (isPerfectInfoEndgame(game, player)) {
-    // Determinize once (any forced assignment of the unseen cards into
-    // the opponent's hand — alpha-beta explores all permutations).
     const det = determinizeState(
       game,
       player,
       rngFrom(mulberry32(options.seed ?? 0))
     );
-    for (const m of roots) {
-      const after = gameReducer(det, {
-        type: 'PLAY_CARD',
-        payload: { move: m },
-      });
-      const margin = endgameValue(after, player, -Infinity, Infinity);
-      const t = perMove[moveKey(m)];
-      // bucketOutcome buckets by mine>theirs; theirs=0 makes the sign of
-      // `margin` the win/tie/loss criterion (consistent with mid-round).
-      bucketOutcome(t, margin, 0);
-      t.sumDiff += margin;
-      t.sumSqDiff += margin * margin;
+    if (isPlayerTurn) {
+      for (const m of roots) {
+        const after = gameReducer(det, {
+          type: 'PLAY_CARD',
+          payload: { move: m },
+        });
+        const margin = endgameValue(after, player, -Infinity, Infinity);
+        recordOutcome(perMove[moveKey(m)], margin, 0);
+      }
+    } else {
+      const margin = endgameValue(det, player, -Infinity, Infinity);
+      recordOutcome(perMove[OVERALL_KEY], margin, 0);
     }
     return { played: 1, perMove };
   }
 
-  // ── Mid-round (sampling). Greedy by default; `deep` uses a 1-ply
-  // alpha-beta playout policy (~3-5× slower per ply, materially
-  // stronger). Common random numbers across root moves per sample.
+  // ── Mid-round (sampling). Greedy by default; `deep` uses an N-ply
+  // alpha-beta playout policy (default N=3, materially stronger).
+  // Common random numbers across root moves per sample.
   const samples = Math.max(1, options.samples ?? 200);
   const rng = rngFrom(mulberry32(options.seed ?? 0x9e3779b9));
   // deep=true defaults to a 3-ply lookahead: empirically the sweet
@@ -346,17 +366,20 @@ export function tallyWinOdds(
 
   for (let i = 0; i < samples; i++) {
     const det = determinizeState(game, player, rng);
-    for (const m of roots) {
-      const after = gameReducer(det, {
-        type: 'PLAY_CARD',
-        payload: { move: m },
-      });
-      const { mine, theirs } = rolloutOutcome(after, player, policy);
-      const t = perMove[moveKey(m)];
-      bucketOutcome(t, mine, theirs);
-      const d = mine - theirs;
-      t.sumDiff += d;
-      t.sumSqDiff += d * d;
+    if (isPlayerTurn) {
+      for (const m of roots) {
+        const after = gameReducer(det, {
+          type: 'PLAY_CARD',
+          payload: { move: m },
+        });
+        const { mine, theirs } = rolloutOutcome(after, player, policy);
+        recordOutcome(perMove[moveKey(m)], mine, theirs);
+      }
+    } else {
+      // Opponent's turn: let the policy play opp's move + continue
+      // both seats from the determinized state to round end.
+      const { mine, theirs } = rolloutOutcome(det, player, policy);
+      recordOutcome(perMove[OVERALL_KEY], mine, theirs);
     }
   }
 
@@ -412,10 +435,12 @@ export function estimateWinOdds(
   const { game, player } = view;
   if (
     game.status !== 'playing' ||
-    game.round.currentPlayer !== player ||
     game.players[player].hand.length === 0
   ) {
     return ZERO;
   }
+  // Note: opponent-turn is allowed — the engine returns an OVERALL
+  // outcome (no per-card breakdown) so the panel can show an
+  // intermediate estimate before the opponent plays.
   return formatWinOdds(tallyWinOdds(view, options));
 }
