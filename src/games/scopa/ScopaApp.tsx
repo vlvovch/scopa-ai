@@ -1020,10 +1020,14 @@ function ScopaApp() {
     deep: settings.winOddsDeep,
   });
 
-  // Per-move odds for the capture-choice modal (only when the setting is
-  // on). Keyed by Expert's moveKey, exactly what the modal looks up.
+  // Per-move odds for the capture-choice modal — gated by both the
+  // master Win-odds toggle AND the Per-card sub-toggle (per-card and
+  // per-move are two facets of the same "show per-option detail"
+  // preference, so they switch together). Keyed by Expert's moveKey.
   const winOddsPerMove =
-    settings.showWinOdds && winOdds?.perMove ? winOdds.perMove : undefined;
+    settings.showWinOdds && settings.showWinOddsPerCard && winOdds?.perMove
+      ? winOdds.perMove
+      : undefined;
 
   // Best-move expected score margin under each hand card (the strongest
   // play that card can make). The overall-best card is accented. Out of
