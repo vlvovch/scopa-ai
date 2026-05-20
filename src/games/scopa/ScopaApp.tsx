@@ -1012,6 +1012,10 @@ function ScopaApp() {
   const winOddsView = useMemo<ScopaWinOddsView | null>(() => {
     if (!winOddsActive) return null;
     if (activeState.status !== 'playing') return null;
+    // Wait for the start-of-round dealing animation to finish before
+    // kicking off the worker — otherwise the panel would appear with
+    // numbers while the cards are still being shuffled in.
+    if (isDealing) return null;
     if (cpuMoveAnimating) return null; // wait for the played card to land
     // Always the bottom seat ('human' / spectator player 1). On the
     // opponent's turn we hold off computing — the panel keeps showing
@@ -1020,7 +1024,7 @@ function ScopaApp() {
     if (activeState.round.currentPlayer !== 'human') return null;
     if (activeState.players.human.hand.length === 0) return null;
     return { game: activeState, player: 'human' };
-  }, [activeState, winOddsActive, cpuMoveAnimating]);
+  }, [activeState, winOddsActive, cpuMoveAnimating, isDealing]);
 
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
     enabled: winOddsActive,
@@ -1040,6 +1044,11 @@ function ScopaApp() {
   useEffect(() => {
     setDisplayedWinOdds(null);
   }, [state.roundNumber]);
+  useEffect(() => {
+    // Clear on round end so the panel doesn't keep showing stale odds
+    // behind the round-end overlay.
+    if (state.status !== 'playing') setDisplayedWinOdds(null);
+  }, [state.status]);
   useEffect(() => {
     if (!winOddsActive) setDisplayedWinOdds(null);
   }, [winOddsActive]);
