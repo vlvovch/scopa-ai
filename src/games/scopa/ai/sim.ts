@@ -6,14 +6,30 @@
 // handling, residue, or last-hand scopa surfaces in the numbers.
 
 import { gameReducer, createInitialState } from '../reducer';
-import { selectExpertMoveWithState } from './expert';
+import { selectExpertMoveWithState, type ExpertOptions } from './expert';
 import { heuristicAI } from './heuristic';
 import type { GameState, Move } from '../types';
 
-type Bot = 'expert' | 'heuristic';
+type Bot =
+  | 'expert'                  // default Esperto (50 ms, depth 3)
+  | 'expert-strong'           // 200 ms, depth 4
+  | 'expert-very-strong'      // 500 ms, depth 5, 12 determinizations
+  | 'heuristic';
 
 function pickMove(state: GameState, bot: Bot): Move {
   if (bot === 'expert') return selectExpertMoveWithState(state);
+  if (bot === 'expert-strong') {
+    const opts: ExpertOptions = { timeBudgetMs: 200, maxDepth: 4 };
+    return selectExpertMoveWithState(state, opts);
+  }
+  if (bot === 'expert-very-strong') {
+    const opts: ExpertOptions = {
+      timeBudgetMs: 500,
+      maxDepth: 5,
+      determinizations: 12,
+    };
+    return selectExpertMoveWithState(state, opts);
+  }
   // heuristic uses the simple AIContext interface
   const player = state.round.currentPlayer;
   return heuristicAI.selectMove({
@@ -155,7 +171,13 @@ function runHeadToHead(
 
 // --- run ---
 console.log('Scopa head-to-head simulation');
-// Sanity baselines.
+// Sanity baseline.
 runHeadToHead(500, 'Furbo', 'heuristic', 'Furbo*', 'heuristic');
-// Headline: Esperto vs Furbo.
-runHeadToHead(1000, 'Esperto', 'expert', 'Furbo', 'heuristic');
+// Headline: Esperto (default) vs Furbo.
+runHeadToHead(500, 'Esperto', 'expert', 'Furbo', 'heuristic');
+// Does Esperto improve materially with more search budget? If yes,
+// the bottleneck is mid-round search depth, not endgame correctness.
+runHeadToHead(200, 'Esperto+ (200ms,d=4)', 'expert-strong', 'Furbo', 'heuristic');
+// And Esperto+ vs default Esperto: how much does extra search help
+// against itself?
+runHeadToHead(200, 'Esperto+ (200ms,d=4)', 'expert-strong', 'Esperto', 'expert');
