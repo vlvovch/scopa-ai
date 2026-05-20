@@ -8,7 +8,10 @@ import {
 import {
   selectExpertMove,
   endgameValue,
+  finalMargin,
+  alphaBeta,
   getAllMoves,
+  type Rng,
 } from './expert';
 import { gameReducer } from '../reducer';
 import { createDeck } from '../deck';
@@ -329,6 +332,58 @@ describe('estimateWinOdds (Scopa)', () => {
       Infinity
     );
     expect(chosenScore).toBe(bestScore);
+  });
+
+  it('alphaBeta leaf uses the EXACT round margin at a terminal state (no residue/last-hand-scopa silent loss)', () => {
+    // Regression: evaluateState's terminal branch used to compute a
+    // simplified margin that ignored the table-residue → lastCapture
+    // rule. alphaBeta leafs on that, so any mid-round search that
+    // transitioned into 'roundEnd' lost the residue. Now both terminal
+    // paths go through finalMargin and are identical. We construct a
+    // terminal state with a non-trivial table residue (lastCapture set)
+    // and assert: evaluateState terminal value == alphaBeta value at
+    // that state == finalMargin * 1000.
+    const game = makeState({
+      humanHand: [],
+      table: ['swords-3', 'clubs-4'], // residue ⇒ awarded to lastCapture
+      cpuHand: [],
+      deck: [],
+      humanCaptured: ALL.filter(
+        (c) =>
+          (c.suit === 'coins' || c.suit === 'cups') &&
+          !['coins-5', 'cups-6'].includes(c.id)
+      ).map((c) => c.id),
+      cpuCaptured: ALL.filter(
+        (c) =>
+          (c.suit === 'swords' || c.suit === 'clubs') &&
+          !['swords-3', 'clubs-4'].includes(c.id)
+      )
+        .map((c) => c.id)
+        .concat(['coins-5', 'cups-6']),
+    });
+    // Mark this as the terminal state (status='roundEnd') with the cpu
+    // as last capturer so the residue would credit the cpu.
+    const terminal = {
+      ...game,
+      status: 'roundEnd' as const,
+      round: { ...game.round, lastCapture: 'cpu' as const },
+    };
+
+    const noRng: Rng = { nextInt: () => 0 };
+    const fmHuman = finalMargin(terminal, 'human');
+    const abHuman = alphaBeta(
+      terminal,
+      0,
+      -Infinity,
+      Infinity,
+      'human',
+      noRng,
+      Infinity,
+      { rollouts: 0 }
+    );
+    // alphaBeta's leaf at terminal returns evaluateState which now
+    // delegates to finalMargin * 1000 (scaled).
+    expect(abHuman).toBe(fmHuman * 1000);
   });
 
   it('deep policy is a valid distribution and deterministic', () => {

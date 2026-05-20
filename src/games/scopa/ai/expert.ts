@@ -4,7 +4,6 @@
 import type { Card, GameState, Move, PlayerId } from '../types';
 import type { AIPlayer, AIContext } from './types';
 import { getValidMoves } from '../rules';
-import { executeMove } from '../rules';
 import { gameReducer } from '../reducer';
 import { PRIME_VALUES, SUITS } from '../constants';
 import { createDeck } from '../deck';
@@ -193,39 +192,13 @@ const countCapturingCards = (hand: Card[], table: Card[]): number =>
 const evaluateState = (state: GameState, player: PlayerId): number => {
   const opponent = getOpponent(player);
 
-  // Terminal state: use actual round scores
+  // Terminal state: use the EXACT round-score margin via finalMargin
+  // (table-residue → lastCapture, last-hand-scopa rule, full primiera
+  // with missing-suit handling — all the things the previous inline
+  // branch silently approximated away). Same ×1000 scale so the
+  // numbers stay comparable with the heuristic below.
   if (state.status === 'roundEnd' || state.status === 'gameEnd') {
-    // Calculate a simplified round score difference
-    const playerCaptured = state.players[player].captured;
-    const opponentCaptured = state.players[opponent].captured;
-
-    let score = 0;
-
-    // Cards point
-    if (playerCaptured.length > opponentCaptured.length) score += 1;
-    else if (opponentCaptured.length > playerCaptured.length) score -= 1;
-
-    // Coins point
-    const playerCoins = countCoins(playerCaptured);
-    const opponentCoins = countCoins(opponentCaptured);
-    if (playerCoins > opponentCoins) score += 1;
-    else if (opponentCoins > playerCoins) score -= 1;
-
-    // Sette Bello point
-    if (playerCaptured.some(isSetteBello)) score += 1;
-    else if (opponentCaptured.some(isSetteBello)) score -= 1;
-
-    // Prime point (simplified - just compare totals)
-    const playerPrime = getPrimieraScore(playerCaptured);
-    const opponentPrime = getPrimieraScore(opponentCaptured);
-    if (playerPrime > opponentPrime) score += 1;
-    else if (opponentPrime > playerPrime) score -= 1;
-
-    // Scopas
-    score += state.players[player].scopaCount;
-    score -= state.players[opponent].scopaCount;
-
-    return score * 1000;
+    return finalMargin(state, player) * 1000;
   }
 
   // Non-terminal: heuristic evaluation
@@ -294,7 +267,13 @@ const evaluateWithRollouts = (
       if (legalMoves.length === 0) break;
 
       const move = legalMoves[rng.nextInt(legalMoves.length)];
-      current = executeMove(current, move);
+      // gameReducer (not raw executeMove) so a mid-round redeal fires
+      // when this play empties both hands with deck remaining, and the
+      // last-hand-scopa rule undoes a scopa on the round's final play.
+      current = gameReducer(current, {
+        type: 'PLAY_CARD',
+        payload: { move },
+      });
     }
     total += evaluateState(current, player);
     count += 1;
@@ -367,7 +346,13 @@ export const alphaBeta = (
   if (maximizing) {
     let value = -Infinity;
     for (const move of orderedMoves) {
-      const nextState = executeMove(state, move);
+      // gameReducer so a mid-round redeal fires when this play empties
+      // both hands with deck remaining, and the last-hand-scopa rule
+      // undoes a scopa on the round's final play.
+      const nextState = gameReducer(state, {
+        type: 'PLAY_CARD',
+        payload: { move },
+      });
       value = Math.max(
         value,
         alphaBeta(nextState, depth - 1, alpha, beta, player, rng, deadline, options)
@@ -380,7 +365,10 @@ export const alphaBeta = (
 
   let value = Infinity;
   for (const move of orderedMoves) {
-    const nextState = executeMove(state, move);
+    const nextState = gameReducer(state, {
+      type: 'PLAY_CARD',
+      payload: { move },
+    });
     value = Math.min(
       value,
       alphaBeta(nextState, depth - 1, alpha, beta, player, rng, deadline, options)
@@ -562,7 +550,12 @@ export const selectExpertMove = (
     for (const move of orderedMoves) {
       if (now() >= deadline) break;
 
-      const nextState = executeMove(determinized, move);
+      // gameReducer so the first ply also benefits from the redeal +
+      // last-hand-scopa rules (same as the alphaBeta inner plies).
+      const nextState = gameReducer(determinized, {
+        type: 'PLAY_CARD',
+        payload: { move },
+      });
       const score = alphaBeta(
         nextState,
         depth - 1,
