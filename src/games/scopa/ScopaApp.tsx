@@ -40,6 +40,7 @@ import type { PanInfo } from 'framer-motion';
 import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './types';
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
 import { useWinOdds } from './hooks/useWinOdds';
+import { selectExpertMoveWithState } from './ai/expert';
 import { moveKey } from './ai/winOdds';
 import type { ScopaWinOddsView, WinOdds } from './ai/winOdds';
 import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
@@ -1314,12 +1315,20 @@ function ScopaApp() {
           aiRequestInFlight.current = false;
         }
       } else {
-        // Sync AI - use simple context
-        moveToExecute = ai.selectMove({
-          hand: cpuHand,
-          table: state.round.table,
-          player: 'cpu',
-        });
+        // Sync AI. NOTE: expertAI.selectMove(context) is only the
+        // heuristic FALLBACK (used when no GameState is available) —
+        // the real Esperto (ISMCTS + perfect-info endgame solver)
+        // lives in selectExpertMoveWithState(state). Route 'expert'
+        // through that directly so endgame play is actually optimal.
+        if (aiType === 'expert') {
+          moveToExecute = selectExpertMoveWithState(state);
+        } else {
+          moveToExecute = ai.selectMove({
+            hand: cpuHand,
+            table: state.round.table,
+            player: 'cpu',
+          });
+        }
         reasoning = null; // Non-LLM AIs don't provide reasoning
       }
 
@@ -2420,12 +2429,17 @@ function ScopaApp() {
           aiRequestInFlight.current = false;
         }
       } else {
-        // Sync AI - use simple context
-        moveToExecute = ai.selectMove({
-          hand: humanHand,
-          table: state.round.table,
-          player: 'human',
-        });
+        // Sync AI. Route 'expert' through the real ISMCTS solver (see
+        // matching note in the cpu turn effect above).
+        if (spectatorAIs.player1 === 'expert') {
+          moveToExecute = selectExpertMoveWithState(state);
+        } else {
+          moveToExecute = ai.selectMove({
+            hand: humanHand,
+            table: state.round.table,
+            player: 'human',
+          });
+        }
         reasoning = null; // Non-LLM AIs don't provide reasoning
       }
 
