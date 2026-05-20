@@ -1009,6 +1009,17 @@ function ScopaApp() {
     animatingCard?.player === 'cpu' &&
     (animatingCard.phase === 'moving' || animatingCard.phase === 'capturing');
 
+  // Skip the recompute right after the human plays: displayedWinOdds
+  // is set to the cached per-move outcome (which equals the post-play
+  // OVERALL by construction), so no fresh worker run is needed until
+  // the OPPONENT plays or new cards are dealt. Detected from the
+  // actual game event (the human's hand shrank by 1 with the played
+  // card removed) rather than from a currentPlayer transition — that
+  // earlier approach (92070de) also fired at round/game starts where
+  // the CPU leads, which was the regression that vanished the
+  // intermediate-odds glance.
+  const [freezeUntilCpuPlay, setFreezeUntilCpuPlay] = useState(false);
+
   const winOddsView = useMemo<ScopaWinOddsView | null>(() => {
     if (!winOddsActive) return null;
     if (activeState.status !== 'playing') return null;
@@ -1017,6 +1028,7 @@ function ScopaApp() {
     // numbers while the cards are still being shuffled in.
     if (isDealing) return null;
     if (cpuMoveAnimating) return null; // wait for the played card to land
+    if (freezeUntilCpuPlay) return null; // human just played: reuse cache
     // Always the bottom seat ('human' / spectator player 1). NOTE we
     // intentionally do NOT gate on currentPlayer === 'human' here:
     // when it's the opponent's turn (e.g. fresh deal where the CPU
@@ -1026,7 +1038,13 @@ function ScopaApp() {
     // gate above pauses computation through the animation).
     if (activeState.players.human.hand.length === 0) return null;
     return { game: activeState, player: 'human' };
-  }, [activeState, winOddsActive, cpuMoveAnimating, isDealing]);
+  }, [
+    activeState,
+    winOddsActive,
+    cpuMoveAnimating,
+    isDealing,
+    freezeUntilCpuPlay,
+  ]);
 
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
     enabled: winOddsActive,
@@ -1045,15 +1063,89 @@ function ScopaApp() {
   }, [winOdds]);
   useEffect(() => {
     setDisplayedWinOdds(null);
+    setFreezeUntilCpuPlay(false);
   }, [state.roundNumber]);
   useEffect(() => {
     // Clear on round end so the panel doesn't keep showing stale odds
     // behind the round-end overlay.
-    if (state.status !== 'playing') setDisplayedWinOdds(null);
+    if (state.status !== 'playing') {
+      setDisplayedWinOdds(null);
+      setFreezeUntilCpuPlay(false);
+    }
   }, [state.status]);
   useEffect(() => {
-    if (!winOddsActive) setDisplayedWinOdds(null);
+    if (!winOddsActive) {
+      setDisplayedWinOdds(null);
+      setFreezeUntilCpuPlay(false);
+    }
   }, [winOddsActive]);
+
+  // ── Cache-reuse on human play ────────────────────────────────────
+  // Detect "the human just played one card" the direct way: the human's
+  // hand reference changed AND its length dropped by exactly 1 AND the
+  // missing card matches lastMoves.current.human. That excludes every
+  // other hand-mutation path (new deal, mid-round redeal, round start),
+  // which is what tripped the previous currentPlayer-transition
+  // detector at round/game boundaries. When detected, promote the
+  // cached per-move odds to the headline (post-play OVERALL ==
+  // perMove[playedKey] by construction) and freeze the worker. The
+  // freeze is released the moment the turn comes back to 'human'
+  // (CPU has played) — the cpuMoveAnimating gate still holds the
+  // actual run until the played card lands.
+  const prevHumanHandRef = useRef(activeState.players.human.hand);
+  useEffect(() => {
+    const prev = prevHumanHandRef.current;
+    const curr = activeState.players.human.hand;
+    prevHumanHandRef.current = curr;
+
+    if (
+      !winOddsActive ||
+      isSpectatorMode ||
+      activeState.status !== 'playing'
+    ) {
+      return;
+    }
+    if (curr === prev || curr.length !== prev.length - 1) return;
+
+    const playedCardId = prev.find(
+      (p) => !curr.some((c) => c.id === p.id)
+    )?.id;
+    const m = lastMoves.current.human;
+    if (!m || !playedCardId || m.cardPlayed.id !== playedCardId) return;
+
+    const cached = displayedWinOdds?.perMove?.[moveKey(m)];
+    if (cached) {
+      setDisplayedWinOdds({
+        winPct: cached.winPct,
+        tiePct: cached.tiePct,
+        lossPct: cached.lossPct,
+        samples: cached.samples,
+        ciHalfWidth: cached.ciHalfWidth,
+        expectedDiff: cached.expectedDiff,
+        diffCi: cached.diffCi,
+        // No perMove — the post-play OVERALL has no per-card breakdown
+        // (and per-card / capture-modal lookups key off real card ids,
+        // so they correctly show nothing).
+      });
+      setFreezeUntilCpuPlay(true);
+    }
+  }, [
+    activeState.players.human.hand,
+    activeState.status,
+    winOddsActive,
+    isSpectatorMode,
+    displayedWinOdds,
+  ]);
+
+  // Release the freeze the moment the turn comes back to the human
+  // (the opponent has played). winOddsView still gates on
+  // cpuMoveAnimating, so the actual worker run waits for the played
+  // card to land — no premature recompute.
+  useEffect(() => {
+    if (activeState.round.currentPlayer === 'human') {
+      setFreezeUntilCpuPlay(false);
+    }
+  }, [activeState.round.currentPlayer]);
 
   // Per-move odds for the capture-choice modal — gated by both the
   // master Win-odds toggle AND the Per-card sub-toggle (per-card and
