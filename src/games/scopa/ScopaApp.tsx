@@ -41,7 +41,7 @@ import type { Card, Move, PlayerId, GameState, RoundHistoryEntry } from './types
 import { useGameWorker, type CPUType } from './hooks/useGameWorker';
 import { useWinOdds } from './hooks/useWinOdds';
 import { moveKey } from './ai/winOdds';
-import type { ScopaWinOddsView } from './ai/winOdds';
+import type { ScopaWinOddsView, WinOdds } from './ai/winOdds';
 import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
 import type { ReactNode } from 'react';
 
@@ -1001,17 +1001,26 @@ function ScopaApp() {
   const winOddsActive =
     settings.showWinOdds && !isMultiplayerMode && !useWorkerMode;
 
+  // Hold the worker recompute until the opponent's play animation has
+  // visually landed — otherwise the new odds would flash before the
+  // user sees the card move. The state changes immediately, the
+  // animation runs separately; we wait for animatingCard to clear.
+  const cpuMoveAnimating =
+    animatingCard?.player === 'cpu' &&
+    (animatingCard.phase === 'moving' || animatingCard.phase === 'capturing');
+
   const winOddsView = useMemo<ScopaWinOddsView | null>(() => {
     if (!winOddsActive) return null;
     if (activeState.status !== 'playing') return null;
+    if (cpuMoveAnimating) return null; // wait for the played card to land
     // Always the bottom seat ('human' / spectator player 1). On the
-    // opponent's turn we show nothing rather than flip to their odds —
-    // the panel is strictly the bottom player's chance to win the
-    // round (its own info-set; the hidden opponent hand is resampled).
+    // opponent's turn we hold off computing — the panel keeps showing
+    // the last estimate (see displayedWinOdds below) and refreshes
+    // once the turn comes back to us.
     if (activeState.round.currentPlayer !== 'human') return null;
     if (activeState.players.human.hand.length === 0) return null;
     return { game: activeState, player: 'human' };
-  }, [activeState, winOddsActive]);
+  }, [activeState, winOddsActive, cpuMoveAnimating]);
 
   const { odds: winOdds, computing: winOddsComputing } = useWinOdds({
     enabled: winOddsActive,
@@ -1019,6 +1028,21 @@ function ScopaApp() {
     totalSamples: settings.winOddsSamples,
     deep: settings.winOddsDeep,
   });
+
+  // Cache the most recently computed odds so the panel stays visible
+  // (with the previous estimate) while the opponent is thinking /
+  // animating. Cleared when the round changes or the feature toggles
+  // off, so the panel doesn't carry numbers across deals.
+  const [displayedWinOdds, setDisplayedWinOdds] = useState<WinOdds | null>(null);
+  useEffect(() => {
+    if (winOdds) setDisplayedWinOdds(winOdds);
+  }, [winOdds]);
+  useEffect(() => {
+    setDisplayedWinOdds(null);
+  }, [state.roundNumber]);
+  useEffect(() => {
+    if (!winOddsActive) setDisplayedWinOdds(null);
+  }, [winOddsActive]);
 
   // Per-move odds for the capture-choice modal — gated by both the
   // master Win-odds toggle AND the Per-card sub-toggle (per-card and
@@ -3340,8 +3364,14 @@ function ScopaApp() {
       />
       {winOddsActive && (
         <WinOddsPanel
-          odds={winOdds}
-          computing={winOddsComputing}
+          // Last computed odds, retained while the opponent is thinking
+          // or their card is animating — so the panel doesn't blink off
+          // between turns.
+          odds={displayedWinOdds}
+          // Surface a 'simulating…' state when we have nothing to show
+          // yet (very first deal, before the first estimate arrives) so
+          // the panel is visible from the start.
+          computing={winOddsComputing || (!displayedWinOdds && !!winOddsView)}
           metric="diff"
           caption="Expert self-play estimate"
         />
