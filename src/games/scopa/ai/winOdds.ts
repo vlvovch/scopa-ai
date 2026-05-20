@@ -113,10 +113,16 @@ export interface WinOddsOptions {
   samples?: number;
   /** RNG seed (any integer). Same seed + same view ⇒ identical result. */
   seed?: number;
-  /** Use a 1-ply alpha-beta rollout policy instead of the fast greedy
-   *  one (mid-round only). Stronger but ~3-5× slower; settle time
-   *  similar to Briscola's. Endgame is always exact regardless. */
+  /** Use an alpha-beta rollout policy instead of the fast greedy one
+   *  (mid-round only). Stronger but slower. Endgame is always exact
+   *  regardless. Convenience: maps to deepPlies=1 if deepPlies isn't
+   *  set explicitly. */
   deep?: boolean;
+  /** Depth of the alpha-beta lookahead used per playout decision when
+   *  deep is on (1 = 1-ply lookahead, etc.). Overrides `deep` when
+   *  set explicitly. Default: 1 when deep is true, 0 (= greedy) when
+   *  deep is false. */
+  deepPlies?: number;
 }
 
 /** Per-move raw counts from a batch. Accumulatable across worker chunks. */
@@ -163,11 +169,11 @@ const greedy: Policy = (state) => {
 };
 
 /** Stronger playout policy: for the current mover, evaluate each legal
- *  move with a 1-ply alpha-beta lookahead (rollouts disabled, leaf =
- *  Expert's evaluateState). Roughly ~3-5× slower than greedy per ply
- *  but materially stronger; used when the `deep` option is on. Each
- *  side plays for its OWN payoff (alphaBeta's `player` is the mover). */
-function deepPick(state: GameState): Move | null {
+ *  move with an N-ply alpha-beta lookahead (rollouts disabled, leaf =
+ *  Expert's evaluateState). Each side plays for its OWN payoff
+ *  (alphaBeta's `player` is the mover). N=1 ⇒ 1-ply (just this move +
+ *  leaf eval), N=3 ⇒ this move + 2 more plies + leaf, etc. */
+function deepPick(state: GameState, plies: number): Move | null {
   const moves = getAllMoves(state);
   if (moves.length === 0) return null;
   const ordered = orderMoves(state, moves);
@@ -178,10 +184,11 @@ function deepPick(state: GameState): Move | null {
   let bestScore = -Infinity;
   for (const m of ordered) {
     const ns = gameReducer(state, { type: 'PLAY_CARD', payload: { move: m } });
-    // depth 0 ⇒ alphaBeta returns evaluateWithRollouts which (with
-    // rollouts:0) is just evaluateState — i.e. a leaf eval after this
-    // ONE move, giving us 1-ply lookahead.
-    const sc = alphaBeta(ns, 0, -Infinity, Infinity, mover, noRng, Infinity, opts);
+    // After applying ONE candidate move, search `plies-1` more plies of
+    // alpha-beta with a leaf-eval at the bottom (rollouts:0).
+    const sc = alphaBeta(
+      ns, plies - 1, -Infinity, Infinity, mover, noRng, Infinity, opts
+    );
     if (sc > bestScore) {
       bestScore = sc;
       best = m;
@@ -329,7 +336,13 @@ export function tallyWinOdds(
   // stronger). Common random numbers across root moves per sample.
   const samples = Math.max(1, options.samples ?? 200);
   const rng = rngFrom(mulberry32(options.seed ?? 0x9e3779b9));
-  const policy: Policy = options.deep ? deepPick : greedy;
+  // deep=true defaults to a 3-ply lookahead: empirically the sweet
+  // spot (≈10× greedy, still <1s for 300 samples on a 3-card hand —
+  // see winOdds.bench.ts), and materially stronger than 1-ply.
+  const plies =
+    options.deepPlies ?? (options.deep ? 3 : 0);
+  const policy: Policy =
+    plies > 0 ? (s: GameState) => deepPick(s, plies) : greedy;
 
   for (let i = 0; i < samples; i++) {
     const det = determinizeState(game, player, rng);

@@ -472,7 +472,7 @@ export function SettingsModal({
                           </div>
                           <p className={styles.settingHint}>
                             {settings.winOddsDeep
-                              ? 'Mid-round playout uses a 1-ply lookahead instead of greedy — materially stronger but ~3-5× slower to settle. Endgame is always exact regardless.'
+                              ? 'Mid-round playout uses a 3-ply alpha-beta lookahead instead of greedy — materially stronger, ~10× slower (~1 s vs ~70 ms for 300 sims). Endgame is always exact regardless.'
                               : 'Fast greedy mid-round playout (default). Endgame is always solved exactly.'}
                           </p>
                         </>
