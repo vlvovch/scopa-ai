@@ -117,7 +117,7 @@ const winOddsPanel: React.CSSProperties = {
   backdropFilter: 'blur(2px)',
 };
 const winOddsTitle: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: '12px',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   opacity: 0.7,
@@ -135,7 +135,7 @@ const winOddsRow: React.CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
 const winOddsFoot: React.CSSProperties = {
-  fontSize: '10px',
-  opacity: 0.55,
+  fontSize: '11px',
+  opacity: 0.6,
   marginTop: '3px',
 };

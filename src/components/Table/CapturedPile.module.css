@@ -199,14 +199,16 @@
     gap: 6px;
   }
 
+  /* Bumped from 9/8px — pile card-count + coin/sette/scopa stats were
+   * called out as too small on a Moto G84 (~412 CSS px). ≥11px now. */
   .cardCount {
-    font-size: 9px;
-    padding: 1px 4px;
+    font-size: 12px;
+    padding: 1px 5px;
   }
 
   .stat {
-    font-size: 8px;
-    padding: 1px 3px;
+    font-size: 11px;
+    padding: 1px 4px;
   }
 
   .playerLabel {
@@ -230,15 +232,15 @@
   }
 
   .cardCount {
-    font-size: 8px;
+    font-size: 11px;
   }
 
   .stat {
-    font-size: 7px;
+    font-size: 10px;
   }
 
   .setteBello {
-    font-size: 7px;
+    font-size: 10px;
   }
 }
 
