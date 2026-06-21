@@ -47,14 +47,27 @@
     })
   </script>
 
-  <!-- Register Service Worker for offline support -->
+  <!-- Register Service Worker for offline support.
+       Skip in Vite dev (localhost): the SW's /index.html fallback
+       intercepts module-script requests (returning HTML for .tsx →
+       MIME error) and hijacks the HMR WebSocket. Also unregister
+       any previously-installed SW on localhost so a stale
+       registration from a prior `vite preview` / production session
+       can't keep intercepting. Production keeps the SW unchanged. -->
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(reg => console.log('SW registered'))
-          .catch(err => console.log('SW registration failed:', err));
-      });
+      var __isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if (__isDev) {
+        navigator.serviceWorker.getRegistrations()
+          .then(regs => regs.forEach(r => r.unregister()))
+          .catch(() => {});
+      } else {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered'))
+            .catch(err => console.log('SW registration failed:', err));
+        });
+      }
     }
 
     // Request persistent storage so the SW cache and localStorage aren't
