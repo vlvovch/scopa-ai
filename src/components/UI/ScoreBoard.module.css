@@ -81,12 +81,15 @@
     border-bottom: 0.5px solid rgba(255, 255, 255, 0.15);
   }
 
+  /* Mobile minimums bumped to ≥12px (Android a11y guideline) — prior
+   * 9-11px values were called out as unreadable in a 2-star Play
+   * review on a Moto G84 5G. */
   .roundLabel {
-    font-size: 9px;
+    font-size: 12px;
   }
 
   .roundNumber {
-    font-size: 11px;
+    font-size: 14px;
   }
 
   .scores {
@@ -94,35 +97,17 @@
   }
 
   .scoreValue {
-    font-size: 16px;
-  }
-
-  .playerName {
-    font-size: 10px;
-  }
-
-  .targetScore {
-    margin-top: var(--space-1);
-    font-size: 9px;
-    padding-top: var(--space-1);
-  }
-}
-
-@media (max-width: 380px) {
-  .scoreBoard {
-    padding: var(--space-2);
-  }
-
-  .scores {
-    gap: var(--space-2);
-  }
-
-  .scoreValue {
     font-size: 18px;
   }
 
   .playerName {
-    font-size: 10px;
+    font-size: 12px;
+  }
+
+  .targetScore {
+    margin-top: var(--space-1);
+    font-size: 12px;
+    padding-top: var(--space-1);
   }
 }
 

@@ -229,24 +229,13 @@ a,
   }
 }
 
-/* Small phones (iPhone SE, older Android) */
-@media (max-width: 380px) {
-  :root {
-    /* Compact but legible cards */
-    --card-width: clamp(40px, 11vh, 50px);
-    --card-height: clamp(64px, 17vh, 80px);
-    --card-border-radius: 4px;
-
-    /* Minimal spacing */
-    --space-2: 2px;
-    --space-3: 3px;
-    --space-4: 4px;
-  }
-
-  html {
-    font-size: 14px;
-  }
-}
+/* (Removed the prior `≤380px` block — it inverted the trend by
+ * SHRINKING cards (40-50) below the 480 sizing (48-60) and dropped
+ * root font to 14px. On a Moto G84 / Pixel-class phone at ~360 CSS
+ * px, that produced ~9 mm wide cards with hard-to-read art; a 2-star
+ * Play review called this out directly. The ≤480 rules now cascade
+ * down to ~320px instead. If iPhone SE (320 px) ever needs a tighter
+ * layout, prefer scaling spacing rather than shrinking the cards. */
 
 /* Mobile landscape - only for actual phones (small viewport height AND width) */
 @media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
