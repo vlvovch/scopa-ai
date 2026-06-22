@@ -103,62 +103,71 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - cache-first for assets, skip API calls
+// Fetch strategy:
+//   - HTML / navigations / manifest  -> network-first (always fresh on
+//     an online launch so new deploys land immediately; falls back to
+//     cache when offline so the game still opens).
+//   - everything else (hashed JS/CSS, card images, sounds, icons) ->
+//     cache-first with NO background revalidation. These URLs are
+//     immutable: Vite content-hashes JS/CSS, and card/sound/icon paths
+//     are stable and refreshed by the CACHE_NAME bump on each deploy.
+//     The previous stale-while-revalidate re-downloaded EVERY cached
+//     asset on EVERY launch for nothing (the "redownloads them again"
+//     symptom). Cache-first = zero network once cached.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') {
-    return;
-  }
+  if (event.request.method !== 'GET') return;
 
-  // Skip external API calls (Gemini, OpenAI, Claude)
+  // Skip external API calls (Gemini, OpenAI, Claude) + analytics.
   if (url.hostname.includes('googleapis.com') ||
     url.hostname.includes('openai.com') ||
     url.hostname.includes('anthropic.com') ||
     url.hostname.includes('google.com')) {
     return;
   }
+  if (url.pathname.includes('analytics')) return;
 
-  // Skip analytics (Umami)
-  if (url.pathname.includes('analytics')) {
+  // Only handle same-origin requests.
+  if (url.origin !== self.location.origin) return;
+
+  const isHTML =
+    event.request.mode === 'navigate' ||
+    url.pathname === '/' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname === '/manifest.json';
+
+  if (isHTML) {
+    // Network-first: keep the app current; fall back to cache offline.
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() =>
+          caches.match(event.request).then((cached) => cached || caches.match('/'))
+        )
+    );
     return;
   }
 
-  // For same-origin requests, use cache-first strategy
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          // Return cached version and update cache in background
-          event.waitUntil(
-            fetch(event.request).then((networkResponse) => {
-              if (networkResponse && networkResponse.status === 200) {
-                caches.open(CACHE_NAME).then((cache) => {
-                  cache.put(event.request, networkResponse.clone());
-                });
-              }
-            }).catch(() => { })
-          );
-          return cachedResponse;
-        }
-
-        // Not in cache - fetch and cache
-        return fetch(event.request).then((networkResponse) => {
+  // Static immutable assets: cache-first, NO revalidation.
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(event.request)
+        .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
-        }).catch(() => {
-          // Offline and not in cache - return offline page for navigation
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-        });
-      })
-    );
-  }
+        })
+        .catch(() => undefined);
+    })
+  );
 });
