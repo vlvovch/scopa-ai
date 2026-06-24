@@ -3,6 +3,7 @@
 import { AnimatePresence, motion, PanInfo } from 'framer-motion';
 import type { Card as CardType } from '../../games/scopa/types';
 import { Card } from '../Card/Card';
+import { useDesktopMode } from '../../hooks/useDesktopMode';
 import styles from './PlayerHand.module.css';
 
 interface PlayerHandProps {
@@ -47,6 +48,11 @@ export function PlayerHand({
   onHandClick,
   cardAnnotations,
 }: PlayerHandProps) {
+  // In desktop-site-mode the app is CSS-zoomed, which breaks drag — so
+  // disable it there and rely on tap-to-play (select card → tap target).
+  const dmode = useDesktopMode();
+  const canDrag = isHuman && !disabled && !dmode;
+
   const handClasses = [
     styles.hand,
     isHuman ? styles.human : styles.cpu,
@@ -90,9 +96,9 @@ export function PlayerHand({
               selected={isHuman && selectedCardId === card.id}
               disabled={disabled || !isHuman}
               layoutId={`hand-${card.id}`}
-              draggable={isHuman && !disabled}
-              onDragStart={isHuman && onCardDragStart ? () => onCardDragStart(card) : undefined}
-              onDragEnd={isHuman && onCardDragEnd ? (_e, info: PanInfo) => onCardDragEnd(card, info) : undefined}
+              draggable={canDrag}
+              onDragStart={canDrag && onCardDragStart ? () => onCardDragStart(card) : undefined}
+              onDragEnd={canDrag && onCardDragEnd ? (_e, info: PanInfo) => onCardDragEnd(card, info) : undefined}
             />
             {cardAnnotations?.[card.id] != null && (
               <div

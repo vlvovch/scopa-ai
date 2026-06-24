@@ -304,6 +304,11 @@ html.dmode {
   --space-4: 6px;
   --space-5: 8px;
   --space-6: 10px;
+  /* --playing-area-width is min(95vw,1000px); 95vw of the locked 980px
+     viewport is ~931px, so the top/bottom rows ran edge-to-edge and the
+     CPU pile / AI label clipped on the right. Constrain it to fit the
+     412px column with a little margin. */
+  --playing-area-width: 392px;
   overflow-x: hidden;
   /* Backstop colour for any area the scaled body doesn't cover. */
   background: var(--color-table);
