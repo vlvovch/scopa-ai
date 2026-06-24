@@ -160,7 +160,10 @@
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 0.6875rem;
+  /* Cap the footer so the Text Size setting can't grow it past its base
+     size and wrap the (long) credit line onto a second row. min() keeps
+     the landscape down-scaling but blocks any growth above 11px. */
+  font-size: min(0.6875rem, 11px);
   color: var(--color-text-secondary);
   opacity: 0.5;
   pointer-events: none;
@@ -244,7 +247,9 @@
    ============================================ */
 @media (max-width: 768px) {
   .footer {
-    font-size: 0.5625rem;
+    /* Capped like the base rule — the long credit line is tightest on a
+       phone, so block growth past its 9px base to keep it one line. */
+    font-size: min(0.5625rem, 9px);
     bottom: 2px;
   }
 }
