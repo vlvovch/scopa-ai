@@ -179,6 +179,16 @@ body.table-tablecloth::before {
    MOBILE RESPONSIVE STYLES
    =========================================== */
 
+/* Form controls don't inherit font-size by default, so a button with no
+   explicit size renders at the UA default (~13px) and ignores the Text
+   Size (--font-scale) setting — e.g. the inline-styled ConfirmDialog
+   buttons. Inherit the (scaled) size so their text scales too. Buttons
+   that set their own font-size in a CSS module override this via
+   specificity, so they're unaffected. */
+button {
+  font-size: inherit;
+}
+
 /* Touch optimization - prevents 300ms tap delay */
 button,
 a,
