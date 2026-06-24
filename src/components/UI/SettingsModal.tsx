@@ -28,6 +28,30 @@ const TABLE_STYLE_OPTIONS: { value: TableStyle; label: string }[] = [
 
 const PRESET_SCORES = [11, 16, 21] as const;
 
+// Text Size slider stops (multiplier applied to the root font via
+// --font-scale). 1.2 (Normal) is the default.
+const FONT_SIZE_STEPS = [
+  { value: 1.0, label: 'Small' },
+  { value: 1.2, label: 'Normal' },
+  { value: 1.4, label: 'Large' },
+  { value: 1.6, label: 'XLarge' },
+] as const;
+
+/** Closest slider index for a stored fontScale (robust to legacy values). */
+function fontSizeIndex(scale: number | undefined): number {
+  const s = scale ?? 1.2;
+  let best = 0;
+  let bestDelta = Infinity;
+  FONT_SIZE_STEPS.forEach((step, i) => {
+    const d = Math.abs(step.value - s);
+    if (d < bestDelta) {
+      bestDelta = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -306,20 +330,36 @@ export function SettingsModal({
 
             <div className={styles.setting}>
               <label className={styles.label}>Text Size</label>
-              <div className={styles.options}>
-                {([
-                  { value: 1, label: 'Normal' },
-                  { value: 1.2, label: 'Large' },
-                  { value: 1.4, label: 'X-Large' },
-                ] as const).map((opt) => (
-                  <button
-                    key={opt.value}
-                    className={`${styles.option} ${(settings.fontScale ?? 1) === opt.value ? styles.selected : ''}`}
-                    onClick={() => onUpdateSetting('fontScale', opt.value)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div className={styles.fontSizeRow}>
+                <input
+                  type="range"
+                  min={0}
+                  max={FONT_SIZE_STEPS.length - 1}
+                  step={1}
+                  value={fontSizeIndex(settings.fontScale)}
+                  onChange={(e) =>
+                    onUpdateSetting(
+                      'fontScale',
+                      FONT_SIZE_STEPS[Number(e.target.value)].value
+                    )
+                  }
+                  className={styles.fontSlider}
+                  aria-label="Text size"
+                />
+                <div className={styles.sliderTicks}>
+                  {FONT_SIZE_STEPS.map((s, i) => (
+                    <span
+                      key={s.value}
+                      className={
+                        i === fontSizeIndex(settings.fontScale)
+                          ? styles.sliderTickActive
+                          : ''
+                      }
+                    >
+                      {s.label}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 

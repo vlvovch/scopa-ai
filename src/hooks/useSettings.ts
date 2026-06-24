@@ -60,7 +60,8 @@ export interface GameSettings {
   /** Whether to show pile stats (coins count, sette bello, scopas) */
   showPileStats: boolean;
   /** Accessibility: multiplier applied to the root font size so all
-   *  rem-based UI text scales up/down. 1 = normal. Cards (vw/vh based)
+   *  rem-based UI text scales up/down. Slider stops: 1.0 Small /
+   *  1.2 Normal (default) / 1.4 Large / 1.6 XLarge. Cards (vw/vh based)
    *  are intentionally unaffected. */
   fontScale: number;
   /** Scopa & Briscola analysis: show live win-odds (Expert/Esperto
@@ -105,7 +106,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   openaiKeyValid: false,
   claudeKeyValid: false,
   showPileStats: true,
-  fontScale: 1,
+  fontScale: 1.2,
   showWinOdds: false,
   showWinOddsPerCard: true,
   winOddsSamples: 300,

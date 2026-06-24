@@ -233,6 +233,64 @@
   cursor: pointer;
 }
 
+/* Text Size slider (4 discrete stops) */
+.fontSizeRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.fontSlider {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.fontSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.fontSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+.fontSlider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.sliderTicks {
+  display: flex;
+  justify-content: space-between;
+}
+
+.sliderTicks span {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.sliderTickActive {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
 .volumeValue {
   color: var(--color-text-secondary);
   font-size: 0.75rem;

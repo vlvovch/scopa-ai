@@ -82,9 +82,10 @@
     (function () {
       try {
         var s = JSON.parse(localStorage.getItem('scopa-settings') || '{}');
-        if (s && s.fontScale && s.fontScale !== 1) {
-          document.documentElement.style.setProperty('--font-scale', s.fontScale);
-        }
+        // Fall back to the 1.2 (Normal) default when unset, matching
+        // DEFAULT_SETTINGS, so first-time users get it without a flash.
+        var fs = (s && typeof s.fontScale === 'number') ? s.fontScale : 1.2;
+        document.documentElement.style.setProperty('--font-scale', fs);
       } catch (e) { }
     })();
   </script>
