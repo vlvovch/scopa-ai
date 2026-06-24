@@ -2766,7 +2766,7 @@ function ScopaApp() {
                 />
               )}
 
-              <span style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
+              <span style={{ fontSize: 'calc(14px * var(--font-scale, 1))', color: 'var(--color-text-primary)' }}>
                 {isMyTurn ? 'Your turn' : `${multiplayer.opponentNickname}'s turn`}
               </span>
 
@@ -2777,7 +2777,7 @@ function ScopaApp() {
                     onClick={executeMultiplayerPlace}
                     style={{
                       padding: '8px 16px',
-                      fontSize: '14px',
+                      fontSize: 'calc(14px * var(--font-scale, 1))',
                       background: 'var(--color-accent)',
                       color: '#000',
                       border: 'none',
@@ -2791,7 +2791,7 @@ function ScopaApp() {
 
                 {isMyTurn && selectedTableCards.length > 1 && (
                   <>
-                    <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                    <span style={{ fontSize: 'calc(13px * var(--font-scale, 1))', color: 'var(--color-text-secondary)' }}>
                       Sum: {selectedSum}/{selectedCard?.value}
                     </span>
                     {multiplayerIsValidCapture && (
@@ -2799,7 +2799,7 @@ function ScopaApp() {
                         onClick={executeMultiplayerCapture}
                         style={{
                           padding: '8px 16px',
-                          fontSize: '14px',
+                          fontSize: 'calc(14px * var(--font-scale, 1))',
                           background: 'var(--color-accent)',
                           color: '#000',
                           border: 'none',
@@ -3414,7 +3414,7 @@ function ScopaApp() {
         }
         controls={
           <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
-            <span style={{ fontSize: '14px', color: 'var(--color-text-primary)' }}>
+            <span style={{ fontSize: 'calc(14px * var(--font-scale, 1))', color: 'var(--color-text-primary)' }}>
               {isSpectatorMode
                 ? `${AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name}'s turn${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? ' (Paused)' : ''}`
                 : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} is thinking...`}
@@ -3439,7 +3439,7 @@ function ScopaApp() {
                   }}
                   style={{
                     padding: '8px 16px',
-                    fontSize: '14px',
+                    fontSize: 'calc(14px * var(--font-scale, 1))',
                     background: (useWorkerMode ? workerIsPaused : isSpectatorPaused) ? 'var(--color-accent)' : 'rgba(255,255,255,0.1)',
                     color: (useWorkerMode ? workerIsPaused : isSpectatorPaused) ? '#000' : 'var(--color-text-primary)',
                     border: (useWorkerMode ? workerIsPaused : isSpectatorPaused) ? 'none' : '1px solid rgba(255,255,255,0.2)',
@@ -3457,7 +3457,7 @@ function ScopaApp() {
                   onClick={executePlace}
                   style={{
                     padding: '8px 16px',
-                    fontSize: '14px',
+                    fontSize: 'calc(14px * var(--font-scale, 1))',
                     background: 'var(--color-accent)',
                     color: '#000',
                     border: 'none',
@@ -3472,7 +3472,7 @@ function ScopaApp() {
               {/* Show confirm button for multi-card capture (only in player mode) */}
               {!isSpectatorMode && isHumanTurn && selectedTableCards.length > 1 && (
                 <>
-                  <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                  <span style={{ fontSize: 'calc(13px * var(--font-scale, 1))', color: 'var(--color-text-secondary)' }}>
                     Sum: {selectedSum}/{selectedCard?.value}
                   </span>
                   {isValidCapture && (
@@ -3480,7 +3480,7 @@ function ScopaApp() {
                       onClick={executeCapture}
                       style={{
                         padding: '8px 16px',
-                        fontSize: '14px',
+                        fontSize: 'calc(14px * var(--font-scale, 1))',
                         background: 'var(--color-accent)',
                         color: '#000',
                         border: 'none',

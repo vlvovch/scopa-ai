@@ -2972,7 +2972,7 @@ function CapturedSummaryRow({
                       right: -6,
                       background: 'var(--color-accent)',
                       color: '#000',
-                      fontSize: '10px',
+                      fontSize: 'calc(10px * var(--font-scale, 1))',
                       fontWeight: 700,
                       minWidth: 16,
                       height: 16,
@@ -3396,7 +3396,7 @@ function RoundEndOverlay({
 // ---------------------------------------------------------------------------
 
 const turnLabelStyle: React.CSSProperties = {
-  fontSize: '14px',
+  fontSize: 'calc(14px * var(--font-scale, 1))',
   color: 'var(--color-text-primary)',
   background: 'rgba(0,0,0,0.2)',
   padding: '0.5rem 1rem',
@@ -3515,7 +3515,7 @@ const countWrapper: React.CSSProperties = {
 };
 
 const deckCountPill: React.CSSProperties = {
-  fontSize: '14px',
+  fontSize: 'calc(14px * var(--font-scale, 1))',
   fontWeight: 600,
   color: 'var(--color-text-secondary)',
   background: 'var(--control-bg, rgba(0, 0, 0, 0.4))',

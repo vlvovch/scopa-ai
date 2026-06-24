@@ -61,7 +61,7 @@ export function WinOddsPanel({
                     (odds.expectedDiff ?? 0) >= 0
                       ? 'var(--color-accent)'
                       : '#e57373',
-                  fontSize: '16px',
+                  fontSize: 'calc(16px * var(--font-scale, 1))',
                 }}
               >
                 {signed(odds.expectedDiff ?? 0)}
@@ -109,7 +109,7 @@ const winOddsPanel: React.CSSProperties = {
   color: 'var(--color-text-primary)',
   padding: '0.5rem 0.9rem',
   borderRadius: '10px',
-  fontSize: '13px',
+  fontSize: 'calc(13px * var(--font-scale, 1))',
   lineHeight: 1.35,
   zIndex: 90,
   pointerEvents: 'none',
@@ -117,7 +117,7 @@ const winOddsPanel: React.CSSProperties = {
   backdropFilter: 'blur(2px)',
 };
 const winOddsTitle: React.CSSProperties = {
-  fontSize: '12px',
+  fontSize: 'calc(12px * var(--font-scale, 1))',
   textTransform: 'uppercase',
   letterSpacing: '0.06em',
   opacity: 0.7,
@@ -135,7 +135,7 @@ const winOddsRow: React.CSSProperties = {
   fontVariantNumeric: 'tabular-nums',
 };
 const winOddsFoot: React.CSSProperties = {
-  fontSize: '11px',
+  fontSize: 'calc(11px * var(--font-scale, 1))',
   opacity: 0.6,
   marginTop: '3px',
 };

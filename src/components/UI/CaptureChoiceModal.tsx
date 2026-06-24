@@ -84,7 +84,7 @@ export function CaptureChoiceModal({
                         style={{
                           marginTop: '6px',
                           textAlign: 'center',
-                          fontSize: '13px',
+                          fontSize: 'calc(13px * var(--font-scale, 1))',
                           lineHeight: 1.2,
                           fontVariantNumeric: 'tabular-nums',
                           color: isBest

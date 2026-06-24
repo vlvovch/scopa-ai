@@ -110,7 +110,7 @@ export function PlayerHand({
                   right: 0,
                   marginTop: '4px',
                   textAlign: 'center',
-                  fontSize: '12px',
+                  fontSize: 'calc(12px * var(--font-scale, 1))',
                   lineHeight: 1.1,
                   fontVariantNumeric: 'tabular-nums',
                   pointerEvents: 'none',
