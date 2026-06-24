@@ -312,7 +312,14 @@ html.dmode {
      viewport is huge, so the top/bottom rows ran edge-to-edge and the
      CPU pile / AI label clipped. Pin it just inside the column width. */
   --playing-area-width: calc(var(--dmode-width, 412px) - 16px);
-  overflow-x: hidden;
+  /* The rescued layout fits exactly one screen, so lock it down:
+     no finger-scroll (the inflated viewport otherwise scrolls into the
+     blank backstop) and no pinch-zoom (which fights the rescue scale).
+     touch-action: none leaves taps working — only pan/zoom gestures are
+     blocked. user-scalable=no in the meta tag is ignored in desktop
+     mode, so this is where pinch-zoom actually gets disabled. */
+  overflow: hidden;
+  touch-action: none;
   /* Backstop colour for any area the scaled body doesn't cover. */
   background: var(--color-table);
 }
@@ -327,7 +334,8 @@ html.dmode body {
      the full-height containers below are divided by --dmode-scale to
      fill exactly one physical screen instead of scale× of empty green. */
   min-height: calc(100vh / var(--dmode-scale, 1));
-  overflow-x: hidden;
+  overflow: hidden;
+  touch-action: none;
 }
 html.dmode #root {
   min-height: calc(100vh / var(--dmode-scale, 1));
