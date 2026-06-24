@@ -222,8 +222,11 @@ a,
      * 360 px we now get ~65, at 393 ~71, at 411 ~74 — all under the
      * 88 cap so 3 cards + gaps still fit comfortably in the hand row.
      * Height is the same ~1.6× width ratio Italian decks use. */
-    --card-width: clamp(60px, 18vw, 88px);
-    --card-height: clamp(96px, 29vw, 140px);
+    /* Trimmed a notch (was 18vw/29vw ≈ 74px at 412): the earlier bump
+       overcorrected — the real "too small" cause was desktop-site mode,
+       not the normal mobile size. Now ~66px at 412, ~58 at 360. */
+    --card-width: clamp(56px, 16vw, 80px);
+    --card-height: clamp(90px, 26vw, 128px);
     --card-border-radius: 5px;
 
     /* Tighter spacing */
@@ -298,8 +301,8 @@ html.dmode {
      device screen width), mirroring the ≤480px rules' 18vw/29vw — vw
      itself can't be used because it resolves against the locked ~980px
      viewport, not the column. */
-  --card-width: clamp(60px, calc(var(--dmode-width, 412px) * 0.18), 88px);
-  --card-height: clamp(96px, calc(var(--dmode-width, 412px) * 0.29), 140px);
+  --card-width: clamp(56px, calc(var(--dmode-width, 412px) * 0.16), 80px);
+  --card-height: clamp(90px, calc(var(--dmode-width, 412px) * 0.26), 128px);
   --card-border-radius: 5px;
   --space-3: 4px;
   --space-4: 6px;
