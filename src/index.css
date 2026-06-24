@@ -367,6 +367,21 @@ html.dmode body.table-tablecloth {
 html.dmode body.table-tablecloth::before {
   display: none;
 }
+/* Modal panels (settings, rules, stats, …) sit in a position:fixed
+   overlay that centers them, and cap their own height at Xvh with
+   internal overflow-y:auto. In dmode, vh is the INFLATED viewport (zoom
+   doesn't rescale it), so the cap is ~scale× the physical screen: the
+   panel centers with its action buttons off the bottom of the screen,
+   and because its content fits inside that oversized cap, the internal
+   scroll never triggers — so the bottom is unreachable. Cap the panel
+   (the overlay's child) to the PHYSICAL screen height so it fits and
+   actually scrolls internally. The lowercase `_overlay_` / `_backdrop_`
+   substrings match only the CSS-module-hashed modal overlay classes;
+   the capitalised warningOverlay / deckSelectorOverlay are left alone. */
+html.dmode [class*="_overlay_"] > *,
+html.dmode [class*="_backdrop_"] > * {
+  max-height: calc(90vh / var(--dmode-scale, 1)) !important;
+}
 
 /* Desktop: Cards scale smoothly with viewport height via the vh-based clamp.
    No breakpoints needed - the reduced minimums allow proper scaling. */
