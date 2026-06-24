@@ -12,6 +12,42 @@
   <link rel="apple-touch-icon" sizes="192x192" href="/pwa-192.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <!-- Desktop-site mode rescue. When Chrome's "Desktop site" is on
+       (global, or per-site), a phone gets a huge layout viewport (e.g.
+       2560px) that the page CANNOT override — width=device-width is
+       ignored — so the whole UI renders microscopic (a real user 2-star
+       review hit exactly this). We can't fix the viewport, but CSS
+       `zoom` scales the effective CSS pixels, which DOES move the media
+       queries, so we counter-scale until the effective width lands in
+       the normal mobile range and the readable mobile layout returns.
+       `zoom` is a Chromium property — exactly what a TWA / Chrome runs.
+
+       Strict guards so it fires ONLY for a phone forced into desktop
+       mode, and is a no-op for everyone else:
+         - UA has no "Mobile"        -> desktop UA (desktop-site or PC)
+         - primary pointer is coarse -> touch is the main input
+         - NO fine pointer anywhere  -> excludes touch laptops/desktops
+         - viewport > 900px          -> implausibly wide for a real phone
+       Runs before first paint, and re-applies on resize/orientation. -->
+  <script>
+    (function () {
+      var TARGET = 412; // effective mobile width to emulate
+      function applyDesktopModeFix() {
+        var el = document.documentElement;
+        el.style.zoom = ''; // reset first so innerWidth reads the raw viewport
+        var raw = window.innerWidth;
+        var forced =
+          !/Mobile/i.test(navigator.userAgent) &&
+          window.matchMedia('(pointer: coarse)').matches &&
+          !window.matchMedia('(any-pointer: fine)').matches &&
+          raw > 900;
+        if (forced) el.style.zoom = (raw / TARGET).toFixed(3);
+      }
+      applyDesktopModeFix();
+      window.addEventListener('resize', applyDesktopModeFix);
+      window.addEventListener('orientationchange', applyDesktopModeFix);
+    })();
+  </script>
   <meta name="theme-color" content="%VITE_THEME_COLOR%" />
   <meta name="description" content="%VITE_APP_DESCRIPTION%" />
   <!-- iOS standalone PWA install -->
