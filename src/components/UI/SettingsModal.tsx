@@ -34,7 +34,7 @@ const FONT_SIZE_STEPS = [
   { value: 1.0, label: 'Small' },
   { value: 1.2, label: 'Normal' },
   { value: 1.4, label: 'Large' },
-  { value: 1.6, label: 'XLarge' },
+  { value: 1.6, label: 'X-Large' },
 ] as const;
 
 /** Closest slider index for a stored fontScale (robust to legacy values). */
