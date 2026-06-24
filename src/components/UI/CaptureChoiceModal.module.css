@@ -21,7 +21,7 @@
 
 .title {
   color: var(--color-text-secondary);
-  font-size: 18px;
+  font-size: calc(18px * var(--font-scale, 1));
   font-weight: 600;
   letter-spacing: 4px;
   text-align: center;

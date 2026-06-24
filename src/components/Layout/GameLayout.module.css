@@ -147,7 +147,7 @@
 }
 
 .turnLabel {
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale, 1));
   color: var(--color-text-primary);
 }
 

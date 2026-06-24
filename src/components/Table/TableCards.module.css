@@ -44,7 +44,7 @@
 .emptyMessage {
   color: var(--empty-label-color, var(--color-text-secondary));
   font-style: italic;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale, 1));
   white-space: nowrap;
 }
 
@@ -98,7 +98,7 @@
   }
 
   .emptyMessage {
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale, 1));
   }
 }
 
@@ -149,6 +149,6 @@
   }
 
   .emptyMessage {
-    font-size: 10px;
+    font-size: calc(10px * var(--font-scale, 1));
   }
 }

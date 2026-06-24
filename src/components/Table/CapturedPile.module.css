@@ -58,7 +58,7 @@
   color: var(--color-text-primary);
   padding: 2px 8px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale, 1));
   font-weight: bold;
 }
 
@@ -72,7 +72,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale, 1));
   color: var(--color-text-secondary);
   background: var(--control-bg-light, rgba(0, 0, 0, 0.2));
   padding: 2px 6px;
@@ -81,18 +81,18 @@
 
 .coinIcon {
   color: #DAA520;
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
 }
 
 .scopaIcon {
   color: var(--color-accent);
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
 }
 
 .setteBello {
   background: linear-gradient(135deg, #DAA520, #B8860B);
   color: #000;
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
   font-weight: bold;
   padding: 2px 5px;
   border-radius: 6px;
@@ -119,7 +119,7 @@
 }
 
 .playerLabel {
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -142,7 +142,7 @@
 }
 
 .emptyPile span {
-  font-size: 10px;
+  font-size: calc(10px * var(--font-scale, 1));
   color: var(--empty-label-color, var(--color-text-secondary));
 }
 
@@ -159,21 +159,21 @@
   }
 
   .cardCount {
-    font-size: 10px;
+    font-size: calc(10px * var(--font-scale, 1));
     padding: 1px 5px;
   }
 
   .stat {
-    font-size: 9px;
+    font-size: calc(9px * var(--font-scale, 1));
     padding: 1px 4px;
   }
 
   .playerLabel {
-    font-size: 8px;
+    font-size: calc(8px * var(--font-scale, 1));
   }
 
   .setteBello {
-    font-size: 8px;
+    font-size: calc(8px * var(--font-scale, 1));
     padding: 1px 3px;
   }
 
@@ -202,12 +202,12 @@
   /* Bumped from 9/8px — pile card-count + coin/sette/scopa stats were
    * called out as too small on a Moto G84 (~412 CSS px). ≥11px now. */
   .cardCount {
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale, 1));
     padding: 1px 5px;
   }
 
   .stat {
-    font-size: 11px;
+    font-size: calc(11px * var(--font-scale, 1));
     padding: 1px 4px;
   }
 
@@ -232,15 +232,15 @@
   }
 
   .cardCount {
-    font-size: 11px;
+    font-size: calc(11px * var(--font-scale, 1));
   }
 
   .stat {
-    font-size: 10px;
+    font-size: calc(10px * var(--font-scale, 1));
   }
 
   .setteBello {
-    font-size: 10px;
+    font-size: calc(10px * var(--font-scale, 1));
   }
 }
 
@@ -258,7 +258,7 @@
   }
 
   .cardCount {
-    font-size: 8px;
+    font-size: calc(8px * var(--font-scale, 1));
     padding: 1px 4px;
   }
 
@@ -269,16 +269,16 @@
   }
 
   .stat {
-    font-size: 7px;
+    font-size: calc(7px * var(--font-scale, 1));
     padding: 1px 3px;
   }
 
   .playerLabel {
-    font-size: 7px;
+    font-size: calc(7px * var(--font-scale, 1));
   }
 
   .setteBello {
-    font-size: 7px;
+    font-size: calc(7px * var(--font-scale, 1));
     padding: 1px 2px;
   }
 

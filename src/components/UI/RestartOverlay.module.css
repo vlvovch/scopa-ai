@@ -31,7 +31,7 @@
 }
 
 .icon {
-  font-size: 48px;
+  font-size: calc(48px * var(--font-scale, 1));
   margin-bottom: 12px;
 }
 
