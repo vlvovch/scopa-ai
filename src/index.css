@@ -310,16 +310,16 @@ html.dmode {
 }
 html.dmode body {
   width: 412px;
-  /* The body is scaled by --dmode-scale, so to fill exactly one
-     viewport-height (and not a scale× taller page of empty green) its
-     own min-height must be viewport / scale. */
+  /* `zoom` (not transform: scale) so pointer/drag coordinates are
+     adjusted natively — transform breaks framer-motion drag. Chromium-
+     only, which is exactly what a TWA/Chrome runs. */
+  zoom: var(--dmode-scale, 1);
+  /* zoom does NOT rescale vh (100vh stays the inflated viewport), so
+     the full-height containers below are divided by --dmode-scale to
+     fill exactly one physical screen instead of scale× of empty green. */
   min-height: calc(100vh / var(--dmode-scale, 1));
-  transform: scale(var(--dmode-scale, 1));
-  transform-origin: top left;
   overflow-x: hidden;
 }
-/* Same divide-by-scale for the #root flex column (min-height:100vh
-   above) so it doesn't force the body back to a full scaled height. */
 html.dmode #root {
   min-height: calc(100vh / var(--dmode-scale, 1));
 }

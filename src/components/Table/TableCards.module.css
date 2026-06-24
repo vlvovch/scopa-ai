@@ -115,6 +115,19 @@
   }
 }
 
+/* Desktop-site-mode rescue: force the ≤480px table sizing (≈4 cards
+   wide) regardless of the locked ~980px viewport, so the table + deck
+   fit the 412px column instead of using the base 8-card max-width and
+   spilling off the right edge. */
+:global(html.dmode) .tableContainer {
+  gap: var(--space-2);
+}
+:global(html.dmode) .tableArea {
+  padding: var(--space-3);
+  border-radius: 8px;
+  max-width: calc(4 * var(--card-width) + 3 * var(--space-2) + 2 * var(--space-3));
+}
+
 /* Landscape mobile (phones only - requires small width too) */
 @media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .tableContainer {

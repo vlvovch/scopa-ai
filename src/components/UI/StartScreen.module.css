@@ -8,6 +8,13 @@
   padding: var(--space-4);
 }
 
+/* Desktop-site-mode rescue: body is zoomed by --dmode-scale but vh is
+   not, so 100vh centres the menu scale× too far down ("basement").
+   Divide by the scale so it centres within one screen. */
+:global(html.dmode) .container {
+  min-height: calc(100vh / var(--dmode-scale, 1));
+}
+
 .content {
   background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
   border: 2px solid var(--color-accent);
