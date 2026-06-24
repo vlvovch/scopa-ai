@@ -28,6 +28,13 @@
          - primary pointer is coarse -> touch is the main input
          - NO fine pointer anywhere  -> excludes touch laptops/desktops
          - viewport > 900px          -> implausibly wide for a real phone
+         - viewport >> physical screen (innerWidth > screen.width*1.4)
+           -> the layout viewport is INFLATED vs the device. A real
+              touch tablet (Surface Pro, iPad, Android tablet) has
+              innerWidth ~= screen.width, so this excludes them; only a
+              phone whose desktop-mode viewport balloons past its screen
+              trips it. This is the condition that distinguishes "phone
+              forced to desktop" from a genuine wide touch device.
        Runs before first paint, and re-applies on resize/orientation. -->
   <script>
     (function () {
@@ -36,11 +43,13 @@
         var el = document.documentElement;
         el.style.zoom = ''; // reset first so innerWidth reads the raw viewport
         var raw = window.innerWidth;
+        var scr = (window.screen && window.screen.width) || raw;
         var forced =
           !/Mobile/i.test(navigator.userAgent) &&
           window.matchMedia('(pointer: coarse)').matches &&
           !window.matchMedia('(any-pointer: fine)').matches &&
-          raw > 900;
+          raw > 900 &&
+          raw > scr * 1.4; // viewport much wider than the physical screen
         if (forced) el.style.zoom = (raw / TARGET).toFixed(3);
       }
       applyDesktopModeFix();
