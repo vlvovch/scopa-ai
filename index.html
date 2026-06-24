@@ -38,11 +38,11 @@
        Runs before first paint, and re-applies on resize/orientation. -->
   <script>
     (function () {
-      var TARGET = 412; // mobile column width to emulate (px)
       function applyDesktopModeFix() {
         var el = document.documentElement;
         el.classList.remove('dmode');
         el.style.removeProperty('--dmode-scale');
+        el.style.removeProperty('--dmode-width');
         var raw = window.innerWidth;
         var scr = (window.screen && window.screen.width) || raw;
         var forced =
@@ -52,7 +52,12 @@
           raw > 900 &&
           raw > scr * 1.4; // viewport much wider than the physical screen
         if (forced) {
-          el.style.setProperty('--dmode-scale', (raw / TARGET).toFixed(4));
+          // Render the mobile column at the device's REAL physical
+          // width (screen.width — confirmed = the native CSS width on a
+          // phone in desktop mode), so it's 1:1 on every phone instead
+          // of a fixed 412. scale = inflated viewport / physical width.
+          el.style.setProperty('--dmode-width', scr + 'px');
+          el.style.setProperty('--dmode-scale', (raw / scr).toFixed(4));
           el.classList.add('dmode');
         }
       }

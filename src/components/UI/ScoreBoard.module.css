@@ -111,6 +111,31 @@
   }
 }
 
+/* Desktop-site-mode rescue: force the ≤600px scoreboard sizing
+   (min-width: auto + smaller fonts) regardless of the locked ~980px
+   viewport. The desktop min-width (clamp(140px,16vw,200px)) + desktop
+   fonts made the scoreboard wide enough to shove the CPU pile off the
+   right edge of the 412px column. */
+:global(html.dmode) .scoreBoard {
+  min-width: auto;
+  padding: var(--space-2);
+  background: var(--control-bg-light, rgba(0, 0, 0, 0.3));
+}
+:global(html.dmode) .header {
+  margin-bottom: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+:global(html.dmode) .roundLabel { font-size: 12px; }
+:global(html.dmode) .roundNumber { font-size: 14px; }
+:global(html.dmode) .scores { gap: var(--space-1); }
+:global(html.dmode) .scoreValue { font-size: 18px; }
+:global(html.dmode) .playerName { font-size: 12px; }
+:global(html.dmode) .targetScore {
+  margin-top: var(--space-1);
+  font-size: 12px;
+  padding-top: var(--space-1);
+}
+
 /* Landscape mobile - very compact (phones only - requires small width too) */
 @media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   .scoreBoard {

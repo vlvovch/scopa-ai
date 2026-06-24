@@ -294,27 +294,28 @@ a,
    media queries can't fire.
    ============================================================ */
 html.dmode {
-  /* Mobile card sizing as FIXED px — vw/vh units would resolve against
-     the 980px locked viewport, not the 412px column. (~ the ≤480px
-     values evaluated at 412px.) */
-  --card-width: 74px;
-  --card-height: 118px;
+  /* Card sizing relative to the REAL column width (--dmode-width =
+     device screen width), mirroring the ≤480px rules' 18vw/29vw — vw
+     itself can't be used because it resolves against the locked ~980px
+     viewport, not the column. */
+  --card-width: clamp(60px, calc(var(--dmode-width, 412px) * 0.18), 88px);
+  --card-height: clamp(96px, calc(var(--dmode-width, 412px) * 0.29), 140px);
   --card-border-radius: 5px;
   --space-3: 4px;
   --space-4: 6px;
   --space-5: 8px;
   --space-6: 10px;
-  /* --playing-area-width is min(95vw,1000px); 95vw of the locked 980px
-     viewport is ~931px, so the top/bottom rows ran edge-to-edge and the
-     CPU pile / AI label clipped on the right. Constrain it to fit the
-     412px column with a little margin. */
-  --playing-area-width: 392px;
+  /* --playing-area-width is min(95vw,1000px); 95vw of the locked
+     viewport is huge, so the top/bottom rows ran edge-to-edge and the
+     CPU pile / AI label clipped. Pin it just inside the column width. */
+  --playing-area-width: calc(var(--dmode-width, 412px) - 16px);
   overflow-x: hidden;
   /* Backstop colour for any area the scaled body doesn't cover. */
   background: var(--color-table);
 }
 html.dmode body {
-  width: 412px;
+  /* The mobile column = the device's native CSS width. */
+  width: var(--dmode-width, 412px);
   /* `zoom` (not transform: scale) so pointer/drag coordinates are
      adjusted natively — transform breaks framer-motion drag. Chromium-
      only, which is exactly what a TWA/Chrome runs. */
