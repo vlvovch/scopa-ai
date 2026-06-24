@@ -317,8 +317,13 @@ html.dmode {
      in-game layout fits one screen, but the start menu / settings can
      be taller and must scroll. touch-action: pan-y permits vertical
      panning only; pinch-zoom stays disabled (the meta user-scalable=no
-     is ignored in desktop mode, so this is where it's enforced). */
+     is ignored in desktop mode, so this is where it's enforced).
+     Crucially the SCROLL CONTAINER is <html> (NOT zoomed) — finger-pan
+     then moves 1:1. The zoomed <body> must NOT also scroll (see below):
+     panning a zoomed scroll container divides the distance by the zoom
+     → the "stuck / snaps back / can't reach the bottom" jank. */
   overflow-x: hidden;
+  overflow-y: auto;
   touch-action: pan-y;
   /* Backstop colour for any area the scaled body doesn't cover. */
   background: var(--color-table);
@@ -334,7 +339,11 @@ html.dmode body {
      the full-height containers below are divided by --dmode-scale to
      fill exactly one physical screen instead of scale× of empty green. */
   min-height: calc(100vh / var(--dmode-scale, 1));
-  overflow-x: hidden;
+  /* overflow: visible (NOT hidden/auto) so the zoomed body is NOT a
+     scroll container — tall content overflows up to <html>, which does
+     the (1:1, un-zoomed) scrolling. A 412px column never overflows
+     horizontally, so visible is safe on x too. */
+  overflow: visible;
   touch-action: pan-y;
 }
 html.dmode #root {
