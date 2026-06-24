@@ -312,14 +312,14 @@ html.dmode {
      viewport is huge, so the top/bottom rows ran edge-to-edge and the
      CPU pile / AI label clipped. Pin it just inside the column width. */
   --playing-area-width: calc(var(--dmode-width, 412px) - 16px);
-  /* The rescued layout fits exactly one screen, so lock it down:
-     no finger-scroll (the inflated viewport otherwise scrolls into the
-     blank backstop) and no pinch-zoom (which fights the rescue scale).
-     touch-action: none leaves taps working — only pan/zoom gestures are
-     blocked. user-scalable=no in the meta tag is ignored in desktop
-     mode, so this is where pinch-zoom actually gets disabled. */
-  overflow: hidden;
-  touch-action: none;
+  /* Block pinch-zoom (which fights the rescue scale) and horizontal
+     scroll into the blank backstop, but ALLOW vertical scroll — the
+     in-game layout fits one screen, but the start menu / settings can
+     be taller and must scroll. touch-action: pan-y permits vertical
+     panning only; pinch-zoom stays disabled (the meta user-scalable=no
+     is ignored in desktop mode, so this is where it's enforced). */
+  overflow-x: hidden;
+  touch-action: pan-y;
   /* Backstop colour for any area the scaled body doesn't cover. */
   background: var(--color-table);
 }
@@ -334,11 +334,29 @@ html.dmode body {
      the full-height containers below are divided by --dmode-scale to
      fill exactly one physical screen instead of scale× of empty green. */
   min-height: calc(100vh / var(--dmode-scale, 1));
-  overflow: hidden;
-  touch-action: none;
+  overflow-x: hidden;
+  touch-action: pan-y;
 }
 html.dmode #root {
   min-height: calc(100vh / var(--dmode-scale, 1));
+}
+/* Tablecloth pattern lives in a position:fixed; z-index:-1 ::before,
+   which the dmode zoom hides (the body's own #faf8f5 background paints
+   over it → plain ivory "white screen"). Re-apply the gingham as the
+   body's OWN background-image (painted over its background-color, so it
+   shows) and drop the broken ::before. */
+html.dmode body.table-tablecloth {
+  background-image:
+    repeating-linear-gradient(
+      0deg, transparent, transparent 50%,
+      rgba(200, 70, 85, 0.42) 50%, rgba(200, 70, 85, 0.42) 100%),
+    repeating-linear-gradient(
+      90deg, transparent, transparent 50%,
+      rgba(200, 70, 85, 0.42) 50%, rgba(200, 70, 85, 0.42) 100%);
+  background-size: var(--tablecloth-size) var(--tablecloth-size);
+}
+html.dmode body.table-tablecloth::before {
+  display: none;
 }
 
 /* Desktop: Cards scale smoothly with viewport height via the vh-based clamp.
