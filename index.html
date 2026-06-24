@@ -13,14 +13,16 @@
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Desktop-site mode rescue. When Chrome's "Desktop site" is on
-       (global, or per-site), a phone gets a huge layout viewport (e.g.
-       2560px) that the page CANNOT override — width=device-width is
-       ignored — so the whole UI renders microscopic (a real user 2-star
-       review hit exactly this). We can't fix the viewport, but CSS
-       `zoom` scales the effective CSS pixels, which DOES move the media
-       queries, so we counter-scale until the effective width lands in
-       the normal mobile range and the readable mobile layout returns.
-       `zoom` is a Chromium property — exactly what a TWA / Chrome runs.
+       (global or per-site), a phone gets a layout viewport locked at
+       ~980px on a physically ~412px screen, which the page CANNOT
+       override (width=device-width AND a fixed numeric width are both
+       ignored — confirmed on-device). So the media queries stay on the
+       desktop layout and everything renders microscopic (a real 2-star
+       review hit this). `zoom` doesn't move the media queries on real
+       Chrome, so instead we: add an `html.dmode` class and a
+       `--dmode-scale` var; CSS then forces the app into a TARGET-wide
+       (412px) mobile column and scales it up by --dmode-scale to fill
+       the locked viewport, restoring a readable, true mobile layout.
 
        Strict guards so it fires ONLY for a phone forced into desktop
        mode, and is a no-op for everyone else:
@@ -30,18 +32,17 @@
          - viewport > 900px          -> implausibly wide for a real phone
          - viewport >> physical screen (innerWidth > screen.width*1.4)
            -> the layout viewport is INFLATED vs the device. A real
-              touch tablet (Surface Pro, iPad, Android tablet) has
-              innerWidth ~= screen.width, so this excludes them; only a
-              phone whose desktop-mode viewport balloons past its screen
-              trips it. This is the condition that distinguishes "phone
-              forced to desktop" from a genuine wide touch device.
+              touch tablet (Surface Pro, iPad) has innerWidth ~=
+              screen.width, so this excludes them; only a phone whose
+              desktop-mode viewport balloons past its screen trips it.
        Runs before first paint, and re-applies on resize/orientation. -->
   <script>
     (function () {
-      var TARGET = 412; // effective mobile width to emulate
+      var TARGET = 412; // mobile column width to emulate (px)
       function applyDesktopModeFix() {
         var el = document.documentElement;
-        el.style.zoom = ''; // reset first so innerWidth reads the raw viewport
+        el.classList.remove('dmode');
+        el.style.removeProperty('--dmode-scale');
         var raw = window.innerWidth;
         var scr = (window.screen && window.screen.width) || raw;
         var forced =
@@ -50,7 +51,10 @@
           !window.matchMedia('(any-pointer: fine)').matches &&
           raw > 900 &&
           raw > scr * 1.4; // viewport much wider than the physical screen
-        if (forced) el.style.zoom = (raw / TARGET).toFixed(3);
+        if (forced) {
+          el.style.setProperty('--dmode-scale', (raw / TARGET).toFixed(4));
+          el.classList.add('dmode');
+        }
       }
       applyDesktopModeFix();
       window.addEventListener('resize', applyDesktopModeFix);

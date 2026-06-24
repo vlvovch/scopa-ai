@@ -283,5 +283,46 @@ a,
   }
 }
 
+/* ============================================================
+   Desktop-site mode rescue (detection in index.html).
+   When a phone is forced into Chrome's "Desktop site" mode the layout
+   viewport is locked at ~980px on a ~412px physical screen, and the
+   media queries above never reach the mobile range (and can't — the
+   viewport is immovable). So we force the whole app into a 412px mobile
+   column and scale it up by --dmode-scale (set by the inline detector)
+   to fill the locked viewport, pinning mobile sizing here since the
+   media queries can't fire.
+   ============================================================ */
+html.dmode {
+  /* Mobile card sizing as FIXED px — vw/vh units would resolve against
+     the 980px locked viewport, not the 412px column. (~ the ≤480px
+     values evaluated at 412px.) */
+  --card-width: 74px;
+  --card-height: 118px;
+  --card-border-radius: 5px;
+  --space-3: 4px;
+  --space-4: 6px;
+  --space-5: 8px;
+  --space-6: 10px;
+  overflow-x: hidden;
+  /* Backstop colour for any area the scaled body doesn't cover. */
+  background: var(--color-table);
+}
+html.dmode body {
+  width: 412px;
+  /* The body is scaled by --dmode-scale, so to fill exactly one
+     viewport-height (and not a scale× taller page of empty green) its
+     own min-height must be viewport / scale. */
+  min-height: calc(100vh / var(--dmode-scale, 1));
+  transform: scale(var(--dmode-scale, 1));
+  transform-origin: top left;
+  overflow-x: hidden;
+}
+/* Same divide-by-scale for the #root flex column (min-height:100vh
+   above) so it doesn't force the body back to a full scaled height. */
+html.dmode #root {
+  min-height: calc(100vh / var(--dmode-scale, 1));
+}
+
 /* Desktop: Cards scale smoothly with viewport height via the vh-based clamp.
    No breakpoints needed - the reduced minimums allow proper scaling. */

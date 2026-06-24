@@ -31,6 +31,13 @@
   overflow: hidden;
 }
 
+/* Desktop-site-mode rescue: the body is scaled by --dmode-scale, so a
+   100dvh game layout would render scale× too tall (a 5000px page of
+   empty green). Divide by the scale so it fills exactly one screen. */
+:global(html.dmode) .gameLayout {
+  height: calc(100dvh / var(--dmode-scale, 1));
+}
+
 /* ============================================
    TOP ROW - Scoreboard (left) & CPU Pile (right)
    ============================================ */
