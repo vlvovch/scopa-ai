@@ -57,6 +57,55 @@
       window.addEventListener('orientationchange', applyDesktopModeFix);
     })();
   </script>
+  <!-- On-screen viewport diagnostic. Activates ONLY when the URL has
+       ?diag (or #diag), so it never affects normal users. Phones have
+       no console, so this prints the key viewport numbers in a big box
+       on screen. Tests whether a FIXED-width viewport is honored in
+       desktop mode (width=device-width is known to be ignored). Tap to
+       dismiss. Remove once we've decided the desktop-mode fix. -->
+  <script>
+    (function () {
+      if (!/diag/.test(location.search + location.hash)) return;
+      function run() {
+        var el = document.documentElement;
+        el.style.zoom = ''; // undo the rescue zoom for a clean read
+        var m = document.querySelector('meta[name="viewport"]');
+        var before = window.innerWidth;
+        var scr = (window.screen && window.screen.width) || 0;
+        var dpr0 = window.devicePixelRatio;
+        var ua = navigator.userAgent;
+        var box = document.createElement('div');
+        box.style.cssText = 'position:fixed;top:0;left:0;right:0;' +
+          'z-index:2147483647;background:#111;color:#fff;padding:3vw;' +
+          'font:600 3.2vw/1.5 system-ui,sans-serif;white-space:pre-wrap;' +
+          'word-break:break-word;border-bottom:0.6vw solid #F4D03F;';
+        box.textContent = 'DIAG — measuring…';
+        document.body.appendChild(box);
+        m.setAttribute('content', 'width=412, initial-scale=1, viewport-fit=cover');
+        setTimeout(function () {
+          var afterFixed = window.innerWidth;
+          var dpr1 = window.devicePixelRatio;
+          m.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
+          setTimeout(function () {
+            var afterDW = window.innerWidth;
+            box.textContent =
+              'DIAG (tap to dismiss)\n' +
+              'before inner: ' + before + '\n' +
+              'screen.width: ' + scr + '\n' +
+              'dpr: ' + dpr0 + '\n' +
+              'after width=412 : ' + afterFixed + '  (dpr ' + dpr1 + ')\n' +
+              'after device-width: ' + afterDW + '\n' +
+              'ratio inner/screen: ' + (scr ? (before / scr).toFixed(2) : 'n/a') + '\n' +
+              'UA: ' + ua;
+            box.onclick = function () { box.remove(); };
+          }, 700);
+        }, 700);
+      }
+      if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', run);
+      } else { run(); }
+    })();
+  </script>
   <meta name="theme-color" content="%VITE_THEME_COLOR%" />
   <meta name="description" content="%VITE_APP_DESCRIPTION%" />
   <!-- iOS standalone PWA install -->
