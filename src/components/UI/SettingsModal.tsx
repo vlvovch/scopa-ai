@@ -305,6 +305,25 @@ export function SettingsModal({
             </div>
 
             <div className={styles.setting}>
+              <label className={styles.label}>Text Size</label>
+              <div className={styles.options}>
+                {([
+                  { value: 1, label: 'Normal' },
+                  { value: 1.2, label: 'Large' },
+                  { value: 1.4, label: 'X-Large' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    className={`${styles.option} ${(settings.fontScale ?? 1) === opt.value ? styles.selected : ''}`}
+                    onClick={() => onUpdateSetting('fontScale', opt.value)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.setting}>
               <label className={styles.label}>Card Deck</label>
               <button
                 className={styles.deckSelectorButton}

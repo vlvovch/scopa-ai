@@ -59,6 +59,10 @@ export interface GameSettings {
   claudeKeyValid: boolean;
   /** Whether to show pile stats (coins count, sette bello, scopas) */
   showPileStats: boolean;
+  /** Accessibility: multiplier applied to the root font size so all
+   *  rem-based UI text scales up/down. 1 = normal. Cards (vw/vh based)
+   *  are intentionally unaffected. */
+  fontScale: number;
   /** Scopa & Briscola analysis: show live win-odds (Expert/Esperto
    *  self-play estimate). Off by default; single-player Play mode only
    *  (never multiplayer / spectator). */
@@ -101,6 +105,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   openaiKeyValid: false,
   claudeKeyValid: false,
   showPileStats: true,
+  fontScale: 1,
   showWinOdds: false,
   showWinOddsPerCard: true,
   winOddsSamples: 300,
@@ -207,6 +212,16 @@ export function useSettings() {
   useEffect(() => {
     saveSettings(settings);
   }, [settings]);
+
+  // Apply the accessibility font scale to the document root so all
+  // rem-based text resizes. (index.html sets it pre-paint from the same
+  // stored value to avoid a flash; this keeps it live on change.)
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--font-scale',
+      String(settings.fontScale ?? 1)
+    );
+  }, [settings.fontScale]);
 
   const updateSetting = useCallback(<K extends keyof GameSettings>(
     key: K,

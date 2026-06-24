@@ -73,7 +73,10 @@
 
 /* Base styles */
 html {
-  font-size: 16px;
+  /* --font-scale (accessibility "Text size" setting; default 1) scales
+     the root font, so every rem-based text resizes. Cards use vw/vh and
+     stay put. index.html seeds the var pre-paint to avoid a flash. */
+  font-size: calc(16px * var(--font-scale, 1));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -267,7 +270,7 @@ a,
   }
 
   html {
-    font-size: 13px;
+    font-size: calc(13px * var(--font-scale, 1));
   }
 }
 
@@ -282,7 +285,7 @@ a,
   }
 
   html {
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale, 1));
   }
 }
 

@@ -75,6 +75,19 @@
       window.addEventListener('orientationchange', applyDesktopModeFix);
     })();
   </script>
+  <!-- Seed the accessibility "Text size" scale before first paint (the
+       useSettings hook keeps it live afterwards), so users who picked a
+       larger size don't get a flash of default-size text on load. -->
+  <script>
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('scopa-settings') || '{}');
+        if (s && s.fontScale && s.fontScale !== 1) {
+          document.documentElement.style.setProperty('--font-scale', s.fontScale);
+        }
+      } catch (e) { }
+    })();
+  </script>
   <meta name="theme-color" content="%VITE_THEME_COLOR%" />
   <meta name="description" content="%VITE_APP_DESCRIPTION%" />
   <!-- iOS standalone PWA install -->
