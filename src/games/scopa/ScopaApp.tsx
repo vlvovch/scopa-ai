@@ -128,6 +128,23 @@ function getInitialJoinCode(): string | undefined {
   return undefined;
 }
 
+/**
+ * Drop point in viewport/visual space (to compare against
+ * getBoundingClientRect). In desktop-site mode App's transformPagePoint
+ * divides pointer coords by --dmode-scale, so info.point is in the
+ * zoomed-out local space; getBoundingClientRect stays in zoomed/visual
+ * space, so we multiply back. No-op for normal users.
+ */
+function dropPoint(info: { point: { x: number; y: number } }): { x: number; y: number } {
+  const html = document.documentElement;
+  if (html.classList.contains('dmode')) {
+    const scale =
+      parseFloat(getComputedStyle(html).getPropertyValue('--dmode-scale')) || 1;
+    return { x: info.point.x * scale, y: info.point.y * scale };
+  }
+  return { x: info.point.x, y: info.point.y };
+}
+
 function ScopaApp() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -900,7 +917,7 @@ function ScopaApp() {
     // Check if dropped on table area
     if (tableRef.current) {
       const tableRect = tableRef.current.getBoundingClientRect();
-      const { x, y } = info.point;
+      const { x, y } = dropPoint(info);
 
       const isOverTable =
         x >= tableRect.left &&
@@ -1723,8 +1740,9 @@ function ScopaApp() {
     const tableElement = tableRef.current;
     if (tableElement) {
       const rect = tableElement.getBoundingClientRect();
-      const droppedOnTable = info.point.x >= rect.left && info.point.x <= rect.right &&
-                             info.point.y >= rect.top && info.point.y <= rect.bottom;
+      const dp = dropPoint(info);
+      const droppedOnTable = dp.x >= rect.left && dp.x <= rect.right &&
+                             dp.y >= rect.top && dp.y <= rect.bottom;
 
       if (droppedOnTable) {
         handleMultiplayerCardDoubleClick(card);
