@@ -148,14 +148,15 @@ body.table-tablecloth::before {
 
 /* Phones (matches the win-odds panel's compact breakpoints): the panel
    is centered in the same bottom strip as the turn label, so right-align
-   the controls column and stack it above the panel — the label stays
-   readable at the bottom-right instead of hiding behind the overlay. */
+   the controls column. Short labels ("Your turn") sit fully beside the
+   panel; long ones ("Esperto is thinking...") tuck BEHIND it (z below
+   the panel's 90) rather than rendering on top of its text. */
 @media (max-height: 760px), (max-width: 480px) {
   .control-panel {
     align-items: flex-end;
     text-align: right;
     position: relative;
-    z-index: 91;
+    z-index: 89;
   }
 }
 
