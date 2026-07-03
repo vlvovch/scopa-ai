@@ -5,6 +5,7 @@ import type { Card, Move } from '../../games/scopa/types';
 import { moveKey } from '../../games/scopa/ai/winOdds';
 import type { MoveOdds } from '../../games/scopa/ai/winOdds';
 import { CardImage } from '../Card/CardImage';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './CaptureChoiceModal.module.css';
 
 interface CaptureChoiceModalProps {
@@ -26,6 +27,7 @@ export function CaptureChoiceModal({
   onCancel,
   perMoveOdds,
 }: CaptureChoiceModalProps) {
+  const t = useT();
   if (!isOpen || !playedCard) return null;
 
   // Best option (highest expected score margin) among the ones we have
@@ -55,7 +57,7 @@ export function CaptureChoiceModal({
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className={styles.title}>CHOOSE A CAPTURE</h2>
+            <h2 className={styles.title}>{t.scopa.chooseCapture}</h2>
 
             <div className={styles.optionsContainer}>
               {captureOptions.map((move, index) => {

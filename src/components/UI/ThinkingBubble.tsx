@@ -2,6 +2,7 @@
 // Small thought bubble icon that opens a modal with AI reasoning
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './ThinkingBubble.module.css';
 
 interface ThinkingBubbleProps {
@@ -20,6 +21,7 @@ interface ThinkingBubbleProps {
 }
 
 export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHoverEnd, position = 'top' }: ThinkingBubbleProps) {
+  const t = useT();
   if (!show || !hasReasoning) return null;
 
   const isBottom = position === 'bottom';
@@ -35,7 +37,7 @@ export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHo
         onClick={onClick}
         onMouseEnter={onHoverStart}
         onMouseLeave={onHoverEnd}
-        aria-label="Show AI reasoning"
+        aria-label={t.table.showReasoning}
       >
         <svg
           className={styles.icon}

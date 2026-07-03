@@ -31,6 +31,7 @@ import dealStyles from '../../components/UI/DealingAnimation.module.css';
 import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
+import { useT } from '../../i18n/LanguageContext';
 import pileStyles from '../../components/Table/CapturedPile.module.css';
 import modalStyles from '../../components/UI/CapturedCardsModal.module.css';
 import { applyMove, trickWinner } from './rules';
@@ -619,6 +620,7 @@ function mpToBriscolaAppState(
 }
 
 function BriscolaApp() {
+  const t = useT();
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { settings, updateSetting, resetSettings } = useSettings();
   const { play } = useSound({ enabled: settings.soundEnabled });
@@ -1185,7 +1187,7 @@ function BriscolaApp() {
     };
 
     let cancelled = false;
-    const t = setTimeout(async () => {
+    const moveTimer = setTimeout(async () => {
       if (cancelled) return;
       try {
         const move = isAsyncAI(bot)
@@ -1255,7 +1257,7 @@ function BriscolaApp() {
         if (cancelled) return;
         const msg =
           e instanceof RateLimitError
-            ? `Rate limit (${e.gamesUsed}/${e.gamesLimit})`
+            ? t.briscola.rateLimit(e.gamesUsed, e.gamesLimit)
             : e instanceof Error
               ? e.message
               : String(e);
@@ -1275,7 +1277,7 @@ function BriscolaApp() {
     }, dur(CPU_DECISION_DELAY_MS));
     return () => {
       cancelled = true;
-      clearTimeout(t);
+      clearTimeout(moveTimer);
     };
     // statsFor and the watch/opponent-name references inside the async
     // closure are belt-and-suspenders here — botFor already depends on
@@ -1559,8 +1561,8 @@ function BriscolaApp() {
       bridgedState = { status: 'playing', game: patchedGame };
     }
 
-    const opponentLabel = multiplayer.opponentNickname || 'Opponent';
-    const youLabel = multiplayer.nickname || 'You';
+    const opponentLabel = multiplayer.opponentNickname || t.common.opponent;
+    const youLabel = multiplayer.nickname || t.common.you;
 
     const handleLeaveMultiplayer = exitMultiplayer;
 
@@ -1670,7 +1672,7 @@ function BriscolaApp() {
                 ? 'self'
                 : 'opponent'
             }
-            opponentNickname={multiplayer.opponentNickname || 'Opponent'}
+            opponentNickname={multiplayer.opponentNickname || t.common.opponent}
             onRequestRestart={multiplayer.requestRestart}
             onCancel={multiplayer.requestRestart}
           />
@@ -1794,20 +1796,20 @@ function BriscolaApp() {
           gameCodePrefix: 'BRISCOLA',
           presetScores: [1, 3, 5],
           defaultScore: 1,
-          scoreLabel: 'Best of N rounds (wins)',
+          scoreLabel: t.briscola.bestOfLabel,
           extraToggles: [
             {
               key: 'pileView',
-              label: 'Captured-pile review',
-              hintOn: 'Players can open a pile to review captured cards',
-              hintOff: 'Play from memory — piles can’t be opened',
+              label: t.game.pileReviewLabel,
+              hintOn: t.game.pileReviewOn,
+              hintOff: t.game.pileReviewOff,
               defaultValue: false,
             },
             {
               key: 'pileStats',
-              label: 'Pile stats during play',
-              hintOn: 'Show captured count / points / categories mid-game',
-              hintOff: 'Hidden during play — revealed at round end',
+              label: t.game.pileStatsLabel,
+              hintOn: t.game.pileStatsOn,
+              hintOff: t.game.pileStatsOff,
               defaultValue: false,
             },
           ],
@@ -1881,9 +1883,9 @@ function BriscolaApp() {
         <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} game="briscola" />
         <ConfirmDialog
           isOpen={confirmNewGame}
-          title="Start New Game?"
-          message="Current game progress will be lost."
-          confirmLabel="New Game"
+          title={t.game.newGameTitle}
+          message={t.game.newGameMessage}
+          confirmLabel={t.game.newGameConfirm}
           onConfirm={confirmRestart}
           onCancel={() => setConfirmNewGame(false)}
         />
@@ -1903,7 +1905,7 @@ function BriscolaApp() {
         opponentName={gameMode === 'watch' ? watchOpponents.player2 : opponentName}
         cpuModel={modelFor(gameMode === 'watch' ? watchOpponents.player2 : opponentName)}
         humanLabel={
-          gameMode === 'watch' ? labelWithModel(watchOpponents.player1) : 'You'
+          gameMode === 'watch' ? labelWithModel(watchOpponents.player1) : t.common.you
         }
         humanBotName={gameMode === 'watch' ? watchOpponents.player1 : null}
         humanModel={
@@ -1956,7 +1958,7 @@ function BriscolaApp() {
             openPile === 'human'
               ? gameMode === 'watch'
                 ? BOT_LABELS[watchOpponents.player1]
-                : 'You'
+                : t.common.you
               : gameMode === 'watch'
                 ? BOT_LABELS[watchOpponents.player2]
                 : BOT_LABELS[opponentName]
@@ -1982,9 +1984,9 @@ function BriscolaApp() {
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} game="briscola" />
       <ConfirmDialog
         isOpen={confirmNewGame}
-        title="Start New Game?"
-        message="Current game progress will be lost."
-        confirmLabel="New Game"
+        title={t.game.newGameTitle}
+        message={t.game.newGameMessage}
+        confirmLabel={t.game.newGameConfirm}
         onConfirm={confirmRestart}
         onCancel={() => setConfirmNewGame(false)}
       />
@@ -2006,7 +2008,7 @@ function BriscolaApp() {
         <WinOddsPanel
           odds={winOdds}
           computing={winOddsComputing}
-          caption="Esperto self-play estimate"
+          caption={t.winOddsPanel.expertCaption('Esperto')}
         />
       )}
     </DeckProvider>
@@ -2123,6 +2125,7 @@ function BriscolaBoard({
    *  (single-player win-odds analysis). Omitted otherwise. */
   handAnnotations?: Record<string, React.ReactNode>;
 }) {
+  const t = useT();
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
   // For every other state, state.game is the right view.
   const g: GameState = state.status === 'drawing' ? state.preDrawGame : state.game;
@@ -2394,26 +2397,26 @@ function BriscolaBoard({
               <div style={turnLabelStyle}>
                 {state.status === 'playing' &&
                   (isHumanTurn && seatIsUser ? (
-                    <span>Your turn</span>
+                    <span>{t.game.yourTurn}</span>
                   ) : (
                     <span style={row}>
                       {seatLabelNode(currentSeat ?? 'cpu')}
-                      <span>thinking…</span>
+                      <span>{t.briscola.thinkingSuffix}</span>
                     </span>
                   ))}
                 {state.status === 'cpuAnimating' && (
                   <span style={row}>
                     {seatLabelNode(currentSeat ?? 'cpu')}
-                    <span>plays…</span>
+                    <span>{t.briscola.playsSuffix}</span>
                   </span>
                 )}
                 {state.status === 'animatingTrick' && winner && (
                   <span style={row}>
                     {seatLabelNode(winner)}
-                    <span>{seatIsUser ? 'take' : 'takes'} it</span>
+                    <span>{t.briscola.takesIt(seatIsUser)}</span>
                   </span>
                 )}
-                {state.status === 'roundEnd' && <span>Round over</span>}
+                {state.status === 'roundEnd' && <span>{t.briscola.roundOver}</span>}
               </div>
             );
           })()
@@ -2637,6 +2640,7 @@ function TrickCard({
 // extending to the right and the deck stack appears to be sitting on top
 // of one corner of the trump.
 function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: BriscolaCard }) {
+  const t = useT();
   if (deckCount === 0) {
     // Deck exhausted — the trump card itself has been drawn. Keep it
     // visible (dimmed) in the same slot so the player still has a visual
@@ -2644,7 +2648,7 @@ function BriscolaDeck({ deckCount, trump }: { deckCount: number; trump: Briscola
     return (
       <div style={deckContainer}>
         <div style={deckTrumpArrangement}>
-          <div style={{ ...trumpStickOut, opacity: 0.45 }} title="Trump suit (deck empty)">
+          <div style={{ ...trumpStickOut, opacity: 0.45 }} title={t.briscola.trumpDeckEmpty}>
             <Card card={trump} />
           </div>
         </div>
@@ -2732,6 +2736,7 @@ function BriscolaPile({
    *  from cards. When set, this authoritative value is shown instead. */
   pointsOverride?: number;
 }) {
+  const t = useT();
   const count = captured.length;
   const points = pointsOverride ?? sumPoints(captured);
   const stackLayers = Math.min(6, Math.max(1, Math.ceil(count / 4)));
@@ -2755,7 +2760,7 @@ function BriscolaPile({
       <div className={pileStyles.pileStack}>
         {count === 0 ? (
           <div className={pileStyles.emptyPile}>
-            <span>Empty</span>
+            <span>{t.table.empty}</span>
           </div>
         ) : (
           Array.from({ length: stackLayers }).map((_, i) => (
@@ -2774,9 +2779,9 @@ function BriscolaPile({
       </div>
       {showStats && (
         <div className={pileStyles.pileInfo}>
-          <span className={pileStyles.cardCount}>{count} cards</span>
+          <span className={pileStyles.cardCount}>{t.table.cardsCount(count)}</span>
           <div className={pileStyles.statsRow}>
-            <div className={pileStyles.stat} title="Points captured">
+            <div className={pileStyles.stat} title={t.briscola.pointsCaptured}>
               <StarIcon />
               <span>{points}</span>
             </div>
@@ -2799,6 +2804,7 @@ function BriscolaCapturedModal({
   playerName: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const points = sumPoints(cards);
   // Tally point cards by value for a compact stats row
   const tally = {
@@ -2825,23 +2831,23 @@ function BriscolaCapturedModal({
           exit={{ scale: 0.9, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 className={modalStyles.title}>{playerName} · Captured Cards</h2>
+          <h2 className={modalStyles.title}>{t.briscola.capturedTitle(playerName)}</h2>
 
           <div className={modalStyles.stats}>
             <span className={modalStyles.stat}>
-              <strong>{cards.length}</strong> cards
+              <strong>{cards.length}</strong> {t.captured.cardsWord}
             </span>
             <span className={modalStyles.stat}>
-              <strong>{points}</strong> pts ({POINT_VALUES[1]}·A + {POINT_VALUES[3]}·3 + {POINT_VALUES[10]}·K + {POINT_VALUES[9]}·Kn + {POINT_VALUES[8]}·J)
+              <strong>{points}</strong> {t.briscola.ptsWord} {t.briscola.ptsLegend(POINT_VALUES[1], POINT_VALUES[3], POINT_VALUES[10], POINT_VALUES[9], POINT_VALUES[8])}
             </span>
             <span className={modalStyles.stat}>
-              A:<strong>{tally.aces}</strong> 3:<strong>{tally.threes}</strong> K:<strong>{tally.kings}</strong> Kn:<strong>{tally.knights}</strong> J:<strong>{tally.knaves}</strong>
+              {t.briscola.tallyAce}:<strong>{tally.aces}</strong> {t.briscola.tallyThree}:<strong>{tally.threes}</strong> {t.briscola.tallyKing}:<strong>{tally.kings}</strong> {t.briscola.tallyKnight}:<strong>{tally.knights}</strong> {t.briscola.tallyKnave}:<strong>{tally.knaves}</strong>
             </span>
           </div>
 
           <div className={modalStyles.cardsContainer}>
             {cards.length === 0 ? (
-              <p className={modalStyles.empty}>No cards captured yet</p>
+              <p className={modalStyles.empty}>{t.captured.empty}</p>
             ) : (
               <div className={modalStyles.cardsGrid}>
                 {cards.map((card) => (
@@ -2878,6 +2884,7 @@ function CapturedSummaryRow({
   points: number;
   totalCards: number;
 }) {
+  const t = useT();
   // Show every captured card; scoring cards (Ace/3/K/Knight/Knave) get a
   // gold ring + value badge, scartine render plain. A subtle brightness
   // filter knocks the card paper down a notch so it doesn't fight the dark
@@ -2897,7 +2904,7 @@ function CapturedSummaryRow({
       <div style={{ marginBottom: '0.35rem', fontSize: '0.95rem' }}>
         <strong style={{ display: 'block' }}>{label}</strong>
         <span style={{ opacity: 0.85, whiteSpace: 'nowrap' }}>
-          {points} pts · {totalCards} cards
+          {points} {t.briscola.ptsWord} · {t.table.cardsCount(totalCards)}
         </span>
       </div>
       <div
@@ -3011,6 +3018,7 @@ function RoundHistoryTable({
   cpuLabel: string;
   humanLabel: string;
 }) {
+  const t = useT();
   const cellTd: React.CSSProperties = {
     padding: '6px 10px',
     fontVariantNumeric: 'tabular-nums',
@@ -3054,10 +3062,10 @@ function RoundHistoryTable({
         >
           <thead>
             <tr style={{ background: 'rgba(0,0,0,0.25)' }}>
-              <th style={{ ...cellTd, textAlign: 'left' }}>Round</th>
+              <th style={{ ...cellTd, textAlign: 'left' }}>{t.scoreBoard.round}</th>
               <th style={{ ...cellTd, textAlign: 'right' }}>{humanLabel}</th>
               <th style={{ ...cellTd, textAlign: 'right' }}>{cpuLabel}</th>
-              <th style={{ ...cellTd, textAlign: 'right' }}>Rounds Won</th>
+              <th style={{ ...cellTd, textAlign: 'right' }}>{t.briscola.roundsWon}</th>
             </tr>
           </thead>
           <tbody>
@@ -3167,6 +3175,7 @@ function RoundEndOverlay({
     opponentLabel: string;
   };
 }) {
+  const t = useT();
   // Two-step match-end flow: at match-over with >1 rounds, show the last
   // round's card summary first, then a "View Match Summary" button reveals
   // the round-by-round table. Best-of-1 collapses to a single card view.
@@ -3198,7 +3207,7 @@ function RoundEndOverlay({
   // person verbs ("Furbo takes the round"). Render the labels as JSX nodes
   // (with proper brand-icon SVG via AIPlayerLabel) and stitch the verbs in
   // around them.
-  const youAreLocal = humanLabel === 'You';
+  const youAreLocal = humanLabel === 'You' || humanLabel === t.common.you;
   const headingRow = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -3210,14 +3219,14 @@ function RoundEndOverlay({
   const roundLine: React.ReactNode =
     roundWinner === 'human' ? (
       <span style={headingRow}>
-        {humanLabelNode} <span>{youAreLocal ? 'take' : 'takes'} the round</span>
+        {humanLabelNode} <span>{t.briscola.takesRound(youAreLocal)}</span>
       </span>
     ) : roundWinner === 'cpu' ? (
       <span style={headingRow}>
-        {cpuLabelNode} <span>takes the round</span>
+        {cpuLabelNode} <span>{t.briscola.takesRound(false)}</span>
       </span>
     ) : (
-      <span>Tied at 60</span>
+      <span>{t.briscola.tiedAt60}</span>
     );
 
   const matchOutcome: React.ReactNode = !matchOver
@@ -3226,20 +3235,19 @@ function RoundEndOverlay({
         <span style={headingRow}>
           {humanLabelNode}{' '}
           <span>
-            {youAreLocal ? 'win' : 'wins'} the match ({matchScore.human}–
-            {matchScore.cpu})
+            {t.briscola.winsMatch(youAreLocal, matchScore.human, matchScore.cpu)}
           </span>
         </span>
       ) : matchScore.cpu > matchScore.human ? (
         <span style={headingRow}>
           {cpuLabelNode}{' '}
           <span>
-            wins the match ({matchScore.cpu}–{matchScore.human})
+            {t.briscola.winsMatch(false, matchScore.cpu, matchScore.human)}
           </span>
         </span>
       ) : (
         <span>
-          Match drawn ({matchScore.human}–{matchScore.cpu})
+          {t.briscola.matchDrawn(matchScore.human, matchScore.cpu)}
         </span>
       );
 
@@ -3266,12 +3274,12 @@ function RoundEndOverlay({
                 justifyContent: 'center',
               }}
             >
-              {humanLabelNode} <span>vs</span> {cpuLabelNode} <span>(out of 120)</span>
+              {humanLabelNode} <span>{t.briscola.vs}</span> {cpuLabelNode} <span>{t.briscola.outOf120}</span>
             </p>
             {showMatchScore && (
               <p style={{ opacity: 0.85, margin: '0 0 1rem 0', fontSize: '0.95rem' }}>
-                Match: <strong>{matchScore.human}</strong> — <strong>{matchScore.cpu}</strong>{' '}
-                (first to {matchTarget})
+                {t.briscola.matchLabel} <strong>{matchScore.human}</strong> — <strong>{matchScore.cpu}</strong>{' '}
+                {t.briscola.firstTo(matchTarget)}
               </p>
             )}
             <div
@@ -3311,7 +3319,7 @@ function RoundEndOverlay({
         {!matchOver && matchTarget === 1 && roundWinner === 'tie' && (
           // Edge case: best-of-1 with a tied round → no winner, replay
           <p style={{ opacity: 0.7, margin: '0 0 1.25rem 0', fontStyle: 'italic' }}>
-            Replay the round.
+            {t.briscola.replayRound}
           </p>
         )}
         {matchOver ? (
@@ -3326,7 +3334,7 @@ function RoundEndOverlay({
                   }
                   onClick={() => setMatchSummaryView((v) => !v)}
                 >
-                  {matchSummaryView ? 'Back to Round' : 'View Match Summary'}
+                  {matchSummaryView ? t.briscola.backToRound : t.briscola.viewMatchSummary}
                 </button>
               )}
               <button
@@ -3339,8 +3347,8 @@ function RoundEndOverlay({
                 disabled={mpRematch?.iRequested}
               >
                 {mpRematch?.iRequested
-                  ? `Waiting for ${mpRematch.opponentLabel}…`
-                  : 'Play Again'}
+                  ? t.briscola.waitingFor(mpRematch.opponentLabel)
+                  : t.gameEnd.playAgain}
               </button>
             </div>
             {mpRematch?.opponentRequested && !mpRematch.iRequested && (
@@ -3352,7 +3360,7 @@ function RoundEndOverlay({
                   fontWeight: 600,
                 }}
               >
-                {mpRematch.opponentLabel} wants a rematch — Play Again to accept.
+                {t.briscola.wantsRematchAccept(mpRematch.opponentLabel)}
               </p>
             )}
           </>
@@ -3361,16 +3369,16 @@ function RoundEndOverlay({
           // no-op; show a clear waiting state instead).
           <div>
             <button style={{ ...primaryButton, opacity: 0.6 }} disabled>
-              Waiting for {mpNextRound.opponentLabel}…
+              {t.briscola.waitingFor(mpNextRound.opponentLabel)}
             </button>
             <p style={{ opacity: 0.7, margin: '0.75rem 0 0', fontSize: '0.9rem' }}>
-              You’re ready for the next round.
+              {t.briscola.readyNextRound}
             </p>
           </div>
         ) : (
           <div>
             <button style={primaryButton} onClick={onNextRound}>
-              {countdown !== null ? `Next Round (${countdown})` : 'Next Round'}
+              {countdown !== null ? `${t.roundEnd.nextRound} (${countdown})` : t.roundEnd.nextRound}
             </button>
             {mpNextRound?.opponentRequested && (
               <p

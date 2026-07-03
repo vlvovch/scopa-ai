@@ -1,6 +1,7 @@
 // Token Stats Display Component for LLM AIs (Gemini, OpenAI)
 
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../games/scopa/ai';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './TokenStatsDisplay.module.css';
 
 interface TokenStatsDisplayProps {
@@ -29,6 +30,7 @@ export function TokenStatsDisplay({
   error,
   onDismissError,
 }: TokenStatsDisplayProps) {
+  const t = useT();
   // Show if explicitly requested, if there are stats, or if there's an error
   if (!show && (!stats || stats.requestCount === 0) && !error) {
     return null;
@@ -116,7 +118,7 @@ export function TokenStatsDisplay({
   return (
     <div className={styles.wrapper}>
       {/* Compact icon showing total tokens */}
-      <div className={styles.icon} title="Token Usage">
+      <div className={styles.icon} title={t.tokenStats.tokenUsage}>
         <svg className={styles.tokenIcon} viewBox="0 0 24 24" fill="currentColor">
           <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
           <text x="12" y="16" textAnchor="middle" fontSize="10" fill="currentColor">T</text>
@@ -131,7 +133,7 @@ export function TokenStatsDisplay({
           title={error}
           onClick={onDismissError}
         >
-          API Error
+          {t.tokenStats.apiError}
         </div>
       )}
 
@@ -140,17 +142,17 @@ export function TokenStatsDisplay({
         <div className={styles.header}>
           {displayModelName}
           <span className={styles.modeLabel}>
-            {mode === 'round' ? ' (Round)' : ' (Game)'}
+            {' '}{mode === 'round' ? t.tokenStats.round : t.tokenStats.game}
           </span>
         </div>
         <table className={styles.table}>
           <tbody>
             <tr>
-              <td className={styles.label}>Turns</td>
+              <td className={styles.label}>{t.tokenStats.turns}</td>
               <td className={styles.value}>{formatNumber(displayStats.requestCount)}</td>
             </tr>
             <tr>
-              <td className={styles.label}>Input</td>
+              <td className={styles.label}>{t.tokenStats.input}</td>
               <td className={styles.value}>
                 {mode === 'game'
                   ? formatWithDelta(displayStats.promptTokens, delta?.promptTokens)
@@ -158,7 +160,7 @@ export function TokenStatsDisplay({
               </td>
             </tr>
             <tr>
-              <td className={styles.label}>Output</td>
+              <td className={styles.label}>{t.tokenStats.output}</td>
               <td className={styles.value}>
                 {mode === 'game'
                   ? formatWithDelta(displayStats.responseTokens, delta?.responseTokens)
@@ -167,7 +169,7 @@ export function TokenStatsDisplay({
             </tr>
             {displayStats.thoughtTokens > 0 && (
               <tr>
-                <td className={styles.label}>Thought</td>
+                <td className={styles.label}>{t.tokenStats.thought}</td>
                 <td className={styles.value}>
                   {mode === 'game'
                     ? formatWithDelta(displayStats.thoughtTokens, delta?.thoughtTokens)
@@ -176,7 +178,7 @@ export function TokenStatsDisplay({
               </tr>
             )}
             <tr className={styles.totalRow}>
-              <td className={styles.label}>Total</td>
+              <td className={styles.label}>{t.tokenStats.total}</td>
               <td className={styles.value}>
                 {mode === 'game'
                   ? formatWithDelta(displayStats.totalTokens, delta?.totalTokens)
@@ -185,25 +187,25 @@ export function TokenStatsDisplay({
             </tr>
             {mode === 'game' && displayStats.cachedTokens > 0 && (
               <tr>
-                <td className={styles.label}>Cached</td>
+                <td className={styles.label}>{t.tokenStats.cached}</td>
                 <td className={styles.value}>{formatNumber(displayStats.cachedTokens)}</td>
               </tr>
             )}
             {/* Timing stats */}
             <tr className={styles.timingHeader}>
-              <td colSpan={2} className={styles.label}>Timing</td>
+              <td colSpan={2} className={styles.label}>{t.tokenStats.timing}</td>
             </tr>
             <tr>
-              <td className={styles.label}>Last</td>
+              <td className={styles.label}>{t.tokenStats.last}</td>
               <td className={styles.value}>{formatTime(s.lastTurnTimeMs)}</td>
             </tr>
             <tr>
-              <td className={styles.label}>Avg</td>
+              <td className={styles.label}>{t.tokenStats.avg}</td>
               <td className={styles.value}>{formatTime(mode === 'round' ? roundAvgTimeMs : avgTimeMs)}</td>
             </tr>
             {mode === 'game' && s.minTurnTimeMs > 0 && (
               <tr>
-                <td className={styles.label}>Min/Max</td>
+                <td className={styles.label}>{t.tokenStats.minMax}</td>
                 <td className={styles.value}>{formatTime(s.minTurnTimeMs)} / {formatTime(s.maxTurnTimeMs)}</td>
               </tr>
             )}

@@ -10,6 +10,7 @@ import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';
 import { useDeck } from '../../contexts/DeckContext';
+import { useT } from '../../i18n/LanguageContext';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './RoundEndScreen.module.css';
 
@@ -174,7 +175,7 @@ export function RoundEndScreen({
   isGameOver,
   onNextRound,
   onShowGameEnd,
-  player1Name = 'You',
+  player1Name,
   player2Name = 'CPU',
   player1TokenStats,
   player2TokenStats,
@@ -188,10 +189,14 @@ export function RoundEndScreen({
   opponentRequestedNextRound,
   opponentName,
 }: RoundEndScreenProps) {
+  const t = useT();
   const [hoveredCategory, setHoveredCategory] = useState<HoverCategory>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const deckType = useDeck();
   const isMultiplayer = nextRoundRequested !== undefined;
+  const p1Name = player1Name ?? t.common.you;
+  const p1IsYou = !player1AIType && (p1Name === t.common.you || p1Name === 'You');
+  const p2IsYou = !player2AIType && (player2Name === t.common.you || player2Name === 'You');
 
   // Auto-advance timer for spectator mode
   useEffect(() => {
@@ -233,7 +238,7 @@ export function RoundEndScreen({
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
         <PersonIcon size="1em" />
-        <span>{player1Name}</span>
+        <span>{p1Name}</span>
       </span>
     );
   };
@@ -336,7 +341,11 @@ export function RoundEndScreen({
       {/* Human cards on the left */}
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>{!player1AIType && player1Name === 'You' ? 'Your' : <>{renderPlayer1Name()}'s</>} Cards</span>
+          <span>
+            {p1IsYou
+              ? t.roundEnd.yourCards
+              : <>{t.roundEnd.cardsOfPrefix}{renderPlayer1Name()}{t.roundEnd.cardsOfSuffix}</>}
+          </span>
           {player1TokenStats && <TokenStatsDisplay stats={player1TokenStats} show={!!player1TokenStats} mode="round" position="bottom" modelName={player1Model} />}
         </div>
         <div className={styles.cardGrid}>
@@ -353,12 +362,12 @@ export function RoundEndScreen({
 
       {/* Score modal in center */}
       <div className={styles.modal}>
-        <h2 className={styles.title}>Round {roundNumber} Complete</h2>
+        <h2 className={styles.title}>{t.roundEnd.title(roundNumber)}</h2>
 
         <table className={styles.scoreTable}>
           <thead>
             <tr>
-              <th>Category</th>
+              <th>{t.gameEnd.category}</th>
               <th>{renderPlayer1Name()}</th>
               <th>{renderPlayer2Name()}</th>
             </tr>
@@ -386,7 +395,7 @@ export function RoundEndScreen({
               </tr>
             ))}
             <tr className={styles.totalRow}>
-              <td>Round Total</td>
+              <td>{t.roundEnd.roundTotal}</td>
               <td className={humanScore.total > cpuScore.total ? styles.winner : ''}>
                 +{humanScore.total}
               </td>
@@ -413,9 +422,9 @@ export function RoundEndScreen({
         {isMultiplayer && (
           <div className={styles.waitingSection}>
             {nextRoundRequested && !opponentRequestedNextRound ? (
-              <p className={styles.waitingMessage}>Waiting for {opponentName} to continue...</p>
+              <p className={styles.waitingMessage}>{t.roundEnd.waitingContinue(opponentName ?? t.common.opponent)}</p>
             ) : opponentRequestedNextRound && !nextRoundRequested ? (
-              <p className={styles.waitingMessage}>{opponentName} is ready to continue!</p>
+              <p className={styles.waitingMessage}>{t.roundEnd.readyContinue(opponentName ?? t.common.opponent)}</p>
             ) : null}
           </div>
         )}
@@ -426,15 +435,19 @@ export function RoundEndScreen({
           disabled={nextRoundRequested}
         >
           {autoAdvance && countdown !== null
-            ? `${isGameOver ? 'Results' : 'Next Round'} in ${countdown}s`
-            : isGameOver ? 'See Results' : (nextRoundRequested ? 'Waiting...' : 'Next Round')}
+            ? t.roundEnd.countdownIn(isGameOver ? t.roundEnd.results : t.roundEnd.nextRound, countdown)
+            : isGameOver ? t.roundEnd.seeResults : (nextRoundRequested ? t.roundEnd.waiting : t.roundEnd.nextRound)}
         </button>
       </div>
 
       {/* CPU cards on the right */}
       <div className={styles.cardColumn}>
         <div className={styles.cardColumnLabel} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>{!player2AIType && player2Name === 'You' ? 'Your' : <>{renderPlayer2Name()}'s</>} Cards</span>
+          <span>
+            {p2IsYou
+              ? t.roundEnd.yourCards
+              : <>{t.roundEnd.cardsOfPrefix}{renderPlayer2Name()}{t.roundEnd.cardsOfSuffix}</>}
+          </span>
           {player2TokenStats && <TokenStatsDisplay stats={player2TokenStats} show={!!player2TokenStats} mode="round" position="bottom" modelName={player2Model} />}
         </div>
         <div className={styles.cardGrid}>

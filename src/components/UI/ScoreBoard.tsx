@@ -5,6 +5,7 @@ import type { PlayerId } from '../../games/scopa/types';
 import type { ExtendedAIType } from '../../games/scopa/ai';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './ScoreBoard.module.css';
 
 interface ScoreBoardProps {
@@ -56,6 +57,7 @@ export function ScoreBoard({
   playerNickname,
   opponentNickname,
 }: ScoreBoardProps) {
+  const t = useT();
   // Render player names with proper icons
   const renderPlayer1Name = (): ReactNode => {
     // Multiplayer mode - show nickname with person icon
@@ -63,7 +65,7 @@ export function ScoreBoard({
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
           <PersonIcon size="1em" />
-          <span>{playerNickname || 'You'}</span>
+          <span>{playerNickname || t.common.you}</span>
         </span>
       );
     }
@@ -74,7 +76,7 @@ export function ScoreBoard({
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
         <PersonIcon size="1em" />
-        <span>{humanName || 'You'}</span>
+        <span>{humanName || t.common.you}</span>
       </span>
     );
   };
@@ -85,7 +87,7 @@ export function ScoreBoard({
       return (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
           <PersonIcon size="1em" />
-          <span>{opponentNickname || 'Opponent'}</span>
+          <span>{opponentNickname || t.common.opponent}</span>
         </span>
       );
     }
@@ -98,7 +100,7 @@ export function ScoreBoard({
   return (
     <div className={styles.scoreBoard}>
       <div className={styles.header}>
-        <div className={styles.roundLabel}>Round</div>
+        <div className={styles.roundLabel}>{t.scoreBoard.round}</div>
         <div className={styles.roundNumber}>{roundNumber}</div>
       </div>
 
@@ -124,7 +126,7 @@ export function ScoreBoard({
         </div>
       </div>
 
-      <div className={styles.targetScore}>Playing to {targetScore}</div>
+      <div className={styles.targetScore}>{t.scoreBoard.playingTo(targetScore)}</div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 // Step 10.3: Game Controls Component
 
+import { useT } from '../../i18n/LanguageContext';
 import styles from './GameControls.module.css';
 
 interface GameControlsProps {
@@ -24,6 +25,7 @@ export function GameControls({
   onQuitGame,
   isMultiplayer = false,
 }: GameControlsProps) {
+  const t = useT();
   return (
     <div className={`${styles.controls} ${isMultiplayer ? styles.multiplayerControls : ''}`}>
       {/* Row 1: Game actions */}
@@ -33,7 +35,7 @@ export function GameControls({
           <button
             className={styles.button}
             onClick={onRequestRestart}
-            title="Restart Game"
+            title={t.controls.restartGame}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -44,7 +46,7 @@ export function GameControls({
           <button
             className={styles.button}
             onClick={onNewGame}
-            title="Start New Game"
+            title={t.controls.newGame}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -55,7 +57,7 @@ export function GameControls({
         <button
           className={styles.button}
           onClick={onOpenRules}
-          title="Rules"
+          title={t.controls.rules}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             {/* Open book icon */}
@@ -66,7 +68,7 @@ export function GameControls({
         <button
           className={styles.button}
           onClick={onOpenStats}
-          title="Statistics"
+          title={t.controls.statistics}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M18 20V10" />
@@ -77,7 +79,7 @@ export function GameControls({
         <button
           className={styles.button}
           onClick={onOpenSettings}
-          title="Settings"
+          title={t.controls.settings}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3" />
@@ -91,7 +93,7 @@ export function GameControls({
           <button
             className={`${styles.button} ${styles.quitButton}`}
             onClick={onQuitGame}
-            title="Quit Game"
+            title={t.controls.quitGame}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

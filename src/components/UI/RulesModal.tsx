@@ -1,8 +1,14 @@
 // Shared rules modal for Scopa and Briscola. The chrome (overlay, modal,
 // title, close button, scroll behavior) is identical; only the inner
 // content differs, so we branch on the `game` prop.
+//
+// i18n note: the rules are long-form content with inline markup, so instead
+// of fragmenting them into dozens of dictionary keys, each game has one
+// rules component per language and we branch on the active language here.
+// Only the title and close button go through the shared dictionary.
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '../../i18n/LanguageContext';
 import styles from './RulesModal.module.css';
 
 interface RulesModalProps {
@@ -12,6 +18,8 @@ interface RulesModalProps {
 }
 
 export function RulesModal({ isOpen, onClose, game = 'scopa' }: RulesModalProps) {
+  const { language, t } = useLanguage();
+  const italian = language === 'it';
   return (
     <AnimatePresence>
       {isOpen && (
@@ -30,15 +38,17 @@ export function RulesModal({ isOpen, onClose, game = 'scopa' }: RulesModalProps)
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className={styles.title}>
-              {game === 'briscola' ? 'How to play Briscola' : 'Scopa Rules'}
+              {game === 'briscola' ? t.rules.briscolaTitle : t.rules.scopaTitle}
             </h2>
 
             <div className={styles.content}>
-              {game === 'briscola' ? <BriscolaRules /> : <ScopaRules />}
+              {game === 'briscola'
+                ? italian ? <BriscolaRulesIt /> : <BriscolaRulesEn />
+                : italian ? <ScopaRulesIt /> : <ScopaRulesEn />}
             </div>
 
             <button className={styles.closeButton} onClick={onClose}>
-              Got It
+              {t.rules.gotIt}
             </button>
           </motion.div>
         </motion.div>
@@ -47,7 +57,7 @@ export function RulesModal({ isOpen, onClose, game = 'scopa' }: RulesModalProps)
   );
 }
 
-function ScopaRules() {
+function ScopaRulesEn() {
   return (
     <>
       <section className={styles.section}>
@@ -161,7 +171,121 @@ function ScopaRules() {
   );
 }
 
-function BriscolaRules() {
+function ScopaRulesIt() {
+  return (
+    <>
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Panoramica</h3>
+        <p>
+          La Scopa è un classico gioco di carte italiano. Il nome si riferisce allo
+          "spazzare" tutte le carte dal tavolo, che vale un punto bonus.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Il mazzo</h3>
+        <p>
+          40 carte in 4 semi: <strong>Denari</strong>, <strong>Coppe</strong>,
+          <strong> Spade</strong>, <strong>Bastoni</strong>.
+        </p>
+        <p>
+          Ogni seme ha le carte dall'Asso al 7 più tre figure: Fante (8), Cavallo (9), Re (10).
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Preparazione</h3>
+        <ul>
+          <li>Ogni giocatore riceve 3 carte</li>
+          <li>4 carte vengono poste scoperte sul tavolo</li>
+          <li>I giocatori giocano una carta a turno</li>
+        </ul>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Svolgimento</h3>
+        <p>Nel tuo turno, gioca una carta per:</p>
+        <ul>
+          <li><strong>Prendere:</strong> una carta dello stesso valore OPPURE più carte la cui somma corrisponde</li>
+          <li><strong>Scartare:</strong> se non puoi prendere, la carta resta sul tavolo</li>
+        </ul>
+        <p className={styles.rule}>
+          <strong>Presa obbligatoria:</strong> se puoi prendere, devi farlo!
+        </p>
+        <p className={styles.rule}>
+          <strong>Priorità alla carta singola:</strong> la presa di una carta singola ha la precedenza sulle somme.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Scopa</h3>
+        <p>
+          Ripulire TUTTE le carte dal tavolo vale una <strong>Scopa</strong> (+1 punto).
+          Eccezione: niente scopa sull'ultima giocata della mano.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Punteggio</h3>
+        <table className={styles.scoreTable}>
+          <tbody>
+            <tr>
+              <td><strong>Carte</strong></td>
+              <td>1 pt</td>
+              <td>Più carte prese</td>
+            </tr>
+            <tr>
+              <td><strong>Denari</strong></td>
+              <td>1 pt</td>
+              <td>Più carte di denari</td>
+            </tr>
+            <tr>
+              <td><strong>Sette Bello</strong></td>
+              <td>1 pt</td>
+              <td>Il 7 di denari</td>
+            </tr>
+            <tr>
+              <td><strong>Primiera</strong></td>
+              <td>1 pt</td>
+              <td>Miglior primiera</td>
+            </tr>
+            <tr>
+              <td><strong>Scopa</strong></td>
+              <td>1 pt l'una</td>
+              <td>Ogni scopa</td>
+            </tr>
+          </tbody>
+        </table>
+        <p className={styles.note}>In caso di parità il punto non viene assegnato.</p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Primiera</h3>
+        <p>Somma la carta migliore di ogni seme usando i valori di primiera:</p>
+        <div className={styles.primeValues}>
+          <span>7=21</span>
+          <span>6=18</span>
+          <span>A=16</span>
+          <span>5=15</span>
+          <span>4=14</span>
+          <span>3=13</span>
+          <span>2=12</span>
+          <span>8-10=10</span>
+        </div>
+        <p className={styles.note}>Serve almeno una carta per seme per concorrere.</p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Vittoria</h3>
+        <p>
+          Vince chi raggiunge per primo il punteggio obiettivo (11 di default)!
+        </p>
+      </section>
+    </>
+  );
+}
+
+function BriscolaRulesEn() {
   return (
     <>
       <section className={styles.section}>
@@ -219,6 +343,72 @@ function BriscolaRules() {
           First to 1 is a single round; first to 2 is up to three rounds;
           first to 3 is up to five; and so on. Tied rounds don't count
           toward either side.
+        </p>
+      </section>
+    </>
+  );
+}
+
+function BriscolaRulesIt() {
+  return (
+    <>
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Preparazione</h3>
+        <p>
+          Mazzo italiano da 40 carte (Denari, Coppe, Spade, Bastoni · valori 1–10).
+          Entrambi i giocatori ricevono <strong>3 carte</strong>. La carta successiva,
+          scoperta accanto al mazzo, è la <strong>briscola</strong> — il suo seme
+          batte qualsiasi carta di altro seme per tutta la mano. La briscola è
+          l'ultima carta pescata prima che il mazzo finisca.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Prese</h3>
+        <p>
+          Apre chi non ha dato le carte. Ogni giocatore gioca una carta.{' '}
+          <strong>Non c'è obbligo di rispondere al seme</strong> — puoi giocare
+          qualsiasi carta dalla mano.
+        </p>
+        <p>La presa va a:</p>
+        <ul>
+          <li>La briscola più alta, se ne viene giocata almeno una.</li>
+          <li>La carta più alta del <em>seme di uscita</em>, se entrambi lo seguono.</li>
+          <li>Altrimenti vince la carta di uscita (le carte di altro seme non prendono).</li>
+        </ul>
+        <p>
+          All'interno di un seme l'ordine è{' '}
+          <strong>Asso · 3 · Re · Cavallo · Fante · 7 · 6 · 5 · 4 · 2</strong>.
+          Chi vince la presa pesca per primo, poi l'altro. Chi vince apre la
+          presa successiva.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Punteggio (per mano)</h3>
+        <table className={styles.scoreTable}>
+          <tbody>
+            <tr><td><strong>Asso</strong></td><td>11</td><td></td></tr>
+            <tr><td><strong>Tre</strong></td><td>10</td><td></td></tr>
+            <tr><td><strong>Re</strong></td><td>4</td><td></td></tr>
+            <tr><td><strong>Cavallo</strong></td><td>3</td><td></td></tr>
+            <tr><td><strong>Fante</strong></td><td>2</td><td></td></tr>
+            <tr><td><strong>2, 4, 5, 6, 7</strong></td><td>0</td><td></td></tr>
+          </tbody>
+        </table>
+        <p>
+          30 punti per seme, <strong>120 punti in totale</strong> per mano.
+          Vince la mano chi supera i 60 punti; 60–60 è pareggio.
+        </p>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Partita (primo a N)</h3>
+        <p>
+          La partita continua finché un giocatore non vince il numero di mani
+          scelto. Primo a 1 è una mano secca; primo a 2 si gioca al massimo in
+          tre mani; primo a 3 al massimo in cinque; e così via. Le mani pari
+          non contano per nessuno dei due.
         </p>
       </section>
     </>

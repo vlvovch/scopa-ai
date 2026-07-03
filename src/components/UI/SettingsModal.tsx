@@ -10,7 +10,14 @@ import {
   clearOpenAICache as clearBriscolaOpenAICache,
   clearClaudeCache as clearBriscolaClaudeCache,
 } from '../../games/briscola/ai';
+import { useLanguage } from '../../i18n/LanguageContext';
+import type { Language } from '../../i18n/LanguageContext';
 import styles from './SettingsModal.module.css';
+
+const LANGUAGE_OPTIONS: { value: Language; label: string }[] = [
+  { value: 'en', label: '🇬🇧 English' },
+  { value: 'it', label: '🇮🇹 Italiano' },
+];
 
 const DECK_OPTIONS: { value: DeckType; label: string }[] = [
   { value: 'napoletane', label: 'Napoletane' },
@@ -21,20 +28,17 @@ const DECK_OPTIONS: { value: DeckType; label: string }[] = [
   { value: 'romagnole', label: 'Romagnole' },
 ];
 
-const TABLE_STYLE_OPTIONS: { value: TableStyle; label: string }[] = [
-  { value: 'green', label: 'Green Felt' },
-  { value: 'tablecloth', label: 'Tablecloth' },
-];
+const TABLE_STYLE_OPTIONS: TableStyle[] = ['green', 'tablecloth'];
 
 const PRESET_SCORES = [11, 16, 21] as const;
 
 // Text Size slider stops (multiplier applied to the root font via
 // --font-scale). 1.2 (Normal) is the default.
 const FONT_SIZE_STEPS = [
-  { value: 1.0, label: 'Small' },
-  { value: 1.2, label: 'Normal' },
-  { value: 1.4, label: 'Large' },
-  { value: 1.6, label: 'X-Large' },
+  { value: 1.0, labelKey: 'sizeSmall' },
+  { value: 1.2, labelKey: 'sizeNormal' },
+  { value: 1.4, labelKey: 'sizeLarge' },
+  { value: 1.6, labelKey: 'sizeXLarge' },
 ] as const;
 
 /** Closest slider index for a stored fontScale (robust to legacy values). */
@@ -81,6 +85,7 @@ export function SettingsModal({
   onResetSettings,
   game = 'scopa',
 }: SettingsModalProps) {
+  const { language, setLanguage, t } = useLanguage();
   // Track if warning popup should be shown
   const [showApiKeyWarning, setShowApiKeyWarning] = useState(false);
   // Track if deck selector modal should be shown
@@ -225,13 +230,13 @@ export function SettingsModal({
 
     switch (status) {
       case 'validating':
-        return <span className={`${styles.apiKeyStatus} ${styles.validating}`}>Checking...</span>;
+        return <span className={`${styles.apiKeyStatus} ${styles.validating}`}>{t.settings.keyChecking}</span>;
       case 'valid':
-        return <span className={`${styles.apiKeyStatus} ${styles.valid}`}>Valid</span>;
+        return <span className={`${styles.apiKeyStatus} ${styles.valid}`}>{t.settings.keyValid}</span>;
       case 'invalid':
-        return <span className={`${styles.apiKeyStatus} ${styles.invalid}`}>Invalid</span>;
+        return <span className={`${styles.apiKeyStatus} ${styles.invalid}`}>{t.settings.keyInvalid}</span>;
       default:
-        return <span className={`${styles.apiKeyStatus} ${styles.configured}`}>Configured</span>;
+        return <span className={`${styles.apiKeyStatus} ${styles.configured}`}>{t.settings.keyConfigured}</span>;
     }
   };
 
@@ -252,11 +257,11 @@ export function SettingsModal({
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className={styles.title}>Settings</h2>
+            <h2 className={styles.title}>{t.settings.title}</h2>
 
             {game === 'briscola' ? (
               <div className={styles.setting}>
-                <label className={styles.label}>Default First To</label>
+                <label className={styles.label}>{t.settings.defaultFirstTo}</label>
                 <div className={styles.options}>
                   {PRESET_BEST_OF.map((n) => (
                     <button
@@ -277,13 +282,13 @@ export function SettingsModal({
                       const val = parseInt(e.target.value, 10);
                       if (!isNaN(val) && val >= 1) onUpdateSetting('defaultBestOf', val);
                     }}
-                    title="Custom best-of value"
+                    title={t.settings.customBestOf}
                   />
                 </div>
               </div>
             ) : (
               <div className={styles.setting}>
-                <label className={styles.label}>Default Target Score</label>
+                <label className={styles.label}>{t.settings.defaultTargetScore}</label>
                 <div className={styles.options}>
                   {PRESET_SCORES.map((score) => (
                     <button
@@ -306,30 +311,36 @@ export function SettingsModal({
                         onUpdateSetting('defaultTargetScore', val);
                       }
                     }}
-                    title="Custom target score"
+                    title={t.settings.customTargetScore}
                   />
                 </div>
               </div>
             )}
 
             <div className={styles.setting}>
-              <label className={styles.label}>Animation Speed</label>
+              <label className={styles.label}>{t.settings.animationSpeed}</label>
               <div className={styles.options}>
                 {(['instant', 'fast', 'normal', 'slow'] as const).map((speed) => (
                   <button
                     key={speed}
                     className={`${styles.option} ${settings.animationSpeed === speed ? styles.selected : ''}`}
                     onClick={() => onUpdateSetting('animationSpeed', speed)}
-                    title={speed === 'instant' ? 'Skip all animations for fast simulation' : undefined}
+                    title={speed === 'instant' ? t.settings.instantHint : undefined}
                   >
-                    {speed === 'instant' ? '⚡' : speed.charAt(0).toUpperCase() + speed.slice(1)}
+                    {speed === 'instant'
+                      ? '⚡'
+                      : speed === 'fast'
+                        ? t.settings.speedFast
+                        : speed === 'normal'
+                          ? t.settings.speedNormal
+                          : t.settings.speedSlow}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className={styles.setting}>
-              <label className={styles.label}>Text Size</label>
+              <label className={styles.label}>{t.settings.textSize}</label>
               <div className={styles.fontSizeRow}>
                 <input
                   type="range"
@@ -344,7 +355,7 @@ export function SettingsModal({
                     )
                   }
                   className={styles.fontSlider}
-                  aria-label="Text size"
+                  aria-label={t.settings.textSize}
                 />
                 <div className={styles.sliderTicks}>
                   {FONT_SIZE_STEPS.map((s, i) => (
@@ -356,7 +367,7 @@ export function SettingsModal({
                           : ''
                       }
                     >
-                      {s.label}
+                      {t.settings[s.labelKey]}
                     </span>
                   ))}
                 </div>
@@ -364,7 +375,22 @@ export function SettingsModal({
             </div>
 
             <div className={styles.setting}>
-              <label className={styles.label}>Card Deck</label>
+              <label className={styles.label}>{t.settings.language}</label>
+              <div className={styles.options}>
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    className={`${styles.option} ${language === option.value ? styles.selected : ''}`}
+                    onClick={() => setLanguage(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.setting}>
+              <label className={styles.label}>{t.settings.cardDeck}</label>
               <button
                 className={styles.deckSelectorButton}
                 onClick={() => setShowDeckSelector(true)}
@@ -379,16 +405,16 @@ export function SettingsModal({
             </div>
 
             <div className={styles.setting}>
-              <label className={styles.label}>Table Style</label>
+              <label className={styles.label}>{t.settings.tableStyle}</label>
               <div className={styles.tableStyleOptions}>
                 {TABLE_STYLE_OPTIONS.map((option) => (
                   <button
-                    key={option.value}
-                    className={`${styles.tableStyleOption} ${settings.tableStyle === option.value ? styles.tableStyleSelected : ''}`}
-                    onClick={() => onUpdateSetting('tableStyle', option.value)}
+                    key={option}
+                    className={`${styles.tableStyleOption} ${settings.tableStyle === option ? styles.tableStyleSelected : ''}`}
+                    onClick={() => onUpdateSetting('tableStyle', option)}
                   >
-                    <div className={`${styles.tableStylePreview} ${styles[`tablePreview${option.value.charAt(0).toUpperCase() + option.value.slice(1)}`]}`} />
-                    <span>{option.label}</span>
+                    <div className={`${styles.tableStylePreview} ${styles[`tablePreview${option.charAt(0).toUpperCase() + option.slice(1)}`]}`} />
+                    <span>{option === 'green' ? t.settings.tableGreen : t.settings.tableTablecloth}</span>
                   </button>
                 ))}
               </div>
@@ -396,32 +422,32 @@ export function SettingsModal({
 
             {/* Watch Mode: auto-advance rounds when both players are bots. */}
             <div className={styles.setting}>
-              <label className={styles.label}>Watch Mode</label>
+              <label className={styles.label}>{t.settings.watchMode}</label>
               <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Auto-advance rounds</span>
+                <span className={styles.toggleLabel}>{t.settings.autoAdvance}</span>
                 <button
                   className={`${styles.toggle} ${settings.autoAdvanceSpectator ? styles.on : ''}`}
                   onClick={() => onUpdateSetting('autoAdvanceSpectator', !settings.autoAdvanceSpectator)}
-                  title={settings.autoAdvanceSpectator ? 'Auto-advance enabled' : 'Manual advance'}
+                  title={settings.autoAdvanceSpectator ? t.settings.autoAdvanceOn : t.settings.autoAdvanceOff}
                 >
                   <span className={styles.toggleKnob} />
                 </button>
               </div>
               <p className={styles.settingHint}>
                 {settings.autoAdvanceSpectator
-                  ? 'Round summary shows briefly, then auto-continues'
-                  : 'Wait for manual click to proceed between rounds'}
+                  ? t.settings.autoAdvanceOnHint
+                  : t.settings.autoAdvanceOffHint}
               </p>
             </div>
 
             <div className={styles.setting}>
-              <label className={styles.label}>Sound</label>
+              <label className={styles.label}>{t.settings.sound}</label>
               <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Sound effects</span>
+                <span className={styles.toggleLabel}>{t.settings.soundEffects}</span>
                 <button
                   className={`${styles.toggle} ${settings.soundEnabled ? styles.on : ''}`}
                   onClick={() => onUpdateSetting('soundEnabled', !settings.soundEnabled)}
-                  title={settings.soundEnabled ? 'Sound on' : 'Sound off'}
+                  title={settings.soundEnabled ? t.settings.soundOn : t.settings.soundOff}
                 >
                   <span className={styles.toggleKnob} />
                 </button>
@@ -429,13 +455,13 @@ export function SettingsModal({
             </div>
 
             <div className={styles.setting}>
-              <label className={styles.label}>Display</label>
+              <label className={styles.label}>{t.settings.display}</label>
               <div className={styles.toggleRow}>
-                <span className={styles.toggleLabel}>Show pile stats</span>
+                <span className={styles.toggleLabel}>{t.settings.showPileStats}</span>
                 <button
                   className={`${styles.toggle} ${settings.showPileStats ? styles.on : ''}`}
                   onClick={() => onUpdateSetting('showPileStats', !settings.showPileStats)}
-                  title={settings.showPileStats ? 'Pile stats visible' : 'Pile stats hidden'}
+                  title={settings.showPileStats ? t.settings.pileStatsOn : t.settings.pileStatsOff}
                 >
                   <span className={styles.toggleKnob} />
                 </button>
@@ -443,29 +469,27 @@ export function SettingsModal({
               <p className={styles.settingHint}>
                 {settings.showPileStats
                   ? game === 'briscola'
-                    ? 'Show point total and per-rank counts near each pile'
-                    : 'Show coins count, sette bello, and scopas near piles'
-                  : 'Hide pile statistics for a cleaner view'}
+                    ? t.settings.pileStatsHintBriscola
+                    : t.settings.pileStatsHintScopa
+                  : t.settings.pileStatsHintOff}
               </p>
 
               {(game === 'briscola' || game === 'scopa') && (
                 <>
                   <div className={styles.toggleRow}>
-                    <span className={styles.toggleLabel}>Win odds (analysis)</span>
+                    <span className={styles.toggleLabel}>{t.settings.winOdds}</span>
                     <button
                       className={`${styles.toggle} ${settings.showWinOdds ? styles.on : ''}`}
                       onClick={() => onUpdateSetting('showWinOdds', !settings.showWinOdds)}
-                      title={settings.showWinOdds ? 'Win odds shown' : 'Win odds hidden'}
+                      title={settings.showWinOdds ? t.settings.winOddsOn : t.settings.winOddsOff}
                     >
                       <span className={styles.toggleKnob} />
                     </button>
                   </div>
                   <p className={styles.settingHint}>
                     {settings.showWinOdds
-                      ? `Estimated chance to win the round, from ${
-                          game === 'briscola' ? 'an Esperto' : 'an Expert'
-                        } self-play simulation. Single-player only.`
-                      : 'Hide the win-odds estimate'}
+                      ? t.settings.winOddsOnHint(game === 'briscola' ? 'Esperto' : 'Expert')
+                      : t.settings.winOddsOffHint}
                   </p>
 
                   {settings.showWinOdds && (
@@ -479,7 +503,7 @@ export function SettingsModal({
                     >
                       <div className={styles.toggleRow}>
                         <span className={styles.toggleLabel}>
-                          Per-card odds
+                          {t.settings.perCardOdds}
                         </span>
                         <button
                           className={`${styles.toggle} ${settings.showWinOddsPerCard ? styles.on : ''}`}
@@ -491,8 +515,8 @@ export function SettingsModal({
                           }
                           title={
                             settings.showWinOddsPerCard
-                              ? 'Per-card odds shown'
-                              : 'Per-card odds hidden'
+                              ? t.settings.perCardOddsOn
+                              : t.settings.perCardOddsOff
                           }
                         >
                           <span className={styles.toggleKnob} />
@@ -501,16 +525,16 @@ export function SettingsModal({
                       <p className={styles.settingHint}>
                         {settings.showWinOddsPerCard
                           ? game === 'briscola'
-                            ? 'Show win % under each hand card. The headline is the best card’s odds.'
-                            : 'Show the best move’s expected point margin under each hand card; every option’s margin also appears in the capture chooser. Headline is the best move.'
-                          : 'Overall odds only (headline is still the best play)'}
+                            ? t.settings.perCardOddsHintBriscola
+                            : t.settings.perCardOddsHintScopa
+                          : t.settings.perCardOddsHintOff}
                       </p>
 
                       {game === 'scopa' && (
                         <>
                           <div className={styles.toggleRow}>
                             <span className={styles.toggleLabel}>
-                              Deep search
+                              {t.settings.deepSearch}
                             </span>
                             <button
                               className={`${styles.toggle} ${settings.winOddsDeep ? styles.on : ''}`}
@@ -522,8 +546,8 @@ export function SettingsModal({
                               }
                               title={
                                 settings.winOddsDeep
-                                  ? 'Deep (1-ply alpha-beta) rollout on'
-                                  : 'Greedy rollout (fast)'
+                                  ? t.settings.deepSearchOn
+                                  : t.settings.deepSearchOff
                               }
                             >
                               <span className={styles.toggleKnob} />
@@ -531,8 +555,8 @@ export function SettingsModal({
                           </div>
                           <p className={styles.settingHint}>
                             {settings.winOddsDeep
-                              ? 'Mid-round playout uses a 3-ply alpha-beta lookahead instead of greedy — materially stronger, ~10× slower (~1 s vs ~70 ms for 300 sims). Endgame is always exact regardless.'
-                              : 'Fast greedy mid-round playout (default). Endgame is always solved exactly.'}
+                              ? t.settings.deepSearchOnHint
+                              : t.settings.deepSearchOffHint}
                           </p>
                         </>
                       )}
@@ -544,7 +568,7 @@ export function SettingsModal({
                           parent Display setting into a row (broken columnar
                           layout). Plain elements + inline flex keep it scoped. */}
                       <div style={{ marginTop: '0.6rem' }}>
-                        <label className={styles.label}>Simulations</label>
+                        <label className={styles.label}>{t.settings.simulations}</label>
                         <div
                           style={{
                             display: 'flex',
@@ -579,12 +603,11 @@ export function SettingsModal({
                                 );
                               }
                             }}
-                            title="Determinizations per estimate"
+                            title={t.settings.simulationsTitle}
                           />
                         </div>
                         <p className={styles.settingHint}>
-                          More simulations = tighter estimate but slower to
-                          settle (runs off-thread, streams as it goes).
+                          {t.settings.simulationsHint}
                         </p>
                       </div>
                     </div>
@@ -596,13 +619,13 @@ export function SettingsModal({
             {/* API Keys — Briscola supports Gemini today (slice 9), OpenAI
                 and Claude still Scopa-only but keys are shared across both
                 games (stored in the same settings object). */}
-            <h3 className={styles.sectionTitle}>API Keys (to play against AI)</h3>
+            <h3 className={styles.sectionTitle}>{t.settings.apiKeysTitle}</h3>
 
             {ITCH_MODE ? (
               <div className={styles.itchModeNotice}>
-                <p>API key entry is disabled in this version.</p>
+                <p>{t.settings.itchDisabled}</p>
                 <p>
-                  To play against AI opponents (Claude, GPT, Gemini), visit the main site with BYOK (Bring Your Own Key):
+                  {t.settings.itchVisitMain}
                 </p>
                 <a
                   href={MAIN_SITE_URL}
@@ -623,7 +646,7 @@ export function SettingsModal({
                   <input
                     type="password"
                     className={`${styles.apiKeyInput} ${geminiStatus === 'invalid' ? styles.inputInvalid : ''}`}
-                    placeholder="Enter your Gemini API key"
+                    placeholder={t.settings.enterApiKey('Gemini')}
                     value={settings.geminiApiKey}
                     onChange={(e) => handleApiKeyChange('geminiApiKey', e.target.value)}
                   />
@@ -637,7 +660,7 @@ export function SettingsModal({
                   <input
                     type="password"
                     className={`${styles.apiKeyInput} ${openaiStatus === 'invalid' ? styles.inputInvalid : ''}`}
-                    placeholder="Enter your OpenAI API key"
+                    placeholder={t.settings.enterApiKey('OpenAI')}
                     value={settings.openaiApiKey}
                     onChange={(e) => handleApiKeyChange('openaiApiKey', e.target.value)}
                   />
@@ -651,25 +674,24 @@ export function SettingsModal({
                   <input
                     type="password"
                     className={`${styles.apiKeyInput} ${claudeStatus === 'invalid' ? styles.inputInvalid : ''}`}
-                    placeholder="Enter your Claude API key"
+                    placeholder={t.settings.enterApiKey('Claude')}
                     value={settings.claudeApiKey}
                     onChange={(e) => handleApiKeyChange('claudeApiKey', e.target.value)}
                   />
                 </div>
 
                 <p className={styles.apiKeyHint}>
-                  Keys are stored locally in your browser only. We do not have access to your keys.
-                  Always exercise caution when entering API keys on any website.
+                  {t.settings.apiKeyHint}
                 </p>
               </>
             )}
 
             <div className={styles.actions}>
               <button className={styles.resetButton} onClick={onResetSettings}>
-                Reset to Defaults
+                {t.settings.resetDefaults}
               </button>
               <button className={styles.closeButton} onClick={onClose}>
-                Close
+                {t.common.close}
               </button>
             </div>
           </motion.div>
@@ -692,23 +714,23 @@ export function SettingsModal({
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className={styles.warningTitle}>API Key Security Notice</h3>
+            <h3 className={styles.warningTitle}>{t.settings.warningTitle}</h3>
             <div className={styles.warningContent}>
-              <p>Before entering your API key, please note:</p>
+              <p>{t.settings.warningIntro}</p>
               <ul>
-                <li>Your API key is stored <strong>only in your browser's local storage</strong></li>
-                <li>We do not transmit or store your key on any server</li>
-                <li>API calls are made directly from your browser to the AI provider</li>
-                <li>Always exercise caution when entering API keys on any website</li>
-                <li>Consider using a key with usage limits for added safety</li>
+                <li>{t.settings.warningStoredPrefix}<strong>{t.settings.warningStoredStrong}</strong></li>
+                <li>{t.settings.warningNoServer}</li>
+                <li>{t.settings.warningDirect}</li>
+                <li>{t.settings.warningCaution}</li>
+                <li>{t.settings.warningLimits}</li>
               </ul>
             </div>
             <div className={styles.warningActions}>
               <button className={styles.warningCancel} onClick={handleWarningCancel}>
-                Cancel
+                {t.common.cancel}
               </button>
               <button className={styles.warningConfirm} onClick={handleWarningConfirm}>
-                I Understand
+                {t.settings.warningUnderstand}
               </button>
             </div>
           </motion.div>
@@ -730,7 +752,7 @@ export function SettingsModal({
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className={styles.deckSelectorTitle}>Select Card Deck</h3>
+            <h3 className={styles.deckSelectorTitle}>{t.settings.selectCardDeck}</h3>
             <div className={styles.deckGrid}>
               {DECK_OPTIONS.map((deck) => (
                 <button

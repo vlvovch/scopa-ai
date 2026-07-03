@@ -7,6 +7,8 @@ import { CustomDropdown } from './CustomDropdown';
 import { GeminiIcon } from './GeminiIcon';
 import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
+import { LanguageToggle } from './LanguageToggle';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './StartScreen.module.css';
 
 // Check if running in itch.io mode (API keys disabled)
@@ -112,6 +114,7 @@ export function StartScreen({
   onOpenRules,
   aiAvailability,
 }: StartScreenProps) {
+  const t = useT();
   const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
   const [gameMode, setGameMode] = useState<GameModeOption>('play');
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>([]);
@@ -304,9 +307,9 @@ export function StartScreen({
             value={cat}
             onChange={(e) => onCategoryChange(e.target.value as OpponentCategory)}
           >
-            <option value="cpu">CPU</option>
-            {geminiFreeAvailable && <option value="free-ai">Free AI</option>}
-            {aiAvailable && <option value="ai">AI (BYOK)</option>}
+            <option value="cpu">{t.start.categoryCpu}</option>
+            {geminiFreeAvailable && <option value="free-ai">{t.start.categoryFreeAI}</option>}
+            {aiAvailable && <option value="ai">{t.start.categoryAI}</option>}
           </select>
 
           {/* CPU type or AI provider dropdown */}
@@ -342,7 +345,7 @@ export function StartScreen({
               {isGemini ? (
                 loadingGeminiModels ? (
                   <select className={styles.dropdown} disabled>
-                    <option>Loading...</option>
+                    <option>{t.start.loading}</option>
                   </select>
                 ) : (
                   <select
@@ -358,7 +361,7 @@ export function StartScreen({
               ) : isOpenAI ? (
                 loadingOpenAIModels ? (
                   <select className={styles.dropdown} disabled>
-                    <option>Loading...</option>
+                    <option>{t.start.loading}</option>
                   </select>
                 ) : (
                   <select
@@ -374,7 +377,7 @@ export function StartScreen({
               ) : isClaude ? (
                 loadingClaudeModels ? (
                   <select className={styles.dropdown} disabled>
-                    <option>Loading...</option>
+                    <option>{t.start.loading}</option>
                   </select>
                 ) : (
                   <select
@@ -395,8 +398,8 @@ export function StartScreen({
                   className={styles.modeToggle}
                   onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
                   title={convMode === 'conversation'
-                    ? 'Multi-turn chat (click for single-turn)'
-                    : 'Single-turn requests (click for multi-turn)'}
+                    ? t.start.multiTurnTitle
+                    : t.start.singleTurnTitle}
                 >
                   {convMode === 'conversation' ? '💬' : '1️⃣'}
                 </button>
@@ -405,7 +408,7 @@ export function StartScreen({
                   <button
                     className={`${styles.thinkingToggle} ${useThinking ? styles.thinkingEnabled : ''}`}
                     onClick={() => onToggleThinking(!useThinking)}
-                    title={useThinking ? 'Extended thinking enabled (click to disable)' : 'Extended thinking disabled (click to enable)'}
+                    title={useThinking ? t.start.thinkingOnTitle : t.start.thinkingOffTitle}
                   >
                     {useThinking ? '🧠' : '⚡'}
                   </button>
@@ -416,9 +419,9 @@ export function StartScreen({
         </div>
         {/* Description with thinking status */}
         <p className={styles.aiDescription}>
-          {AI_INFO[currentAI].description}
+          {t.aiDescriptions[currentAI] ?? AI_INFO[currentAI].description}
           {cat === 'ai' && (isGemini || isClaude) && (
-            useThinking ? ' + extended thinking' : ' (fast mode)'
+            useThinking ? t.start.plusThinking : t.start.fastMode
           )}
         </p>
         {isFreeAI && (() => {
@@ -430,14 +433,14 @@ export function StartScreen({
           return (
             <>
               <p className={styles.aiDescription} style={{ opacity: 0.7, fontSize: '0.85em' }}>
-                No API key needed. Multi-turn + thinking.
+                {t.start.freeAINoKey}
                 {gamesRemaining !== null
-                  ? ` ${gamesRemaining}/${rateLimitInfo!.gamesLimit} games remaining today.`
-                  : ' Limited to 3 games/day.'}
+                  ? t.start.gamesRemaining(gamesRemaining, rateLimitInfo!.gamesLimit)
+                  : t.start.limitedPerDay}
               </p>
               {isExhausted && (
                 <p className={styles.aiDescription} style={{ color: '#e57373', fontSize: '0.85em' }}>
-                  Daily limit reached. Add your own API key in Settings for unlimited games.
+                  {t.start.dailyLimitReached}
                 </p>
               )}
             </>
@@ -449,38 +452,39 @@ export function StartScreen({
 
   return (
     <div className={styles.container}>
+      <LanguageToggle />
       <div className={styles.content}>
         <h1 className={styles.title}>Scopa</h1>
-        <p className={styles.subtitle}>The Classic Italian Card Game</p>
+        <p className={styles.subtitle}>{t.start.scopaSubtitle}</p>
 
         <div className={styles.scoreSelection}>
-          <label className={styles.label}>Game Mode</label>
+          <label className={styles.label}>{t.start.gameMode}</label>
           <div className={styles.scoreOptions}>
             <button
               className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'play' ? styles.selected : ''}`}
               onClick={() => setGameMode('play')}
             >
-              Play
+              {t.start.play}
             </button>
             <button
               className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'watch' ? styles.selected : ''}`}
               onClick={() => setGameMode('watch')}
             >
-              Watch
+              {t.start.watch}
             </button>
             <button
               className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'multiplayer' ? styles.selected : ''}`}
               onClick={() => setGameMode('multiplayer')}
             >
-              Multiplayer
+              {t.start.multiplayer}
             </button>
           </div>
           <p className={styles.aiDescription}>
             {gameMode === 'play'
-              ? 'Play against the CPU'
+              ? t.start.playDesc
               : gameMode === 'watch'
-                ? 'Watch two CPUs play against each other'
-                : 'Play against a friend online'}
+                ? t.start.watchDesc
+                : t.start.multiplayerDesc}
           </p>
         </div>
 
@@ -489,7 +493,7 @@ export function StartScreen({
           return (
             <div className={styles.scoreSelection}>
               <label className={styles.label}>
-                Target Score{freeAILocked ? ' (fixed at 11 for Free AI)' : ''}
+                {t.start.targetScore}{freeAILocked ? t.start.fixedFreeAI : ''}
               </label>
               <div className={styles.scoreOptions}>
                 {PRESET_SCORES.map((score) => (
@@ -517,7 +521,7 @@ export function StartScreen({
                     }
                   }}
                   disabled={freeAILocked}
-                  title={freeAILocked ? 'Free AI games are limited to 11 points' : 'Enter custom target score'}
+                  title={freeAILocked ? t.start.freeAILimit11 : t.lobby.customScore}
                 />
               </div>
             </div>
@@ -534,17 +538,17 @@ export function StartScreen({
               handleConversationModeChange,
               isGeminiAIType(selectedAI) ? onSelectGeminiModel : (isOpenAIAIType(selectedAI) ? onSelectOpenAIModel : onSelectClaudeModel),
               isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
-              'Opponent'
+              t.common.opponent
             )}
             {!aiAvailable && !geminiFreeAvailable && (
               <div className={styles.aiHint}>
-                <span>Want to play against AI?</span>
+                <span>{t.start.wantPlayAI}</span>
                 {ITCH_MODE ? (
                   <a href={MAIN_SITE_URL} target="_blank" rel="noopener noreferrer">
-                    Visit main site (BYOK)
+                    {t.start.visitMainSite}
                   </a>
                 ) : (
-                  onOpenSettings && <a onClick={onOpenSettings}>Add API keys in Settings</a>
+                  onOpenSettings && <a onClick={onOpenSettings}>{t.start.addKeysSettings}</a>
                 )}
               </div>
             )}
@@ -563,7 +567,7 @@ export function StartScreen({
                   (mode) => handleSpectatorModeChange('player1', mode),
                   (model) => onSelectSpectatorModel('player1', model),
                   spectatorModels.player1,
-                  'Player 1'
+                  t.start.player1
                 )}
               </div>
               <div className={styles.vsLabel}>vs</div>
@@ -576,14 +580,14 @@ export function StartScreen({
                   (mode) => handleSpectatorModeChange('player2', mode),
                   (model) => onSelectSpectatorModel('player2', model),
                   spectatorModels.player2,
-                  'Player 2'
+                  t.start.player2
                 )}
               </div>
             </div>
             {!aiAvailable && onOpenSettings && (
               <div className={styles.aiHint}>
-                <span>Want to watch AI play?</span>
-                <a onClick={onOpenSettings}>Add API keys in Settings</a>
+                <span>{t.start.wantWatchAI}</span>
+                <a onClick={onOpenSettings}>{t.start.addKeysSettings}</a>
               </div>
             )}
           </>
@@ -591,8 +595,8 @@ export function StartScreen({
 
         {ITCH_MODE && gameMode === 'multiplayer' ? (
           <div className={styles.itchModeNotice}>
-            <p>Multiplayer is not available in this version.</p>
-            <p>Play online with friends on the main site:</p>
+            <p>{t.start.itchNoMultiplayer}</p>
+            <p>{t.start.itchPlayMain}</p>
             <a
               href={MAIN_SITE_URL}
               target="_blank"
@@ -613,30 +617,30 @@ export function StartScreen({
             })()}
           >
             {gameMode === 'play'
-              ? 'Start Game'
+              ? t.start.startGame
               : gameMode === 'watch'
-                ? 'Start Watching'
-                : 'Find Opponent'}
+                ? t.start.startWatching
+                : t.start.findOpponent}
           </button>
         )}
 
         <div className={styles.rulesHint}>
-          <h3>Quick Rules</h3>
+          <h3>{t.start.quickRules}</h3>
           <ul>
-            <li>Capture cards that match your card's value</li>
-            <li>Or capture multiple cards that sum to your value</li>
-            <li>Clearing the table scores a Scopa</li>
-            <li>First to {selectedScore} points wins!</li>
+            <li>{t.start.scopaRule1}</li>
+            <li>{t.start.scopaRule2}</li>
+            <li>{t.start.scopaRule3}</li>
+            <li>{t.start.firstToPoints(selectedScore)}</li>
           </ul>
           {onOpenRules && (
             <a className={styles.fullRulesLink} onClick={onOpenRules}>
-              View Full Rules
+              {t.start.viewFullRules}
             </a>
           )}
         </div>
 
         <footer className={styles.footer}>
-          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a> | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. Built with help from <a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>.
+          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a> | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. {t.start.builtWithPrefix}<a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>.
         </footer>
       </div>
     </div>

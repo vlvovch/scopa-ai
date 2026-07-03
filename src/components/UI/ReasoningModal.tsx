@@ -3,6 +3,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardImage, CardBack } from '../Card/CardImage';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './ReasoningModal.module.css';
 import type { Card, PlayerId } from '../../games/scopa/types';
 
@@ -39,6 +40,7 @@ interface ReasoningModalProps {
 }
 
 export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, position = 'center' }: ReasoningModalProps) {
+  const t = useT();
   if (!lastMove) return null;
 
   const { cardPlayed, tableCards, capturedCards, reasoning, aiName, opponentHandCount, otherHandCards } = lastMove;
@@ -73,11 +75,11 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
             {/* Header */}
             <div className={styles.header}>
               <h3 className={styles.title}>
-                {aiName ? `${aiName}'s` : "AI's"} Move
-                {!locked && <span className={styles.previewHint}> (click to lock)</span>}
+                {t.reasoning.moveTitle(aiName ?? null)}
+                {!locked && <span className={styles.previewHint}> {t.reasoning.clickToLock}</span>}
               </h3>
               {locked && (
-                <button className={styles.closeButton} onClick={onClose} aria-label="Close">
+                <button className={styles.closeButton} onClick={onClose} aria-label={t.common.close}>
                   &times;
                 </button>
               )}
@@ -89,7 +91,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
               <div className={styles.gameRow}>
                 {/* AI's hand (left side) */}
                 <div className={styles.sideSection}>
-                  <div className={styles.sectionLabel}>{aiName || 'AI'}</div>
+                  <div className={styles.sectionLabel}>{aiName || t.reasoning.ai}</div>
                   <div className={styles.handCards}>
                     {/* Other cards first */}
                     {otherHandCards?.map(card => (
@@ -109,10 +111,10 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
 
                 {/* Table (center) */}
                 <div className={styles.tableSection}>
-                  <div className={styles.sectionLabel}>Table</div>
+                  <div className={styles.sectionLabel}>{t.reasoning.table}</div>
                   <div className={styles.tableCards}>
                     {tableCards.length === 0 ? (
-                      <div className={styles.emptyTable}>Empty</div>
+                      <div className={styles.emptyTable}>{t.reasoning.empty}</div>
                     ) : (
                       <>
                         {/* Captured cards first (left side of table), highlighted */}
@@ -140,7 +142,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
                 {/* Opponent's hand (right side, face-down) */}
                 {opponentHandCount !== undefined && opponentHandCount > 0 && (
                   <div className={styles.sideSection}>
-                    <div className={styles.sectionLabel}>Opponent</div>
+                    <div className={styles.sectionLabel}>{t.common.opponent}</div>
                     <div className={styles.opponentHand}>
                       {Array.from({ length: opponentHandCount }).map((_, i) => (
                         <div key={i} className={styles.opponentCard}>
@@ -154,7 +156,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
 
               {/* Reasoning */}
               <div className={styles.reasoningSection}>
-                <div className={styles.reasoningLabel}>Reasoning</div>
+                <div className={styles.reasoningLabel}>{t.reasoning.reasoning}</div>
                 <div className={styles.reasoningText}>
                   {reasoning}
                 </div>
@@ -164,7 +166,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
             {/* Close button at bottom - only when locked */}
             {locked && (
               <button className={styles.closeButtonBottom} onClick={onClose}>
-                Close
+                {t.common.close}
               </button>
             )}
           </motion.div>

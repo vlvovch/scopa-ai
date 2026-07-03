@@ -3,6 +3,8 @@
 // the other modals (gradient background + accent border + accent-colored
 // primary button).
 
+import { useT } from '../../i18n/LanguageContext';
+
 interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
@@ -17,12 +19,15 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const t = useT();
   if (!isOpen) return null;
+  const confirmText = confirmLabel ?? t.common.confirm;
+  const cancelText = cancelLabel ?? t.common.cancel;
   return (
     <div
       style={{
@@ -64,7 +69,7 @@ export function ConfirmDialog({
               cursor: 'pointer',
             }}
           >
-            {cancelLabel}
+            {cancelText}
           </button>
           <button
             onClick={onConfirm}
@@ -78,7 +83,7 @@ export function ConfirmDialog({
               cursor: 'pointer',
             }}
           >
-            {confirmLabel}
+            {confirmText}
           </button>
         </div>
       </div>

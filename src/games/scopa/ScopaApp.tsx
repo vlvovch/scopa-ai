@@ -30,6 +30,7 @@ import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
 import { DeckProvider } from '../../contexts/DeckContext';
+import { useT } from '../../i18n/LanguageContext';
 import { getValidMoves } from './rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
@@ -148,6 +149,7 @@ function dropPoint(info: { point: { x: number; y: number } }): { x: number; y: n
 function ScopaApp() {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
+  const t = useT();
 
   // Apply table style class to body element
   useEffect(() => {
@@ -1317,7 +1319,7 @@ function ScopaApp() {
             return;
           }
           // Set error state for display
-          const errorMessage = err instanceof Error ? err.message : 'API call failed';
+          const errorMessage = err instanceof Error ? err.message : t.game.apiCallFailed;
           setPlayer2ApiError(errorMessage);
           console.error('AI API error:', err);
           // Fall back to heuristic AI for this move
@@ -2010,14 +2012,14 @@ function ScopaApp() {
             (move.cardPlayed.suit === 'coins' && move.cardPlayed.value === 7);
           if (hasSetteBello) {
             playSound('setteBello');
-            const playerName = multiplayer.opponentNickname || 'Opponent';
+            const playerName = multiplayer.opponentNickname || t.common.opponent;
             setSetteBelloCelebration({ show: true, player, playerName });
             setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
           }
           // Check for scopa (based on move.isScopa flag from server)
           if (move.isScopa) {
             playSound('scopa');
-            const playerName = multiplayer.opponentNickname || 'Opponent';
+            const playerName = multiplayer.opponentNickname || t.common.opponent;
             setScopaCelebration({ show: true, player, playerName });
             setTimeout(() => setScopaCelebration(prev => ({ ...prev, show: false })), 1500);
           }
@@ -2106,7 +2108,7 @@ function ScopaApp() {
         // Check if 7 of coins (sette bello) is being captured with the remaining cards
         if (remainingCards.some(c => c.suit === 'coins' && c.value === 7)) {
           playSound('setteBello');
-          const playerName = capturePlayer === 'human' ? multiplayer.nickname : (multiplayer.opponentNickname || 'Opponent');
+          const playerName = capturePlayer === 'human' ? multiplayer.nickname : (multiplayer.opponentNickname || t.common.opponent);
           setSetteBelloCelebration({ show: true, player: capturePlayer, playerName });
           setTimeout(() => setSetteBelloCelebration(prev => ({ ...prev, show: false })), 1500);
         }
@@ -2432,7 +2434,7 @@ function ScopaApp() {
           updatePlayerTokenStats('player1');
         } catch (err) {
           // Set error state for display
-          const errorMessage = err instanceof Error ? err.message : 'API call failed';
+          const errorMessage = err instanceof Error ? err.message : t.game.apiCallFailed;
           setPlayer1ApiError(errorMessage);
           console.error('AI API error:', err);
           // Fall back to heuristic AI for this move
@@ -2559,10 +2561,10 @@ function ScopaApp() {
             cpuScopaCaptures={multiplayer.roundEndData.scopaCaptures[oppId]}
             onNextRound={multiplayer.continueToNextRound}
             player1Name="You"
-            player2Name={multiplayer.opponentNickname || 'Opponent'}
+            player2Name={multiplayer.opponentNickname || t.common.opponent}
             nextRoundRequested={multiplayer.nextRoundRequests.has(myId)}
             opponentRequestedNextRound={multiplayer.nextRoundRequests.has(oppId)}
-            opponentName={multiplayer.opponentNickname || 'Opponent'}
+            opponentName={multiplayer.opponentNickname || t.common.opponent}
             isGameOver={isFinalRound}
             onShowGameEnd={multiplayer.clearRoundEnd}
           />
@@ -2584,11 +2586,11 @@ function ScopaApp() {
             roundsPlayed={mpState.roundNumber}
             onPlayAgain={multiplayer.requestNewGame}
             player1Name="You"
-            player2Name={multiplayer.opponentNickname || 'Opponent'}
+            player2Name={multiplayer.opponentNickname || t.common.opponent}
             roundHistory={multiplayerRoundHistory}
             rematchRequested={multiplayer.newGameRequestedBy === myId}
             opponentRequestedRematch={multiplayer.newGameRequestedBy === oppId}
-            opponentName={multiplayer.opponentNickname || 'Opponent'}
+            opponentName={multiplayer.opponentNickname || t.common.opponent}
             onLeaveGame={handleLeaveMultiplayer}
           />
         </DeckProvider>
@@ -2610,7 +2612,7 @@ function ScopaApp() {
         {multiplayer.restartRequestedBy && (
           <RestartOverlay
             requestedBy={multiplayer.restartRequestedBy === multiplayer.playerId ? 'self' : 'opponent'}
-            opponentNickname={multiplayer.opponentNickname || 'Opponent'}
+            opponentNickname={multiplayer.opponentNickname || t.common.opponent}
             onRequestRestart={multiplayer.requestRestart}
             onCancel={multiplayer.requestRestart}
           />
@@ -2627,7 +2629,7 @@ function ScopaApp() {
                 currentPlayer={isMyTurn ? 'human' : 'cpu'}
                 isMultiplayer
                 playerNickname={multiplayer.nickname}
-                opponentNickname={multiplayer.opponentNickname || 'Opponent'}
+                opponentNickname={multiplayer.opponentNickname || t.common.opponent}
               />
               <GameControls
                 onNewGame={handleLeaveMultiplayer}
@@ -2767,7 +2769,7 @@ function ScopaApp() {
               )}
 
               <span style={{ fontSize: 'calc(14px * var(--font-scale, 1))', color: 'var(--color-text-primary)' }}>
-                {isMyTurn ? 'Your turn' : `${multiplayer.opponentNickname}'s turn`}
+                {isMyTurn ? t.game.yourTurn : t.game.turnOf(multiplayer.opponentNickname || t.common.opponent)}
               </span>
 
               {/* Action buttons */}
@@ -2785,7 +2787,7 @@ function ScopaApp() {
                       cursor: 'pointer',
                     }}
                   >
-                    Place Card
+                    {t.game.placeCard}
                   </button>
                 )}
 
@@ -2915,7 +2917,7 @@ function ScopaApp() {
           playerName={
             mpOpenPile === 'self'
               ? multiplayer.nickname
-              : multiplayer.opponentNickname || 'Opponent'
+              : multiplayer.opponentNickname || t.common.opponent
           }
         />
       </DeckProvider>
@@ -2945,9 +2947,9 @@ function ScopaApp() {
               justifyContent: 'center', flexDirection: 'column', gap: '1.25rem',
               color: 'var(--color-text-primary)', textAlign: 'center', padding: '1rem',
             }}>
-              <h2 style={{ margin: 0 }}>Reconnecting…</h2>
+              <h2 style={{ margin: 0 }}>{t.game.reconnecting}</h2>
               <p style={{ opacity: 0.75, margin: 0 }}>
-                Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
+                {t.game.restoringGame(multiplayer.roomCode)}
               </p>
               <button
                 onClick={handleLeaveMultiplayer}
@@ -2957,7 +2959,7 @@ function ScopaApp() {
                   fontSize: '1rem', cursor: 'pointer',
                 }}
               >
-                Leave Game
+                {t.multiplayer.leaveGame}
               </button>
             </div>
           </DeckProvider>
@@ -2992,20 +2994,20 @@ function ScopaApp() {
               gameCodePrefix: 'SCOPA',
               presetScores: [11, 16, 21],
               defaultScore: 11,
-              scoreLabel: 'Target Score',
+              scoreLabel: t.multiplayer.targetScore,
               extraToggles: [
                 {
                   key: 'pileView',
-                  label: 'Captured-pile review',
-                  hintOn: 'Players can open a pile to review captured cards',
-                  hintOff: 'Play from memory — piles can’t be opened',
+                  label: t.game.pileReviewLabel,
+                  hintOn: t.game.pileReviewOn,
+                  hintOff: t.game.pileReviewOff,
                   defaultValue: false,
                 },
                 {
                   key: 'pileStats',
-                  label: 'Pile stats during play',
-                  hintOn: 'Show captured count / points / categories mid-game',
-                  hintOff: 'Hidden during play — revealed at round end',
+                  label: t.game.pileStatsLabel,
+                  hintOn: t.game.pileStatsOn,
+                  hintOff: t.game.pileStatsOff,
                   defaultValue: false,
                 },
               ],
@@ -3217,7 +3219,6 @@ function ScopaApp() {
         isOpen={showCapturedCards}
         onClose={() => setShowCapturedCards(false)}
         cards={activeState.players.human.captured}
-        playerName="Your"
       />
       <ReasoningModal
         isOpen={reasoningModal.isOpen}
@@ -3233,9 +3234,9 @@ function ScopaApp() {
       />
       <ConfirmDialog
         isOpen={confirmNewGame}
-        title="Start New Game?"
-        message="Current game progress will be lost."
-        confirmLabel="New Game"
+        title={t.game.newGameTitle}
+        message={t.game.newGameMessage}
+        confirmLabel={t.game.newGameConfirm}
         onConfirm={confirmAndStartNewGame}
         onCancel={() => setConfirmNewGame(false)}
       />
@@ -3416,8 +3417,8 @@ function ScopaApp() {
           <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
             <span style={{ fontSize: 'calc(14px * var(--font-scale, 1))', color: 'var(--color-text-primary)' }}>
               {isSpectatorMode
-                ? `${AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name}'s turn${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? ' (Paused)' : ''}`
-                : isHumanTurn ? 'Your turn' : `${AI_INFO[settings.cpuAI].name} is thinking...`}
+                ? `${t.game.turnOf(AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name)}${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? t.game.pausedSuffix : ''}`
+                : isHumanTurn ? t.game.yourTurn : t.game.thinking(AI_INFO[settings.cpuAI].name)}
             </span>
 
             {/* Action buttons container */}
@@ -3508,7 +3509,7 @@ function ScopaApp() {
           // the panel is visible from the start.
           computing={winOddsComputing || (!displayedWinOdds && !!winOddsView)}
           metric="diff"
-          caption="Expert self-play estimate"
+          caption={t.winOddsPanel.expertCaption('Expert')}
         />
       )}
     </DeckProvider>

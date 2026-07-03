@@ -1,6 +1,7 @@
 // DealerDeck Component - Shows the remaining deck of cards
 
 import { CardBack } from '../Card/CardImage';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './DealerDeck.module.css';
 
 interface DealerDeckProps {
@@ -9,11 +10,12 @@ interface DealerDeckProps {
 }
 
 export function DealerDeck({ cardsRemaining }: DealerDeckProps) {
+  const t = useT();
   if (cardsRemaining === 0) {
     return (
       <div className={styles.deckContainer}>
         <div className={styles.emptyDeck}>
-          <span className={styles.emptyLabel}>Deck Empty</span>
+          <span className={styles.emptyLabel}>{t.table.deckEmpty}</span>
         </div>
       </div>
     );
@@ -24,7 +26,7 @@ export function DealerDeck({ cardsRemaining }: DealerDeckProps) {
 
   return (
     <div className={styles.deckContainer}>
-      <span className={styles.dealerBadge} title="Dealer">D</span>
+      <span className={styles.dealerBadge} title={t.table.dealer}>D</span>
       <div className={styles.deckStack}>
         {/* Render stack layers for 3D effect */}
         {Array.from({ length: stackLayers }).map((_, i) => (

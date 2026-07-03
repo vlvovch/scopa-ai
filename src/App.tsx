@@ -1,6 +1,7 @@
 import { MotionConfig } from 'framer-motion';
 import ScopaApp from './games/scopa/ScopaApp';
 import BriscolaApp from './games/briscola/BriscolaApp';
+import { LanguageProvider } from './i18n/LanguageContext';
 
 const game = import.meta.env.VITE_GAME;
 
@@ -23,9 +24,11 @@ function transformPagePoint(point: { x: number; y: number }) {
 
 function App() {
   return (
-    <MotionConfig transformPagePoint={transformPagePoint}>
-      {game === 'briscola' ? <BriscolaApp /> : <ScopaApp />}
-    </MotionConfig>
+    <LanguageProvider>
+      <MotionConfig transformPagePoint={transformPagePoint}>
+        {game === 'briscola' ? <BriscolaApp /> : <ScopaApp />}
+      </MotionConfig>
+    </LanguageProvider>
   );
 }
 

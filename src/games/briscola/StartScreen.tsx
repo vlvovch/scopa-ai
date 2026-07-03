@@ -6,6 +6,9 @@
 // included yet — no Briscola server.
 
 import { useEffect, useState } from 'react';
+import { useT } from '../../i18n/LanguageContext';
+import type { Translation } from '../../i18n/en';
+import { LanguageToggle } from '../../components/UI/LanguageToggle';
 import styles from '../../components/UI/StartScreen.module.css';
 import { CustomDropdown } from '../../components/UI/CustomDropdown';
 import { GeminiIcon } from '../../components/UI/GeminiIcon';
@@ -49,22 +52,10 @@ type AIProvider = 'gemini' | 'openai' | 'claude';
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
 
-const CPU_INFO: Record<CpuBotName, { icon: string; name: string; description: string }> = {
-  random: {
-    icon: '🐒',
-    name: 'Scimmietta',
-    description: 'Picks any card from hand at random — useful for warm-ups.',
-  },
-  heuristic: {
-    icon: '🦊',
-    name: 'Furbo',
-    description: 'Greedy single-ply strategy: leads low scartine, captures valuable leads with cheap trumps.',
-  },
-  expert: {
-    icon: '🐍',
-    name: 'Esperto',
-    description: 'Determinization + minimax — samples opponent hands and looks ahead a couple of tricks.',
-  },
+const CPU_INFO: Record<CpuBotName, { icon: string; name: string }> = {
+  random: { icon: '🐒', name: 'Scimmietta' },
+  heuristic: { icon: '🦊', name: 'Furbo' },
+  expert: { icon: '🐍', name: 'Esperto' },
 };
 
 const PROVIDER_INFO: Record<AIProvider, { icon: string; label: string }> = {
@@ -91,14 +82,12 @@ function getAIProvider(name: BriscolaOpponentName): AIProvider {
   return 'gemini';
 }
 
-function getOpponentDescription(name: BriscolaOpponentName): string {
-  if (name === 'random' || name === 'heuristic' || name === 'expert') {
-    return CPU_INFO[name].description;
-  }
-  if (name === 'gemini-free') {
-    return 'Google Gemini via free proxy with thinking. Limited daily quota.';
-  }
-  return `${PROVIDER_INFO[getAIProvider(name)].label} using your own API key.`;
+function getOpponentDescription(name: BriscolaOpponentName, t: Translation): string {
+  if (name === 'random') return t.start.briscolaRandomDesc;
+  if (name === 'heuristic') return t.start.briscolaHeuristicDesc;
+  if (name === 'expert') return t.start.briscolaExpertDesc;
+  if (name === 'gemini-free') return t.start.briscolaFreeDesc;
+  return t.start.briscolaByokDesc(PROVIDER_INFO[getAIProvider(name)].label);
 }
 
 interface StartScreenProps {
@@ -143,6 +132,7 @@ export function StartScreen({
   onStartGame,
   onStartMultiplayer,
 }: StartScreenProps) {
+  const t = useT();
   const [bestOf, setBestOf] = useState<number>(defaultBestOf);
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
   const isPreset = (PRESET_BEST_OF as readonly number[]).includes(bestOf);
@@ -300,9 +290,9 @@ export function StartScreen({
             value={cat}
             onChange={(e) => handleCategoryChange(e.target.value as OpponentCategory)}
           >
-            <option value="cpu">CPU</option>
-            {geminiFreeOk && <option value="free-ai">Free AI</option>}
-            {anyAIOk && <option value="ai">AI (BYOK)</option>}
+            <option value="cpu">{t.start.categoryCpu}</option>
+            {geminiFreeOk && <option value="free-ai">{t.start.categoryFreeAI}</option>}
+            {anyAIOk && <option value="ai">{t.start.categoryAI}</option>}
           </select>
 
           {cat === 'cpu' ? (
@@ -354,8 +344,8 @@ export function StartScreen({
                 }
                 title={
                   conversationMode === 'multiturn'
-                    ? 'Multi-turn chat (click for single-turn)'
-                    : 'Single-turn requests (click for multi-turn)'
+                    ? t.start.multiTurnTitle
+                    : t.start.singleTurnTitle
                 }
               >
                 {conversationMode === 'multiturn' ? '💬' : '1️⃣'}
@@ -370,8 +360,8 @@ export function StartScreen({
                   onClick={() => onToggleThinking(!useThinking)}
                   title={
                     useThinking
-                      ? 'Extended thinking enabled (click to disable)'
-                      : 'Extended thinking disabled (click to enable)'
+                      ? t.start.thinkingOnTitle
+                      : t.start.thinkingOffTitle
                   }
                 >
                   {useThinking ? '🧠' : '⚡'}
@@ -381,10 +371,10 @@ export function StartScreen({
           )}
         </div>
         <p className={styles.aiDescription}>
-          {getOpponentDescription(current)}
+          {getOpponentDescription(current, t)}
           {cat === 'ai' &&
             (provider === 'gemini' || provider === 'claude') &&
-            (useThinking ? ' + extended thinking' : ' (fast mode)')}
+            (useThinking ? t.start.plusThinking : t.start.fastMode)}
         </p>
         {cat === 'free-ai' && (() => {
           const info = getGeminiFreeRateLimitInfo();
@@ -398,18 +388,17 @@ export function StartScreen({
                 className={styles.aiDescription}
                 style={{ opacity: 0.7, fontSize: '0.85em' }}
               >
-                No API key needed. Multi-turn + thinking.
+                {t.start.freeAINoKey}
                 {remaining !== null
-                  ? ` ${remaining}/${info!.gamesLimit} games remaining today.`
-                  : ' Limited to 3 games/day.'}
+                  ? t.start.gamesRemaining(remaining, info!.gamesLimit)
+                  : t.start.limitedPerDay}
               </p>
               {exhausted && (
                 <p
                   className={styles.aiDescription}
                   style={{ color: '#e57373', fontSize: '0.85em' }}
                 >
-                  Daily limit reached. Add your own API key in Settings for
-                  unlimited games.
+                  {t.start.dailyLimitReached}
                 </p>
               )}
             </>
@@ -423,44 +412,45 @@ export function StartScreen({
 
   return (
     <div className={styles.container}>
+      <LanguageToggle />
       <div className={styles.content}>
         <h1 className={styles.title}>Briscola</h1>
-        <p className={styles.subtitle}>The Classic Italian Trick-Taking Card Game</p>
+        <p className={styles.subtitle}>{t.start.briscolaSubtitle}</p>
 
         <div className={styles.scoreSelection}>
-          <label className={styles.label}>Game Mode</label>
+          <label className={styles.label}>{t.start.gameMode}</label>
           <div className={styles.scoreOptions}>
             <button
               className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'play' ? styles.selected : ''}`}
               onClick={() => setGameMode('play')}
             >
-              Play
+              {t.start.play}
             </button>
             <button
               className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'watch' ? styles.selected : ''}`}
               onClick={() => setGameMode('watch')}
             >
-              Watch
+              {t.start.watch}
             </button>
             <button
               className={`${styles.scoreOption} ${styles.modeOption} ${gameMode === 'multiplayer' ? styles.selected : ''}`}
               onClick={() => setGameMode('multiplayer')}
             >
-              Multiplayer
+              {t.start.multiplayer}
             </button>
           </div>
           <p className={styles.aiDescription}>
             {gameMode === 'play'
-              ? 'Play against the CPU or an AI.'
+              ? t.start.playDescBriscola
               : gameMode === 'watch'
-                ? 'Watch two opponents play against each other.'
-                : 'Play against a friend online.'}
+                ? t.start.watchDescBriscola
+                : t.start.multiplayerDescBriscola}
           </p>
         </div>
 
         {gameMode !== 'multiplayer' && (
           <div className={styles.scoreSelection}>
-            <label className={styles.label}>First To</label>
+            <label className={styles.label}>{t.start.firstToLabel}</label>
             <div className={styles.scoreOptions}>
               {PRESET_BEST_OF.map((n) => (
                 <button
@@ -482,13 +472,13 @@ export function StartScreen({
                   const val = parseInt(e.target.value, 10);
                   if (!isNaN(val) && val >= 1) setBestOf(val);
                 }}
-                title="Enter a custom number of round wins to take the match"
+                title={t.start.customBestOfTitle}
               />
             </div>
             <p className={styles.aiDescription}>
               {bestOf === 1
-                ? 'Single round — whoever has more points (out of 120) wins.'
-                : `First to ${bestOf} round wins takes the match.`}
+                ? t.start.bestOfSingle
+                : t.start.bestOfN(bestOf)}
             </p>
           </div>
         )}
@@ -504,7 +494,7 @@ export function StartScreen({
                   : opponentName === 'claude'
                     ? onSetClaudeModel
                     : null,
-              'Opponent'
+              t.common.opponent
             )
           : (
               <div className={styles.spectatorSetup}>
@@ -519,7 +509,7 @@ export function StartScreen({
                         : watchOpponents.player1 === 'claude'
                           ? onSetClaudeModel
                           : null,
-                    'Player 1'
+                    t.start.player1
                   )}
                 </div>
                 <div className={styles.vsLabel}>vs</div>
@@ -534,7 +524,7 @@ export function StartScreen({
                         : watchOpponents.player2 === 'claude'
                           ? onSetClaudeModel
                           : null,
-                    'Player 2'
+                    t.start.player2
                   )}
                 </div>
               </div>
@@ -552,24 +542,24 @@ export function StartScreen({
           }}
         >
           {gameMode === 'multiplayer'
-            ? 'Open Multiplayer Lobby'
+            ? t.start.openLobby
             : gameMode === 'watch'
-              ? 'Start Watching'
-              : 'Start Game'}
+              ? t.start.startWatching
+              : t.start.startGame}
         </button>
 
         <div className={styles.rulesHint}>
-          <h3>Quick Rules</h3>
+          <h3>{t.start.quickRules}</h3>
           <ul>
-            <li>One trump (briscola) suit set at the start; trump beats any non-trump.</li>
-            <li>Within a suit: Ace, 3, K, Q, J, 7…2 (in order). Different suits & no trump: leader wins.</li>
-            <li>Point values per card: Ace 11, 3 → 10, K 4, Q 3, J 2. Others = 0. 120 total.</li>
-            <li>Whoever takes more than 60 points wins the round.</li>
+            <li>{t.start.briscolaRule1}</li>
+            <li>{t.start.briscolaRule2}</li>
+            <li>{t.start.briscolaRule3}</li>
+            <li>{t.start.briscolaRule4}</li>
           </ul>
         </div>
 
         <footer className={styles.footer}>
-          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a> | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. Built with help from <a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>.
+          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a> | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. {t.start.builtWithPrefix}<a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>.
         </footer>
       </div>
     </div>

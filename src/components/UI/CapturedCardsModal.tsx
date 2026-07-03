@@ -5,13 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Card } from '../../games/scopa/types';
 import { CardImage } from '../Card/CardImage';
 import { useDeck } from '../../contexts/DeckContext';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './CapturedCardsModal.module.css';
 
 interface CapturedCardsModalProps {
   isOpen: boolean;
   onClose: () => void;
   cards: Card[];
-  playerName: string;
+  /** Pile owner's name; omit for the local player ("Your Captured Cards"). */
+  playerName?: string;
 }
 
 // Denari (Coins) icon using authentic SVG from deck
@@ -26,6 +28,7 @@ function DenariIcon({ size = 16 }: { size?: number }) {
 }
 
 export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: CapturedCardsModalProps) {
+  const t = useT();
   // Calculate stats
   const stats = useMemo(() => {
     const denariCount = cards.filter(c => c.suit === 'coins').length;
@@ -52,11 +55,13 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className={styles.title}>{playerName} Captured Cards</h2>
+            <h2 className={styles.title}>
+              {playerName ? t.captured.title(playerName) : t.captured.yourCards}
+            </h2>
 
             <div className={styles.stats}>
               <span className={styles.stat}>
-                <strong>{cards.length}</strong> cards
+                <strong>{cards.length}</strong> {t.captured.cardsWord}
               </span>
               <span className={styles.stat}>
                 <DenariIcon /> <strong>{stats.denariCount}</strong>
@@ -71,7 +76,7 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
 
             <div className={styles.cardsContainer}>
               {cards.length === 0 ? (
-                <p className={styles.empty}>No cards captured yet</p>
+                <p className={styles.empty}>{t.captured.empty}</p>
               ) : (
                 <div className={styles.cardsGrid}>
                   {cards.map((card) => (
@@ -89,7 +94,7 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
             </div>
 
             <button className={styles.closeButton} onClick={onClose}>
-              Close
+              {t.common.close}
             </button>
           </motion.div>
         </motion.div>

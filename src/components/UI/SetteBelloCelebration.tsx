@@ -1,6 +1,7 @@
 // Sette Bello (7 of Coins) Celebration Animation
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './SetteBelloCelebration.module.css';
 
 interface SetteBelloCelebrationProps {
@@ -13,7 +14,9 @@ interface SetteBelloCelebrationProps {
 }
 
 export function SetteBelloCelebration({ show, player, playerName, onComplete }: SetteBelloCelebrationProps) {
-  const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
+  const t = useT();
+  // null = the local player ("you"), rendered as a second-person message
+  const nameForMessage = playerName ?? (player === 'human' ? null : 'CPU');
   return (
     <AnimatePresence onExitComplete={onComplete}>
       {show && (
@@ -70,7 +73,7 @@ export function SetteBelloCelebration({ show, player, playerName, onComplete }: 
               SETTE BELLO!
             </motion.span>
             <span className={styles.player}>
-              {displayName} captured the 7 of Coins!
+              {t.celebrate.capturedSetteBello(nameForMessage)}
             </span>
           </motion.div>
 

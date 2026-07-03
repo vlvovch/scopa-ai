@@ -3,6 +3,7 @@
 // game-specific room prefix, name, target-score presets, and score label.
 
 import { useState, useEffect } from 'react';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './MultiplayerLobby.module.css';
 
 // Structurally identical to the per-game ConnectionStatus union; inlined
@@ -98,6 +99,7 @@ export function MultiplayerLobby({
   onJoinRoom,
   onBack,
 }: MultiplayerLobbyProps) {
+  const t = useT();
   const codePrefix = `${config.gameCodePrefix}-`;
   // If there's an initial join code, go straight to join mode
   const [mode, setMode] = useState<LobbyMode>(initialJoinCode ? 'join' : 'select');
@@ -154,8 +156,8 @@ export function MultiplayerLobby({
     return (
       <div className={styles.container}>
         <div className={styles.content}>
-          <h1 className={styles.title}>Multiplayer</h1>
-          <p className={styles.subtitle}>Play {config.gameName} with a friend online</p>
+          <h1 className={styles.title}>{t.lobby.title}</h1>
+          <p className={styles.subtitle}>{t.lobby.playWithFriend(config.gameName)}</p>
 
           <div className={styles.modeButtons}>
             <button
@@ -163,8 +165,8 @@ export function MultiplayerLobby({
               onClick={() => setMode('create')}
             >
               <span className={styles.modeIcon}>+</span>
-              <span className={styles.modeLabel}>Create Game</span>
-              <span className={styles.modeDescription}>Start a new game and invite a friend</span>
+              <span className={styles.modeLabel}>{t.lobby.createGame}</span>
+              <span className={styles.modeDescription}>{t.lobby.createDescription}</span>
             </button>
 
             <button
@@ -172,13 +174,13 @@ export function MultiplayerLobby({
               onClick={() => setMode('join')}
             >
               <span className={styles.modeIcon}>#</span>
-              <span className={styles.modeLabel}>Join Game</span>
-              <span className={styles.modeDescription}>Enter a code to join an existing game</span>
+              <span className={styles.modeLabel}>{t.lobby.joinGame}</span>
+              <span className={styles.modeDescription}>{t.lobby.joinDescription}</span>
             </button>
           </div>
 
           <button className={styles.backButton} onClick={onBack}>
-            Back to Menu
+            {t.lobby.backToMenu}
           </button>
         </div>
       </div>
@@ -190,17 +192,17 @@ export function MultiplayerLobby({
     return (
       <div className={styles.container}>
         <div className={styles.content}>
-          <h1 className={styles.title}>Create Game</h1>
-          <p className={styles.subtitle}>Set up your game and share the code</p>
+          <h1 className={styles.title}>{t.lobby.createGame}</h1>
+          <p className={styles.subtitle}>{t.lobby.createSubtitle}</p>
 
           <div className={styles.formGroup}>
-            <label className={styles.label}>Your Nickname</label>
+            <label className={styles.label}>{t.multiplayer.yourNickname}</label>
             <input
               type="text"
               className={styles.input}
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
-              placeholder="Enter your nickname"
+              placeholder={t.lobby.enterNickname}
               maxLength={20}
               disabled={isDisabled}
             />
@@ -233,14 +235,14 @@ export function MultiplayerLobby({
                   }
                 }}
                 disabled={isDisabled}
-                title="Enter custom target score"
+                title={t.lobby.customScore}
               />
             </div>
           </div>
 
           <div className={styles.formGroup}>
             <label className={styles.toggleRow}>
-              <span className={styles.toggleLabel}>Turn Timer (60 seconds)</span>
+              <span className={styles.toggleLabel}>{t.lobby.turnTimer60}</span>
               <button
                 className={`${styles.toggle} ${turnTimerEnabled ? styles.toggleEnabled : ''}`}
                 onClick={() => setTurnTimerEnabled(!turnTimerEnabled)}
@@ -252,8 +254,8 @@ export function MultiplayerLobby({
             </label>
             <p className={styles.toggleHint}>
               {turnTimerEnabled
-                ? 'Opponent can force a random move if you run out of time'
-                : 'No time limit per turn'}
+                ? t.lobby.timerOnHint
+                : t.lobby.timerOffHint}
             </p>
           </div>
 
@@ -290,7 +292,7 @@ export function MultiplayerLobby({
             onClick={handleCreateRoom}
             disabled={!nickname.trim() || isDisabled}
           >
-            {isConnecting ? 'Creating...' : 'Create Game'}
+            {isConnecting ? t.lobby.creating : t.lobby.createGame}
           </button>
 
           <button
@@ -298,7 +300,7 @@ export function MultiplayerLobby({
             onClick={() => setMode('select')}
             disabled={isConnecting}
           >
-            Back
+            {t.lobby.back}
           </button>
         </div>
       </div>
@@ -309,24 +311,24 @@ export function MultiplayerLobby({
   return (
     <div className={styles.container}>
       <div className={styles.content}>
-        <h1 className={styles.title}>Join Game</h1>
-        <p className={styles.subtitle}>Enter the game code shared by your friend</p>
+        <h1 className={styles.title}>{t.lobby.joinGame}</h1>
+        <p className={styles.subtitle}>{t.lobby.joinSubtitle}</p>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Your Nickname</label>
+          <label className={styles.label}>{t.multiplayer.yourNickname}</label>
           <input
             type="text"
             className={styles.input}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            placeholder="Enter your nickname"
+            placeholder={t.lobby.enterNickname}
             maxLength={20}
             disabled={isDisabled}
           />
         </div>
 
         <div className={styles.formGroup}>
-          <label className={styles.label}>Game Code</label>
+          <label className={styles.label}>{t.multiplayer.gameCode}</label>
           <input
             type="text"
             className={`${styles.input} ${styles.codeInput}`}
@@ -349,7 +351,7 @@ export function MultiplayerLobby({
           onClick={handleJoinRoom}
           disabled={!nickname.trim() || !joinCode.trim() || isDisabled}
         >
-          {isConnecting ? 'Joining...' : 'Join Game'}
+          {isConnecting ? t.lobby.joining : t.lobby.joinGame}
         </button>
 
         <button
@@ -360,7 +362,7 @@ export function MultiplayerLobby({
           }}
           disabled={isConnecting}
         >
-          Back
+          {t.lobby.back}
         </button>
       </div>
     </div>

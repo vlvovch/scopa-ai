@@ -1,6 +1,7 @@
 // Step 9.4: Scopa Celebration Animation
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './ScopaCelebration.module.css';
 
 interface ScopaCelebrationProps {
@@ -12,7 +13,9 @@ interface ScopaCelebrationProps {
 }
 
 export function ScopaCelebration({ show, player, onComplete, playerName }: ScopaCelebrationProps) {
-  const displayName = playerName ?? (player === 'human' ? 'You' : 'CPU');
+  const t = useT();
+  // null = the local player ("you"), rendered as a second-person message
+  const nameForMessage = playerName ?? (player === 'human' ? null : 'CPU');
   return (
     <AnimatePresence onExitComplete={onComplete}>
       {show && (
@@ -69,7 +72,7 @@ export function ScopaCelebration({ show, player, onComplete, playerName }: Scopa
               SCOPA!
             </motion.span>
             <span className={styles.player}>
-              {displayName} swept the table!
+              {t.celebrate.sweptTable(nameForMessage)}
             </span>
           </motion.div>
 

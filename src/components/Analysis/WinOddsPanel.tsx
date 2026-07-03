@@ -6,6 +6,7 @@
 // self-play estimate, not ground truth.
 
 import type React from 'react';
+import { useT } from '../../i18n/LanguageContext';
 
 /** Minimal shape the panel needs. Briscola supplies win/tie/loss;
  *  Scopa additionally supplies expectedDiff/diffCi (metric="diff"). */
@@ -26,7 +27,7 @@ const signed = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}`;
 export function WinOddsPanel({
   odds,
   computing,
-  caption = 'self-play estimate',
+  caption,
   metric = 'win',
   title,
 }: {
@@ -40,16 +41,18 @@ export function WinOddsPanel({
   /** Panel title; defaults per metric. */
   title?: string;
 }) {
+  const t = useT();
   if (!odds && !computing) return null;
   const pct = (n: number) => `${Math.round(n)}%`;
+  const captionText = caption ?? t.winOddsPanel.selfPlayEstimate;
   const heading =
-    title ?? (metric === 'diff' ? 'Expected margin' : 'Win odds');
+    title ?? (metric === 'diff' ? t.winOddsPanel.expectedMargin : t.winOddsPanel.winOdds);
 
   return (
     <div style={winOddsPanel} aria-live="polite">
       <div style={winOddsTitle}>
         {heading}{' '}
-        {computing && <span style={winOddsSpinner}>·computing·</span>}
+        {computing && <span style={winOddsSpinner}>·{t.winOddsPanel.computing}·</span>}
       </div>
       {odds ? (
         metric === 'diff' ? (
@@ -66,10 +69,10 @@ export function WinOddsPanel({
               >
                 {signed(odds.expectedDiff ?? 0)}
               </strong>
-              <span style={{ opacity: 0.8 }}>pts/round</span>
+              <span style={{ opacity: 0.8 }}>{t.winOddsPanel.ptsPerRound}</span>
             </div>
             <div style={winOddsFoot}>
-              ±{(odds.diffCi ?? 0).toFixed(1)} · {odds.samples} sims · {caption}
+              ±{(odds.diffCi ?? 0).toFixed(1)} · {odds.samples} {t.winOddsPanel.sims} · {captionText}
             </div>
           </>
         ) : (
@@ -79,19 +82,19 @@ export function WinOddsPanel({
                 <strong style={{ color: 'var(--color-accent)' }}>
                   {pct(odds.winPct)}
                 </strong>{' '}
-                win
+                {t.winOddsPanel.win}
               </span>
-              <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} tie</span>
-              <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} loss</span>
+              <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} {t.winOddsPanel.tie}</span>
+              <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} {t.winOddsPanel.loss}</span>
             </div>
             <div style={winOddsFoot}>
               ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples}{' '}
-              sims · {caption}
+              {t.winOddsPanel.sims} · {captionText}
             </div>
           </>
         )
       ) : (
-        <div style={winOddsFoot}>simulating…</div>
+        <div style={winOddsFoot}>{t.winOddsPanel.simulating}</div>
       )}
     </div>
   );

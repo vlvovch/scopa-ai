@@ -1,6 +1,7 @@
 // WaitingForOpponent Component - Waiting room after creating a game
 
 import { useState, useCallback } from 'react';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './WaitingForOpponent.module.css';
 
 interface WaitingForOpponentProps {
@@ -20,6 +21,7 @@ export function WaitingForOpponent({
   onUpdateNickname,
   onLeaveRoom,
 }: WaitingForOpponentProps) {
+  const t = useT();
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [editedNickname, setEditedNickname] = useState(nickname);
   const [copied, setCopied] = useState(false);
@@ -82,18 +84,18 @@ export function WaitingForOpponent({
   return (
     <div className={styles.container}>
       <div className={styles.content}>
-        <h1 className={styles.title}>Waiting for Opponent</h1>
-        <p className={styles.subtitle}>Share the code below with your friend</p>
+        <h1 className={styles.title}>{t.multiplayer.waitingForOpponent}</h1>
+        <p className={styles.subtitle}>{t.multiplayer.shareCode}</p>
 
         {/* Room Code Display */}
         <div className={styles.codeSection}>
-          <span className={styles.codeLabel}>Game Code</span>
+          <span className={styles.codeLabel}>{t.multiplayer.gameCode}</span>
           <div className={styles.codeDisplay}>
             <span className={styles.roomCode}>{roomCode}</span>
             <button
               className={styles.copyButton}
               onClick={handleCopyCode}
-              title="Copy code"
+              title={t.multiplayer.copyCode}
             >
               {copied ? '✓' : '📋'}
             </button>
@@ -102,13 +104,13 @@ export function WaitingForOpponent({
 
         {/* Share Link */}
         <div className={styles.linkSection}>
-          <span className={styles.linkLabel}>Or share this link</span>
+          <span className={styles.linkLabel}>{t.multiplayer.orShareLink}</span>
           <div className={styles.linkDisplay}>
             <span className={styles.shareLink}>{shareUrl}</span>
             <button
               className={styles.copyButton}
               onClick={handleCopyLink}
-              title="Copy link"
+              title={t.multiplayer.copyLink}
             >
               {copied ? '✓' : '📋'}
             </button>
@@ -118,26 +120,26 @@ export function WaitingForOpponent({
         {/* Waiting indicator */}
         <div className={styles.waitingIndicator}>
           <div className={styles.spinner}></div>
-          <span>Waiting for opponent to join...</span>
+          <span>{t.multiplayer.waitingJoin}</span>
         </div>
 
         {/* Game Settings Summary */}
         <div className={styles.settingsSummary}>
           <div className={styles.settingItem}>
-            <span className={styles.settingLabel}>Target Score</span>
+            <span className={styles.settingLabel}>{t.multiplayer.targetScore}</span>
             <span className={styles.settingValue}>{targetScore}</span>
           </div>
           <div className={styles.settingItem}>
-            <span className={styles.settingLabel}>Turn Timer</span>
+            <span className={styles.settingLabel}>{t.multiplayer.turnTimer}</span>
             <span className={styles.settingValue}>
-              {turnTimerEnabled ? '60 seconds' : 'Off'}
+              {turnTimerEnabled ? t.multiplayer.sixtySeconds : t.multiplayer.timerOff}
             </span>
           </div>
         </div>
 
         {/* Nickname editor */}
         <div className={styles.nicknameSection}>
-          <span className={styles.nicknameLabel}>Your Nickname</span>
+          <span className={styles.nicknameLabel}>{t.multiplayer.yourNickname}</span>
           {isEditingNickname ? (
             <div className={styles.nicknameEditor}>
               <input
@@ -166,7 +168,7 @@ export function WaitingForOpponent({
         </div>
 
         <button className={styles.leaveButton} onClick={onLeaveRoom}>
-          Cancel & Leave Room
+          {t.multiplayer.cancelLeave}
         </button>
       </div>
     </div>

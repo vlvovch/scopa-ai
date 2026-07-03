@@ -7,6 +7,7 @@ import { TokenStatsDisplay } from './TokenStatsDisplay';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';
 import { useDeck } from '../../contexts/DeckContext';
+import { useT } from '../../i18n/LanguageContext';
 import type { DeckType } from '../../hooks/useSettings';
 import styles from './GameEndScreen.module.css';
 
@@ -129,7 +130,7 @@ export function GameEndScreen({
   cpuScore,
   roundsPlayed,
   onPlayAgain,
-  player1Name = 'You',
+  player1Name,
   player2Name = 'CPU',
   player1TokenStats,
   player2TokenStats,
@@ -144,10 +145,15 @@ export function GameEndScreen({
   opponentName,
   onLeaveGame,
 }: GameEndScreenProps) {
+  const t = useT();
   const deckType = useDeck();
   const isMultiplayer = onLeaveGame !== undefined;
   const humanWins = humanScore > cpuScore;
   const isTie = humanScore === cpuScore;
+  const p1Name = player1Name ?? t.common.you;
+  // "is the human 'You'" — drives the win-verb form; localized names count too
+  const p1IsYou = !player1AIType && (p1Name === t.common.you || p1Name === 'You');
+  const p2IsYou = !player2AIType && (player2Name === t.common.you || player2Name === 'You');
 
   // Use prop categoryTotals if available (tracks ALL rounds), otherwise calculate from history
   const categoryTotals = useMemo(() => {
@@ -193,7 +199,7 @@ export function GameEndScreen({
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
         <PersonIcon size="1em" />
-        <span>{player1Name}</span>
+        <span>{p1Name}</span>
       </span>
     );
   };
@@ -211,7 +217,7 @@ export function GameEndScreen({
   ) : (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
       <PersonIcon size="1em" />
-      <span>{player1Name}</span>
+      <span>{p1Name}</span>
     </span>
   );
 
@@ -223,16 +229,14 @@ export function GameEndScreen({
   let resultClass: string;
 
   if (isTie) {
-    resultText = "It's a Tie!";
+    resultText = t.gameEnd.tie;
     resultClass = styles.tie;
   } else if (humanWins) {
-    // Use "Win" for "You", "Wins" for AI names
-    const verb = !player1AIType && player1Name === 'You' ? 'Win' : 'Wins';
+    const verb = p1IsYou ? t.gameEnd.winVerbYou : t.gameEnd.winVerbOther;
     resultText = <>{renderPlayer1Name()} {verb}!</>;
     resultClass = styles.win;
   } else {
-    // Use "Win" for "You", "Wins" for AI names
-    const verb = !player2AIType && player2Name === 'You' ? 'Win' : 'Wins';
+    const verb = p2IsYou ? t.gameEnd.winVerbYou : t.gameEnd.winVerbOther;
     resultText = <>{renderPlayer2Name()} {verb}!</>;
     resultClass = styles.lose;
   }
@@ -243,13 +247,13 @@ export function GameEndScreen({
     { key: 'coins', label: 'Denari', icon: <CoinIcon deckType={deckType} /> },
     { key: 'setteBello', label: 'Sette Bello', icon: <SetteBelloIcon deckType={deckType} /> },
     { key: 'prime', label: 'Primiera', icon: <PrimieraIcon /> },
-    { key: 'scopas', label: 'Scopas', icon: <ScopaIcon /> },
+    { key: 'scopas', label: t.gameEnd.scopas, icon: <ScopaIcon /> },
   ] as const;
 
   return (
     <div className={styles.overlay}>
       <div className={styles.modal}>
-        <h2 className={styles.gameOver}>Game Over</h2>
+        <h2 className={styles.gameOver}>{t.gameEnd.gameOver}</h2>
         <h1 className={`${styles.result} ${resultClass}`}>{resultText}</h1>
 
         {/* Final Scores */}
@@ -282,11 +286,11 @@ export function GameEndScreen({
         {/* Category Breakdown */}
         {roundHistory.length > 0 && (
           <div className={styles.categoryBreakdown}>
-            <h3 className={styles.sectionTitle}>Score Breakdown</h3>
+            <h3 className={styles.sectionTitle}>{t.gameEnd.scoreBreakdown}</h3>
             <table className={styles.categoryTable}>
               <thead>
                 <tr>
-                  <th className={styles.categoryHeader}>Category</th>
+                  <th className={styles.categoryHeader}>{t.gameEnd.category}</th>
                   <th className={styles.playerHeader}>{player1Short}</th>
                   <th className={styles.playerHeader}>{player2Short}</th>
                 </tr>
@@ -313,7 +317,7 @@ export function GameEndScreen({
                   );
                 })}
                 <tr className={styles.totalRow}>
-                  <td className={styles.categoryCell}>Total</td>
+                  <td className={styles.categoryCell}>{t.gameEnd.total}</td>
                   <td className={`${styles.valueCell} ${categoryTotals.humanTotal > categoryTotals.cpuTotal ? styles.winningValue : ''}`}>
                     {categoryTotals.humanTotal}
                   </td>
@@ -329,15 +333,15 @@ export function GameEndScreen({
         {/* Round-by-Round History */}
         {roundHistory.length > 1 && (
           <div className={styles.roundHistory}>
-            <h3 className={styles.sectionTitle}>Round History</h3>
+            <h3 className={styles.sectionTitle}>{t.gameEnd.roundHistory}</h3>
             <div className={styles.roundTableWrapper}>
               <table className={styles.roundTable}>
                 <thead>
                   <tr>
-                    <th className={styles.roundHeader}>Round</th>
+                    <th className={styles.roundHeader}>{t.scoreBoard.round}</th>
                     <th className={styles.roundPlayerHeader}>{player1Short}</th>
                     <th className={styles.roundPlayerHeader}>{player2Short}</th>
-                    <th className={styles.roundHeader}>Running</th>
+                    <th className={styles.roundHeader}>{t.gameEnd.running}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -375,16 +379,16 @@ export function GameEndScreen({
         )}
 
         <p className={styles.roundsInfo}>
-          Completed in {roundsPlayed} round{roundsPlayed !== 1 ? 's' : ''}
+          {t.gameEnd.completedIn(roundsPlayed)}
         </p>
 
         {/* Multiplayer rematch UI */}
         {isMultiplayer && (
           <div className={styles.rematchSection}>
             {opponentRequestedRematch && !rematchRequested ? (
-              <p className={styles.rematchMessage}>{opponentName} wants a rematch!</p>
+              <p className={styles.rematchMessage}>{t.gameEnd.wantsRematch(opponentName ?? t.common.opponent)}</p>
             ) : rematchRequested ? (
-              <p className={styles.rematchMessage}>Waiting for opponent to accept rematch...</p>
+              <p className={styles.rematchMessage}>{t.gameEnd.waitingRematch}</p>
             ) : null}
           </div>
         )}
@@ -395,13 +399,13 @@ export function GameEndScreen({
           disabled={rematchRequested}
         >
           {isMultiplayer
-            ? (opponentRequestedRematch ? 'Accept Rematch' : 'Request Rematch')
-            : 'Play Again'}
+            ? (opponentRequestedRematch ? t.gameEnd.acceptRematch : t.gameEnd.requestRematch)
+            : t.gameEnd.playAgain}
         </button>
 
         {isMultiplayer && onLeaveGame && (
           <button className={styles.leaveButton} onClick={onLeaveGame}>
-            Leave Game
+            {t.multiplayer.leaveGame}
           </button>
         )}
       </div>

@@ -7,6 +7,7 @@ import type { ExtendedAIType } from '../../games/scopa/ai';
 import { CardBack } from '../Card/CardImage';
 import { AIPlayerLabel } from '../UI/AIPlayerLabel';
 import { useDeck } from '../../contexts/DeckContext';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './CapturedPile.module.css';
 
 // Denari (Coins) icon using authentic SVG from deck
@@ -72,6 +73,7 @@ export function CapturedPile({
   hasSetteBello: hasSetteBelloOverride,
   showStats = true,
 }: CapturedPileProps) {
+  const t = useT();
   // Use capturedCount if provided (multiplayer mode), otherwise use cards.length
   const cardCount = capturedCount ?? cards.length;
 
@@ -92,7 +94,7 @@ export function CapturedPile({
     if (aiType) {
       return <AIPlayerLabel aiType={aiType} model={aiModel} />;
     }
-    return playerLabel ?? (player === 'human' ? 'You' : 'CPU');
+    return playerLabel ?? (player === 'human' ? t.common.you : 'CPU');
   };
 
   return (
@@ -108,7 +110,7 @@ export function CapturedPile({
       <div className={styles.pileStack}>
         {cardCount === 0 ? (
           <div className={styles.emptyPile}>
-            <span>Empty</span>
+            <span>{t.table.empty}</span>
           </div>
         ) : (
           /* Render stack layers for 3D depth effect based on card count */
@@ -129,20 +131,20 @@ export function CapturedPile({
 
       <div className={styles.pileInfo}>
         {showStats && (
-          <span className={styles.cardCount}>{cardCount} cards</span>
+          <span className={styles.cardCount}>{t.table.cardsCount(cardCount)}</span>
         )}
 
         {showStats && (
           <div className={styles.statsRow}>
             {/* Denari (coins) count */}
-            <div className={styles.stat} title="Denari (Coins)">
+            <div className={styles.stat} title={t.table.denariTitle}>
               <DenariIcon />
               <span>{stats.denariCount}</span>
             </div>
 
             {/* Scopa count */}
             {scopaCount > 0 && (
-              <div className={styles.stat} title={`${scopaCount} Scopa${scopaCount > 1 ? 's' : ''}`}>
+              <div className={styles.stat} title={t.table.scopaCount(scopaCount)}>
                 <span className={styles.scopaIcon}>🧹</span>
                 <span>{scopaCount}</span>
               </div>
@@ -150,7 +152,7 @@ export function CapturedPile({
 
             {/* Sette Bello indicator */}
             {stats.hasSetteBello && (
-              <div className={styles.setteBello} title="Sette Bello (7 of Coins)">
+              <div className={styles.setteBello} title={t.table.setteBelloTitle}>
                 <SetteBelloIndicator />
               </div>
             )}

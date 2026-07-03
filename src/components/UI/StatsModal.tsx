@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage, useT } from '../../i18n/LanguageContext';
 import styles from './StatsModal.module.css';
 
 export interface StatsModalSummary {
@@ -43,16 +44,16 @@ interface StatsModalProps {
   onClearStats: () => void;
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(undefined, {
+function formatDate(ts: number, locale: string): string {
+  return new Date(ts).toLocaleDateString(locale, {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
   });
 }
 
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString(undefined, {
+function formatTime(ts: number, locale: string): string {
+  return new Date(ts).toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -64,10 +65,6 @@ function outcomeClass(outcome: StatsModalGame['outcome']): string | undefined {
   return undefined;
 }
 
-function outcomeLabel(outcome: StatsModalGame['outcome']): string {
-  return outcome === 'win' ? 'W' : outcome === 'loss' ? 'L' : 'T';
-}
-
 function OpponentRow({
   opponent,
   onClick,
@@ -75,6 +72,7 @@ function OpponentRow({
   opponent: StatsModalOpponent;
   onClick: () => void;
 }) {
+  const t = useT();
   const { summary, label } = opponent;
   const hasGames = summary.gamesPlayed > 0;
 
@@ -90,13 +88,13 @@ function OpponentRow({
         {hasGames ? (
           <>
             <span className={styles.record}>
-              <span className={styles.wins}>{summary.wins}W</span>
+              <span className={styles.wins}>{summary.wins}{t.stats.w}</span>
               {' - '}
-              <span className={styles.losses}>{summary.losses}L</span>
+              <span className={styles.losses}>{summary.losses}{t.stats.l}</span>
               {summary.ties !== undefined && summary.ties > 0 && (
                 <>
                   {' - '}
-                  <span>{summary.ties}T</span>
+                  <span>{summary.ties}{t.stats.t}</span>
                 </>
               )}
             </span>
@@ -105,7 +103,7 @@ function OpponentRow({
             </span>
           </>
         ) : (
-          <span className={styles.noGames}>No games</span>
+          <span className={styles.noGames}>{t.stats.noGames}</span>
         )}
       </div>
       {hasGames && <span className={styles.arrow}>›</span>}
@@ -114,12 +112,15 @@ function OpponentRow({
 }
 
 function GameRow({ game, index }: { game: StatsModalGame; index: number }) {
+  const { language, t } = useLanguage();
   const cls = outcomeClass(game.outcome);
+  const outcomeLabel =
+    game.outcome === 'win' ? t.stats.w : game.outcome === 'loss' ? t.stats.l : t.stats.t;
   return (
     <div className={styles.gameRow}>
       <div className={styles.gameIndex}>#{index}</div>
       <div className={styles.gameDate}>
-        {formatDate(game.timestamp)} {formatTime(game.timestamp)}
+        {formatDate(game.timestamp, language)} {formatTime(game.timestamp, language)}
         {game.modeIndicator && (
           <span className={styles.gameMode} title={game.modeIndicator.title}>
             {game.modeIndicator.text}
@@ -132,7 +133,7 @@ function GameRow({ game, index }: { game: StatsModalGame; index: number }) {
         </span>
       </div>
       <div className={styles.gameResult}>
-        <span className={cls}>{outcomeLabel(game.outcome)}</span>
+        <span className={cls}>{outcomeLabel}</span>
       </div>
     </div>
   );
@@ -145,6 +146,7 @@ export function StatsModal({
   getGames,
   onClearStats,
 }: StatsModalProps) {
+  const t = useT();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -197,13 +199,13 @@ export function StatsModal({
             <div className={styles.header}>
               {selectedOpponent ? (
                 <button className={styles.backButton} onClick={handleBack}>
-                  ← Back
+                  {t.common.back}
                 </button>
               ) : (
                 <div />
               )}
               <h2 className={styles.title}>
-                {selectedOpponent ? selectedOpponent.label : 'Statistics'}
+                {selectedOpponent ? selectedOpponent.label : t.controls.statistics}
               </h2>
               <div />
             </div>
@@ -223,41 +225,41 @@ export function StatsModal({
                       <span className={styles.statValue}>
                         {selectedOpponent.summary.gamesPlayed}
                       </span>
-                      <span className={styles.statLabel}>Games</span>
+                      <span className={styles.statLabel}>{t.stats.games}</span>
                     </div>
                     <div className={styles.statBox}>
                       <span className={`${styles.statValue} ${styles.wins}`}>
                         {selectedOpponent.summary.wins}
                       </span>
-                      <span className={styles.statLabel}>Wins</span>
+                      <span className={styles.statLabel}>{t.stats.wins}</span>
                     </div>
                     <div className={styles.statBox}>
                       <span className={`${styles.statValue} ${styles.losses}`}>
                         {selectedOpponent.summary.losses}
                       </span>
-                      <span className={styles.statLabel}>Losses</span>
+                      <span className={styles.statLabel}>{t.stats.losses}</span>
                     </div>
                     {(selectedOpponent.summary.ties ?? 0) > 0 && (
                       <div className={styles.statBox}>
                         <span className={styles.statValue}>
                           {selectedOpponent.summary.ties}
                         </span>
-                        <span className={styles.statLabel}>Ties</span>
+                        <span className={styles.statLabel}>{t.stats.ties}</span>
                       </div>
                     )}
                     <div className={styles.statBox}>
                       <span className={styles.statValue}>
                         {Math.round(selectedOpponent.summary.winRate * 100)}%
                       </span>
-                      <span className={styles.statLabel}>Win Rate</span>
+                      <span className={styles.statLabel}>{t.stats.winRate}</span>
                     </div>
                   </div>
 
                   <div className={styles.gamesList}>
                     <div className={styles.gamesHeader}>
                       <span>#</span>
-                      <span>Date</span>
-                      <span>Score</span>
+                      <span>{t.stats.date}</span>
+                      <span>{t.stats.score}</span>
                       <span></span>
                     </div>
                     {selectedGames.length > 0 ? (
@@ -272,7 +274,7 @@ export function StatsModal({
                         ))
                     ) : (
                       <div className={styles.noGamesMessage}>
-                        No games played
+                        {t.stats.noGamesPlayed}
                       </div>
                     )}
                   </div>
@@ -282,8 +284,8 @@ export function StatsModal({
                   {totals.games > 0 && (
                     <div className={styles.totalStats}>
                       <span>
-                        Total: <strong>{totals.wins}</strong> wins /{' '}
-                        <strong>{totals.games}</strong> games (
+                        {t.stats.totalLabel} <strong>{totals.wins}</strong> {t.stats.winsWord} /{' '}
+                        <strong>{totals.games}</strong> {t.stats.gamesWord} (
                         {Math.round((totals.wins / totals.games) * 100)}%)
                       </span>
                     </div>
@@ -301,9 +303,9 @@ export function StatsModal({
 
                   {totals.games === 0 && (
                     <div className={styles.emptyState}>
-                      <p>No games played yet.</p>
+                      <p>{t.stats.noGamesYet}</p>
                       <p className={styles.hint}>
-                        Play against a CPU opponent to start tracking!
+                        {t.stats.playToTrack}
                       </p>
                     </div>
                   )}
@@ -317,11 +319,11 @@ export function StatsModal({
                   className={`${styles.clearButton} ${confirmClear ? styles.confirm : ''}`}
                   onClick={handleClearStats}
                 >
-                  {confirmClear ? 'Confirm Clear' : 'Clear All'}
+                  {confirmClear ? t.stats.confirmClear : t.stats.clearAll}
                 </button>
               )}
               <button className={styles.closeButton} onClick={handleClose}>
-                Close
+                {t.common.close}
               </button>
             </div>
           </motion.div>

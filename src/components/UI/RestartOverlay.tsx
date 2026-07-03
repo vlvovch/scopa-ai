@@ -1,5 +1,6 @@
 // RestartOverlay Component - Shows restart request status in multiplayer
 
+import { useT } from '../../i18n/LanguageContext';
 import styles from './RestartOverlay.module.css';
 
 interface RestartOverlayProps {
@@ -19,6 +20,7 @@ export function RestartOverlay({
   onRequestRestart,
   onCancel,
 }: RestartOverlayProps) {
+  const t = useT();
   if (!requestedBy) return null;
 
   return (
@@ -27,28 +29,28 @@ export function RestartOverlay({
         {requestedBy === 'self' ? (
           <>
             <div className={styles.icon}>🔄</div>
-            <h3 className={styles.title}>Restart Requested</h3>
+            <h3 className={styles.title}>{t.multiplayer.restartRequested}</h3>
             <p className={styles.message}>
-              Waiting for {opponentNickname} to accept...
+              {t.multiplayer.waitingAccept(opponentNickname)}
             </p>
             <div className={styles.spinner}></div>
             <button className={styles.cancelButton} onClick={onCancel}>
-              Cancel
+              {t.common.cancel}
             </button>
           </>
         ) : (
           <>
             <div className={styles.icon}>🔄</div>
-            <h3 className={styles.title}>{opponentNickname} wants to restart</h3>
+            <h3 className={styles.title}>{t.multiplayer.wantsRestart(opponentNickname)}</h3>
             <p className={styles.message}>
-              Do you want to restart the game from the beginning?
+              {t.multiplayer.restartPrompt}
             </p>
             <div className={styles.buttons}>
               <button className={styles.acceptButton} onClick={onRequestRestart}>
-                Accept
+                {t.multiplayer.accept}
               </button>
               <button className={styles.declineButton} onClick={onCancel}>
-                Decline
+                {t.multiplayer.decline}
               </button>
             </div>
           </>
