@@ -548,7 +548,7 @@ export function StartScreen({
               : t.start.startGame}
         </button>
 
-        <div className={styles.rulesHint}>
+        <div className={`${styles.rulesHint} ${styles.rulesHintLong}`}>
           <h3>{t.start.quickRules}</h3>
           <ul>
             <li>{t.start.briscolaRule1}</li>
