@@ -5,8 +5,8 @@
 // worker streams, and a ± CI once it stabilises. Honest caption: it's a
 // self-play estimate, not ground truth.
 
-import type React from 'react';
 import { useT } from '../../i18n/LanguageContext';
+import styles from './WinOddsPanel.module.css';
 
 /** Minimal shape the panel needs. Briscola supplies win/tie/loss;
  *  Scopa additionally supplies expectedDiff/diffCi (metric="diff"). */
@@ -49,15 +49,15 @@ export function WinOddsPanel({
     title ?? (metric === 'diff' ? t.winOddsPanel.expectedMargin : t.winOddsPanel.winOdds);
 
   return (
-    <div style={winOddsPanel} aria-live="polite">
-      <div style={winOddsTitle}>
+    <div className={styles.panel} aria-live="polite">
+      <div className={styles.title}>
         {heading}{' '}
-        {computing && <span style={winOddsSpinner}>·{t.winOddsPanel.computing}·</span>}
+        {computing && <span className={styles.spinner}>·{t.winOddsPanel.computing}·</span>}
       </div>
       {odds ? (
         metric === 'diff' ? (
           <>
-            <div style={winOddsRow}>
+            <div className={styles.row}>
               <strong
                 style={{
                   color:
@@ -71,13 +71,13 @@ export function WinOddsPanel({
               </strong>
               <span style={{ opacity: 0.8 }}>{t.winOddsPanel.ptsPerRound}</span>
             </div>
-            <div style={winOddsFoot}>
+            <div className={styles.foot}>
               ±{(odds.diffCi ?? 0).toFixed(1)} · {odds.samples} {t.winOddsPanel.sims} · {captionText}
             </div>
           </>
         ) : (
           <>
-            <div style={winOddsRow}>
+            <div className={styles.row}>
               <span>
                 <strong style={{ color: 'var(--color-accent)' }}>
                   {pct(odds.winPct)}
@@ -87,58 +87,15 @@ export function WinOddsPanel({
               <span style={{ opacity: 0.8 }}>{pct(odds.tiePct)} {t.winOddsPanel.tie}</span>
               <span style={{ opacity: 0.8 }}>{pct(odds.lossPct)} {t.winOddsPanel.loss}</span>
             </div>
-            <div style={winOddsFoot}>
+            <div className={styles.foot}>
               ±{Math.max(1, Math.round(odds.ciHalfWidth))}% · {odds.samples}{' '}
               {t.winOddsPanel.sims} · {captionText}
             </div>
           </>
         )
       ) : (
-        <div style={winOddsFoot}>{t.winOddsPanel.simulating}</div>
+        <div className={styles.foot}>{t.winOddsPanel.simulating}</div>
       )}
     </div>
   );
 }
-
-const winOddsPanel: React.CSSProperties = {
-  position: 'fixed',
-  left: '50%',
-  // Sit just above the fixed page footer (footer is at var(--space-1)
-  // with a ~0.7rem line) so the two don't overlap.
-  bottom: 'calc(var(--space-1) + 1.9rem)',
-  transform: 'translateX(-50%)',
-  textAlign: 'center',
-  background: 'rgba(0,0,0,0.62)',
-  color: 'var(--color-text-primary)',
-  padding: '0.5rem 0.9rem',
-  borderRadius: '10px',
-  fontSize: 'calc(13px * var(--font-scale, 1))',
-  lineHeight: 1.35,
-  zIndex: 90,
-  pointerEvents: 'none',
-  maxWidth: '20rem',
-  backdropFilter: 'blur(2px)',
-};
-const winOddsTitle: React.CSSProperties = {
-  fontSize: 'calc(12px * var(--font-scale, 1))',
-  textTransform: 'uppercase',
-  letterSpacing: '0.06em',
-  opacity: 0.7,
-  marginBottom: '2px',
-};
-const winOddsSpinner: React.CSSProperties = {
-  fontStyle: 'italic',
-  opacity: 0.6,
-};
-const winOddsRow: React.CSSProperties = {
-  display: 'flex',
-  gap: '0.6rem',
-  alignItems: 'baseline',
-  justifyContent: 'center',
-  fontVariantNumeric: 'tabular-nums',
-};
-const winOddsFoot: React.CSSProperties = {
-  fontSize: 'calc(11px * var(--font-scale, 1))',
-  opacity: 0.6,
-  marginTop: '3px',
-};

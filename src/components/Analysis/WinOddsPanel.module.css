@@ -1,0 +1,68 @@
+/* Win-odds panel (analysis mode) — fixed, unobtrusive bottom-center pill. */
+
+.panel {
+  position: fixed;
+  left: 50%;
+  /* Sit just above the fixed page footer (footer is at var(--space-1)
+     with a ~0.7rem line) so the two don't overlap. */
+  bottom: calc(var(--space-1) + 1.9rem);
+  transform: translateX(-50%);
+  text-align: center;
+  background: rgba(0, 0, 0, 0.62);
+  color: var(--color-text-primary);
+  padding: 0.5rem 0.9rem;
+  border-radius: 10px;
+  font-size: calc(13px * var(--font-scale, 1));
+  line-height: 1.35;
+  z-index: 90;
+  pointer-events: none;
+  max-width: 20rem;
+  backdrop-filter: blur(2px);
+}
+
+.title {
+  font-size: calc(12px * var(--font-scale, 1));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
+.spinner {
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.foot {
+  font-size: calc(11px * var(--font-scale, 1));
+  opacity: 0.6;
+  margin-top: 3px;
+}
+
+/* Compact mode for phones (short or narrow viewports): the full panel
+   is tall enough there to cover the per-card odds rendered under the
+   hand cards. Keep the stacked title + headline but drop the fine print
+   (±CI / sims / caption) and sit just above the footer credits line. */
+@media (max-height: 760px), (max-width: 480px) {
+  .panel {
+    padding: 0.35rem 0.8rem;
+    bottom: calc(var(--space-1) + 1.4rem);
+    /* left:50% caps an abspos box's shrink-to-fit width at half the
+       viewport, which needlessly wraps the title into extra lines;
+       max-content sizes to the text (still centered by the transform). */
+    width: max-content;
+    max-width: calc(100vw - 0.8rem);
+  }
+
+  .foot {
+    display: none;
+  }
+}

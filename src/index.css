@@ -146,6 +146,19 @@ body.table-tablecloth::before {
   border-radius: 8px;
 }
 
+/* Phones (matches the win-odds panel's compact breakpoints): the panel
+   is centered in the same bottom strip as the turn label, so right-align
+   the controls column and stack it above the panel — the label stays
+   readable at the bottom-right instead of hiding behind the overlay. */
+@media (max-height: 760px), (max-width: 480px) {
+  .control-panel {
+    align-items: flex-end;
+    text-align: right;
+    position: relative;
+    z-index: 91;
+  }
+}
+
 #root {
   min-height: 100vh;
   display: flex;
