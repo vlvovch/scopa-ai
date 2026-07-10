@@ -91,6 +91,26 @@
   </script>
   <meta name="theme-color" content="%VITE_THEME_COLOR%" />
   <meta name="description" content="%VITE_APP_DESCRIPTION%" />
+
+  <!-- Open Graph / Twitter social-share cards. og:image is provided
+       EXPLICITLY (with absolute URL) — the Facebook debugger warns when
+       it's only inferred from other tags. The 512×512 app icon is the
+       share image; VITE_SITE_URL is the per-game canonical origin. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="%VITE_APP_NAME%" />
+  <meta property="og:title" content="%VITE_APP_NAME%" />
+  <meta property="og:description" content="%VITE_APP_DESCRIPTION%" />
+  <meta property="og:url" content="%VITE_SITE_URL%/" />
+  <meta property="og:image" content="%VITE_SITE_URL%/pwa-512.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="%VITE_APP_NAME%" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="%VITE_APP_NAME%" />
+  <meta name="twitter:description" content="%VITE_APP_DESCRIPTION%" />
+  <meta name="twitter:image" content="%VITE_SITE_URL%/pwa-512.png" />
+
   <!-- iOS standalone PWA install -->
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
