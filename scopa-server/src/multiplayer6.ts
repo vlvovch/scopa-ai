@@ -215,6 +215,7 @@ function handleMove(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 'P
   const room = rooms.get(ws.familyRoomCode ?? '');
   if (!room?.game || !ws.familySeat) return;
   const game = room.game;
+  const previousScopaCount = game.players[ws.familySeat].scopaCount;
   if (game.round.currentPlayer !== ws.familySeat) { send(ws, { type: 'ERROR', payload: { code: 'NOT_YOUR_TURN', message: 'It is not your turn' } }); return; }
   try {
     room.game = applyMultiplayerMove(game, activeSeats(room), { player: ws.familySeat, cardPlayed: payload.move.cardPlayed, capturedCards: payload.move.capturedCards });
@@ -223,6 +224,12 @@ function handleMove(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 'P
     return;
   }
   room.lastActivity = Date.now();
+  const serverMove = {
+    player: ws.familySeat,
+    cardPlayed: payload.move.cardPlayed,
+    capturedCards: payload.move.capturedCards,
+    isScopa: room.game.players[ws.familySeat].scopaCount > previousScopaCount,
+  };
   if (room.game.round.deck.length === 0 && activeSeats(room).every((seat) => room.game!.players[seat].hand.length === 0)) {
     clearTurnTimer(room);
     if (room.game.round.table.length > 0 && room.game.round.lastCapture) room.game.players[room.game.round.lastCapture].captured.push(...room.game.round.table);
@@ -231,10 +238,10 @@ function handleMove(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 'P
     room.lastRoundScores = scores;
     room.lastRoundGameOver = activeSeats(room).some((seat) => room.game!.scores[seat] >= room.targetScore);
     for (const player of room.players) {
-      send(player.ws, { type: 'ROUND_END6', payload: { scores, state: visibleState(room, player.id) } });
+      send(player.ws, { type: 'ROUND_END6', payload: { scores, state: visibleState(room, player.id), move: serverMove } });
     }
   } else {
-    broadcastState(room, 'MOVE_PLAYED6', { player: ws.familySeat, cardPlayed: payload.move.cardPlayed, capturedCards: payload.move.capturedCards, isScopa: payload.move.capturedCards.length > 0 && room.game.round.table.length === 0, });
+    broadcastState(room, 'MOVE_PLAYED6', serverMove);
     startTurnTimer(room);
   }
 }

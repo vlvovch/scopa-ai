@@ -187,6 +187,20 @@ that only sets `VITE_WS_URL` will silently fall back to `ws://localhost:8081`:
 VITE_BRISCOLA_WS_URL=ws://localhost:8081
 ```
 
+### Run A Local Family Server With Docker
+
+For a Dockerized Scopa frontend, WebSocket server, and temporary HTTPS tunnel,
+see [Local Docker And Tunnel Server](docs/docker-family.md). The short version:
+
+```bash
+./scripts/family-up.sh
+```
+
+The script prints a temporary `trycloudflare.com` URL. Stop the stack with
+`./scripts/family-down.sh`. Docker does not hot-reload changes; rebuild the
+affected service with `docker compose up -d --build frontend` or
+`docker compose up -d --build scopa-server`.
+
 ---
 
 ## Technology Stack

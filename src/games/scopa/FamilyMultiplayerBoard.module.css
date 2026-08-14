@@ -37,6 +37,13 @@
 .deckIndicator { --card-width: 54px; --card-height: 88px; }
 .playSurface > :last-child { min-width: 0; }
 .familyMoveAnimation { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 20; }
+.familyFlip { position: relative; width: var(--card-width); height: var(--card-height); transform-style: preserve-3d; perspective: 1000px; }
+.familyFace { position: absolute; inset: 0; border-radius: var(--card-border-radius); overflow: hidden; background: #fff; backface-visibility: hidden; box-shadow: var(--shadow-card); }
+.familyFace > svg, .familyFace > img { width: 100%; height: 100%; object-fit: cover; }
+.familyFront { transform: rotateY(180deg); }
+.familyDeal { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 40; }
+.dealCard { position: absolute; width: 54px; height: 88px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.3)); }
+.dealCard > svg { width: 100%; height: 100%; }
 .turnText { color: var(--color-text-secondary); font-size: .72rem; }
 .timer { width: min(260px, 80vw); }
 
@@ -77,6 +84,7 @@
   .turnDot { width: 5px; height: 5px; }
   .dealer { font-size: .5rem; padding: 0 3px; }
   .voteBanner { top: 34px; width: calc(100% - 12px); justify-content: space-between; font-size: .58rem; }
+  .dealCard { width: 36px; height: 59px; }
 
   .tableSection { gap: 2px; }
   .playSurface { width: 100%; gap: 4px; }

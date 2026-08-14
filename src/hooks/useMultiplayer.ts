@@ -118,11 +118,13 @@ export interface UseMultiplayerReturn {
   familyPlayers: FamilyRoomPlayer[];
   familyMaxPlayers: number;
   familyLastMove: { move: import('../games/scopa/multiplayer/types').FamilyMove; state: FamilyVisibleGameState } | null;
+  applyFamilyPendingState: () => void;
   requestFamilyRestart: () => void;
   requestFamilyRematch: () => void;
   forceFamilyMove: () => void;
   familyRoundEndData: { scores: Record<FamilyPlayerId, RoundScore>; gameOver: boolean } | null;
   clearFamilyRoundEnd: () => void;
+  finalizeFamilyRoundEnd: () => void;
 }
 
 export function useMultiplayer(): UseMultiplayerReturn {
@@ -167,6 +169,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
   const [familyMaxPlayers, setFamilyMaxPlayers] = useState(2);
   const [familyLastMove, setFamilyLastMove] = useState<UseMultiplayerReturn['familyLastMove']>(null);
   const [familyRoundEndData, setFamilyRoundEndData] = useState<UseMultiplayerReturn['familyRoundEndData']>(null);
+  const pendingFamilyRoundEndRef = useRef<UseMultiplayerReturn['familyRoundEndData']>(null);
 
   // Timer state
   const [turnTimerSeconds, setTurnTimerSeconds] = useState<number | null>(null);
@@ -274,14 +277,18 @@ export function useMultiplayer(): UseMultiplayerReturn {
         setRestartRequestedBy((message.payload.state.restartRequests[0] as MultiplayerPlayerId | undefined) ?? null);
         break;
       case 'MOVE_PLAYED6':
-        setFamilyState(message.payload.state);
-        setFamilyPlayers(message.payload.state.players);
         setFamilyLastMove({ move: message.payload.move, state: message.payload.state });
         break;
       case 'ROUND_END6':
-        setFamilyState(message.payload.state);
-        setFamilyPlayers(message.payload.state.players);
-        setFamilyRoundEndData({ scores: message.payload.scores, gameOver: message.payload.state.status === 'gameEnd' });
+        pendingFamilyRoundEndRef.current = { scores: message.payload.scores, gameOver: message.payload.state.status === 'gameEnd' };
+        if (message.payload.move) {
+          setFamilyLastMove({ move: message.payload.move, state: message.payload.state });
+        } else {
+          setFamilyState(message.payload.state);
+          setFamilyPlayers(message.payload.state.players);
+          setFamilyRoundEndData(pendingFamilyRoundEndRef.current);
+          pendingFamilyRoundEndRef.current = null;
+        }
         if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
         setTurnTimerSeconds(null);
@@ -806,6 +813,13 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   const clearFamilyRoundEnd = useCallback(() => setFamilyRoundEndData(null), []);
 
+  const finalizeFamilyRoundEnd = useCallback(() => {
+    if (pendingFamilyRoundEndRef.current) {
+      setFamilyRoundEndData(pendingFamilyRoundEndRef.current);
+      pendingFamilyRoundEndRef.current = null;
+    }
+  }, []);
+
   const clearLastMove = useCallback(() => {
     setLastMove(null);
   }, []);
@@ -815,6 +829,16 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setLastMove(prev => {
       if (prev?.pendingState) {
         setGameState(prev.pendingState);
+      }
+      return null;
+    });
+  }, []);
+
+  const applyFamilyPendingState = useCallback(() => {
+    setFamilyLastMove((pending) => {
+      if (pending) {
+        setFamilyState(pending.state);
+        setFamilyPlayers(pending.state.players);
       }
       return null;
     });
@@ -869,8 +893,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
     familyPlayers,
     familyMaxPlayers,
     familyLastMove,
+    applyFamilyPendingState,
     familyRoundEndData,
     clearFamilyRoundEnd,
+    finalizeFamilyRoundEnd,
     requestFamilyRestart,
     requestFamilyRematch,
     forceFamilyMove,

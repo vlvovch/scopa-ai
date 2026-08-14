@@ -7,11 +7,12 @@ import { DealerDeck } from '../../components/Table/DealerDeck';
 import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
 import { SetteBelloCelebration } from '../../components/UI/SetteBelloCelebration';
 import { useSound } from '../../hooks/useSound';
-import { Card as CardView } from '../../components/Card/Card';
+import { CardBack, CardImage } from '../../components/Card/CardImage';
 import { GameControls } from '../../components/UI/GameControls';
 import { TurnTimer } from '../../components/UI/TurnTimer';
 import type { Card } from './types';
 import type { FamilyMove, FamilyPlayerId, FamilyVisibleGameState } from './multiplayer/types';
+import { MULTIPLAYER_ANIMATION } from './multiplayer/animationTimings';
 import styles from './FamilyMultiplayerBoard.module.css';
 
 interface FamilyMultiplayerBoardProps {
@@ -30,6 +31,8 @@ interface FamilyMultiplayerBoardProps {
   canForceMove: boolean;
   onOpenPile: (playerId: FamilyPlayerId) => void;
   soundEnabled: boolean;
+  onApplyPendingState: () => void;
+  onMoveAnimationComplete: () => void;
 }
 
 function getValidCaptures(card: Card, table: Card[]): Card[][] {
@@ -52,7 +55,7 @@ function localPlayerName(state: FamilyVisibleGameState, id: FamilyPlayerId): str
   return state.players.find((player) => player.id === id)?.nickname ?? 'Player';
 }
 
-export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, onOpenSettings, onOpenStats, onOpenRules, onRequestRestart, onRequestRematch, onForceMove, turnTimerEnabled, turnTimerSeconds, canForceMove, onOpenPile, soundEnabled }: FamilyMultiplayerBoardProps) {
+export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, onOpenSettings, onOpenStats, onOpenRules, onRequestRestart, onRequestRematch, onForceMove, turnTimerEnabled, turnTimerSeconds, canForceMove, onOpenPile, soundEnabled, onApplyPendingState, onMoveAnimationComplete }: FamilyMultiplayerBoardProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -60,6 +63,12 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
   const [animationPhase, setAnimationPhase] = useState<'reveal' | 'moving' | 'capturing' | null>(null);
   const [showScopa, setShowScopa] = useState(false);
   const [showSetteBello, setShowSetteBello] = useState(false);
+  const [dealing, setDealing] = useState(false);
+  const [dealKey, setDealKey] = useState(0);
+  const [dealPhase, setDealPhase] = useState<'table' | 'hands'>('hands');
+  const [optimisticCardId, setOptimisticCardId] = useState<string | null>(null);
+  const previousDeck = useRef<number | null>(null);
+  const previousRound = useRef<number | null>(null);
   const { play: playSound, resume: resumeAudio } = useSound({ enabled: soundEnabled });
   const isMyTurn = state.round.currentPlayer === state.self.id;
   const selfPlayer = state.players.find((player) => player.isSelf)!;
@@ -76,28 +85,98 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
 
   useEffect(() => {
     if (!lastMove) return;
-    setAnimatingMove(lastMove.move);
+    const move = lastMove.move;
+    const isMyMove = move.player === state.self.id;
+    const hasCapture = move.capturedCards.length > 0;
+    const hasCoins = move.cardPlayed.suit === 'coins' || move.capturedCards.some((card) => card.suit === 'coins');
+    const hasSetteBello = [move.cardPlayed, ...move.capturedCards].some((card) => card.suit === 'coins' && card.value === 7);
     resumeAudio();
-    playSound(lastMove.move.capturedCards.length > 0 ? 'capture' : 'play');
-    setAnimationPhase(lastMove.move.player === state.self.id ? 'moving' : 'reveal');
-    const movingTimer = window.setTimeout(() => setAnimationPhase(lastMove.move.capturedCards.length > 0 ? 'capturing' : null), 500);
-    const duration = lastMove.move.capturedCards.length > 0 ? 1250 : 700;
-    const timer = window.setTimeout(() => { setAnimatingMove(null); setAnimationPhase(null); }, duration);
-    if (lastMove.move.isScopa) {
-      playSound('scopa');
-      setShowScopa(true);
-      window.setTimeout(() => setShowScopa(false), 1500);
+    if (isMyMove && !hasCapture) setOptimisticCardId(null);
+
+    const celebrate = () => {
+      if (hasCoins) playSound('coin');
+      if (hasSetteBello) {
+        playSound('setteBello');
+        setShowSetteBello(true);
+        window.setTimeout(() => setShowSetteBello(false), MULTIPLAYER_ANIMATION.celebration);
+      }
+      if (move.isScopa) {
+        playSound('scopa');
+        setShowScopa(true);
+        window.setTimeout(() => setShowScopa(false), MULTIPLAYER_ANIMATION.celebration);
+      }
+    };
+
+    if (isMyMove && !hasCapture) {
+      playSound('play');
+      onApplyPendingState();
+      onMoveAnimationComplete();
+      return;
     }
-    const capturedSetteBello = [lastMove.move.cardPlayed, ...lastMove.move.capturedCards].some((card) => card.suit === 'coins' && card.value === 7);
-    if (capturedSetteBello) {
-      playSound('setteBello');
-      setShowSetteBello(true);
-      window.setTimeout(() => setShowSetteBello(false), 1500);
+
+    setAnimatingMove(move);
+    setAnimationPhase(isMyMove ? 'moving' : 'reveal');
+
+    if (isMyMove) {
+      window.setTimeout(() => {
+        playSound('capture');
+        celebrate();
+        setAnimationPhase('capturing');
+        onApplyPendingState();
+        window.setTimeout(() => { setAnimatingMove(null); setAnimationPhase(null); setOptimisticCardId(null); onMoveAnimationComplete(); }, MULTIPLAYER_ANIMATION.captureExit);
+      }, MULTIPLAYER_ANIMATION.localCaptureLeadIn);
+      return;
     }
-    return () => { window.clearTimeout(movingTimer); window.clearTimeout(timer); };
-  }, [lastMove, state.self.id, playSound, resumeAudio]);
+
+    window.setTimeout(() => {
+      setAnimationPhase('moving');
+      window.setTimeout(() => {
+        if (hasCapture) {
+          playSound('capture');
+          celebrate();
+          setAnimationPhase('capturing');
+          onApplyPendingState();
+          window.setTimeout(() => { setAnimatingMove(null); setAnimationPhase(null); onMoveAnimationComplete(); }, MULTIPLAYER_ANIMATION.captureExit);
+        } else {
+          playSound('play');
+          setAnimatingMove(null);
+          setAnimationPhase(null);
+          onApplyPendingState();
+          onMoveAnimationComplete();
+        }
+      }, MULTIPLAYER_ANIMATION.remoteMove);
+    }, MULTIPLAYER_ANIMATION.remoteReveal);
+  }, [lastMove, state.self.id, playSound, resumeAudio, onApplyPendingState, onMoveAnimationComplete]);
+
+  useEffect(() => {
+    const roundChanged = previousRound.current !== null && previousRound.current !== state.roundNumber;
+    const deckDrop = previousDeck.current !== null ? previousDeck.current - state.round.deckCount : 0;
+    const initialDeal = previousDeck.current === null || roundChanged;
+    const shouldDeal = initialDeal || deckDrop >= state.players.length;
+    previousDeck.current = state.round.deckCount;
+    previousRound.current = state.roundNumber;
+    if (!shouldDeal || state.status !== 'playing') return;
+    setDealing(true);
+    setDealKey((key) => key + 1);
+    setDealPhase(initialDeal ? 'table' : 'hands');
+    playSound('deal');
+    const dealtCards = state.players.reduce((total, player) => total + Math.min(3, player.handCount), 0);
+    const handDuration = Math.max(MULTIPLAYER_ANIMATION.handDeal, (Math.max(0, dealtCards - 1) * 55) + 450);
+    if (initialDeal) {
+      const tableTimer = window.setTimeout(() => {
+        setDealPhase('hands');
+        playSound('deal');
+      }, MULTIPLAYER_ANIMATION.tableDeal + MULTIPLAYER_ANIMATION.dealPause);
+      const endTimer = window.setTimeout(() => setDealing(false), MULTIPLAYER_ANIMATION.tableDeal + MULTIPLAYER_ANIMATION.dealPause + handDuration);
+      return () => { window.clearTimeout(tableTimer); window.clearTimeout(endTimer); };
+    }
+    const timer = window.setTimeout(() => setDealing(false), handDuration);
+    return () => window.clearTimeout(timer);
+  }, [state.round.deckCount, state.roundNumber, state.players.length, state.status, playSound]);
 
   const play = (card: Card, capturedCards: Card[]) => {
+    setOptimisticCardId(card.id);
+    window.setTimeout(() => setOptimisticCardId((current) => current === card.id ? null : current), 2000);
     onPlayMove(card, capturedCards);
     setSelectedCard(null);
     setSelectedTableCards([]);
@@ -165,7 +244,7 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
               {player.id === state.round.dealer && <span className={styles.dealer}>D</span>}
             </div>
             {state.pileStatsEnabled && <div className={styles.seatStats}>
-              <span>{player.handCount} hand</span>
+              <span>{Math.max(0, player.handCount - (animatingMove?.player === player.id && animationPhase !== 'capturing' ? 1 : 0))} hand</span>
               <span>{player.capturedCount} won</span>
               <span>{player.score} pts</span>
               {player.scopaCount > 0 && <span>{player.scopaCount} scopa</span>}
@@ -195,7 +274,7 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
               </div>
               <TableCards
                 ref={tableRef}
-                cards={state.round.table}
+                cards={dealing && dealPhase === 'table' ? [] : state.round.table}
                 highlightedCardIds={isMyTurn && selectedCard ? validCaptures.flat().map((card) => card.id) : []}
                 selectedCardIds={selectedTableCards.map((card) => card.id)}
                 capturingCardIds={animationPhase === 'capturing' ? animatingMove?.capturedCards.map((card) => card.id) : []}
@@ -221,7 +300,15 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
                   : { y: 0, opacity: 1, scale: 1 }}
                 transition={{ duration: animationPhase === 'reveal' ? .45 : .35, ease: 'easeOut' }}
               >
-                <CardView card={animatingMove.cardPlayed} />
+                <motion.div
+                  className={styles.familyFlip}
+                  initial={{ rotateY: animatingMove.player === state.self.id ? 180 : 0 }}
+                  animate={{ rotateY: animatingMove.player === state.self.id || animationPhase !== 'reveal' ? 180 : 0 }}
+                  transition={{ duration: animationPhase === 'reveal' ? .5 : 0 }}
+                >
+                  <div className={styles.familyFace}><CardBack /></div>
+                  <div className={`${styles.familyFace} ${styles.familyFront}`}><CardImage card={animatingMove.cardPlayed} /></div>
+                </motion.div>
               </motion.div>
             )}
           </section>
@@ -242,13 +329,13 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
               </div>
             </button>
             <PlayerHand
-              cards={state.self.hand}
+              cards={dealing ? [] : state.self.hand.filter((card) => card.id !== optimisticCardId)}
               isHuman
               onCardClick={selectCard}
               onCardDoubleClick={doubleClickCard}
               onCardDragEnd={dropCard}
               selectedCardId={selectedCard?.id}
-              disabled={!isMyTurn || animatingMove !== null}
+              disabled={!isMyTurn || animatingMove !== null || dealing}
             />
             <div className={styles.actions}>
               {selectedCard && validCaptures.length === 0 && <button onClick={() => play(selectedCard, [])}>Place card</button>}
@@ -271,6 +358,29 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, o
         playerName={animatingMove ? localPlayerName(state, animatingMove.player) : undefined}
         onComplete={() => setShowSetteBello(false)}
       />
+      {dealing && (
+        <div className={styles.familyDeal} key={dealKey}>
+          {(dealPhase === 'table'
+            ? Array.from({ length: 4 }, (_, cardIndex) => ({ player: null, playerIndex: cardIndex, cardIndex }))
+            : state.players.flatMap((player, playerIndex) => Array.from({ length: Math.min(3, player.handCount) }, (_, cardIndex) => ({ player, playerIndex, cardIndex })))
+          ).map(({ player, playerIndex, cardIndex }, index) => (
+              <motion.div
+                key={player ? `${player.id}-${cardIndex}` : `table-${cardIndex}`}
+                className={styles.dealCard}
+                initial={{ x: 0, y: 0, opacity: 1, scale: .75 }}
+                animate={{
+                  x: player ? (playerIndex - (state.players.length - 1) / 2) * 72 : (cardIndex - 1.5) * 55,
+                  y: player ? (player.isSelf ? 250 : -220) : 0,
+                  opacity: [1, 1, 0],
+                  scale: 1,
+                }}
+                transition={{ duration: .45, delay: index * .055 }}
+              >
+                <CardBack />
+              </motion.div>
+          ))}
+        </div>
+      )}
     </main>
   );
 }

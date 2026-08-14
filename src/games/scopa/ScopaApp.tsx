@@ -2580,6 +2580,8 @@ function ScopaApp() {
         canForceMove={multiplayer.canForceMove}
         onOpenPile={setFamilyOpenPile}
         soundEnabled={settings.soundEnabled}
+        onApplyPendingState={multiplayer.applyFamilyPendingState}
+        onMoveAnimationComplete={multiplayer.finalizeFamilyRoundEnd}
       />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} onUpdateSetting={updateSetting} onResetSettings={resetSettings} />
       <StatsModal isOpen={showStats} onClose={() => setShowStats(false)} opponents={statsModalOpponents} getGames={getStatsModalGames} onClearStats={clearStats} />
