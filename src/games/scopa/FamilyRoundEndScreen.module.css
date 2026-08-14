@@ -1,0 +1,72 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  padding: 16px;
+  background: rgba(0, 0, 0, .86);
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) minmax(420px, 620px);
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  color: var(--color-text-primary);
+  overflow: auto;
+}
+
+.cardsPane { align-self: stretch; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.playerTabs { display: flex; gap: 5px; overflow-x: auto; }
+.playerTabs button { min-width: 90px; flex: 1; padding: 7px 9px; border: 1px solid rgba(255,255,255,.18); border-radius: 6px; background: rgba(0,0,0,.35); color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playerTabs button.activeTab { border-color: var(--color-accent); color: var(--color-text-primary); background: rgba(212,175,55,.12); }
+.playerTabs small { margin-left: 5px; color: var(--color-accent); }
+.cardsLabel { text-align: center; color: var(--color-text-secondary); font-size: .7rem; text-transform: uppercase; }
+.cardGrid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, 46px); align-content: start; justify-content: center; gap: 6px; padding: 12px; border-radius: 8px; background: rgba(0,0,0,.3); overflow-y: auto; }
+.miniCard { width: 46px; height: 76px; border-radius: 4px; overflow: hidden; background: white; transition: .18s ease; }
+.miniCard svg, .miniCard img { width: 100%; height: 100%; object-fit: cover; }
+.miniCard.highlighted { transform: scale(1.08); box-shadow: 0 0 8px 2px var(--color-accent); position: relative; z-index: 2; }
+.miniCard.dimmed { opacity: .28; filter: grayscale(.5); }
+
+.modal { width: 100%; max-height: calc(100dvh - 32px); padding: 22px; border: 2px solid var(--color-accent); border-radius: 12px; background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%); box-shadow: 0 8px 32px rgba(0,0,0,.5); overflow: auto; }
+.modal h1 { margin: 0 0 14px; text-align: center; color: var(--color-accent); font-size: 1.45rem; }
+.categoryTable { display: grid; gap: 2px; }
+.tableHeader, .categoryRow { display: grid; grid-template-columns: minmax(130px, 1.4fr) repeat(var(--player-count, 3), minmax(54px, .8fr)); align-items: center; }
+.tableHeader { color: var(--color-text-secondary); font-size: .65rem; }
+.categoryRow { width: 100%; border: 0; border-bottom: 1px solid rgba(255,255,255,.09); padding: 7px 5px; background: transparent; color: inherit; font-size: .78rem; }
+.categoryRow:hover, .selectedRow { background: rgba(212,175,55,.1); }
+.categoryRow > span, .tableHeader > span { text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.categoryRow .categoryName, .tableHeader > span:first-child { display: flex; text-align: left; align-items: center; gap: 8px; }
+.categoryName b { width: 24px; text-align: center; }
+.winner { color: var(--color-accent); font-weight: 800; }
+.totalRow { border-top: 2px solid var(--color-accent); border-bottom: 0; font-weight: 800; }
+.cumulative { margin: 14px 0 9px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.cumulative > div { min-width: 74px; padding: 7px 9px; border-radius: 7px; background: rgba(0,0,0,.3); display: grid; justify-items: center; }
+.cumulative small { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--color-text-secondary); font-size: .6rem; text-transform: uppercase; }
+.cumulative strong { font-size: 1.45rem; }
+.ready { margin-bottom: 7px; text-align: center; color: var(--color-text-secondary); font-size: .75rem; }
+.nextButton { width: 100%; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--color-accent); color: #000; font-size: .9rem; font-weight: 700; }
+.nextButton:disabled { background: rgba(255,255,255,.1); color: var(--color-text-secondary); }
+
+@media (max-width: 900px) {
+  .overlay { grid-template-columns: 1fr; align-content: center; padding: 8px; }
+  .cardsPane { order: 2; max-height: 31dvh; }
+  .modal { order: 1; max-height: 63dvh; padding: 13px; }
+  .modal h1 { margin-bottom: 8px; font-size: 1.1rem; }
+  .tableHeader, .categoryRow { grid-template-columns: minmax(94px, 1.25fr) repeat(var(--player-count, 3), minmax(38px, .65fr)); }
+  .categoryRow { padding: 5px 3px; font-size: .65rem; }
+  .categoryName { gap: 4px; }
+  .categoryName b { width: 18px; }
+  .cumulative { margin: 8px 0 5px; gap: 4px; }
+  .cumulative > div { min-width: 58px; padding: 4px 6px; }
+  .cumulative strong { font-size: 1rem; }
+  .cardsLabel { display: none; }
+  .cardGrid { grid-template-columns: repeat(auto-fill, 34px); gap: 4px; padding: 6px; }
+  .miniCard { width: 34px; height: 56px; }
+  .playerTabs button { min-width: 76px; padding: 5px 6px; font-size: .65rem; }
+}
+
+@media (max-width: 420px) {
+  .overlay { --font-scale: .82; }
+  .modal { max-height: 65dvh; }
+  .tableHeader, .categoryRow { grid-template-columns: minmax(86px, 1.2fr) repeat(var(--player-count, 3), minmax(34px, .6fr)); }
+  .categoryRow { font-size: .58rem; }
+  .categoryName b { display: none; }
+}

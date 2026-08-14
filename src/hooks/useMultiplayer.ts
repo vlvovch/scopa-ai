@@ -268,6 +268,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
       case 'GAME_STATE6':
         setFamilyState(message.payload.state);
         setFamilyPlayers(message.payload.state.players);
+        setFamilyRoundEndData(message.payload.state.lastRoundScores ? { scores: message.payload.state.lastRoundScores, gameOver: message.payload.state.lastRoundGameOver } : null);
         setPileViewEnabled(message.payload.state.pileViewEnabled);
         setPileStatsEnabled(message.payload.state.pileStatsEnabled);
         setRestartRequestedBy((message.payload.state.restartRequests[0] as MultiplayerPlayerId | undefined) ?? null);

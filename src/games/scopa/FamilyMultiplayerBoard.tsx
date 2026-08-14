@@ -12,14 +12,12 @@ import { GameControls } from '../../components/UI/GameControls';
 import { TurnTimer } from '../../components/UI/TurnTimer';
 import type { Card } from './types';
 import type { FamilyMove, FamilyPlayerId, FamilyVisibleGameState } from './multiplayer/types';
-import type { RoundScore } from './types';
 import styles from './FamilyMultiplayerBoard.module.css';
 
 interface FamilyMultiplayerBoardProps {
   state: FamilyVisibleGameState;
   lastMove: { move: FamilyMove; state: FamilyVisibleGameState } | null;
   onPlayMove: (card: Card, capturedCards: Card[]) => void;
-  onContinueRound: () => void;
   onLeave: () => void;
   onOpenSettings: () => void;
   onOpenStats: () => void;
@@ -31,8 +29,6 @@ interface FamilyMultiplayerBoardProps {
   turnTimerSeconds: number | null;
   canForceMove: boolean;
   onOpenPile: (playerId: FamilyPlayerId) => void;
-  roundEndData: { scores: Record<FamilyPlayerId, RoundScore>; gameOver: boolean } | null;
-  onShowGameEnd: () => void;
   soundEnabled: boolean;
 }
 
@@ -56,7 +52,7 @@ function localPlayerName(state: FamilyVisibleGameState, id: FamilyPlayerId): str
   return state.players.find((player) => player.id === id)?.nickname ?? 'Player';
 }
 
-export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinueRound, onLeave, onOpenSettings, onOpenStats, onOpenRules, onRequestRestart, onRequestRematch, onForceMove, turnTimerEnabled, turnTimerSeconds, canForceMove, onOpenPile, roundEndData, onShowGameEnd, soundEnabled }: FamilyMultiplayerBoardProps) {
+export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onLeave, onOpenSettings, onOpenStats, onOpenRules, onRequestRestart, onRequestRematch, onForceMove, turnTimerEnabled, turnTimerSeconds, canForceMove, onOpenPile, soundEnabled }: FamilyMultiplayerBoardProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -188,32 +184,7 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
         </div>
       )}
 
-      {roundEndData ? (
-        <section className={styles.summary}>
-          <h2>Round complete</h2>
-          <div className={styles.finalScores}>
-            <div className={`${styles.scoreRow} ${styles.scoreHeader}`}>
-              <span>Player</span><span>Cards</span><span>Coins</span><span>7</span><span>Prime</span><span>Scopa</span><span>Round</span><span>Total</span>
-            </div>
-            {[...state.players].sort((a, b) => (roundEndData.scores[b.id]?.total ?? 0) - (roundEndData.scores[a.id]?.total ?? 0)).map((player) => {
-              const score = roundEndData.scores[player.id];
-              return (
-                <div className={styles.scoreRow} key={player.id}>
-                  <strong title={player.nickname}>{player.isSelf ? 'You' : player.nickname}</strong>
-                  <span data-label="Cards">{score?.cards ?? 0}</span>
-                  <span data-label="Coins">{score?.coins ?? 0}</span>
-                  <span data-label="Sette">{score?.setteBello ?? 0}</span>
-                  <span data-label="Prime">{score?.prime ?? 0}</span>
-                  <span data-label="Scopa">{score?.scopas ?? 0}</span>
-                  <span data-label="Round">+{score?.total ?? 0}</span>
-                  <span data-label="Total">{player.score}</span>
-                </div>
-              );
-            })}
-          </div>
-          {roundEndData.gameOver ? <button onClick={onShowGameEnd}>Show result</button> : <><p>{state.continueRequests.length} / {state.players.length} ready</p><button onClick={onContinueRound} disabled={state.continueRequests.includes(state.self.id)}>Next round</button></>}
-        </section>
-      ) : state.status === 'gameEnd' ? (
+      {state.status === 'gameEnd' ? (
         <section className={styles.summary}><h2>Game complete</h2><div className={styles.finalScores}>{[...state.players].sort((a, b) => b.score - a.score).map((player) => <div key={player.id}><strong>{player.isSelf ? 'You' : player.nickname}</strong><span>{player.score} pts</span></div>)}</div><button onClick={onRequestRematch}>{state.rematchRequests.includes(state.self.id) ? 'Waiting for players...' : 'Play again'}</button><button onClick={onLeave}>Leave game</button></section>
       ) : (
         <>

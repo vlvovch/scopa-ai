@@ -50,6 +50,8 @@ interface FamilyRoom {
   restartRequests: Set<MultiplayerSeatId>;
   rematchRequests: Set<MultiplayerSeatId>;
   turnStartedAt: number | null;
+  lastRoundScores: Record<MultiplayerSeatId, RoundScore> | null;
+  lastRoundGameOver: boolean;
 }
 
 export function isFamilyRoom(code: string): boolean {
@@ -124,7 +126,7 @@ function visibleState(room: FamilyRoom, viewer: MultiplayerSeatId): unknown {
     status: gameComplete ? 'gameEnd' : roundComplete ? 'roundEnd' : 'playing',
     round: { deckCount: game.round.deck.length, table: game.round.table, currentPlayer: game.round.currentPlayer, dealer: game.round.dealer, lastCapture: game.round.lastCapture },
     self: { id: viewer, hand: game.players[viewer].hand, captured: game.players[viewer].captured, capturedCount: game.players[viewer].captured.length, scopaCount: game.players[viewer].scopaCount },
-    players: room.players.map((player) => ({ id: player.id, nickname: player.nickname, connected: player.ws !== null, isSelf: player.id === viewer, handCount: game.players[player.id].hand.length, capturedCount: game.players[player.id].captured.length, captured: game.players[player.id].captured, scopaCount: game.players[player.id].scopaCount, score: game.scores[player.id] ?? 0 })),
+    players: room.players.map((player) => ({ id: player.id, nickname: player.nickname, connected: player.ws !== null, isSelf: player.id === viewer, handCount: game.players[player.id].hand.length, capturedCount: game.players[player.id].captured.length, captured: game.players[player.id].captured, scopaCount: game.players[player.id].scopaCount, scopaCaptures: game.players[player.id].scopaCaptures, score: game.scores[player.id] ?? 0 })),
     scores: game.scores,
     roundNumber: game.roundNumber,
     targetScore: game.targetScore,
@@ -133,6 +135,8 @@ function visibleState(room: FamilyRoom, viewer: MultiplayerSeatId): unknown {
     continueRequests: [...room.continueRequests],
     restartRequests: [...room.restartRequests],
     rematchRequests: [...room.rematchRequests],
+    lastRoundScores: room.lastRoundScores,
+    lastRoundGameOver: room.lastRoundGameOver,
   };
 }
 
@@ -180,7 +184,7 @@ function handleCreate(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 
     return;
   }
   const player: FamilyPlayer = { id: MULTIPLAYER_SEATS[0], nickname: sanitizeNickname(payload.nickname), sessionToken: sessionToken(), ws, lastSeen: Date.now() };
-  const room: FamilyRoom = { code: roomCode(), createdAt: Date.now(), lastActivity: Date.now(), maxPlayers: payload.maxPlayers, targetScore: payload.targetScore, turnTimerEnabled: payload.turnTimerEnabled, pileViewEnabled: payload.pileViewEnabled, pileStatsEnabled: payload.pileStatsEnabled, players: [player], game: null, continueRequests: new Set(), restartRequests: new Set(), rematchRequests: new Set(), turnStartedAt: null };
+  const room: FamilyRoom = { code: roomCode(), createdAt: Date.now(), lastActivity: Date.now(), maxPlayers: payload.maxPlayers, targetScore: payload.targetScore, turnTimerEnabled: payload.turnTimerEnabled, pileViewEnabled: payload.pileViewEnabled, pileStatsEnabled: payload.pileStatsEnabled, players: [player], game: null, continueRequests: new Set(), restartRequests: new Set(), rematchRequests: new Set(), turnStartedAt: null, lastRoundScores: null, lastRoundGameOver: false };
   rooms.set(room.code, room);
   ws.familyRoomCode = room.code;
   ws.familySeat = player.id;
@@ -224,6 +228,8 @@ function handleMove(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 'P
     if (room.game.round.table.length > 0 && room.game.round.lastCapture) room.game.players[room.game.round.lastCapture].captured.push(...room.game.round.table);
     const scores = scoreRound(room.game);
     for (const seat of activeSeats(room)) room.game.scores[seat] += scores[seat].total;
+    room.lastRoundScores = scores;
+    room.lastRoundGameOver = activeSeats(room).some((seat) => room.game!.scores[seat] >= room.targetScore);
     for (const player of room.players) {
       send(player.ws, { type: 'ROUND_END6', payload: { scores, state: visibleState(room, player.id) } });
     }
@@ -240,6 +246,8 @@ function handleContinueRound(ws: FamilySocket): void {
   room.continueRequests.add(ws.familySeat);
   if (room.continueRequests.size < room.players.length) { broadcastState(room, 'GAME_STATE6'); return; }
   room.continueRequests.clear();
+  room.lastRoundScores = null;
+  room.lastRoundGameOver = false;
   room.game = startNextMultiplayerRound(room.game, activeSeats(room));
   broadcastState(room, 'GAME_START6');
   startTurnTimer(room);
@@ -249,6 +257,8 @@ function resetFamilyGame(room: FamilyRoom): void {
   room.continueRequests.clear();
   room.restartRequests.clear();
   room.rematchRequests.clear();
+  room.lastRoundScores = null;
+  room.lastRoundGameOver = false;
   room.game = createMultiplayerGame(activeSeats(room), room.targetScore, activeSeats(room)[0]);
   broadcastState(room, 'GAME_START6');
   startTurnTimer(room);

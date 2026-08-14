@@ -27,6 +27,7 @@ import { CapturedCardsModal } from '../../components/UI/CapturedCardsModal';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { WaitingForOpponent } from '../../components/UI/WaitingForOpponent';
 import { FamilyMultiplayerBoard } from './FamilyMultiplayerBoard';
+import { FamilyRoundEndScreen } from './FamilyRoundEndScreen';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
@@ -2547,6 +2548,19 @@ function ScopaApp() {
   // remains 'idle' during multiplayer (we're not using the local game state)
   if (multiplayer.familyState) {
     const openFamilyPlayer = multiplayer.familyState.players.find((player) => player.id === familyOpenPile);
+    if (multiplayer.familyRoundEndData) {
+      return (
+        <DeckProvider deck={settings.deck}>
+          <FamilyRoundEndScreen
+            state={multiplayer.familyState}
+            scores={multiplayer.familyRoundEndData.scores}
+            gameOver={multiplayer.familyRoundEndData.gameOver}
+            onNextRound={multiplayer.continueFamilyRound}
+            onShowGameEnd={multiplayer.clearFamilyRoundEnd}
+          />
+        </DeckProvider>
+      );
+    }
     return (
       <DeckProvider deck={settings.deck}>
       <>
@@ -2554,7 +2568,6 @@ function ScopaApp() {
         state={multiplayer.familyState}
         lastMove={multiplayer.familyLastMove}
         onPlayMove={multiplayer.playFamilyMove}
-        onContinueRound={multiplayer.continueFamilyRound}
         onLeave={handleLeaveMultiplayer}
         onOpenSettings={handleOpenSettings}
         onOpenStats={handleOpenStats}
@@ -2566,8 +2579,6 @@ function ScopaApp() {
         turnTimerSeconds={multiplayer.turnTimerSeconds}
         canForceMove={multiplayer.canForceMove}
         onOpenPile={setFamilyOpenPile}
-        roundEndData={multiplayer.familyRoundEndData}
-        onShowGameEnd={multiplayer.clearFamilyRoundEnd}
         soundEnabled={settings.soundEnabled}
       />
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} onUpdateSetting={updateSetting} onResetSettings={resetSettings} />

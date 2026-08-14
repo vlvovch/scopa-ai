@@ -105,6 +105,7 @@ export interface FamilyVisibleGameState {
     capturedCount: number;
     captured: Card[];
     scopaCount: number;
+    scopaCaptures: Card[][];
     score: number;
   }>;
   scores: Record<FamilyPlayerId, number>;
@@ -115,6 +116,8 @@ export interface FamilyVisibleGameState {
   continueRequests: FamilyPlayerId[];
   restartRequests: FamilyPlayerId[];
   rematchRequests: FamilyPlayerId[];
+  lastRoundScores: Record<FamilyPlayerId, RoundScore> | null;
+  lastRoundGameOver: boolean;
 }
 
 export interface FamilyMove {
