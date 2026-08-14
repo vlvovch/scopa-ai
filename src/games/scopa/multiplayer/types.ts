@@ -12,6 +12,7 @@ export type RoundScore = GameRoundScore;
 
 /** Player identifier for multiplayer */
 export type MultiplayerPlayerId = 'player1' | 'player2';
+export type FamilyPlayerId = `player${1 | 2 | 3 | 4 | 5 | 6}`;
 
 /** Error codes from server */
 export type ErrorCode =
@@ -22,7 +23,8 @@ export type ErrorCode =
   | 'INVALID_MOVE'
   | 'GAME_NOT_STARTED'
   | 'GAME_ALREADY_STARTED'
-  | 'OPPONENT_NOT_CONNECTED';
+  | 'OPPONENT_NOT_CONNECTED'
+  | 'INVALID_PLAYER_COUNT';
 
 // ============================================================================
 // Game State (Multiplayer variant)
@@ -75,6 +77,42 @@ export interface PlayerVisibleGameState {
   pileStatsEnabled: boolean;
 }
 
+export interface FamilyRoomPlayer {
+  id: FamilyPlayerId;
+  nickname: string;
+  connected: boolean;
+  isSelf: boolean;
+}
+
+export interface FamilyVisibleGameState {
+  status: 'playing' | 'roundEnd' | 'gameEnd';
+  round: {
+    deckCount: number;
+    table: Card[];
+    currentPlayer: FamilyPlayerId;
+    dealer: FamilyPlayerId;
+    lastCapture: FamilyPlayerId | null;
+  };
+  self: {
+    id: FamilyPlayerId;
+    hand: Card[];
+    captured: Card[];
+    capturedCount: number;
+    scopaCount: number;
+  };
+  players: Array<FamilyRoomPlayer & {
+    handCount: number;
+    capturedCount: number;
+    scopaCount: number;
+    score: number;
+  }>;
+  scores: Record<FamilyPlayerId, number>;
+  roundNumber: number;
+  targetScore: number;
+  pileViewEnabled: boolean;
+  pileStatsEnabled: boolean;
+}
+
 // ============================================================================
 // Client → Server Messages
 // ============================================================================
@@ -88,6 +126,7 @@ export type ClientMessage =
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
         pileStatsEnabled: boolean;
+        maxPlayers?: number;
       };
     }
   | {
@@ -128,6 +167,23 @@ export type ClientMessage =
 // ============================================================================
 
 export type ServerMessage =
+  | {
+      type: 'ROOM_CREATED6';
+      payload: { roomCode: string; sessionToken: string; playerId: FamilyPlayerId; maxPlayers: number };
+    }
+  | {
+      type: 'ROOM_JOINED6';
+      payload: { roomCode: string; sessionToken: string; playerId: FamilyPlayerId; maxPlayers: number; targetScore: number; turnTimerEnabled: boolean };
+    }
+  | {
+      type: 'ROOM_SNAPSHOT6';
+      payload: { roomCode: string; playerId: FamilyPlayerId; maxPlayers: number; targetScore: number; turnTimerEnabled: boolean; players: FamilyRoomPlayer[] };
+    }
+  | { type: 'GAME_START6'; payload: { state: FamilyVisibleGameState } }
+  | { type: 'GAME_STATE6'; payload: { state: FamilyVisibleGameState } }
+  | { type: 'MOVE_PLAYED6'; payload: { state: FamilyVisibleGameState } }
+  | { type: 'ROUND_END6'; payload: { state: FamilyVisibleGameState; scores: Record<FamilyPlayerId, RoundScore> } }
+  | { type: 'GAME_ABORTED6'; payload: { reason: string } }
   | {
       type: 'ROOM_CREATED';
       payload: {
@@ -281,7 +337,7 @@ export type ServerMessage =
 export interface MultiplayerSession {
   sessionToken: string;
   roomCode: string;
-  playerId: MultiplayerPlayerId;
+  playerId: MultiplayerPlayerId | FamilyPlayerId;
   nickname: string;
 }
 
@@ -331,4 +387,9 @@ export interface MultiplayerState {
 
   // Rematch
   newGameRequestedBy: MultiplayerPlayerId | null;
+
+  // Six-player protocol state
+  familyState: FamilyVisibleGameState | null;
+  familyPlayers: FamilyRoomPlayer[];
+  familyMaxPlayers: number;
 }

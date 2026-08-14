@@ -11,6 +11,8 @@ import type {
   MultiplayerSession,
   ConnectionStatus,
   RoundScore,
+  FamilyVisibleGameState,
+  FamilyRoomPlayer,
 } from '../games/scopa/multiplayer/types';
 
 // Configuration
@@ -91,7 +93,7 @@ export interface UseMultiplayerReturn {
     nickname: string,
     targetScore: number,
     turnTimerEnabled: boolean,
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => void;
   joinRoom: (code: string, nickname: string) => void;
   playMove: (move: MultiplayerMove) => void;
@@ -103,6 +105,11 @@ export interface UseMultiplayerReturn {
   leaveRoom: () => void;
   clearRoundEnd: () => void;
   clearGameEnd: () => void;
+  playFamilyMove: (card: Card, capturedCards: Card[]) => void;
+  continueFamilyRound: () => void;
+  familyState: FamilyVisibleGameState | null;
+  familyPlayers: FamilyRoomPlayer[];
+  familyMaxPlayers: number;
 }
 
 export function useMultiplayer(): UseMultiplayerReturn {
@@ -142,6 +149,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   // Game state
   const [gameState, setGameState] = useState<PlayerVisibleGameState | null>(null);
+  const [familyState, setFamilyState] = useState<FamilyVisibleGameState | null>(null);
+  const [familyPlayers, setFamilyPlayers] = useState<FamilyRoomPlayer[]>([]);
+  const [familyMaxPlayers, setFamilyMaxPlayers] = useState(2);
 
   // Timer state
   const [turnTimerSeconds, setTurnTimerSeconds] = useState<number | null>(null);
@@ -210,6 +220,45 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
+      case 'ROOM_CREATED6':
+        setRoomCode(message.payload.roomCode);
+        setPlayerId(message.payload.playerId as MultiplayerPlayerId);
+        setFamilyMaxPlayers(message.payload.maxPlayers);
+        saveSession({ sessionToken: message.payload.sessionToken, roomCode: message.payload.roomCode, playerId: message.payload.playerId, nickname });
+        break;
+      case 'ROOM_JOINED6':
+        setRoomCode(message.payload.roomCode);
+        setPlayerId(message.payload.playerId as MultiplayerPlayerId);
+        setFamilyMaxPlayers(message.payload.maxPlayers);
+        setTargetScore(message.payload.targetScore);
+        setTurnTimerEnabled(message.payload.turnTimerEnabled);
+        saveSession({ sessionToken: message.payload.sessionToken, roomCode: message.payload.roomCode, playerId: message.payload.playerId, nickname });
+        break;
+      case 'ROOM_SNAPSHOT6':
+        setRoomCode(message.payload.roomCode);
+        setPlayerId(message.payload.playerId as MultiplayerPlayerId);
+        reconnectPendingRef.current = false;
+        setIsReconnecting(false);
+        setFamilyMaxPlayers(message.payload.maxPlayers);
+        setFamilyPlayers(message.payload.players);
+        break;
+      case 'GAME_START6':
+      case 'GAME_STATE6':
+      case 'MOVE_PLAYED6':
+        setFamilyState(message.payload.state);
+        setFamilyPlayers(message.payload.state.players);
+        break;
+      case 'ROUND_END6':
+        setFamilyState(message.payload.state);
+        setFamilyPlayers(message.payload.state.players);
+        break;
+      case 'GAME_ABORTED6':
+        clearSession();
+        setRoomCode(null);
+        setFamilyState(null);
+        setFamilyPlayers([]);
+        setConnectionError(message.payload.reason);
+        break;
       case 'ROOM_CREATED':
         setRoomCode(message.payload.roomCode);
         setPlayerId(message.payload.playerId);
@@ -477,7 +526,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
         });
         setNickname(session.nickname);
         setRoomCode(session.roomCode);
-        setPlayerId(session.playerId);
+        setPlayerId(session.playerId as MultiplayerPlayerId);
       }
     };
 
@@ -550,10 +599,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
     playerNickname: string,
     score: number,
     timerEnabled: boolean,
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => {
-    const pileView = roomOptions.pileView ?? false;
-    const pileStats = roomOptions.pileStats ?? false;
+    const pileView = roomOptions.pileView === true;
+    const pileStats = roomOptions.pileStats === true;
 
     // Clear any existing session when creating a new game
     clearSession();
@@ -577,6 +626,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
             turnTimerEnabled: timerEnabled,
             pileViewEnabled: pileView,
             pileStatsEnabled: pileStats,
+            ...(typeof roomOptions.maxPlayers === 'number' && roomOptions.maxPlayers > 2
+              ? { maxPlayers: roomOptions.maxPlayers }
+              : {}),
           },
         });
       }
@@ -615,6 +667,14 @@ export function useMultiplayer(): UseMultiplayerReturn {
       type: 'PLAY_MOVE',
       payload: { move },
     });
+  }, [sendMessage]);
+
+  const playFamilyMove = useCallback((card: Card, capturedCards: Card[]) => {
+    sendMessage({ type: 'PLAY_MOVE', payload: { move: { player: 'player1', cardPlayed: card, capturedCards, isScopa: false } } });
+  }, [sendMessage]);
+
+  const continueFamilyRound = useCallback(() => {
+    sendMessage({ type: 'CONTINUE_ROUND' });
   }, [sendMessage]);
 
   const forceMove = useCallback(() => {
@@ -672,6 +732,8 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setOpponentNickname(null);
     setIsOpponentConnected(false);
     setGameState(null);
+    setFamilyState(null);
+    setFamilyPlayers([]);
     setRoundEndData(null);
     setGameEndData(null);
     setNewGameRequestedBy(null);
@@ -749,6 +811,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
     // Game state
     gameState,
+    familyState,
+    familyPlayers,
+    familyMaxPlayers,
 
     // Timer state
     turnTimerSeconds,
@@ -784,5 +849,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     leaveRoom,
     clearRoundEnd,
     clearGameEnd,
+    playFamilyMove,
+    continueFamilyRound,
   };
 }

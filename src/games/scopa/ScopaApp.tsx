@@ -26,6 +26,8 @@ import { CaptureChoiceModal } from '../../components/UI/CaptureChoiceModal';
 import { CapturedCardsModal } from '../../components/UI/CapturedCardsModal';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { WaitingForOpponent } from '../../components/UI/WaitingForOpponent';
+import { FamilyMultiplayerBoard } from './FamilyMultiplayerBoard';
+import { FamilyWaitingRoom } from './FamilyWaitingRoom';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
@@ -89,6 +91,14 @@ function loadSpectatorModels(): { player1: string; player2: string } {
 
 // Session storage key (must match useMultiplayer.ts)
 const MP_SESSION_KEY = 'scopa-mp-session';
+
+function hasStoredMpSession(): boolean {
+  try {
+    return Boolean(localStorage.getItem(MP_SESSION_KEY));
+  } catch {
+    return false;
+  }
+}
 
 // Check for join code from URL on initial load
 // Only clear session if joining a DIFFERENT room than the stored session
@@ -226,7 +236,7 @@ function ScopaApp() {
 
   // Multiplayer state
   const multiplayer = useMultiplayer();
-  const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
+  const [isMultiplayerMode, setIsMultiplayerMode] = useState(hasStoredMpSession);
   const [initialJoinCode, setInitialJoinCode] = useState(getInitialJoinCode);
   const [multiplayerRoundHistory, setMultiplayerRoundHistory] = useState<RoundHistoryEntry[]>([]);
 
@@ -2535,6 +2545,18 @@ function ScopaApp() {
   // Multiplayer game is active - render multiplayer UI
   // This check must come BEFORE the idle check because activeState.status
   // remains 'idle' during multiplayer (we're not using the local game state)
+  if (multiplayer.familyState) {
+    return (
+      <FamilyMultiplayerBoard
+        state={multiplayer.familyState}
+        nickname={multiplayer.nickname}
+        onPlayMove={multiplayer.playFamilyMove}
+        onContinueRound={multiplayer.continueFamilyRound}
+        onLeave={handleLeaveMultiplayer}
+      />
+    );
+  }
+
   if (multiplayer.gameState) {
     const mpState = multiplayer.gameState;
     const isMyTurn = mpState.round.currentPlayer === multiplayer.playerId;
@@ -2968,6 +2990,17 @@ function ScopaApp() {
 
       // If we have a room and are waiting for opponent (gameState not yet set)
       if (multiplayer.roomCode && !multiplayer.gameState) {
+        if (multiplayer.familyMaxPlayers > 2) {
+          return (
+            <FamilyWaitingRoom
+              roomCode={multiplayer.roomCode}
+              maxPlayers={multiplayer.familyMaxPlayers}
+              players={multiplayer.familyPlayers}
+              onUpdateNickname={multiplayer.updateNickname}
+              onLeave={handleLeaveMultiplayer}
+            />
+          );
+        }
         return (
           <DeckProvider deck={settings.deck}>
             <WaitingForOpponent
@@ -2995,6 +3028,8 @@ function ScopaApp() {
               presetScores: [11, 16, 21],
               defaultScore: 11,
               scoreLabel: t.multiplayer.targetScore,
+              playerCountOptions: [2, 3, 4, 6],
+              defaultPlayerCount: 2,
               extraToggles: [
                 {
                   key: 'pileView',
