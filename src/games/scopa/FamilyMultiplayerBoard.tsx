@@ -11,6 +11,22 @@ interface FamilyMultiplayerBoardProps {
   onLeave: () => void;
 }
 
+function getValidCaptures(card: Card, table: Card[]): Card[][] {
+  const singles = table.filter((tableCard) => tableCard.value === card.value);
+  if (singles.length > 0) return singles.map((tableCard) => [tableCard]);
+
+  const captures: Card[][] = [];
+  const search = (index: number, sum: number, chosen: Card[]) => {
+    if (sum === card.value && chosen.length > 1) captures.push(chosen);
+    if (sum >= card.value) return;
+    for (let i = index; i < table.length; i += 1) {
+      search(i + 1, sum + table[i].value, [...chosen, table[i]]);
+    }
+  };
+  search(0, 0, []);
+  return captures;
+}
+
 export function FamilyMultiplayerBoard({
   state,
   nickname,
@@ -22,26 +38,24 @@ export function FamilyMultiplayerBoard({
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
   const validCaptures = useMemo(() => {
     if (!selectedCard) return [];
-    const singles = state.round.table.filter((card) => card.value === selectedCard.value);
-    if (singles.length > 0) return singles.map((card) => [card]);
-    const captures: Card[][] = [];
-    const search = (index: number, sum: number, cards: Card[]) => {
-      if (sum === selectedCard.value && cards.length > 1) captures.push(cards);
-      if (sum >= selectedCard.value) return;
-      for (let i = index; i < state.round.table.length; i++) {
-        search(i + 1, sum + state.round.table[i].value, [...cards, state.round.table[i]]);
-      }
-    };
-    search(0, 0, []);
-    return captures;
+    return getValidCaptures(selectedCard, state.round.table);
   }, [selectedCard, state.round.table]);
   const isMyTurn = state.round.currentPlayer === state.self.id;
   const selectedIds = new Set(selectedTableCards.map((card) => card.id));
   const canCapture = validCaptures.some((capture) => capture.length === selectedTableCards.length && capture.every((card) => selectedIds.has(card.id)));
-  const play = (capturedCards: Card[]) => {
-    if (!selectedCard) return;
-    onPlayMove(selectedCard, capturedCards);
+  const play = (card: Card, capturedCards: Card[]) => {
+    onPlayMove(card, capturedCards);
     setSelectedCard(null);
+    setSelectedTableCards([]);
+  };
+  const handleCardDoubleClick = (card: Card) => {
+    if (!isMyTurn) return;
+    const captures = getValidCaptures(card, state.round.table);
+    if (captures.length < 2) {
+      play(card, captures[0] ?? []);
+      return;
+    }
+    setSelectedCard(card);
     setSelectedTableCards([]);
   };
 
@@ -83,12 +97,12 @@ export function FamilyMultiplayerBoard({
           </section>
           <section style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
             {state.self.hand.map((card) => (
-              <CardView key={card.id} card={card} selected={selectedCard?.id === card.id} disabled={!isMyTurn} onClick={() => { setSelectedCard(card); setSelectedTableCards([]); }} onDoubleClick={() => { const captures = validCaptures; if (selectedCard?.id === card.id && captures.length === 0) play([]); }} />
+              <CardView key={card.id} card={card} selected={selectedCard?.id === card.id} disabled={!isMyTurn} onClick={() => { setSelectedCard(card); setSelectedTableCards([]); }} onDoubleClick={() => handleCardDoubleClick(card)} />
             ))}
           </section>
           <section style={{ minHeight: 42, display: 'flex', justifyContent: 'center', gap: 8 }}>
-            {selectedCard && validCaptures.length === 0 && <button onClick={() => play([])}>Place card</button>}
-            {selectedCard && canCapture && <button onClick={() => play(selectedTableCards)}>Capture</button>}
+            {selectedCard && validCaptures.length === 0 && <button onClick={() => play(selectedCard, [])}>Place card</button>}
+            {selectedCard && canCapture && <button onClick={() => play(selectedCard, selectedTableCards)}>Capture</button>}
             {selectedCard && validCaptures.length > 1 && <span>Select a valid capture</span>}
           </section>
         </>
