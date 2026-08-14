@@ -1,11 +1,19 @@
-import { useMemo, useState } from 'react';
-import { Card as CardView } from '../../components/Card/Card';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { PanInfo } from 'framer-motion';
+import { PlayerHand } from '../../components/Table/PlayerHand';
+import { TableCards } from '../../components/Table/TableCards';
+import { CapturedPile } from '../../components/Table/CapturedPile';
+import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
+import { DealingAnimation, type DealMode } from '../../components/UI/DealingAnimation';
+import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
 import type { Card } from './types';
-import type { FamilyVisibleGameState } from './multiplayer/types';
+import type { FamilyMove, FamilyPlayerId, FamilyVisibleGameState } from './multiplayer/types';
+import styles from './FamilyMultiplayerBoard.module.css';
 
 interface FamilyMultiplayerBoardProps {
   state: FamilyVisibleGameState;
   nickname: string;
+  lastMove: { move: FamilyMove; state: FamilyVisibleGameState } | null;
   onPlayMove: (card: Card, capturedCards: Card[]) => void;
   onContinueRound: () => void;
   onLeave: () => void;
@@ -27,86 +35,181 @@ function getValidCaptures(card: Card, table: Card[]): Card[][] {
   return captures;
 }
 
-export function FamilyMultiplayerBoard({
-  state,
-  nickname,
-  onPlayMove,
-  onContinueRound,
-  onLeave,
-}: FamilyMultiplayerBoardProps) {
+function localPlayerName(state: FamilyVisibleGameState, id: FamilyPlayerId): string {
+  return state.players.find((player) => player.id === id)?.nickname ?? 'Player';
+}
+
+export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, onContinueRound, onLeave }: FamilyMultiplayerBoardProps) {
+  const tableRef = useRef<HTMLDivElement>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
-  const validCaptures = useMemo(() => {
-    if (!selectedCard) return [];
-    return getValidCaptures(selectedCard, state.round.table);
-  }, [selectedCard, state.round.table]);
+  const [animatingMove, setAnimatingMove] = useState<FamilyMove | null>(null);
+  const [animationPhase, setAnimationPhase] = useState<'reveal' | 'moving' | 'capturing' | null>(null);
+  const [showScopa, setShowScopa] = useState(false);
+  const [dealing, setDealing] = useState(false);
+  const [dealMode, setDealMode] = useState<DealMode>('table');
   const isMyTurn = state.round.currentPlayer === state.self.id;
+
+  const validCaptures = useMemo(
+    () => selectedCard ? getValidCaptures(selectedCard, state.round.table) : [],
+    [selectedCard, state.round.table]
+  );
   const selectedIds = new Set(selectedTableCards.map((card) => card.id));
-  const canCapture = validCaptures.some((capture) => capture.length === selectedTableCards.length && capture.every((card) => selectedIds.has(card.id)));
+  const canCapture = validCaptures.some((capture) =>
+    capture.length === selectedTableCards.length && capture.every((card) => selectedIds.has(card.id))
+  );
+
+  useEffect(() => {
+    if (!lastMove) return;
+    setAnimatingMove(lastMove.move);
+    setAnimationPhase(lastMove.move.player === state.self.id ? 'moving' : 'reveal');
+    const movingTimer = window.setTimeout(() => setAnimationPhase(lastMove.move.capturedCards.length > 0 ? 'capturing' : null), 500);
+    const duration = lastMove.move.capturedCards.length > 0 ? 1250 : 700;
+    const timer = window.setTimeout(() => { setAnimatingMove(null); setAnimationPhase(null); }, duration);
+    if (lastMove.move.isScopa) {
+      setShowScopa(true);
+      window.setTimeout(() => setShowScopa(false), 1500);
+    }
+    return () => { window.clearTimeout(movingTimer); window.clearTimeout(timer); };
+  }, [lastMove, state.self.id]);
+
+  useEffect(() => {
+    if (state.roundNumber > 1) {
+      setDealing(true);
+      setDealMode('table');
+    }
+  }, [state.roundNumber]);
+
   const play = (card: Card, capturedCards: Card[]) => {
     onPlayMove(card, capturedCards);
     setSelectedCard(null);
     setSelectedTableCards([]);
   };
-  const handleCardDoubleClick = (card: Card) => {
+
+  const selectCard = (card: Card) => {
     if (!isMyTurn) return;
-    const captures = getValidCaptures(card, state.round.table);
-    if (captures.length < 2) {
-      play(card, captures[0] ?? []);
-      return;
-    }
     setSelectedCard(card);
     setSelectedTableCards([]);
+    const captures = getValidCaptures(card, state.round.table);
+    if (captures.length === 1) setSelectedTableCards(captures[0]);
   };
 
+  const doubleClickCard = (card: Card) => {
+    if (!isMyTurn) return;
+    const captures = getValidCaptures(card, state.round.table);
+    if (captures.length <= 1) play(card, captures[0] ?? []);
+    else selectCard(card);
+  };
+
+  const dropCard = (card: Card, info: PanInfo) => {
+    if (!isMyTurn || !tableRef.current) return;
+    const rect = tableRef.current.getBoundingClientRect();
+    const onTable = info.point.x >= rect.left && info.point.x <= rect.right && info.point.y >= rect.top && info.point.y <= rect.bottom;
+    if (!onTable) return;
+    const captures = getValidCaptures(card, state.round.table);
+    if (captures.length <= 1) play(card, captures[0] ?? []);
+    else selectCard(card);
+  };
+
+  const pileForPlayer = (player: typeof state.players[number]) => (
+    <CapturedPile
+      cards={[]}
+      scopaCount={player.scopaCount}
+      player={player.isSelf ? 'human' : 'cpu'}
+      playerLabel={player.isSelf ? 'You' : player.nickname}
+      capturedCount={player.capturedCount}
+      showStats
+    />
+  );
+
   return (
-    <main style={{ minHeight: '100vh', padding: 'clamp(12px, 3vw, 32px)', color: 'var(--color-text-primary)', background: 'var(--color-background)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div><strong>Scopa</strong><span style={{ marginLeft: 12, opacity: 0.7 }}>{nickname} · round {state.roundNumber}</span></div>
+    <main className={styles.board}>
+      <header className={styles.header}>
+        <div><strong>Scopa</strong><span>{nickname} · round {state.roundNumber}</span></div>
         <button onClick={onLeave}>Leave game</button>
       </header>
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8 }}>
+
+      <section className={styles.players} aria-label="Players">
         {state.players.map((player) => (
-          <div key={player.id} style={{ padding: 10, border: player.id === state.round.currentPlayer ? '2px solid var(--color-accent)' : '1px solid var(--color-border)', borderRadius: 8, background: player.isSelf ? 'rgba(212, 175, 55, 0.12)' : 'rgba(0, 0, 0, 0.16)' }}>
-            <div><strong>{player.isSelf ? 'You' : player.nickname}</strong>{player.connected ? '' : ' (offline)'}</div>
-            <small>{player.handCount} cards · {player.capturedCount} captured · {player.score} pts</small>
+          <div key={player.id} className={`${styles.player} ${player.isSelf ? styles.self : ''} ${player.id === state.round.currentPlayer ? styles.turn : ''}`}>
+            <strong>{player.isSelf ? 'You' : player.nickname}</strong>
+            <span>{player.handCount} cards · {player.capturedCount} captured · {player.score} pts</span>
+            {!player.connected && <small>offline</small>}
           </div>
         ))}
       </section>
+
       {state.status === 'gameEnd' ? (
-        <section style={{ textAlign: 'center', padding: 24 }}>
-          <h2>Game complete</h2>
-          <p>The target score has been reached.</p>
-          <button onClick={onLeave}>Leave game</button>
-        </section>
+        <section className={styles.summary}><h2>Game complete</h2><button onClick={onLeave}>Leave game</button></section>
       ) : state.status === 'roundEnd' ? (
-        <section style={{ textAlign: 'center', padding: 24 }}>
-          <h2>Round complete</h2>
-          <p>Cards have been scored. Everyone must continue for the next round.</p>
-          <button onClick={onContinueRound}>Next round</button>
-        </section>
+        <section className={styles.summary}><h2>Round complete</h2><p>Everyone must continue before the next deal.</p><button onClick={onContinueRound}>Next round</button></section>
       ) : (
         <>
-          <section style={{ flex: 1, minHeight: 240, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 20 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 8, minHeight: 120 }}>
-              {state.round.table.map((card) => (
-                <CardView key={card.id} card={card} selected={selectedIds.has(card.id)} highlighted={isMyTurn && !!selectedCard && validCaptures.flat().some((candidate) => candidate.id === card.id)} disabled={!isMyTurn || !selectedCard} onClick={() => setSelectedTableCards((current) => current.some((item) => item.id === card.id) ? current.filter((item) => item.id !== card.id) : [...current, card])} />
-              ))}
+          <section className={styles.tableSection}>
+            <TableCards
+              ref={tableRef}
+              cards={state.round.table}
+              highlightedCardIds={isMyTurn && selectedCard ? validCaptures.flat().map((card) => card.id) : []}
+              selectedCardIds={selectedTableCards.map((card) => card.id)}
+              capturingCardIds={animationPhase === 'capturing' ? animatingMove?.capturedCards.map((card) => card.id) : []}
+              captureDirection={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
+              onCardClick={(card) => setSelectedTableCards((current) => current.some((item) => item.id === card.id) ? current.filter((item) => item.id !== card.id) : [...current, card])}
+              selectable={isMyTurn && selectedCard !== null}
+              deckCount={state.round.deckCount}
+              dealer={state.round.dealer === state.self.id ? 'human' : 'cpu'}
+            />
+            <div className={styles.turnText}>
+              Deck: {state.round.deckCount} · {isMyTurn ? 'Your turn' : `Turn: ${localPlayerName(state, state.round.currentPlayer)}`}
             </div>
-            <div style={{ opacity: 0.7 }}>Deck: {state.round.deckCount} · {isMyTurn ? 'Your turn' : `Waiting for ${state.players.find((player) => player.id === state.round.currentPlayer)?.nickname ?? 'player'}`}</div>
           </section>
-          <section style={{ display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {state.self.hand.map((card) => (
-              <CardView key={card.id} card={card} selected={selectedCard?.id === card.id} disabled={!isMyTurn} onClick={() => { setSelectedCard(card); setSelectedTableCards([]); }} onDoubleClick={() => handleCardDoubleClick(card)} />
-            ))}
+
+          <section className={styles.piles}>
+            {state.players.filter((player) => !player.isSelf).map((player) => <div key={player.id}>{pileForPlayer(player)}</div>)}
           </section>
-          <section style={{ minHeight: 42, display: 'flex', justifyContent: 'center', gap: 8 }}>
-            {selectedCard && validCaptures.length === 0 && <button onClick={() => play(selectedCard, [])}>Place card</button>}
-            {selectedCard && canCapture && <button onClick={() => play(selectedCard, selectedTableCards)}>Capture</button>}
-            {selectedCard && validCaptures.length > 1 && <span>Select a valid capture</span>}
+
+          <section className={styles.handSection}>
+            <PlayerHand
+              cards={state.self.hand}
+              isHuman
+              onCardClick={selectCard}
+              onCardDoubleClick={doubleClickCard}
+              onCardDragEnd={dropCard}
+              selectedCardId={selectedCard?.id}
+              disabled={!isMyTurn || animatingMove !== null || dealing}
+            />
+            <div className={styles.actions}>
+              {selectedCard && validCaptures.length === 0 && <button onClick={() => play(selectedCard, [])}>Place card</button>}
+              {selectedCard && canCapture && <button onClick={() => play(selectedCard, selectedTableCards)}>Capture</button>}
+              {selectedCard && validCaptures.length > 1 && <span>Select the cards to capture</span>}
+            </div>
+            {pileForPlayer(state.players.find((player) => player.isSelf)!)}
           </section>
         </>
       )}
+
+      <CpuCardAnimation
+        card={animatingMove?.cardPlayed ?? null}
+        phase={animationPhase}
+        capturedCardIds={animatingMove?.capturedCards.map((card) => card.id) ?? []}
+        player={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
+        skipFlip={animatingMove?.player === state.self.id}
+      />
+      <ScopaCelebration
+        show={showScopa}
+        player={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
+        playerName={animatingMove ? localPlayerName(state, animatingMove.player) : undefined}
+        onComplete={() => setShowScopa(false)}
+      />
+      <DealingAnimation
+        isDealing={dealing}
+        startPlayer="human"
+        deckPosition="left"
+        dealMode={dealMode}
+        onComplete={() => {
+          if (dealMode === 'table') setDealMode('hands');
+          else { setDealing(false); setDealMode('table'); }
+        }}
+      />
     </main>
   );
 }

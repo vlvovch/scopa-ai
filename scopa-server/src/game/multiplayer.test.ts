@@ -33,7 +33,7 @@ describe('Scopa multiplayer seats', () => {
       'Active seats must be unique'
     );
     expect(() => dealMultiplayerHands(createDeck(), ['player1'], 3)).toThrow(
-      'supports 2, 3, 4, or 6 players'
+      'supports 2, 3, 4, 5, or 6 players'
     );
   });
 });

@@ -162,10 +162,14 @@ export function applyMultiplayerMove(
 
   const allHandsEmpty = activeSeats.every((seat) => nextPlayers[seat].hand.length === 0);
   if (allHandsEmpty && state.round.deck.length > 0) {
+    const cardsPerSeat = Math.min(
+      CARDS_PER_HAND,
+      Math.max(1, Math.ceil(state.round.deck.length / activeSeats.length))
+    );
     const { hands, remaining } = dealMultiplayerHands(
       state.round.deck,
       activeSeats,
-      CARDS_PER_HAND
+      cardsPerSeat
     );
     return {
       ...state,
@@ -183,12 +187,18 @@ export function applyMultiplayerMove(
     };
   }
 
+  let nextPlayer = nextSeat(player, activeSeats);
+  for (let offset = 0; offset < activeSeats.length; offset += 1) {
+    if (nextPlayers[nextPlayer].hand.length > 0) break;
+    nextPlayer = nextSeat(nextPlayer, activeSeats);
+  }
+
   return {
     ...state,
     round: {
       ...state.round,
       table: newTable,
-      currentPlayer: nextSeat(player, activeSeats),
+      currentPlayer: nextPlayer,
       lastCapture: move.capturedCards.length > 0 ? player : state.round.lastCapture,
     },
     players: nextPlayers as Record<MultiplayerSeatId, MultiplayerPlayerState>,

@@ -125,11 +125,11 @@ function visibleState(room: FamilyRoom, viewer: MultiplayerSeatId): unknown {
   };
 }
 
-function broadcastState(room: FamilyRoom, type: 'GAME_START6' | 'GAME_STATE6' | 'MOVE_PLAYED6'): void {
+function broadcastState(room: FamilyRoom, type: 'GAME_START6' | 'GAME_STATE6' | 'MOVE_PLAYED6', move?: { player: MultiplayerSeatId; cardPlayed: Card; capturedCards: Card[]; isScopa: boolean }): void {
   for (const player of room.players) {
     const state = visibleState(room, player.id);
     if (!state) continue;
-    send(player.ws, { type, payload: { state } });
+    send(player.ws, { type, payload: move ? { state, move } : { state } });
   }
 }
 
@@ -145,7 +145,7 @@ function startGame(room: FamilyRoom): void {
 
 function handleCreate(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 'CREATE_ROOM' }>['payload']): void {
   if (!SUPPORTED_PLAYER_COUNTS.includes(payload.maxPlayers) || payload.maxPlayers > MULTIPLAYER_SEATS.length) {
-    send(ws, { type: 'ERROR', payload: { code: 'INVALID_PLAYER_COUNT', message: 'Choose 2, 3, 4, or 6 players' } });
+    send(ws, { type: 'ERROR', payload: { code: 'INVALID_PLAYER_COUNT', message: 'Choose 2, 3, 4, 5, or 6 players' } });
     return;
   }
   const player: FamilyPlayer = { id: MULTIPLAYER_SEATS[0], nickname: sanitizeNickname(payload.nickname), sessionToken: sessionToken(), ws, lastSeen: Date.now() };
@@ -193,7 +193,7 @@ function handleMove(ws: FamilySocket, payload: Extract<FamilyMessage, { type: 'P
       send(player.ws, { type: 'ROUND_END6', payload: { scores, state: visibleState(room, player.id) } });
     }
   } else {
-    broadcastState(room, 'MOVE_PLAYED6');
+    broadcastState(room, 'MOVE_PLAYED6', { player: ws.familySeat, cardPlayed: payload.move.cardPlayed, capturedCards: payload.move.capturedCards, isScopa: payload.move.capturedCards.length > 0 && room.game.round.table.length === 0, });
   }
 }
 

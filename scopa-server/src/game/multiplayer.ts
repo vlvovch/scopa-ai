@@ -4,7 +4,7 @@ import type { Card } from './types.js';
 export type MultiplayerSeatId = `player${1 | 2 | 3 | 4 | 5 | 6}`;
 
 export const MAX_PLAYERS = 6;
-export const SUPPORTED_PLAYER_COUNTS: readonly number[] = [2, 3, 4, 6];
+export const SUPPORTED_PLAYER_COUNTS: readonly number[] = [2, 3, 4, 5, 6];
 export const MULTIPLAYER_SEATS: readonly MultiplayerSeatId[] = [
   'player1',
   'player2',
@@ -46,7 +46,7 @@ export function dealMultiplayerHands(
   cardsPerHand: number
 ): { hands: Record<MultiplayerSeatId, Card[]>; remaining: Card[] } {
   if (!SUPPORTED_PLAYER_COUNTS.includes(activeSeats.length)) {
-    throw new Error('Scopa multiplayer supports 2, 3, 4, or 6 players');
+    throw new Error('Scopa multiplayer supports 2, 3, 4, 5, or 6 players');
   }
   if (new Set(activeSeats).size !== activeSeats.length) {
     throw new Error('Active seats must be unique');

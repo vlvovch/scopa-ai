@@ -116,6 +116,7 @@ export interface UseMultiplayerReturn {
   familyState: FamilyVisibleGameState | null;
   familyPlayers: FamilyRoomPlayer[];
   familyMaxPlayers: number;
+  familyLastMove: { move: import('../games/scopa/multiplayer/types').FamilyMove; state: FamilyVisibleGameState } | null;
 }
 
 export function useMultiplayer(): UseMultiplayerReturn {
@@ -158,6 +159,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
   const [familyState, setFamilyState] = useState<FamilyVisibleGameState | null>(null);
   const [familyPlayers, setFamilyPlayers] = useState<FamilyRoomPlayer[]>([]);
   const [familyMaxPlayers, setFamilyMaxPlayers] = useState(2);
+  const [familyLastMove, setFamilyLastMove] = useState<UseMultiplayerReturn['familyLastMove']>(null);
 
   // Timer state
   const [turnTimerSeconds, setTurnTimerSeconds] = useState<number | null>(null);
@@ -250,9 +252,13 @@ export function useMultiplayer(): UseMultiplayerReturn {
         break;
       case 'GAME_START6':
       case 'GAME_STATE6':
+        setFamilyState(message.payload.state);
+        setFamilyPlayers(message.payload.state.players);
+        break;
       case 'MOVE_PLAYED6':
         setFamilyState(message.payload.state);
         setFamilyPlayers(message.payload.state.players);
+        setFamilyLastMove({ move: message.payload.move, state: message.payload.state });
         break;
       case 'ROUND_END6':
         setFamilyState(message.payload.state);
@@ -740,6 +746,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setGameState(null);
     setFamilyState(null);
     setFamilyPlayers([]);
+    setFamilyLastMove(null);
     setRoundEndData(null);
     setGameEndData(null);
     setNewGameRequestedBy(null);
@@ -820,6 +827,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     familyState,
     familyPlayers,
     familyMaxPlayers,
+    familyLastMove,
 
     // Timer state
     turnTimerSeconds,

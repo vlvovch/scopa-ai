@@ -2550,6 +2550,7 @@ function ScopaApp() {
       <FamilyMultiplayerBoard
         state={multiplayer.familyState}
         nickname={multiplayer.nickname}
+        lastMove={multiplayer.familyLastMove}
         onPlayMove={multiplayer.playFamilyMove}
         onContinueRound={multiplayer.continueFamilyRound}
         onLeave={handleLeaveMultiplayer}
@@ -3028,7 +3029,7 @@ function ScopaApp() {
               presetScores: [11, 16, 21],
               defaultScore: 11,
               scoreLabel: t.multiplayer.targetScore,
-              playerCountOptions: [2, 3, 4, 6],
+              playerCountOptions: [2, 3, 4, 5, 6],
               defaultPlayerCount: 2,
               extraToggles: [
                 {

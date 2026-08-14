@@ -113,6 +113,13 @@ export interface FamilyVisibleGameState {
   pileStatsEnabled: boolean;
 }
 
+export interface FamilyMove {
+  player: FamilyPlayerId;
+  cardPlayed: Card;
+  capturedCards: Card[];
+  isScopa: boolean;
+}
+
 // ============================================================================
 // Client → Server Messages
 // ============================================================================
@@ -181,8 +188,8 @@ export type ServerMessage =
     }
   | { type: 'GAME_START6'; payload: { state: FamilyVisibleGameState } }
   | { type: 'GAME_STATE6'; payload: { state: FamilyVisibleGameState } }
-  | { type: 'MOVE_PLAYED6'; payload: { state: FamilyVisibleGameState } }
-  | { type: 'ROUND_END6'; payload: { state: FamilyVisibleGameState; scores: Record<FamilyPlayerId, RoundScore> } }
+  | { type: 'MOVE_PLAYED6'; payload: { state: FamilyVisibleGameState; move: FamilyMove } }
+  | { type: 'ROUND_END6'; payload: { state: FamilyVisibleGameState; scores: Record<FamilyPlayerId, RoundScore>; move?: FamilyMove } }
   | { type: 'GAME_ABORTED6'; payload: { reason: string } }
   | {
       type: 'ROOM_CREATED';
@@ -392,4 +399,5 @@ export interface MultiplayerState {
   familyState: FamilyVisibleGameState | null;
   familyPlayers: FamilyRoomPlayer[];
   familyMaxPlayers: number;
+  familyLastMove: { move: FamilyMove; state: FamilyVisibleGameState } | null;
 }

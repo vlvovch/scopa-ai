@@ -24,6 +24,14 @@ describe('Scopa multiplayer engine', () => {
     expect(state.players.player2.hand).toHaveLength(3);
   });
 
+  it('supports five seats through the initial deal', () => {
+    const seats = MULTIPLAYER_SEATS.slice(0, 5);
+    const state = createMultiplayerGame(seats, 11, 'player1');
+
+    expect(state.players.player5.hand).toHaveLength(3);
+    expect(state.round.deck).toHaveLength(21);
+  });
+
   it('advances from a seat to the next active seat', () => {
     const state = createMultiplayerGame(MULTIPLAYER_SEATS, 11, 'player1');
     const card = state.players.player2.hand[0];
