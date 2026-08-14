@@ -15,8 +15,14 @@ import type {
   FamilyRoomPlayer,
 } from '../games/scopa/multiplayer/types';
 
-// Configuration
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+// A relative /ws URL keeps local Docker tunnels portable: the browser uses
+// the same public origin for HTTPS and WebSocket traffic.
+function getWebSocketUrl(): string {
+  const configuredUrl = import.meta.env.VITE_WS_URL;
+  if (configuredUrl && configuredUrl !== '/ws') return configuredUrl;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
+}
 const RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 30000;
@@ -500,7 +506,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setConnectionStatus(attemptReconnect ? 'reconnecting' : 'connecting');
     setConnectionError(null);
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
