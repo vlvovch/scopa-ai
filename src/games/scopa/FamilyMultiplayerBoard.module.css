@@ -1,10 +1,12 @@
 .board {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  box-sizing: border-box;
   padding: clamp(12px, 3vw, 32px);
   color: var(--color-text-primary);
   background: var(--color-background);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   gap: 16px;
   overflow: hidden;
 }
@@ -16,9 +18,10 @@
 .player span, .player small { font-size: .82rem; opacity: .75; }
 .player.self { background: rgba(212, 175, 55, .12); }
 .player.turn { border: 2px solid var(--color-accent); }
-.tableSection { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 280px; flex: 1; }
+.tableSection { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: visible; }
 .turnText { color: var(--color-text-secondary); }
-.piles { display: flex; justify-content: center; align-items: flex-start; gap: clamp(8px, 2vw, 28px); flex-wrap: wrap; }
+.piles { display: flex; justify-content: center; align-items: flex-start; gap: clamp(8px, 2vw, 28px); flex-wrap: wrap; max-height: 150px; overflow: visible; }
+.piles > div { min-width: 130px; transform: scale(.78); transform-origin: top center; margin: 0 -14px -34px; }
 .handSection { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .actions { min-height: 36px; display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
 .summary { display: grid; place-items: center; gap: 12px; min-height: 40vh; text-align: center; }
@@ -27,12 +30,15 @@
   .board { padding: 8px; gap: 8px; }
   .players { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
   .player { padding: 7px; font-size: .85rem; }
-  .tableSection { min-height: 210px; }
+  .tableSection { min-height: 0; }
   .piles { gap: 4px; }
+  .piles > div { min-width: 106px; transform: scale(.62); margin: 0 -22px -62px; }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
   .board { gap: 4px; padding: 6px 12px; }
   .players { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tableSection { min-height: 130px; }
+  .tableSection { min-height: 0; }
+  .piles { max-height: 100px; }
+  .piles > div { transform: scale(.55); margin-bottom: -80px; }
 }

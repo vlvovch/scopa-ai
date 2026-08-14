@@ -102,11 +102,19 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
   };
 
   const dropCard = (card: Card, info: PanInfo) => {
-    if (!isMyTurn || !tableRef.current) return;
+    if (!isMyTurn) return;
+    const captures = getValidCaptures(card, state.round.table);
+    // On iOS the finger often releases before the dragged card reaches the
+    // table bounds. Treat a clear upward swipe as a play gesture as well.
+    if (info.offset.y < -45 || info.velocity.y < -250) {
+      if (captures.length <= 1) play(card, captures[0] ?? []);
+      else selectCard(card);
+      return;
+    }
+    if (!tableRef.current) return;
     const rect = tableRef.current.getBoundingClientRect();
     const onTable = info.point.x >= rect.left && info.point.x <= rect.right && info.point.y >= rect.top && info.point.y <= rect.bottom;
     if (!onTable) return;
-    const captures = getValidCaptures(card, state.round.table);
     if (captures.length <= 1) play(card, captures[0] ?? []);
     else selectCard(card);
   };
