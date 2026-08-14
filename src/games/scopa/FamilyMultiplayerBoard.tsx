@@ -156,6 +156,7 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
           onRequestRestart={onRequestRestart}
           onQuitGame={onLeave}
           isMultiplayer
+          compact
         />
       </header>
 
@@ -191,12 +192,24 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
         <section className={styles.summary}>
           <h2>Round complete</h2>
           <div className={styles.finalScores}>
-            {[...state.players].sort((a, b) => (roundEndData.scores[b.id]?.total ?? 0) - (roundEndData.scores[a.id]?.total ?? 0)).map((player) => (
-              <div key={player.id}>
-                <strong>{player.isSelf ? 'You' : player.nickname}</strong>
-                <span>+{roundEndData.scores[player.id]?.total ?? 0} · {player.score} pts</span>
-              </div>
-            ))}
+            <div className={`${styles.scoreRow} ${styles.scoreHeader}`}>
+              <span>Player</span><span>Cards</span><span>Coins</span><span>7</span><span>Prime</span><span>Scopa</span><span>Round</span><span>Total</span>
+            </div>
+            {[...state.players].sort((a, b) => (roundEndData.scores[b.id]?.total ?? 0) - (roundEndData.scores[a.id]?.total ?? 0)).map((player) => {
+              const score = roundEndData.scores[player.id];
+              return (
+                <div className={styles.scoreRow} key={player.id}>
+                  <strong title={player.nickname}>{player.isSelf ? 'You' : player.nickname}</strong>
+                  <span data-label="Cards">{score?.cards ?? 0}</span>
+                  <span data-label="Coins">{score?.coins ?? 0}</span>
+                  <span data-label="Sette">{score?.setteBello ?? 0}</span>
+                  <span data-label="Prime">{score?.prime ?? 0}</span>
+                  <span data-label="Scopa">{score?.scopas ?? 0}</span>
+                  <span data-label="Round">+{score?.total ?? 0}</span>
+                  <span data-label="Total">{player.score}</span>
+                </div>
+              );
+            })}
           </div>
           {roundEndData.gameOver ? <button onClick={onShowGameEnd}>Show result</button> : <><p>{state.continueRequests.length} / {state.players.length} ready</p><button onClick={onContinueRound} disabled={state.continueRequests.includes(state.self.id)}>Next round</button></>}
         </section>

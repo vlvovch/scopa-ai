@@ -13,7 +13,7 @@
   overflow: hidden;
 }
 
-.header { display: flex; align-items: center; justify-content: space-between; min-width: 0; }
+.header { display: flex; align-items: center; justify-content: space-between; min-width: 0; position: relative; z-index: 30; }
 .brand { display: flex; align-items: baseline; gap: 8px; }
 .brand span { color: var(--color-text-secondary); font-size: .8rem; }
 
@@ -49,20 +49,24 @@
 .actions { min-height: 30px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; color: var(--color-text-secondary); font-size: .72rem; }
 .actions button { padding: 5px 10px; }
 .summary { grid-row: 3 / 5; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; }
-.finalScores { width: min(320px, 90vw); display: grid; gap: 5px; }
-.finalScores > div { display: flex; justify-content: space-between; padding: 7px 10px; border-radius: 6px; background: rgba(0, 0, 0, .18); }
+.finalScores { width: min(720px, 96vw); display: grid; gap: 4px; overflow-x: auto; }
+.scoreRow { min-width: 560px; display: grid; grid-template-columns: minmax(100px, 1.5fr) repeat(7, minmax(45px, .65fr)); align-items: center; gap: 4px; padding: 6px 8px; border-radius: 6px; background: rgba(0, 0, 0, .18); font-size: .7rem; }
+.scoreRow > * { text-align: center; }
+.scoreRow > :first-child { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scoreHeader { color: var(--color-text-secondary); font-size: .62rem; text-transform: uppercase; }
 
 @media (max-width: 600px) {
   .board {
     --font-scale: .72;
     --family-card-width: min(21vw, 76px);
     padding: max(5px, env(safe-area-inset-top)) 6px max(5px, env(safe-area-inset-bottom));
-    grid-template-rows: 27px 43px minmax(0, 1fr) auto;
+    grid-template-rows: 32px 43px minmax(0, 1fr) auto;
     gap: 4px;
   }
   .brand { gap: 5px; }
   .brand strong { font-size: .78rem; }
   .brand span { font-size: .62rem; }
+  .header { overflow: visible; }
 
   .seats { justify-content: stretch; gap: 4px; overflow: hidden; }
   .seat { max-width: none; padding: 4px 5px; border-radius: 5px; }
@@ -86,6 +90,13 @@
   .turnStatus { font-size: .58rem; }
   .actions { min-height: 24px; justify-content: center; font-size: .58rem; }
   .actions:empty { display: none; }
+  .summary { gap: 8px; }
+  .summary h2 { font-size: 1.15rem; }
+  .finalScores { width: calc(100vw - 12px); }
+  .scoreHeader { display: none; }
+  .scoreRow { min-width: 0; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; padding: 6px; font-size: .62rem; }
+  .scoreRow > :first-child { grid-column: 1 / -1; padding-bottom: 3px; font-size: .72rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .scoreRow > span::before { content: attr(data-label); display: block; margin-bottom: 1px; color: var(--color-text-secondary); font-size: .45rem; text-transform: uppercase; }
 }
 
 @media (max-width: 380px) {
