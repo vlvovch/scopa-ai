@@ -5,9 +5,14 @@ import { PlayerHand } from '../../components/Table/PlayerHand';
 import { TableCards } from '../../components/Table/TableCards';
 import { DealerDeck } from '../../components/Table/DealerDeck';
 import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
+import { SetteBelloCelebration } from '../../components/UI/SetteBelloCelebration';
+import { useSound } from '../../hooks/useSound';
 import { Card as CardView } from '../../components/Card/Card';
+import { GameControls } from '../../components/UI/GameControls';
+import { TurnTimer } from '../../components/UI/TurnTimer';
 import type { Card } from './types';
 import type { FamilyMove, FamilyPlayerId, FamilyVisibleGameState } from './multiplayer/types';
+import type { RoundScore } from './types';
 import styles from './FamilyMultiplayerBoard.module.css';
 
 interface FamilyMultiplayerBoardProps {
@@ -16,6 +21,19 @@ interface FamilyMultiplayerBoardProps {
   onPlayMove: (card: Card, capturedCards: Card[]) => void;
   onContinueRound: () => void;
   onLeave: () => void;
+  onOpenSettings: () => void;
+  onOpenStats: () => void;
+  onOpenRules: () => void;
+  onRequestRestart: () => void;
+  onRequestRematch: () => void;
+  onForceMove: () => void;
+  turnTimerEnabled: boolean;
+  turnTimerSeconds: number | null;
+  canForceMove: boolean;
+  onOpenPile: (playerId: FamilyPlayerId) => void;
+  roundEndData: { scores: Record<FamilyPlayerId, RoundScore>; gameOver: boolean } | null;
+  onShowGameEnd: () => void;
+  soundEnabled: boolean;
 }
 
 function getValidCaptures(card: Card, table: Card[]): Card[][] {
@@ -38,13 +56,15 @@ function localPlayerName(state: FamilyVisibleGameState, id: FamilyPlayerId): str
   return state.players.find((player) => player.id === id)?.nickname ?? 'Player';
 }
 
-export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinueRound, onLeave }: FamilyMultiplayerBoardProps) {
+export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinueRound, onLeave, onOpenSettings, onOpenStats, onOpenRules, onRequestRestart, onRequestRematch, onForceMove, turnTimerEnabled, turnTimerSeconds, canForceMove, onOpenPile, roundEndData, onShowGameEnd, soundEnabled }: FamilyMultiplayerBoardProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
   const [animatingMove, setAnimatingMove] = useState<FamilyMove | null>(null);
   const [animationPhase, setAnimationPhase] = useState<'reveal' | 'moving' | 'capturing' | null>(null);
   const [showScopa, setShowScopa] = useState(false);
+  const [showSetteBello, setShowSetteBello] = useState(false);
+  const { play: playSound, resume: resumeAudio } = useSound({ enabled: soundEnabled });
   const isMyTurn = state.round.currentPlayer === state.self.id;
   const selfPlayer = state.players.find((player) => player.isSelf)!;
   const opponents = state.players.filter((player) => !player.isSelf);
@@ -61,16 +81,25 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
   useEffect(() => {
     if (!lastMove) return;
     setAnimatingMove(lastMove.move);
+    resumeAudio();
+    playSound(lastMove.move.capturedCards.length > 0 ? 'capture' : 'play');
     setAnimationPhase(lastMove.move.player === state.self.id ? 'moving' : 'reveal');
     const movingTimer = window.setTimeout(() => setAnimationPhase(lastMove.move.capturedCards.length > 0 ? 'capturing' : null), 500);
     const duration = lastMove.move.capturedCards.length > 0 ? 1250 : 700;
     const timer = window.setTimeout(() => { setAnimatingMove(null); setAnimationPhase(null); }, duration);
     if (lastMove.move.isScopa) {
+      playSound('scopa');
       setShowScopa(true);
       window.setTimeout(() => setShowScopa(false), 1500);
     }
+    const capturedSetteBello = [lastMove.move.cardPlayed, ...lastMove.move.capturedCards].some((card) => card.suit === 'coins' && card.value === 7);
+    if (capturedSetteBello) {
+      playSound('setteBello');
+      setShowSetteBello(true);
+      window.setTimeout(() => setShowSetteBello(false), 1500);
+    }
     return () => { window.clearTimeout(movingTimer); window.clearTimeout(timer); };
-  }, [lastMove, state.self.id]);
+  }, [lastMove, state.self.id, playSound, resumeAudio]);
 
   const play = (card: Card, capturedCards: Card[]) => {
     onPlayMove(card, capturedCards);
@@ -119,35 +148,60 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
           <strong>Scopa</strong>
           <span>Round {state.roundNumber}</span>
         </div>
-        <button className={styles.leaveButton} onClick={onLeave}>
-          <span className={styles.leaveDesktop}>Leave game</span>
-          <span className={styles.leaveMobile}>Leave</span>
-        </button>
+        <GameControls
+          onNewGame={onLeave}
+          onOpenSettings={onOpenSettings}
+          onOpenStats={onOpenStats}
+          onOpenRules={onOpenRules}
+          onRequestRestart={onRequestRestart}
+          onQuitGame={onLeave}
+          isMultiplayer
+        />
       </header>
 
       <section className={styles.seats} data-count={opponents.length} aria-label="Opponents">
         {opponents.map((player) => (
-          <div key={player.id} className={`${styles.seat} ${player.id === state.round.currentPlayer ? styles.turn : ''} ${!player.connected ? styles.offline : ''}`}>
+          <button key={player.id} type="button" onClick={() => state.pileViewEnabled && onOpenPile(player.id)} className={`${styles.seat} ${player.id === state.round.currentPlayer ? styles.turn : ''} ${!player.connected ? styles.offline : ''} ${state.pileViewEnabled ? styles.clickableSeat : ''}`}>
             <div className={styles.seatName}>
               <span className={styles.turnDot} aria-hidden="true" />
               <strong title={player.nickname}>{player.nickname}</strong>
               {player.id === state.round.dealer && <span className={styles.dealer}>D</span>}
             </div>
-            <div className={styles.seatStats}>
+            {state.pileStatsEnabled && <div className={styles.seatStats}>
               <span>{player.handCount} hand</span>
               <span>{player.capturedCount} won</span>
               <span>{player.score} pts</span>
               {player.scopaCount > 0 && <span>{player.scopaCount} scopa</span>}
-            </div>
+            </div>}
             {!player.connected && <small>offline</small>}
-          </div>
+          </button>
         ))}
       </section>
 
-      {state.status === 'gameEnd' ? (
-        <section className={styles.summary}><h2>Game complete</h2><button onClick={onLeave}>Leave game</button></section>
-      ) : state.status === 'roundEnd' ? (
-        <section className={styles.summary}><h2>Round complete</h2><p>Everyone must continue before the next deal.</p><button onClick={onContinueRound}>Next round</button></section>
+      {state.restartRequests.length > 0 && (
+        <div className={styles.voteBanner}>
+          <span>Restart requested · {state.restartRequests.length}/{state.players.length}</span>
+          <button onClick={onRequestRestart}>
+            {state.restartRequests.includes(state.self.id) ? 'Cancel' : 'Accept'}
+          </button>
+        </div>
+      )}
+
+      {roundEndData ? (
+        <section className={styles.summary}>
+          <h2>Round complete</h2>
+          <div className={styles.finalScores}>
+            {[...state.players].sort((a, b) => (roundEndData.scores[b.id]?.total ?? 0) - (roundEndData.scores[a.id]?.total ?? 0)).map((player) => (
+              <div key={player.id}>
+                <strong>{player.isSelf ? 'You' : player.nickname}</strong>
+                <span>+{roundEndData.scores[player.id]?.total ?? 0} · {player.score} pts</span>
+              </div>
+            ))}
+          </div>
+          {roundEndData.gameOver ? <button onClick={onShowGameEnd}>Show result</button> : <><p>{state.continueRequests.length} / {state.players.length} ready</p><button onClick={onContinueRound} disabled={state.continueRequests.includes(state.self.id)}>Next round</button></>}
+        </section>
+      ) : state.status === 'gameEnd' ? (
+        <section className={styles.summary}><h2>Game complete</h2><div className={styles.finalScores}>{[...state.players].sort((a, b) => b.score - a.score).map((player) => <div key={player.id}><strong>{player.isSelf ? 'You' : player.nickname}</strong><span>{player.score} pts</span></div>)}</div><button onClick={onRequestRematch}>{state.rematchRequests.includes(state.self.id) ? 'Waiting for players...' : 'Play again'}</button><button onClick={onLeave}>Leave game</button></section>
       ) : (
         <>
           <section className={styles.tableSection}>
@@ -169,6 +223,11 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
             <div className={styles.turnText}>
               Deck: {state.round.deckCount} · {isMyTurn ? 'Your turn' : `Turn: ${localPlayerName(state, state.round.currentPlayer)}`}
             </div>
+            {turnTimerEnabled && turnTimerSeconds !== null && (
+              <div className={styles.timer}>
+                <TurnTimer secondsRemaining={turnTimerSeconds} isMyTurn={isMyTurn} canForceMove={canForceMove} onForceMove={onForceMove} />
+              </div>
+            )}
             {animatingMove && animationPhase && (
               <motion.div
                 className={styles.familyMoveAnimation}
@@ -184,20 +243,20 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
           </section>
 
           <section className={styles.bottomDock}>
-            <div className={styles.localStatus}>
+            <button type="button" onClick={() => state.pileViewEnabled && onOpenPile(state.self.id)} className={`${styles.localStatus} ${state.pileViewEnabled ? styles.clickableSeat : ''}`}>
               <div className={styles.localIdentity}>
                 <strong>You</strong>
                 {state.self.id === state.round.dealer && <span className={styles.dealer}>D</span>}
               </div>
-              <div className={styles.localStats}>
+              {state.pileStatsEnabled && <div className={styles.localStats}>
                 <span>{selfPlayer.capturedCount} won</span>
                 <span>{selfPlayer.score} pts</span>
                 {selfPlayer.scopaCount > 0 && <span>{selfPlayer.scopaCount} scopa</span>}
-              </div>
+              </div>}
               <div className={`${styles.turnStatus} ${isMyTurn ? styles.myTurn : ''}`}>
                 {isMyTurn ? 'Your turn' : `Waiting for ${localPlayerName(state, state.round.currentPlayer)}`}
               </div>
-            </div>
+            </button>
             <PlayerHand
               cards={state.self.hand}
               isHuman
@@ -221,6 +280,12 @@ export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinue
         player={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
         playerName={animatingMove ? localPlayerName(state, animatingMove.player) : undefined}
         onComplete={() => setShowScopa(false)}
+      />
+      <SetteBelloCelebration
+        show={showSetteBello}
+        player={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
+        playerName={animatingMove ? localPlayerName(state, animatingMove.player) : undefined}
+        onComplete={() => setShowSetteBello(false)}
       />
     </main>
   );

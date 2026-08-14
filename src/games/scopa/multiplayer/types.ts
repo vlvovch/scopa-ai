@@ -103,6 +103,7 @@ export interface FamilyVisibleGameState {
   players: Array<FamilyRoomPlayer & {
     handCount: number;
     capturedCount: number;
+    captured: Card[];
     scopaCount: number;
     score: number;
   }>;
@@ -111,6 +112,9 @@ export interface FamilyVisibleGameState {
   targetScore: number;
   pileViewEnabled: boolean;
   pileStatsEnabled: boolean;
+  continueRequests: FamilyPlayerId[];
+  restartRequests: FamilyPlayerId[];
+  rematchRequests: FamilyPlayerId[];
 }
 
 export interface FamilyMove {

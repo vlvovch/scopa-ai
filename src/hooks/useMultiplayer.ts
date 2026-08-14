@@ -13,6 +13,7 @@ import type {
   RoundScore,
   FamilyVisibleGameState,
   FamilyRoomPlayer,
+  FamilyPlayerId,
 } from '../games/scopa/multiplayer/types';
 
 // A relative /ws URL keeps local Docker tunnels portable: the browser uses
@@ -117,6 +118,11 @@ export interface UseMultiplayerReturn {
   familyPlayers: FamilyRoomPlayer[];
   familyMaxPlayers: number;
   familyLastMove: { move: import('../games/scopa/multiplayer/types').FamilyMove; state: FamilyVisibleGameState } | null;
+  requestFamilyRestart: () => void;
+  requestFamilyRematch: () => void;
+  forceFamilyMove: () => void;
+  familyRoundEndData: { scores: Record<FamilyPlayerId, RoundScore>; gameOver: boolean } | null;
+  clearFamilyRoundEnd: () => void;
 }
 
 export function useMultiplayer(): UseMultiplayerReturn {
@@ -160,6 +166,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
   const [familyPlayers, setFamilyPlayers] = useState<FamilyRoomPlayer[]>([]);
   const [familyMaxPlayers, setFamilyMaxPlayers] = useState(2);
   const [familyLastMove, setFamilyLastMove] = useState<UseMultiplayerReturn['familyLastMove']>(null);
+  const [familyRoundEndData, setFamilyRoundEndData] = useState<UseMultiplayerReturn['familyRoundEndData']>(null);
 
   // Timer state
   const [turnTimerSeconds, setTurnTimerSeconds] = useState<number | null>(null);
@@ -248,12 +255,22 @@ export function useMultiplayer(): UseMultiplayerReturn {
         reconnectPendingRef.current = false;
         setIsReconnecting(false);
         setFamilyMaxPlayers(message.payload.maxPlayers);
+        setTargetScore(message.payload.targetScore);
+        setTurnTimerEnabled(message.payload.turnTimerEnabled);
         setFamilyPlayers(message.payload.players);
         break;
       case 'GAME_START6':
+        setFamilyRoundEndData(null);
+        setFamilyState(message.payload.state);
+        setFamilyPlayers(message.payload.state.players);
+        setRestartRequestedBy((message.payload.state.restartRequests[0] as MultiplayerPlayerId | undefined) ?? null);
+        break;
       case 'GAME_STATE6':
         setFamilyState(message.payload.state);
         setFamilyPlayers(message.payload.state.players);
+        setPileViewEnabled(message.payload.state.pileViewEnabled);
+        setPileStatsEnabled(message.payload.state.pileStatsEnabled);
+        setRestartRequestedBy((message.payload.state.restartRequests[0] as MultiplayerPlayerId | undefined) ?? null);
         break;
       case 'MOVE_PLAYED6':
         setFamilyState(message.payload.state);
@@ -263,6 +280,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
       case 'ROUND_END6':
         setFamilyState(message.payload.state);
         setFamilyPlayers(message.payload.state.players);
+        setFamilyRoundEndData({ scores: message.payload.scores, gameOver: message.payload.state.status === 'gameEnd' });
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+        setTurnTimerSeconds(null);
         break;
       case 'GAME_ABORTED6':
         clearSession();
@@ -465,6 +486,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
           setRoomCode(null);
           setPlayerId(null);
           setGameState(null);
+          setFamilyState(null);
+          setFamilyPlayers([]);
+          setFamilyLastMove(null);
+          setFamilyRoundEndData(null);
           setRoundEndData(null);
           setGameEndData(null);
           setConnectionStatus('disconnected');
@@ -689,6 +714,18 @@ export function useMultiplayer(): UseMultiplayerReturn {
     sendMessage({ type: 'CONTINUE_ROUND' });
   }, [sendMessage]);
 
+  const requestFamilyRestart = useCallback(() => {
+    sendMessage({ type: 'RESTART_GAME' });
+  }, [sendMessage]);
+
+  const requestFamilyRematch = useCallback(() => {
+    sendMessage({ type: 'START_NEW_GAME' });
+  }, [sendMessage]);
+
+  const forceFamilyMove = useCallback(() => {
+    sendMessage({ type: 'FORCE_MOVE' });
+  }, [sendMessage]);
+
   const forceMove = useCallback(() => {
     sendMessage({ type: 'FORCE_MOVE' });
   }, [sendMessage]);
@@ -747,6 +784,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setFamilyState(null);
     setFamilyPlayers([]);
     setFamilyLastMove(null);
+    setFamilyRoundEndData(null);
     setRoundEndData(null);
     setGameEndData(null);
     setNewGameRequestedBy(null);
@@ -764,6 +802,8 @@ export function useMultiplayer(): UseMultiplayerReturn {
   const clearGameEnd = useCallback(() => {
     setGameEndData(null);
   }, []);
+
+  const clearFamilyRoundEnd = useCallback(() => setFamilyRoundEndData(null), []);
 
   const clearLastMove = useCallback(() => {
     setLastMove(null);
@@ -828,6 +868,11 @@ export function useMultiplayer(): UseMultiplayerReturn {
     familyPlayers,
     familyMaxPlayers,
     familyLastMove,
+    familyRoundEndData,
+    clearFamilyRoundEnd,
+    requestFamilyRestart,
+    requestFamilyRematch,
+    forceFamilyMove,
 
     // Timer state
     turnTimerSeconds,

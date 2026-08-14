@@ -27,7 +27,6 @@ import { CapturedCardsModal } from '../../components/UI/CapturedCardsModal';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { WaitingForOpponent } from '../../components/UI/WaitingForOpponent';
 import { FamilyMultiplayerBoard } from './FamilyMultiplayerBoard';
-import { FamilyWaitingRoom } from './FamilyWaitingRoom';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
@@ -276,6 +275,7 @@ function ScopaApp() {
   const [showCapturedCards, setShowCapturedCards] = useState(false);
   // Multiplayer captured-pile review: which seat's pile is open (host opt-in).
   const [mpOpenPile, setMpOpenPile] = useState<'self' | 'opponent' | null>(null);
+  const [familyOpenPile, setFamilyOpenPile] = useState<import('./multiplayer/types').FamilyPlayerId | null>(null);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
 
   // Spectator mode: track which hands are shown face-up (toggled by clicking)
@@ -2546,14 +2546,41 @@ function ScopaApp() {
   // This check must come BEFORE the idle check because activeState.status
   // remains 'idle' during multiplayer (we're not using the local game state)
   if (multiplayer.familyState) {
+    const openFamilyPlayer = multiplayer.familyState.players.find((player) => player.id === familyOpenPile);
     return (
+      <DeckProvider deck={settings.deck}>
+      <>
       <FamilyMultiplayerBoard
         state={multiplayer.familyState}
         lastMove={multiplayer.familyLastMove}
         onPlayMove={multiplayer.playFamilyMove}
         onContinueRound={multiplayer.continueFamilyRound}
         onLeave={handleLeaveMultiplayer}
+        onOpenSettings={handleOpenSettings}
+        onOpenStats={handleOpenStats}
+        onOpenRules={handleOpenRules}
+        onRequestRestart={multiplayer.requestFamilyRestart}
+        onRequestRematch={multiplayer.requestFamilyRematch}
+        onForceMove={multiplayer.forceFamilyMove}
+        turnTimerEnabled={multiplayer.turnTimerEnabled}
+        turnTimerSeconds={multiplayer.turnTimerSeconds}
+        canForceMove={multiplayer.canForceMove}
+        onOpenPile={setFamilyOpenPile}
+        roundEndData={multiplayer.familyRoundEndData}
+        onShowGameEnd={multiplayer.clearFamilyRoundEnd}
+        soundEnabled={settings.soundEnabled}
       />
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} settings={settings} onUpdateSetting={updateSetting} onResetSettings={resetSettings} />
+      <StatsModal isOpen={showStats} onClose={() => setShowStats(false)} opponents={statsModalOpponents} getGames={getStatsModalGames} onClearStats={clearStats} />
+      <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
+      <CapturedCardsModal
+        isOpen={familyOpenPile !== null}
+        onClose={() => setFamilyOpenPile(null)}
+        cards={openFamilyPlayer?.captured ?? []}
+        playerName={openFamilyPlayer?.isSelf ? undefined : openFamilyPlayer?.nickname}
+      />
+      </>
+      </DeckProvider>
     );
   }
 
@@ -2992,13 +3019,18 @@ function ScopaApp() {
       if (multiplayer.roomCode && !multiplayer.gameState) {
         if (multiplayer.familyMaxPlayers > 2) {
           return (
-            <FamilyWaitingRoom
+            <DeckProvider deck={settings.deck}>
+            <WaitingForOpponent
               roomCode={multiplayer.roomCode}
-              maxPlayers={multiplayer.familyMaxPlayers}
-              players={multiplayer.familyPlayers}
+              nickname={multiplayer.nickname}
+              targetScore={multiplayer.targetScore}
+              turnTimerEnabled={multiplayer.turnTimerEnabled}
               onUpdateNickname={multiplayer.updateNickname}
-              onLeave={handleLeaveMultiplayer}
+              onLeaveRoom={handleLeaveMultiplayer}
+              players={multiplayer.familyPlayers}
+              maxPlayers={multiplayer.familyMaxPlayers}
             />
+            </DeckProvider>
           );
         }
         return (

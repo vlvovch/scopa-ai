@@ -53,10 +53,14 @@ export function dealMultiplayerHands(
   }
 
   const hands = {} as Record<MultiplayerSeatId, Card[]>;
+  for (const seat of activeSeats) hands[seat] = [];
   let offset = 0;
-  for (const seat of activeSeats) {
-    hands[seat] = deck.slice(offset, offset + cardsPerHand);
-    offset += cardsPerHand;
+  for (let round = 0; round < cardsPerHand && offset < deck.length; round += 1) {
+    for (const seat of activeSeats) {
+      if (offset >= deck.length) break;
+      hands[seat].push(deck[offset]);
+      offset += 1;
+    }
   }
 
   return { hands, remaining: deck.slice(offset) };

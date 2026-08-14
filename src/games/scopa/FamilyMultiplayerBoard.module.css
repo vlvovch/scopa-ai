@@ -16,11 +16,10 @@
 .header { display: flex; align-items: center; justify-content: space-between; min-width: 0; }
 .brand { display: flex; align-items: baseline; gap: 8px; }
 .brand span { color: var(--color-text-secondary); font-size: .8rem; }
-.leaveButton { padding: 4px 9px; font-size: .75rem; }
-.leaveMobile { display: none; }
 
 .seats { display: flex; justify-content: center; gap: 8px; min-width: 0; }
-.seat { flex: 1 1 0; max-width: 280px; min-width: 0; padding: 7px 9px; border: 1px solid transparent; border-radius: 7px; background: rgba(0, 0, 0, .18); }
+.seat { flex: 1 1 0; max-width: 280px; min-width: 0; padding: 7px 9px; border: 1px solid transparent; border-radius: 7px; background: rgba(0, 0, 0, .18); color: inherit; text-align: left; }
+.clickableSeat { cursor: pointer; }
 .seat.turn { border-color: var(--color-accent); background: rgba(212, 175, 55, .1); }
 .seat.offline { opacity: .55; }
 .seatName { display: flex; align-items: center; gap: 5px; min-width: 0; }
@@ -30,6 +29,8 @@
 .dealer { flex: 0 0 auto; padding: 0 4px; border-radius: 4px; background: var(--color-accent); color: #181818; font-size: .65rem; font-weight: 800; }
 .seatStats { margin-top: 2px; display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--color-text-secondary); font-size: .66rem; line-height: 1.2; }
 .seat small { font-size: .62rem; color: #ff9d9d; }
+.voteBanner { position: fixed; top: 50px; left: 50%; z-index: 35; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid var(--color-accent); border-radius: 8px; background: rgba(13, 31, 23, .96); font-size: .72rem; }
+.voteBanner button { padding: 3px 8px; }
 
 .tableSection { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; position: relative; }
 .playSurface { width: min(100%, 900px); min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; }
@@ -37,9 +38,10 @@
 .playSurface > :last-child { min-width: 0; }
 .familyMoveAnimation { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 20; }
 .turnText { color: var(--color-text-secondary); font-size: .72rem; }
+.timer { width: min(260px, 80vw); }
 
 .bottomDock { display: grid; grid-template-columns: minmax(130px, .35fr) minmax(280px, 1fr) minmax(100px, .3fr); align-items: center; gap: 8px; min-height: 0; }
-.localStatus { min-width: 0; display: grid; gap: 2px; padding: 6px 8px; border-radius: 7px; background: rgba(0, 0, 0, .18); }
+.localStatus { min-width: 0; display: grid; gap: 2px; padding: 6px 8px; border: 0; border-radius: 7px; background: rgba(0, 0, 0, .18); color: inherit; text-align: left; }
 .localIdentity { display: flex; align-items: center; gap: 5px; }
 .localStats { display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--color-text-secondary); font-size: .66rem; }
 .turnStatus { font-size: .7rem; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -47,6 +49,8 @@
 .actions { min-height: 30px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; color: var(--color-text-secondary); font-size: .72rem; }
 .actions button { padding: 5px 10px; }
 .summary { grid-row: 3 / 5; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; }
+.finalScores { width: min(320px, 90vw); display: grid; gap: 5px; }
+.finalScores > div { display: flex; justify-content: space-between; padding: 7px 10px; border-radius: 6px; background: rgba(0, 0, 0, .18); }
 
 @media (max-width: 600px) {
   .board {
@@ -59,9 +63,6 @@
   .brand { gap: 5px; }
   .brand strong { font-size: .78rem; }
   .brand span { font-size: .62rem; }
-  .leaveDesktop { display: none; }
-  .leaveMobile { display: inline; }
-  .leaveButton { padding: 3px 7px; font-size: .65rem; }
 
   .seats { justify-content: stretch; gap: 4px; overflow: hidden; }
   .seat { max-width: none; padding: 4px 5px; border-radius: 5px; }
@@ -71,6 +72,7 @@
   .seatStats span:nth-child(3) { display: none; }
   .turnDot { width: 5px; height: 5px; }
   .dealer { font-size: .5rem; padding: 0 3px; }
+  .voteBanner { top: 34px; width: calc(100% - 12px); justify-content: space-between; font-size: .58rem; }
 
   .tableSection { gap: 2px; }
   .playSurface { width: 100%; gap: 4px; }

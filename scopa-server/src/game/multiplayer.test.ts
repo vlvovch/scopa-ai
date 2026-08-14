@@ -28,6 +28,14 @@ describe('Scopa multiplayer seats', () => {
     expect(remaining).toHaveLength(22);
   });
 
+  it('distributes a short final deal fairly across five seats', () => {
+    const seats = MULTIPLAYER_SEATS.slice(0, 5);
+    const { hands, remaining } = dealMultiplayerHands(createDeck().slice(0, 6), seats, 3);
+
+    expect(seats.map((seat) => hands[seat].length)).toEqual([2, 1, 1, 1, 1]);
+    expect(remaining).toHaveLength(0);
+  });
+
   it('rejects duplicate or invalid active seats', () => {
     expect(() => dealMultiplayerHands(createDeck(), ['player1', 'player1'], 3)).toThrow(
       'Active seats must be unique'
