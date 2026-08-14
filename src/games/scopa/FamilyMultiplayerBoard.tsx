@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { TableCards } from '../../components/Table/TableCards';
-import { CapturedPile } from '../../components/Table/CapturedPile';
+import { DealerDeck } from '../../components/Table/DealerDeck';
 import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
 import { Card as CardView } from '../../components/Card/Card';
 import type { Card } from './types';
@@ -12,7 +12,6 @@ import styles from './FamilyMultiplayerBoard.module.css';
 
 interface FamilyMultiplayerBoardProps {
   state: FamilyVisibleGameState;
-  nickname: string;
   lastMove: { move: FamilyMove; state: FamilyVisibleGameState } | null;
   onPlayMove: (card: Card, capturedCards: Card[]) => void;
   onContinueRound: () => void;
@@ -39,7 +38,7 @@ function localPlayerName(state: FamilyVisibleGameState, id: FamilyPlayerId): str
   return state.players.find((player) => player.id === id)?.nickname ?? 'Player';
 }
 
-export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, onContinueRound, onLeave }: FamilyMultiplayerBoardProps) {
+export function FamilyMultiplayerBoard({ state, lastMove, onPlayMove, onContinueRound, onLeave }: FamilyMultiplayerBoardProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -47,6 +46,8 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
   const [animationPhase, setAnimationPhase] = useState<'reveal' | 'moving' | 'capturing' | null>(null);
   const [showScopa, setShowScopa] = useState(false);
   const isMyTurn = state.round.currentPlayer === state.self.id;
+  const selfPlayer = state.players.find((player) => player.isSelf)!;
+  const opponents = state.players.filter((player) => !player.isSelf);
 
   const validCaptures = useMemo(
     () => selectedCard ? getValidCaptures(selectedCard, state.round.table) : [],
@@ -111,29 +112,33 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
     else selectCard(card);
   };
 
-  const pileForPlayer = (player: typeof state.players[number]) => (
-    <CapturedPile
-      cards={[]}
-      scopaCount={player.scopaCount}
-      player={player.isSelf ? 'human' : 'cpu'}
-      playerLabel={player.isSelf ? 'You' : player.nickname}
-      capturedCount={player.capturedCount}
-      showStats
-    />
-  );
-
   return (
     <main className={styles.board}>
       <header className={styles.header}>
-        <div><strong>Scopa</strong><span>{nickname} · round {state.roundNumber}</span></div>
-        <button onClick={onLeave}>Leave game</button>
+        <div className={styles.brand}>
+          <strong>Scopa</strong>
+          <span>Round {state.roundNumber}</span>
+        </div>
+        <button className={styles.leaveButton} onClick={onLeave}>
+          <span className={styles.leaveDesktop}>Leave game</span>
+          <span className={styles.leaveMobile}>Leave</span>
+        </button>
       </header>
 
-      <section className={styles.players} aria-label="Players">
-        {state.players.map((player) => (
-          <div key={player.id} className={`${styles.player} ${player.isSelf ? styles.self : ''} ${player.id === state.round.currentPlayer ? styles.turn : ''}`}>
-            <strong>{player.isSelf ? 'You' : player.nickname}</strong>
-            <span>{player.handCount} cards · {player.capturedCount} captured · {player.score} pts</span>
+      <section className={styles.seats} data-count={opponents.length} aria-label="Opponents">
+        {opponents.map((player) => (
+          <div key={player.id} className={`${styles.seat} ${player.id === state.round.currentPlayer ? styles.turn : ''} ${!player.connected ? styles.offline : ''}`}>
+            <div className={styles.seatName}>
+              <span className={styles.turnDot} aria-hidden="true" />
+              <strong title={player.nickname}>{player.nickname}</strong>
+              {player.id === state.round.dealer && <span className={styles.dealer}>D</span>}
+            </div>
+            <div className={styles.seatStats}>
+              <span>{player.handCount} hand</span>
+              <span>{player.capturedCount} won</span>
+              <span>{player.score} pts</span>
+              {player.scopaCount > 0 && <span>{player.scopaCount} scopa</span>}
+            </div>
             {!player.connected && <small>offline</small>}
           </div>
         ))}
@@ -146,18 +151,21 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
       ) : (
         <>
           <section className={styles.tableSection}>
-            <TableCards
-              ref={tableRef}
-              cards={state.round.table}
-              highlightedCardIds={isMyTurn && selectedCard ? validCaptures.flat().map((card) => card.id) : []}
-              selectedCardIds={selectedTableCards.map((card) => card.id)}
-              capturingCardIds={animationPhase === 'capturing' ? animatingMove?.capturedCards.map((card) => card.id) : []}
-              captureDirection={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
-              onCardClick={(card) => setSelectedTableCards((current) => current.some((item) => item.id === card.id) ? current.filter((item) => item.id !== card.id) : [...current, card])}
-              selectable={isMyTurn && selectedCard !== null}
-              deckCount={state.round.deckCount}
-              dealer={state.round.dealer === state.self.id ? 'human' : 'cpu'}
-            />
+            <div className={styles.playSurface}>
+              <div className={styles.deckIndicator}>
+                <DealerDeck cardsRemaining={state.round.deckCount} />
+              </div>
+              <TableCards
+                ref={tableRef}
+                cards={state.round.table}
+                highlightedCardIds={isMyTurn && selectedCard ? validCaptures.flat().map((card) => card.id) : []}
+                selectedCardIds={selectedTableCards.map((card) => card.id)}
+                capturingCardIds={animationPhase === 'capturing' ? animatingMove?.capturedCards.map((card) => card.id) : []}
+                captureDirection={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
+                onCardClick={(card) => setSelectedTableCards((current) => current.some((item) => item.id === card.id) ? current.filter((item) => item.id !== card.id) : [...current, card])}
+                selectable={isMyTurn && selectedCard !== null}
+              />
+            </div>
             <div className={styles.turnText}>
               Deck: {state.round.deckCount} · {isMyTurn ? 'Your turn' : `Turn: ${localPlayerName(state, state.round.currentPlayer)}`}
             </div>
@@ -175,11 +183,21 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
             )}
           </section>
 
-          <section className={styles.piles} aria-label="Captured piles">
-            {state.players.map((player) => <div key={player.id}>{pileForPlayer(player)}</div>)}
-          </section>
-
-          <section className={styles.handSection}>
+          <section className={styles.bottomDock}>
+            <div className={styles.localStatus}>
+              <div className={styles.localIdentity}>
+                <strong>You</strong>
+                {state.self.id === state.round.dealer && <span className={styles.dealer}>D</span>}
+              </div>
+              <div className={styles.localStats}>
+                <span>{selfPlayer.capturedCount} won</span>
+                <span>{selfPlayer.score} pts</span>
+                {selfPlayer.scopaCount > 0 && <span>{selfPlayer.scopaCount} scopa</span>}
+              </div>
+              <div className={`${styles.turnStatus} ${isMyTurn ? styles.myTurn : ''}`}>
+                {isMyTurn ? 'Your turn' : `Waiting for ${localPlayerName(state, state.round.currentPlayer)}`}
+              </div>
+            </div>
             <PlayerHand
               cards={state.self.hand}
               isHuman

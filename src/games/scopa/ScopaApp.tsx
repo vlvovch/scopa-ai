@@ -2549,7 +2549,6 @@ function ScopaApp() {
     return (
       <FamilyMultiplayerBoard
         state={multiplayer.familyState}
-        nickname={multiplayer.nickname}
         lastMove={multiplayer.familyLastMove}
         onPlayMove={multiplayer.playFamilyMove}
         onContinueRound={multiplayer.continueFamilyRound}

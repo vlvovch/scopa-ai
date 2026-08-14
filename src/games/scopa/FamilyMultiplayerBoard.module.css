@@ -1,75 +1,101 @@
 .board {
+  --family-card-width: clamp(52px, 9.4vh, 94px);
+  --card-width: var(--family-card-width);
+  --card-height: calc(var(--family-card-width) * 1.633);
   height: 100dvh;
   min-height: 0;
-  box-sizing: border-box;
-  padding: clamp(12px, 3vw, 32px);
+  padding: 12px clamp(12px, 2vw, 28px) 10px;
   color: var(--color-text-primary);
   background: var(--color-background);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-  gap: 16px;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 8px;
   overflow: hidden;
 }
 
-.header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.header span { margin-left: 12px; opacity: .7; }
-.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
-.player { min-width: 0; padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; background: rgba(0, 0, 0, .16); display: flex; flex-direction: column; gap: 4px; }
-.player span, .player small { font-size: .82rem; opacity: .75; }
-.player.self { background: rgba(212, 175, 55, .12); }
-.player.turn { border: 2px solid var(--color-accent); }
-.tableSection { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: visible; position: relative; }
+.header { display: flex; align-items: center; justify-content: space-between; min-width: 0; }
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand span { color: var(--color-text-secondary); font-size: .8rem; }
+.leaveButton { padding: 4px 9px; font-size: .75rem; }
+.leaveMobile { display: none; }
+
+.seats { display: flex; justify-content: center; gap: 8px; min-width: 0; }
+.seat { flex: 1 1 0; max-width: 280px; min-width: 0; padding: 7px 9px; border: 1px solid transparent; border-radius: 7px; background: rgba(0, 0, 0, .18); }
+.seat.turn { border-color: var(--color-accent); background: rgba(212, 175, 55, .1); }
+.seat.offline { opacity: .55; }
+.seatName { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.seatName strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .82rem; }
+.turnDot { width: 6px; height: 6px; border-radius: 50%; background: transparent; flex: 0 0 auto; }
+.turn .turnDot { background: var(--color-accent); box-shadow: 0 0 7px var(--color-accent); }
+.dealer { flex: 0 0 auto; padding: 0 4px; border-radius: 4px; background: var(--color-accent); color: #181818; font-size: .65rem; font-weight: 800; }
+.seatStats { margin-top: 2px; display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--color-text-secondary); font-size: .66rem; line-height: 1.2; }
+.seat small { font-size: .62rem; color: #ff9d9d; }
+
+.tableSection { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; position: relative; }
+.playSurface { width: min(100%, 900px); min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.deckIndicator { --card-width: 54px; --card-height: 88px; }
+.playSurface > :last-child { min-width: 0; }
 .familyMoveAnimation { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 20; }
-.turnText { color: var(--color-text-secondary); }
-.piles { display: flex; justify-content: center; align-items: flex-start; gap: clamp(8px, 2vw, 28px); flex-wrap: wrap; max-height: 150px; overflow: visible; }
-.piles > div { min-width: 130px; transform: scale(.78); transform-origin: top center; margin: 0 -14px -34px; }
-.handSection { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.actions { min-height: 36px; display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
-.summary { display: grid; place-items: center; gap: 12px; min-height: 40vh; text-align: center; }
+.turnText { color: var(--color-text-secondary); font-size: .72rem; }
+
+.bottomDock { display: grid; grid-template-columns: minmax(130px, .35fr) minmax(280px, 1fr) minmax(100px, .3fr); align-items: center; gap: 8px; min-height: 0; }
+.localStatus { min-width: 0; display: grid; gap: 2px; padding: 6px 8px; border-radius: 7px; background: rgba(0, 0, 0, .18); }
+.localIdentity { display: flex; align-items: center; gap: 5px; }
+.localStats { display: flex; flex-wrap: wrap; gap: 2px 8px; color: var(--color-text-secondary); font-size: .66rem; }
+.turnStatus { font-size: .7rem; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.turnStatus.myTurn { color: var(--color-accent-light); font-weight: 700; }
+.actions { min-height: 30px; display: flex; align-items: center; justify-content: flex-start; gap: 6px; color: var(--color-text-secondary); font-size: .72rem; }
+.actions button { padding: 5px 10px; }
+.summary { grid-row: 3 / 5; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; }
 
 @media (max-width: 600px) {
   .board {
-    --font-scale: .85;
-    --card-width: min(24vw, 94px);
-    --card-height: calc(var(--card-width) * 1.633);
-    padding: max(6px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
-    gap: 5px;
-    font-size: 0.82rem;
+    --font-scale: .72;
+    --family-card-width: min(21vw, 76px);
+    padding: max(5px, env(safe-area-inset-top)) 6px max(5px, env(safe-area-inset-bottom));
+    grid-template-rows: 27px 43px minmax(0, 1fr) auto;
+    gap: 4px;
   }
-  .header { min-height: 30px; }
-  .header { font-size: .82rem; }
-  .header span { margin-left: 6px; }
-  .header button { padding: 4px 8px; font-size: .78rem; }
-  .players {
-    display: flex;
-    gap: 5px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-    padding-bottom: 2px;
-  }
-  .players::-webkit-scrollbar { display: none; }
-  .player { flex: 0 0 142px; padding: 6px; font-size: .78rem; gap: 1px; }
-  .tableSection { min-height: 0; }
-  .piles { gap: 4px; }
-  .piles {
-    --card-width: 42px;
-    --card-height: 69px;
-    max-height: 86px;
-    gap: 2px;
-  }
-  .piles > div { min-width: 88px; transform: none; margin: 0; }
-  .piles .playerLabel { font-size: 7px; }
-  .piles .cardCount { font-size: 9px; padding: 1px 4px; }
-  .piles .stat { font-size: 8px; padding: 1px 3px; }
-  .handSection { gap: 3px; }
-  .actions { min-height: 28px; font-size: .78rem; }
+  .brand { gap: 5px; }
+  .brand strong { font-size: .78rem; }
+  .brand span { font-size: .62rem; }
+  .leaveDesktop { display: none; }
+  .leaveMobile { display: inline; }
+  .leaveButton { padding: 3px 7px; font-size: .65rem; }
+
+  .seats { justify-content: stretch; gap: 4px; overflow: hidden; }
+  .seat { max-width: none; padding: 4px 5px; border-radius: 5px; }
+  .seatName { gap: 3px; }
+  .seatName strong { font-size: .68rem; }
+  .seatStats { flex-wrap: nowrap; gap: 4px; font-size: .53rem; overflow: hidden; white-space: nowrap; }
+  .seatStats span:nth-child(3) { display: none; }
+  .turnDot { width: 5px; height: 5px; }
+  .dealer { font-size: .5rem; padding: 0 3px; }
+
+  .tableSection { gap: 2px; }
+  .playSurface { width: 100%; gap: 4px; }
+  .deckIndicator { --card-width: 36px; --card-height: 59px; }
+  .turnText { font-size: .58rem; }
+
+  .bottomDock { grid-template-columns: 1fr; gap: 2px; justify-items: center; }
+  .localStatus { width: min(100%, 340px); display: flex; align-items: center; justify-content: center; gap: 8px; padding: 3px 6px; }
+  .localIdentity strong { font-size: .65rem; }
+  .localStats { flex-wrap: nowrap; font-size: .53rem; }
+  .turnStatus { font-size: .58rem; }
+  .actions { min-height: 24px; justify-content: center; font-size: .58rem; }
+  .actions:empty { display: none; }
+}
+
+@media (max-width: 380px) {
+  .board { --family-card-width: min(20vw, 68px); }
+  .seatStats span:nth-child(2) { display: none; }
+  .localStats span:nth-child(2) { display: none; }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-  .board { gap: 4px; padding: 6px 12px; }
-  .players { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .tableSection { min-height: 0; }
-  .piles { max-height: 100px; }
-  .piles > div { transform: scale(.55); margin-bottom: -80px; }
+  .board { --family-card-width: min(14vh, 68px); padding: 5px 10px; grid-template-rows: 24px 37px minmax(0, 1fr) auto; gap: 3px; }
+  .seat { padding: 3px 5px; }
+  .bottomDock { grid-template-columns: 130px 1fr 110px; }
+  .localStatus { display: grid; width: auto; }
+  .actions { justify-content: flex-start; }
 }
