@@ -171,8 +171,8 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
             </div>
           </section>
 
-          <section className={styles.piles}>
-            {state.players.filter((player) => !player.isSelf).map((player) => <div key={player.id}>{pileForPlayer(player)}</div>)}
+          <section className={styles.piles} aria-label="Captured piles">
+            {state.players.map((player) => <div key={player.id}>{pileForPlayer(player)}</div>)}
           </section>
 
           <section className={styles.handSection}>

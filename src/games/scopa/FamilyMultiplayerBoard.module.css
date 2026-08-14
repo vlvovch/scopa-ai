@@ -27,12 +27,42 @@
 .summary { display: grid; place-items: center; gap: 12px; min-height: 40vh; text-align: center; }
 
 @media (max-width: 600px) {
-  .board { padding: 8px; gap: 8px; }
-  .players { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; }
-  .player { padding: 7px; font-size: .85rem; }
+  .board {
+    --font-scale: .85;
+    --card-width: min(24vw, 94px);
+    --card-height: calc(var(--card-width) * 1.633);
+    padding: max(6px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+    gap: 5px;
+    font-size: 0.82rem;
+  }
+  .header { min-height: 30px; }
+  .header { font-size: .82rem; }
+  .header span { margin-left: 6px; }
+  .header button { padding: 4px 8px; font-size: .78rem; }
+  .players {
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .players::-webkit-scrollbar { display: none; }
+  .player { flex: 0 0 142px; padding: 6px; font-size: .78rem; gap: 1px; }
   .tableSection { min-height: 0; }
   .piles { gap: 4px; }
-  .piles > div { min-width: 106px; transform: scale(.62); margin: 0 -22px -62px; }
+  .piles {
+    --card-width: 42px;
+    --card-height: 69px;
+    max-height: 86px;
+    gap: 2px;
+  }
+  .piles > div { min-width: 88px; transform: none; margin: 0; }
+  .piles .playerLabel { font-size: 7px; }
+  .piles .cardCount { font-size: 9px; padding: 1px 4px; }
+  .piles .stat { font-size: 8px; padding: 1px 3px; }
+  .handSection { gap: 3px; }
+  .actions { min-height: 28px; font-size: .78rem; }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
