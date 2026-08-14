@@ -18,7 +18,8 @@
 .player span, .player small { font-size: .82rem; opacity: .75; }
 .player.self { background: rgba(212, 175, 55, .12); }
 .player.turn { border: 2px solid var(--color-accent); }
-.tableSection { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: visible; }
+.tableSection { min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: visible; position: relative; }
+.familyMoveAnimation { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 20; }
 .turnText { color: var(--color-text-secondary); }
 .piles { display: flex; justify-content: center; align-items: flex-start; gap: clamp(8px, 2vw, 28px); flex-wrap: wrap; max-height: 150px; overflow: visible; }
 .piles > div { min-width: 130px; transform: scale(.78); transform-origin: top center; margin: 0 -14px -34px; }

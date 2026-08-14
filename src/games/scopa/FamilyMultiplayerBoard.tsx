@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import type { PanInfo } from 'framer-motion';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { TableCards } from '../../components/Table/TableCards';
 import { CapturedPile } from '../../components/Table/CapturedPile';
-import { CpuCardAnimation } from '../../components/UI/CpuCardAnimation';
-import { DealingAnimation, type DealMode } from '../../components/UI/DealingAnimation';
 import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
+import { Card as CardView } from '../../components/Card/Card';
 import type { Card } from './types';
 import type { FamilyMove, FamilyPlayerId, FamilyVisibleGameState } from './multiplayer/types';
 import styles from './FamilyMultiplayerBoard.module.css';
@@ -46,8 +46,6 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
   const [animatingMove, setAnimatingMove] = useState<FamilyMove | null>(null);
   const [animationPhase, setAnimationPhase] = useState<'reveal' | 'moving' | 'capturing' | null>(null);
   const [showScopa, setShowScopa] = useState(false);
-  const [dealing, setDealing] = useState(false);
-  const [dealMode, setDealMode] = useState<DealMode>('table');
   const isMyTurn = state.round.currentPlayer === state.self.id;
 
   const validCaptures = useMemo(
@@ -72,13 +70,6 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
     }
     return () => { window.clearTimeout(movingTimer); window.clearTimeout(timer); };
   }, [lastMove, state.self.id]);
-
-  useEffect(() => {
-    if (state.roundNumber > 1) {
-      setDealing(true);
-      setDealMode('table');
-    }
-  }, [state.roundNumber]);
 
   const play = (card: Card, capturedCards: Card[]) => {
     onPlayMove(card, capturedCards);
@@ -170,6 +161,18 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
             <div className={styles.turnText}>
               Deck: {state.round.deckCount} · {isMyTurn ? 'Your turn' : `Turn: ${localPlayerName(state, state.round.currentPlayer)}`}
             </div>
+            {animatingMove && animationPhase && (
+              <motion.div
+                className={styles.familyMoveAnimation}
+                initial={{ y: animatingMove.player === state.self.id ? 90 : -90, opacity: 0, scale: .8 }}
+                animate={animationPhase === 'capturing'
+                  ? { y: animatingMove.player === state.self.id ? 100 : -100, opacity: 0, scale: .72 }
+                  : { y: 0, opacity: 1, scale: 1 }}
+                transition={{ duration: animationPhase === 'reveal' ? .45 : .35, ease: 'easeOut' }}
+              >
+                <CardView card={animatingMove.cardPlayed} />
+              </motion.div>
+            )}
           </section>
 
           <section className={styles.piles} aria-label="Captured piles">
@@ -184,40 +187,22 @@ export function FamilyMultiplayerBoard({ state, nickname, lastMove, onPlayMove, 
               onCardDoubleClick={doubleClickCard}
               onCardDragEnd={dropCard}
               selectedCardId={selectedCard?.id}
-              disabled={!isMyTurn || animatingMove !== null || dealing}
+              disabled={!isMyTurn || animatingMove !== null}
             />
             <div className={styles.actions}>
               {selectedCard && validCaptures.length === 0 && <button onClick={() => play(selectedCard, [])}>Place card</button>}
               {selectedCard && canCapture && <button onClick={() => play(selectedCard, selectedTableCards)}>Capture</button>}
               {selectedCard && validCaptures.length > 1 && <span>Select the cards to capture</span>}
             </div>
-            {pileForPlayer(state.players.find((player) => player.isSelf)!)}
           </section>
         </>
       )}
 
-      <CpuCardAnimation
-        card={animatingMove?.cardPlayed ?? null}
-        phase={animationPhase}
-        capturedCardIds={animatingMove?.capturedCards.map((card) => card.id) ?? []}
-        player={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
-        skipFlip={animatingMove?.player === state.self.id}
-      />
       <ScopaCelebration
         show={showScopa}
         player={animatingMove?.player === state.self.id ? 'human' : 'cpu'}
         playerName={animatingMove ? localPlayerName(state, animatingMove.player) : undefined}
         onComplete={() => setShowScopa(false)}
-      />
-      <DealingAnimation
-        isDealing={dealing}
-        startPlayer="human"
-        deckPosition="left"
-        dealMode={dealMode}
-        onComplete={() => {
-          if (dealMode === 'table') setDealMode('hands');
-          else { setDealing(false); setDealMode('table'); }
-        }}
       />
     </main>
   );
