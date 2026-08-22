@@ -1,16 +1,34 @@
-// Service Worker for Scopa PWA
-const CACHE_NAME = 'scopa-v18';
+// Service Worker for the Scopa/Briscola PWAs — single source for both
+// games. The __TOKENS__ below are replaced at build time by the
+// injectSwPrecache plugin in vite.config.ts (game name, icon, build id,
+// and the content-hashed /assets/* list, which a static file cannot know).
+// A build that fails to replace them fails loudly in the plugin.
+//
+// Two caches with different lifetimes:
+//   APP_CACHE  ("<game>-app-<buildId>") — index.html + every /assets/*
+//     bundle, written ONLY at install as one atomic set and never
+//     overwritten at runtime. This guarantees the cached HTML and the
+//     hashed JS/CSS it references are always a matched pair, so an
+//     offline launch always boots. (The old single-cache design runtime-
+//     cached the JS, then deleted it on the next deploy's cache-name
+//     bump before re-caching — one brief online open after a deploy left
+//     HTML cached with no JS, and the next offline launch green-screened.)
+//   STATIC_CACHE ("<game>-static-v1") — cards, sounds, icons, manifest.
+//     Survives deploys (no more re-downloading every card each release);
+//     non-default decks are added here at runtime as they are used. Bump
+//     the v1 only when media files change in place.
+const APP_CACHE = '__GAME__-app-__BUILD_ID__';
+const STATIC_CACHE = '__GAME__-static-v1';
 
-// Assets to cache on install - essential for offline play
-// Using absolute paths for SPA routing compatibility with /join/CODE paths
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/scopa-icon.svg',
+const APP_ASSETS = [__APP_ASSETS__];
+
+const STATIC_ASSETS = [
+  '__ICON_PATH__',
   '/manifest.json',
   '/pwa-192.png',
   '/pwa-512.png',
-  // Card images (Napoletane deck)
+  // Card images (Napoletane deck — the shared GameSettings default;
+  // other decks are cached at runtime by the fetch handler below)
   '/cards/napoletane/back.webp',
   '/cards/napoletane/coins-1.webp',
   '/cards/napoletane/coins-2.webp',
@@ -72,43 +90,57 @@ const PRECACHE_ASSETS = [
   '/sounds/coin-dropped-81172.mp3'
 ];
 
-// Install event - cache core assets
+// Install: the app set is atomic (all-or-nothing — a half-cached app is
+// worse than none, because activate would then delete the old complete
+// cache). The static set is incremental: only fetch what this device
+// doesn't already hold, so a deploy doesn't re-download every card.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS);
-    })
+    Promise.all([
+      caches.open(APP_CACHE).then((cache) => cache.addAll(APP_ASSETS)),
+      caches.open(STATIC_CACHE).then(async (cache) => {
+        const missing = [];
+        for (const url of STATIC_ASSETS) {
+          if (!(await cache.match(url))) missing.push(url);
+        }
+        if (missing.length) await cache.addAll(missing);
+      }),
+    ])
   );
-  // Activate immediately
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate: drop every cache of ours that isn't current — old app caches
+// from previous builds and the pre-split names ("scopa-v18",
+// "briscola-v4") both match the prefix. Runs only after install fully
+// succeeded, so the new complete app cache is already in place.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    })
+    caches.keys().then((names) =>
+      Promise.all(
+        names
+          .filter((n) => n.startsWith('__GAME__-') && n !== APP_CACHE && n !== STATIC_CACHE)
+          .map((n) => caches.delete(n))
+      )
+    )
   );
-  // Take control of all pages immediately
   self.clients.claim();
 });
 
 // Fetch strategy:
-//   - HTML / navigations / manifest  -> network-first (always fresh on
-//     an online launch so new deploys land immediately; falls back to
-//     cache when offline so the game still opens).
-//   - everything else (hashed JS/CSS, card images, sounds, icons) ->
-//     cache-first with NO background revalidation. These URLs are
-//     immutable: Vite content-hashes JS/CSS, and card/sound/icon paths
-//     are stable and refreshed by the CACHE_NAME bump on each deploy.
-//     The previous stale-while-revalidate re-downloaded EVERY cached
-//     asset on EVERY launch for nothing (the "redownloads them again"
-//     symptom). Cache-first = zero network once cached.
+//   - navigations / HTML -> network-first so new deploys land on the next
+//     online launch, but the response is NOT written to any cache: the
+//     offline fallback always comes from APP_CACHE, whose HTML is
+//     guaranteed to match its precached assets. (Runtime-caching a newer
+//     HTML over the install-time one is exactly what caused offline
+//     launches to reference JS that wasn't cached.)
+//   - manifest.json -> network-first with STATIC_CACHE fallback.
+//   - /assets/* (content-hashed, immutable) -> cache-first; misses (e.g.
+//     a lazy chunk of a newer build fetched while the old SW is still in
+//     control) are fetched and added to APP_CACHE.
+//   - everything else same-origin (cards of non-default decks, etc.) ->
+//     cache-first into STATIC_CACHE, so once used it works offline and
+//     survives deploys.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -126,31 +158,38 @@ self.addEventListener('fetch', (event) => {
   // Only handle same-origin requests.
   if (url.origin !== self.location.origin) return;
 
-  const isHTML =
+  const isNavigation =
     event.request.mode === 'navigate' ||
     url.pathname === '/' ||
-    url.pathname.endsWith('.html') ||
-    url.pathname === '/manifest.json';
+    url.pathname.endsWith('.html');
 
-  if (isHTML) {
-    // Network-first: keep the app current; fall back to cache offline.
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.open(APP_CACHE).then(async (cache) =>
+          (await cache.match(event.request)) || cache.match('/')
+        )
+      )
+    );
+    return;
+  }
+
+  if (url.pathname === '/manifest.json') {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            caches.open(STATIC_CACHE).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
         })
-        .catch(() =>
-          caches.match(event.request).then((cached) => cached || caches.match('/'))
-        )
+        .catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // Static immutable assets: cache-first, NO revalidation.
+  const targetCache = url.pathname.startsWith('/assets/') ? APP_CACHE : STATIC_CACHE;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
@@ -158,7 +197,7 @@ self.addEventListener('fetch', (event) => {
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+            caches.open(targetCache).then((cache) => cache.put(event.request, copy));
           }
           return networkResponse;
         })

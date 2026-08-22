@@ -142,6 +142,9 @@
   <script src="%VITE_SWETRIX_SCRIPT_URL%" defer></script>
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      // The loader above comes from an external CDN and never arrives on
+      // an offline (airplane-mode) launch — don't throw in that case.
+      if (typeof swetrix === 'undefined') return
       swetrix.init('%VITE_SWETRIX_PROJECT_ID%', {
         apiURL: '%VITE_SWETRIX_API_URL%',
       })
