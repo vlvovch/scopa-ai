@@ -111,6 +111,11 @@
   <meta name="twitter:description" content="%VITE_APP_DESCRIPTION%" />
   <meta name="twitter:image" content="%VITE_SITE_URL%/pwa-512.png" />
 
+  <!-- Canonical URL — VITE_SITE_URL is the primary domain. Alias domains
+       keep serving the app (the Android TWA and installed PWAs are bound
+       to them); this tag points search engines at the primary. -->
+  <link rel="canonical" href="%VITE_SITE_URL%/" />
+
   <!-- iOS standalone PWA install -->
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
