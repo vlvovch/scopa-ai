@@ -45,6 +45,9 @@ export type BriscolaOpponentName =
   | 'openai'
   | 'claude';
 
+const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
+const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playbriscola.com';
+
 export type BriscolaGameMode = 'play' | 'watch' | 'multiplayer';
 
 type OpponentCategory = 'cpu' | 'free-ai' | 'ai';
@@ -531,22 +534,37 @@ export function StartScreen({
             )
         }
 
-        <button
-          className={styles.startButton}
-          onClick={() => {
-            if (gameMode === 'multiplayer') {
-              onStartMultiplayer();
-            } else {
-              onStartGame(bestOf, gameMode);
-            }
-          }}
-        >
-          {gameMode === 'multiplayer'
-            ? t.start.openLobby
-            : gameMode === 'watch'
-              ? t.start.startWatching
-              : t.start.startGame}
-        </button>
+        {ITCH_MODE && gameMode === 'multiplayer' ? (
+          <div className={styles.itchModeNotice}>
+            <p>{t.start.itchNoMultiplayer}</p>
+            <p>{t.start.itchPlayMain}</p>
+            <a
+              href={MAIN_SITE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.itchModeLink}
+            >
+              {MAIN_SITE_URL}
+            </a>
+          </div>
+        ) : (
+          <button
+            className={styles.startButton}
+            onClick={() => {
+              if (gameMode === 'multiplayer') {
+                onStartMultiplayer();
+              } else {
+                onStartGame(bestOf, gameMode);
+              }
+            }}
+          >
+            {gameMode === 'multiplayer'
+              ? t.start.openLobby
+              : gameMode === 'watch'
+                ? t.start.startWatching
+                : t.start.startGame}
+          </button>
+        )}
 
         <div className={`${styles.rulesHint} ${styles.rulesHintLong}`}>
           <h3>{t.start.quickRules}</h3>
