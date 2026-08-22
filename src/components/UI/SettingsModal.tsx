@@ -244,6 +244,7 @@ export function SettingsModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="settings"
           className={styles.overlay}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -701,6 +702,7 @@ export function SettingsModal({
       {/* API Key Security Warning Popup */}
       {showApiKeyWarning && (
         <motion.div
+          key="api-warning"
           className={styles.warningOverlay}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -739,6 +741,7 @@ export function SettingsModal({
 
       {showDeckSelector && (
         <motion.div
+          key="deck-selector"
           className={styles.deckSelectorOverlay}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
