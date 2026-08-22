@@ -75,7 +75,7 @@ const API_KEY_WARNING_KEY = 'scopa-api-key-warning-shown';
 
 // Check if running in itch.io mode (API keys disabled)
 const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
-const MAIN_SITE_URL = 'https://scopa-ai.vovchenko.net';
+const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playscopa.net';
 
 export function SettingsModal({
   isOpen,
