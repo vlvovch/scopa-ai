@@ -6,7 +6,7 @@ The same codebase now also includes **Briscola** — the other Italian trick-tak
 
 ![Scopa AI gameplay](screenshots/gameplay.png)
 
-<p align="center"><b>Play: <a href="https://scopa-ai.vovchenko.net">Scopa</a> · <a href="https://briscola-ai.vovchenko.net">Briscola</a></b></p>
+<p align="center"><b>Play: <a href="https://playscopa.net">playscopa.net</a> · <a href="https://playbriscola.com">playbriscola.com</a></b></p>
 
 ---
 
@@ -17,7 +17,7 @@ This is a continuation of [vlvovch/scopa](https://github.com/vlvovch/scopa), whi
 - **LLM AI opponents** (Gemini, GPT, Claude) that can reason about the game
 - **Real-time multiplayer** via WebSocket server
 - **Watch mode** for spectating CPU/AI vs CPU/AI battles
-- **Briscola** as a sibling game in the same codebase, deployed separately at [briscola-ai.vovchenko.net](https://briscola-ai.vovchenko.net)
+- **Briscola** as a sibling game in the same codebase, deployed separately at [playbriscola.com](https://playbriscola.com)
 
 As a physicist who uses code as a tool for research a lot but has limited background in web development, during the winter break I wanted to explore how far AI coding assistants could take me in building a complete, polished web application, in the future I plan to use this project as a basis for building more complex physics applications.
 The codebase was developed using [Claude Code](https://claude.ai/code) - Anthropic's agentic coding tool. 
@@ -92,7 +92,7 @@ Play against friends online via WebSocket server:
 
 ### Briscola
 
-The Briscola build reuses the same game-mode menu, settings, multiplayer, watch mode, and LLM opponents as Scopa, with game-specific rules, prompts, and an Esperto bot tuned for trick-taking (determinization + alpha-beta minimax). Play at **[briscola-ai.vovchenko.net](https://briscola-ai.vovchenko.net)** or run locally with `npm run dev:briscola`.
+The Briscola build reuses the same game-mode menu, settings, multiplayer, watch mode, and LLM opponents as Scopa, with game-specific rules, prompts, and an Esperto bot tuned for trick-taking (determinization + alpha-beta minimax). Play at **[playbriscola.com](https://playbriscola.com)** or run locally with `npm run dev:briscola`.
 
 ---
 
@@ -100,7 +100,7 @@ The Briscola build reuses the same game-mode menu, settings, multiplayer, watch 
 
 ### Play Online
 
-Visit **[scopa-ai.vovchenko.net](https://scopa-ai.vovchenko.net)** to play immediately. No installation required.
+Visit **[playscopa.net](https://playscopa.net)** to play immediately. No installation required.
 
 For AI opponents (Gemini, GPT, Claude), you'll need to provide your own API keys in Settings. Keys are stored locally in your browser and API calls go directly to the providers.
 
