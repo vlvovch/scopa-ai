@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build --mode scopa",
     "build:scopa": "tsc -b && vite build --mode scopa",
     "build:briscola": "tsc -b && vite build --mode briscola --outDir dist-briscola",
-    "build:itch": "tsc -b && VITE_ITCH_MODE=true vite build --mode scopa --outDir dist-itch",
+    "build:itch": "tsc -b && VITE_ITCH_MODE=true vite build --mode scopa --outDir dist-itch --base=./",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:briscola": "vite preview --outDir dist-briscola",

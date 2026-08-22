@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
 import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
+import { assetUrl } from '../../assetUrl';
 import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../games/scopa/ai';
 import {
   clearGeminiCache as clearBriscolaGeminiCache,
@@ -397,7 +398,7 @@ export function SettingsModal({
                 onClick={() => setShowDeckSelector(true)}
               >
                 <img
-                  src={`/cards/${settings.deck}/coins-1.webp`}
+                  src={assetUrl(`/cards/${settings.deck}/coins-1.webp`)}
                   alt={settings.deck}
                   className={styles.deckPreviewThumb}
                 />
@@ -767,7 +768,7 @@ export function SettingsModal({
                   }}
                 >
                   <img
-                    src={`/cards/${deck.value}/coins-1.webp`}
+                    src={assetUrl(`/cards/${deck.value}/coins-1.webp`)}
                     alt={deck.label}
                     className={styles.deckPreview}
                   />

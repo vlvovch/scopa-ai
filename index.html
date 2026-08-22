@@ -168,7 +168,9 @@
        registration from a prior `vite preview` / production session
        can't keep intercepting. Production keeps the SW unchanged. -->
   <script>
-    if ('serviceWorker' in navigator) {
+    // The itch.io build runs from a subpath on itch's CDN where the
+    // absolute-path service worker can't work — skip it there entirely.
+    if ('serviceWorker' in navigator && '%VITE_ITCH_MODE%' !== 'true') {
       var __isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       if (__isDev) {
         navigator.serviceWorker.getRegistrations()

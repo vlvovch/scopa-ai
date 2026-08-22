@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import type { Card } from '../../games/scopa/types';
 import { useDeck } from '../../contexts/DeckContext';
+import { assetUrl } from '../../assetUrl';
 import type { DeckType } from '../../hooks/useSettings';
 
 interface CardImageProps {
@@ -15,7 +16,7 @@ interface CardImageProps {
 // Get the path to the individual card WebP file
 // Use absolute paths to work correctly with SPA routing (e.g., /join/CODE paths)
 function getCardImagePath(deck: DeckType, suit: Card['suit'], value: number): string {
-  return `/cards/${deck}/${suit}-${value}.webp`;
+  return assetUrl(`/cards/${deck}/${suit}-${value}.webp`);
 }
 
 export function CardImage({ card, style }: CardImageProps) {
@@ -90,7 +91,7 @@ export function CardBack() {
 
   return (
     <img
-      src={`/cards/${deck}/back.webp`}
+      src={assetUrl(`/cards/${deck}/back.webp`)}
       alt="Card back"
       style={{
         display: 'block',

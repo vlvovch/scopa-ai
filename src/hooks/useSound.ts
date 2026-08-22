@@ -2,6 +2,7 @@
 // Audio files from Kenney.nl Casino Audio pack (CC0 license)
 
 import { useCallback, useRef, useEffect } from 'react';
+import { assetUrl } from '../assetUrl';
 
 // Sound types available in the game
 export type SoundType =
@@ -17,14 +18,14 @@ export type SoundType =
 // Sound file mapping with variants for variety
 // Use absolute paths to work correctly with SPA routing (e.g., /join/CODE paths)
 const SOUND_FILES: Record<SoundType, string[]> = {
-  deal: ['/sounds/card-fan-1.mp3'],
-  play: ['/sounds/card-place-1.mp3', '/sounds/card-place-2.mp3'],
-  capture: ['/sounds/card-shove-1.mp3', '/sounds/card-shove-2.mp3'],
-  slide: ['/sounds/card-slide-1.mp3', '/sounds/card-slide-2.mp3'],
-  scopa: ['/sounds/broom-sweep.mp3'],
-  setteBello: ['/sounds/chips-stack-4.mp3'],
-  victory: ['/sounds/chips-stack-1.mp3', '/sounds/chips-stack-4.mp3'],
-  coin: ['/sounds/coin-dropped-81172.mp3'],
+  deal: ['/sounds/card-fan-1.mp3'].map(assetUrl),
+  play: ['/sounds/card-place-1.mp3', '/sounds/card-place-2.mp3'].map(assetUrl),
+  capture: ['/sounds/card-shove-1.mp3', '/sounds/card-shove-2.mp3'].map(assetUrl),
+  slide: ['/sounds/card-slide-1.mp3', '/sounds/card-slide-2.mp3'].map(assetUrl),
+  scopa: ['/sounds/broom-sweep.mp3'].map(assetUrl),
+  setteBello: ['/sounds/chips-stack-4.mp3'].map(assetUrl),
+  victory: ['/sounds/chips-stack-1.mp3', '/sounds/chips-stack-4.mp3'].map(assetUrl),
+  coin: ['/sounds/coin-dropped-81172.mp3'].map(assetUrl),
 };
 
 // --- Web Audio API Singleton ---

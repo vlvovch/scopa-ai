@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { Card, RoundScore } from '../../games/scopa/types';
 import type { GeminiTokenStats, ExtendedAIType } from '../../games/scopa/ai';
+import { assetUrl } from '../../assetUrl';
 import { PRIME_VALUES, SUITS } from '../../games/scopa/constants';
 import { CardImage } from '../Card/CardImage';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
@@ -30,7 +31,7 @@ function CardsIcon() {
 
 function CoinIcon({ deckType }: { deckType: DeckType }) {
   // Uses authentic denari SVG from Wikimedia Commons based on deck type
-  const coinPath = `/cards/${deckType}/suits/coins.svg`;
+  const coinPath = assetUrl(`/cards/${deckType}/suits/coins.svg`);
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       <image href={coinPath} x="2" y="2" width="20" height="20" />
@@ -41,7 +42,7 @@ function CoinIcon({ deckType }: { deckType: DeckType }) {
 function SetteBelloIcon({ deckType }: { deckType: DeckType }) {
   // 7 of Coins card with authentic coins in 2-1-2-2 pattern based on deck type
   const coinSize = 4.5;
-  const coinPath = `/cards/${deckType}/suits/coins.svg`;
+  const coinPath = assetUrl(`/cards/${deckType}/suits/coins.svg`);
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       {/* Card background */}

@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { GeminiTokenStats, ExtendedAIType } from '../../games/scopa/ai';
 import type { RoundHistoryEntry } from '../../games/scopa/types';
 import { TokenStatsDisplay } from './TokenStatsDisplay';
+import { assetUrl } from '../../assetUrl';
 import { AIPlayerLabel } from './AIPlayerLabel';
 import { PersonIcon } from './PersonIcon';
 import { useDeck } from '../../contexts/DeckContext';
@@ -24,7 +25,7 @@ function CardsIcon() {
 }
 
 function CoinIcon({ deckType }: { deckType: DeckType }) {
-  const coinPath = `/cards/${deckType}/suits/coins.svg`;
+  const coinPath = assetUrl(`/cards/${deckType}/suits/coins.svg`);
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       <image href={coinPath} x="2" y="2" width="20" height="20" />
@@ -34,7 +35,7 @@ function CoinIcon({ deckType }: { deckType: DeckType }) {
 
 function SetteBelloIcon({ deckType }: { deckType: DeckType }) {
   const coinSize = 4.5;
-  const coinPath = `/cards/${deckType}/suits/coins.svg`;
+  const coinPath = assetUrl(`/cards/${deckType}/suits/coins.svg`);
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" className={styles.categoryIconSvg}>
       {/* Card background */}
