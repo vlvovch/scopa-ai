@@ -13,12 +13,15 @@
 //     cached the JS, then deleted it on the next deploy's cache-name
 //     bump before re-caching — one brief online open after a deploy left
 //     HTML cached with no JS, and the next offline launch green-screened.)
-//   STATIC_CACHE ("<game>-static-v1") — cards, sounds, icons, manifest.
-//     Survives deploys (no more re-downloading every card each release);
-//     non-default decks are added here at runtime as they are used. Bump
-//     the v1 only when media files change in place.
+//   STATIC_CACHE ("<game>-static-<ver>") — cards, sounds, icons,
+//     manifest. Survives deploys (no more re-downloading every card each
+//     release); non-default decks are added here at runtime as they are
+//     used. The version comes from VITE_STATIC_CACHE_VER in the game's
+//     .env file — bump it only when media files change in place (the
+//     cache is cache-first with no revalidation, so a changed file under
+//     an unchanged URL never reaches existing visitors otherwise).
 const APP_CACHE = '__GAME__-app-__BUILD_ID__';
-const STATIC_CACHE = '__GAME__-static-v1';
+const STATIC_CACHE = '__GAME__-static-__STATIC_VER__';
 
 const APP_ASSETS = [__APP_ASSETS__];
 

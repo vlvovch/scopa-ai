@@ -40,7 +40,7 @@ function copyVariantAssets(game: string | undefined) {
  * failure mode), and only the finished build knows their hashed names.
  * Throws if a token is missing so an unpatched sw.js can never ship.
  */
-function injectSwPrecache(game: string | undefined, iconPath: string | undefined) {
+function injectSwPrecache(game: string | undefined, iconPath: string | undefined, staticVer: string | undefined) {
   let outDir = 'dist'
   return {
     name: 'briscola-scopa:inject-sw-precache',
@@ -50,6 +50,7 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
     closeBundle() {
       if (!game) throw new Error('injectSwPrecache: VITE_GAME is not set')
       if (!iconPath) throw new Error('injectSwPrecache: VITE_ICON_PATH is not set')
+      if (!staticVer) throw new Error('injectSwPrecache: VITE_STATIC_CACHE_VER is not set')
       const swPath = path.join(outDir, 'sw.js')
       let sw = readFileSync(swPath, 'utf8')
       const assets = readdirSync(path.join(outDir, 'assets')).sort()
@@ -64,6 +65,7 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
         ['[__APP_ASSETS__]', JSON.stringify(appAssets)],
         ['__BUILD_ID__', buildId],
         ['__ICON_PATH__', iconPath],
+        ['__STATIC_VER__', staticVer],
         ['__GAME__', game],
       ]
       for (const [token, value] of replacements) {
@@ -81,7 +83,7 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
   return {
-  plugins: [react(), copyVariantAssets(env.VITE_GAME), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH)],
+  plugins: [react(), copyVariantAssets(env.VITE_GAME), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER)],
   base: '/',  // Use absolute paths for SPA routing with /join/CODE paths
   server: {
     hmr: {
