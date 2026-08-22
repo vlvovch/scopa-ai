@@ -56,6 +56,7 @@ import { ReasoningModal, type LastMoveData } from '../../components/UI/Reasoning
 import { ThinkingBubble } from '../../components/UI/ThinkingBubble';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
+import { trackGameStarted, trackGameCompleted } from '../../analytics';
 import { GameControls } from '../../components/UI/GameControls';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
@@ -1078,6 +1079,7 @@ function BriscolaApp() {
       bestOf,
       state.game.roundHistory
     );
+    trackGameCompleted({ mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
   }, [state, opponentName, bestOf, stats, gameMode, modelFor]);
 
   // Clear the dedup id whenever a new match starts.
@@ -1086,6 +1088,34 @@ function BriscolaApp() {
       matchRecordedRef.current = null;
     }
   }, [state.status]);
+
+  // Multiplayer is deliberately absent from the local stats store (see
+  // above), but it does count for the anonymous player analytics — same
+  // seams as Scopa: a start when gameState appears with no gameEndData
+  // (covers the initial GAME_START and rematch NEW_GAME_STARTED), and one
+  // completion per gameEndData.
+  const multiplayerStartTracked = useRef(false);
+  useEffect(() => {
+    if (multiplayer.gameState && !multiplayer.gameEndData) {
+      if (!multiplayerStartTracked.current) {
+        multiplayerStartTracked.current = true;
+        trackGameStarted({ mode: 'multiplayer', opponent: 'human' });
+      }
+    } else {
+      multiplayerStartTracked.current = false;
+    }
+  }, [multiplayer.gameState, multiplayer.gameEndData]);
+
+  const multiplayerCompletedTracked = useRef(false);
+  useEffect(() => {
+    if (multiplayer.gameEndData && !multiplayerCompletedTracked.current) {
+      multiplayerCompletedTracked.current = true;
+      trackGameCompleted({ mode: 'multiplayer', opponent: 'human' });
+    }
+    if (!multiplayer.gameEndData) {
+      multiplayerCompletedTracked.current = false;
+    }
+  }, [multiplayer.gameEndData]);
 
   // Reset the per-round last-move pointers + reset the LLM conversation
   // history at the start of every round (dealing → playing transition).
@@ -1857,6 +1887,11 @@ function BriscolaApp() {
           onStartGame={(n, mode) => {
             setBestOf(n);
             setGameMode(mode);
+            // Anonymous player analytics: one event per match the visitor
+            // actually plays. Watch mode is spectating — excluded.
+            if (mode === 'play') {
+              trackGameStarted({ mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
+            }
             dispatch({ type: 'START', bestOf: n });
           }}
           onStartMultiplayer={() => {
