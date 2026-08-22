@@ -145,10 +145,18 @@
       // The loader above comes from an external CDN and never arrives on
       // an offline (airplane-mode) launch — don't throw in that case.
       if (typeof swetrix === 'undefined') return
+      // Exclude development/testing traffic: only production hostnames
+      // report analytics (localhost dev servers, *.test Playwright runs).
+      var h = location.hostname
+      if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost') ||
+          h.endsWith('.test') || h.endsWith('.local')) return
       swetrix.init('%VITE_SWETRIX_PROJECT_ID%', {
         apiURL: '%VITE_SWETRIX_API_URL%',
+        respectDNT: true,
       })
       swetrix.trackViews()
+      // Gate for in-app gameplay events (src/analytics.ts).
+      window.__swetrixReady = true
     })
   </script>
 

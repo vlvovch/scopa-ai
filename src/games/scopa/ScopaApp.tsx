@@ -30,6 +30,7 @@ import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
 import { DeckProvider } from '../../contexts/DeckContext';
+import { trackGameStarted, trackGameCompleted } from '../../analytics';
 import { useT } from '../../i18n/LanguageContext';
 import { getValidMoves } from './rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
@@ -2171,6 +2172,23 @@ function ScopaApp() {
     }
   }, [multiplayer.gameState, multiplayerRoundHistory.length]);
 
+  // Track multiplayer game starts for analytics. Both the initial
+  // GAME_START and a rematch's NEW_GAME_STARTED surface as "gameState
+  // present with no gameEndData"; the ref re-arms when a game ends or the
+  // room is left, so each game fires exactly once. (Known epsilon: a page
+  // reload + reconnect mid-game resets the ref and re-fires.)
+  const multiplayerStartTracked = useRef(false);
+  useEffect(() => {
+    if (multiplayer.gameState && !multiplayer.gameEndData) {
+      if (!multiplayerStartTracked.current) {
+        multiplayerStartTracked.current = true;
+        trackGameStarted({ mode: 'multiplayer', opponent: 'human' });
+      }
+    } else {
+      multiplayerStartTracked.current = false;
+    }
+  }, [multiplayer.gameState, multiplayer.gameEndData]);
+
   // Record multiplayer game to stats when game ends
   const multiplayerGameRecorded = useRef(false);
   useEffect(() => {
@@ -2188,6 +2206,7 @@ function ScopaApp() {
         multiplayer.opponentNickname // Use opponent nickname as "model" for accumulation
       );
       multiplayerGameRecorded.current = true;
+      trackGameCompleted({ mode: 'multiplayer', opponent: 'human' });
 
       // Play victory sound (only if we won)
       if (multiplayer.gameEndData.finalScores[myId] > multiplayer.gameEndData.finalScores[oppId]) {
@@ -2205,6 +2224,12 @@ function ScopaApp() {
   const handleStartGame = useCallback((targetScore: number, gameMode: 'pvsCPU' | 'cpuVsCPU') => {
     // Enforce 11-point limit for free AI games
     const effectiveScore = isGeminiFree(settings.cpuAI) ? Math.min(targetScore, 11) : targetScore;
+
+    // Anonymous player analytics: one event per game the visitor actually
+    // plays. Watch mode (cpuVsCPU) is spectating, not playing — excluded.
+    if (gameMode === 'pvsCPU') {
+      trackGameStarted({ mode: 'solo', opponent: isLLMAI(settings.cpuAI) ? 'ai' : 'cpu' });
+    }
 
     // Reset token stats for all LLM types
     resetAllTokenStats();
@@ -2237,7 +2262,7 @@ function ScopaApp() {
       setUseWorkerMode(false);
       startGame(effectiveScore, gameMode);
     }
-  }, [startGame, resetAllTokenStats, canUseWorker, startSimulation, spectatorAIs, settings.animationSpeed, settings.cpuAI, isGeminiFree]);
+  }, [startGame, resetAllTokenStats, canUseWorker, startSimulation, spectatorAIs, settings.animationSpeed, settings.cpuAI, isGeminiFree, isLLMAI]);
 
   // Handle new game request
   const handleNewGame = useCallback(() => {
@@ -2335,8 +2360,12 @@ function ScopaApp() {
     setShowRules(true);
   }, []);
 
-  // Record game stats when game ends (only for player vs CPU mode)
-  const gameRecorded = useRef(false);
+  // Record game stats when game ends (only for player vs CPU mode).
+  // Seeded from the mount-time status: a session can restore directly
+  // into 'gameEnd' (tab closed at the end screen, state persisted), and
+  // that game was already recorded last session — re-recording it would
+  // duplicate the stats entry and the GAME_COMPLETED analytics event.
+  const gameRecorded = useRef(activeState.status === 'gameEnd');
   useEffect(() => {
     // Only record for player vs CPU games
     if (activeState.gameMode !== 'pvsCPU') {
@@ -2376,6 +2405,7 @@ function ScopaApp() {
         useThinking
       );
       gameRecorded.current = true;
+      trackGameCompleted({ mode: 'solo', opponent: isLLMOpponent ? 'ai' : 'cpu' });
 
       // Play victory celebration sound
       playSound('victory');
