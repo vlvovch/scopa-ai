@@ -11,10 +11,19 @@ import type {
   MultiplayerSession,
   ConnectionStatus,
   RoundScore,
+  FamilyVisibleGameState,
+  FamilyRoomPlayer,
+  FamilyPlayerId,
 } from '../games/scopa/multiplayer/types';
 
-// Configuration
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+// A relative /ws URL keeps local Docker tunnels portable: the browser uses
+// the same public origin for HTTPS and WebSocket traffic.
+function getWebSocketUrl(): string {
+  const configuredUrl = import.meta.env.VITE_WS_URL;
+  if (configuredUrl && configuredUrl !== '/ws') return configuredUrl;
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
+}
 const RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const PING_INTERVAL_MS = 30000;
@@ -91,7 +100,7 @@ export interface UseMultiplayerReturn {
     nickname: string,
     targetScore: number,
     turnTimerEnabled: boolean,
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => void;
   joinRoom: (code: string, nickname: string) => void;
   playMove: (move: MultiplayerMove) => void;
@@ -103,6 +112,19 @@ export interface UseMultiplayerReturn {
   leaveRoom: () => void;
   clearRoundEnd: () => void;
   clearGameEnd: () => void;
+  playFamilyMove: (card: Card, capturedCards: Card[]) => void;
+  continueFamilyRound: () => void;
+  familyState: FamilyVisibleGameState | null;
+  familyPlayers: FamilyRoomPlayer[];
+  familyMaxPlayers: number;
+  familyLastMove: { move: import('../games/scopa/multiplayer/types').FamilyMove; state: FamilyVisibleGameState } | null;
+  applyFamilyPendingState: () => void;
+  requestFamilyRestart: () => void;
+  requestFamilyRematch: () => void;
+  forceFamilyMove: () => void;
+  familyRoundEndData: { scores: Record<FamilyPlayerId, RoundScore>; gameOver: boolean } | null;
+  clearFamilyRoundEnd: () => void;
+  finalizeFamilyRoundEnd: () => void;
 }
 
 export function useMultiplayer(): UseMultiplayerReturn {
@@ -142,6 +164,12 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   // Game state
   const [gameState, setGameState] = useState<PlayerVisibleGameState | null>(null);
+  const [familyState, setFamilyState] = useState<FamilyVisibleGameState | null>(null);
+  const [familyPlayers, setFamilyPlayers] = useState<FamilyRoomPlayer[]>([]);
+  const [familyMaxPlayers, setFamilyMaxPlayers] = useState(2);
+  const [familyLastMove, setFamilyLastMove] = useState<UseMultiplayerReturn['familyLastMove']>(null);
+  const [familyRoundEndData, setFamilyRoundEndData] = useState<UseMultiplayerReturn['familyRoundEndData']>(null);
+  const pendingFamilyRoundEndRef = useRef<UseMultiplayerReturn['familyRoundEndData']>(null);
 
   // Timer state
   const [turnTimerSeconds, setTurnTimerSeconds] = useState<number | null>(null);
@@ -210,6 +238,68 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
   const handleServerMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
+      case 'ROOM_CREATED6':
+        setRoomCode(message.payload.roomCode);
+        setPlayerId(message.payload.playerId as MultiplayerPlayerId);
+        setFamilyMaxPlayers(message.payload.maxPlayers);
+        saveSession({ sessionToken: message.payload.sessionToken, roomCode: message.payload.roomCode, playerId: message.payload.playerId, nickname });
+        break;
+      case 'ROOM_JOINED6':
+        setRoomCode(message.payload.roomCode);
+        setPlayerId(message.payload.playerId as MultiplayerPlayerId);
+        setFamilyMaxPlayers(message.payload.maxPlayers);
+        setTargetScore(message.payload.targetScore);
+        setTurnTimerEnabled(message.payload.turnTimerEnabled);
+        saveSession({ sessionToken: message.payload.sessionToken, roomCode: message.payload.roomCode, playerId: message.payload.playerId, nickname });
+        break;
+      case 'ROOM_SNAPSHOT6':
+        setRoomCode(message.payload.roomCode);
+        setPlayerId(message.payload.playerId as MultiplayerPlayerId);
+        reconnectPendingRef.current = false;
+        setIsReconnecting(false);
+        setFamilyMaxPlayers(message.payload.maxPlayers);
+        setTargetScore(message.payload.targetScore);
+        setTurnTimerEnabled(message.payload.turnTimerEnabled);
+        setFamilyPlayers(message.payload.players);
+        break;
+      case 'GAME_START6':
+        setFamilyRoundEndData(null);
+        setFamilyState(message.payload.state);
+        setFamilyPlayers(message.payload.state.players);
+        setRestartRequestedBy((message.payload.state.restartRequests[0] as MultiplayerPlayerId | undefined) ?? null);
+        break;
+      case 'GAME_STATE6':
+        setFamilyState(message.payload.state);
+        setFamilyPlayers(message.payload.state.players);
+        setFamilyRoundEndData(message.payload.state.lastRoundScores ? { scores: message.payload.state.lastRoundScores, gameOver: message.payload.state.lastRoundGameOver } : null);
+        setPileViewEnabled(message.payload.state.pileViewEnabled);
+        setPileStatsEnabled(message.payload.state.pileStatsEnabled);
+        setRestartRequestedBy((message.payload.state.restartRequests[0] as MultiplayerPlayerId | undefined) ?? null);
+        break;
+      case 'MOVE_PLAYED6':
+        setFamilyLastMove({ move: message.payload.move, state: message.payload.state });
+        break;
+      case 'ROUND_END6':
+        pendingFamilyRoundEndRef.current = { scores: message.payload.scores, gameOver: message.payload.state.status === 'gameEnd' };
+        if (message.payload.move) {
+          setFamilyLastMove({ move: message.payload.move, state: message.payload.state });
+        } else {
+          setFamilyState(message.payload.state);
+          setFamilyPlayers(message.payload.state.players);
+          setFamilyRoundEndData(pendingFamilyRoundEndRef.current);
+          pendingFamilyRoundEndRef.current = null;
+        }
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+        setTurnTimerSeconds(null);
+        break;
+      case 'GAME_ABORTED6':
+        clearSession();
+        setRoomCode(null);
+        setFamilyState(null);
+        setFamilyPlayers([]);
+        setConnectionError(message.payload.reason);
+        break;
       case 'ROOM_CREATED':
         setRoomCode(message.payload.roomCode);
         setPlayerId(message.payload.playerId);
@@ -404,6 +494,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
           setRoomCode(null);
           setPlayerId(null);
           setGameState(null);
+          setFamilyState(null);
+          setFamilyPlayers([]);
+          setFamilyLastMove(null);
+          setFamilyRoundEndData(null);
           setRoundEndData(null);
           setGameEndData(null);
           setConnectionStatus('disconnected');
@@ -451,7 +545,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setConnectionStatus(attemptReconnect ? 'reconnecting' : 'connecting');
     setConnectionError(null);
 
-    const ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(getWebSocketUrl());
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -477,7 +571,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
         });
         setNickname(session.nickname);
         setRoomCode(session.roomCode);
-        setPlayerId(session.playerId);
+        setPlayerId(session.playerId as MultiplayerPlayerId);
       }
     };
 
@@ -550,10 +644,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
     playerNickname: string,
     score: number,
     timerEnabled: boolean,
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => {
-    const pileView = roomOptions.pileView ?? false;
-    const pileStats = roomOptions.pileStats ?? false;
+    const pileView = roomOptions.pileView === true;
+    const pileStats = roomOptions.pileStats === true;
 
     // Clear any existing session when creating a new game
     clearSession();
@@ -577,6 +671,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
             turnTimerEnabled: timerEnabled,
             pileViewEnabled: pileView,
             pileStatsEnabled: pileStats,
+            ...(typeof roomOptions.maxPlayers === 'number' && roomOptions.maxPlayers > 2
+              ? { maxPlayers: roomOptions.maxPlayers }
+              : {}),
           },
         });
       }
@@ -615,6 +712,26 @@ export function useMultiplayer(): UseMultiplayerReturn {
       type: 'PLAY_MOVE',
       payload: { move },
     });
+  }, [sendMessage]);
+
+  const playFamilyMove = useCallback((card: Card, capturedCards: Card[]) => {
+    sendMessage({ type: 'PLAY_MOVE', payload: { move: { player: 'player1', cardPlayed: card, capturedCards, isScopa: false } } });
+  }, [sendMessage]);
+
+  const continueFamilyRound = useCallback(() => {
+    sendMessage({ type: 'CONTINUE_ROUND' });
+  }, [sendMessage]);
+
+  const requestFamilyRestart = useCallback(() => {
+    sendMessage({ type: 'RESTART_GAME' });
+  }, [sendMessage]);
+
+  const requestFamilyRematch = useCallback(() => {
+    sendMessage({ type: 'START_NEW_GAME' });
+  }, [sendMessage]);
+
+  const forceFamilyMove = useCallback(() => {
+    sendMessage({ type: 'FORCE_MOVE' });
   }, [sendMessage]);
 
   const forceMove = useCallback(() => {
@@ -672,6 +789,10 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setOpponentNickname(null);
     setIsOpponentConnected(false);
     setGameState(null);
+    setFamilyState(null);
+    setFamilyPlayers([]);
+    setFamilyLastMove(null);
+    setFamilyRoundEndData(null);
     setRoundEndData(null);
     setGameEndData(null);
     setNewGameRequestedBy(null);
@@ -690,6 +811,15 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setGameEndData(null);
   }, []);
 
+  const clearFamilyRoundEnd = useCallback(() => setFamilyRoundEndData(null), []);
+
+  const finalizeFamilyRoundEnd = useCallback(() => {
+    if (pendingFamilyRoundEndRef.current) {
+      setFamilyRoundEndData(pendingFamilyRoundEndRef.current);
+      pendingFamilyRoundEndRef.current = null;
+    }
+  }, []);
+
   const clearLastMove = useCallback(() => {
     setLastMove(null);
   }, []);
@@ -699,6 +829,16 @@ export function useMultiplayer(): UseMultiplayerReturn {
     setLastMove(prev => {
       if (prev?.pendingState) {
         setGameState(prev.pendingState);
+      }
+      return null;
+    });
+  }, []);
+
+  const applyFamilyPendingState = useCallback(() => {
+    setFamilyLastMove((pending) => {
+      if (pending) {
+        setFamilyState(pending.state);
+        setFamilyPlayers(pending.state.players);
       }
       return null;
     });
@@ -749,6 +889,17 @@ export function useMultiplayer(): UseMultiplayerReturn {
 
     // Game state
     gameState,
+    familyState,
+    familyPlayers,
+    familyMaxPlayers,
+    familyLastMove,
+    applyFamilyPendingState,
+    familyRoundEndData,
+    clearFamilyRoundEnd,
+    finalizeFamilyRoundEnd,
+    requestFamilyRestart,
+    requestFamilyRematch,
+    forceFamilyMove,
 
     // Timer state
     turnTimerSeconds,
@@ -784,5 +935,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     leaveRoom,
     clearRoundEnd,
     clearGameEnd,
+    playFamilyMove,
+    continueFamilyRound,
   };
 }

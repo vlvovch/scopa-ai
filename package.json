@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "preview:briscola": "vite preview --outDir dist-briscola",
     "preview:itch": "vite preview --outDir dist-itch",
+    "docker:clean": "sh scripts/family-clean.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "simulate": "tsx scripts/simulate.ts"

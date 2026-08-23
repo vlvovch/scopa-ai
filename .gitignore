@@ -47,3 +47,6 @@ local/
 
 # Android build
 android-twa/
+
+# Docker local state
+.docker/

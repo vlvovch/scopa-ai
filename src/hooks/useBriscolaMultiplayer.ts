@@ -86,7 +86,7 @@ export interface UseBriscolaMultiplayerReturn {
     nickname: string,
     targetScore: number,
     turnTimerEnabled: boolean,
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => void;
   joinRoom: (code: string, nickname: string) => void;
   playMove: (move: MultiplayerMove) => void;
@@ -542,10 +542,10 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
     playerNickname: string,
     score: number,
     timerEnabled: boolean,
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => {
-    const pileView = roomOptions.pileView ?? false;
-    const pileStats = roomOptions.pileStats ?? false;
+    const pileView = roomOptions.pileView === true;
+    const pileStats = roomOptions.pileStats === true;
 
     // Clear any existing session when creating a new game
     clearSession();
