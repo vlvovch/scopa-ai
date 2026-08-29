@@ -5,7 +5,7 @@
 // Opus 5 errored whenever thinking was enabled).
 
 import { describe, it, expect, vi } from 'vitest';
-import { isAdaptiveThinkingModel } from './claude';
+import { isAdaptiveThinkingModel, isAlwaysThinkingModel } from './claude';
 
 // claude.ts imports the SDK and the settings hook at module level;
 // neither is exercised by the pure gating function.
@@ -42,5 +42,19 @@ describe('isAdaptiveThinkingModel', () => {
   it('defaults unknown and future model names to adaptive', () => {
     expect(isAdaptiveThinkingModel('claude-sonnet-6')).toBe(true);
     expect(isAdaptiveThinkingModel('claude-somenewfamily-2')).toBe(true);
+  });
+});
+
+describe('isAlwaysThinkingModel', () => {
+  it('flags the 5-family (thinking on by default even when param omitted)', () => {
+    expect(isAlwaysThinkingModel('claude-sonnet-5')).toBe(true);
+    expect(isAlwaysThinkingModel('claude-opus-5')).toBe(true);
+    expect(isAlwaysThinkingModel('claude-fable-5')).toBe(true);
+  });
+
+  it('4.x models can genuinely disable thinking by omitting the param', () => {
+    expect(isAlwaysThinkingModel('claude-opus-4-8')).toBe(false);
+    expect(isAlwaysThinkingModel('claude-sonnet-4-6')).toBe(false);
+    expect(isAlwaysThinkingModel('claude-sonnet-4-5-20250929')).toBe(false);
   });
 });

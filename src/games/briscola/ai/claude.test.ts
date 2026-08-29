@@ -53,6 +53,7 @@ vi.mock('../../scopa/ai/claude', () => ({
   // legacy budget_tokens only for pre-4.6 models.
   isAdaptiveThinkingModel: (m: string) =>
     !/claude-3|sonnet-4-5|haiku-4-5|opus-4-5|opus-4-1|opus-4-2\d{7}/.test(m),
+  isAlwaysThinkingModel: (m: string) => /fable|sonnet-5|opus-5|haiku-5/.test(m),
 }));
 
 function fakeClaudeResponse(json: object, options: { usage?: object } = {}) {
@@ -138,6 +139,22 @@ describe('ClaudeBriscolaAI', () => {
     const params = mocks.messagesCreate.mock.calls[0][0];
     expect(params.thinking).toMatchObject({ type: 'enabled' });
     expect(params.thinking.budget_tokens).toBeGreaterThan(0);
+  });
+
+  it('5-family "off" maps to adaptive effort:low (omitting still thinks there)', async () => {
+    mocks.messagesCreate.mockResolvedValueOnce(
+      fakeClaudeResponse({ moveIndex: 0, reasoning: 'x' })
+    );
+    const { getClaudeBriscolaAI, clearClaudeCache } = await import('./claude');
+    clearClaudeCache();
+    const ai = getClaudeBriscolaAI('claude-sonnet-5', false, 'multiturn');
+    ai!.startRound();
+    await ai!.selectMove(ctx());
+
+    const params = mocks.messagesCreate.mock.calls[0][0];
+    expect(params.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+    expect(params.output_config.effort).toBe('low');
+    expect(params.max_tokens).toBe(16000); // thinking needs headroom
   });
 
   it('omits thinking entirely when useThinking=false (Flash-style)', async () => {

@@ -9,6 +9,7 @@ import {
   getClaudeApiKey,
   isClaudeAvailable,
   isAdaptiveThinkingModel,
+  isAlwaysThinkingModel,
   type ClaudeTokenStats,
   type ClaudeTokenDelta,
 } from './claude';
@@ -301,7 +302,10 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
 
       // Single request with full context using structured outputs (beta)
       // Extended thinking enabled when useExtendedThinking is true and multiple moves available
-      const shouldThink = this.useExtendedThinking && validMoves.length > 1;
+      // 5-family models think even when the param is omitted — "off"
+      // there is adaptive at effort 'low' (and needs thinking headroom).
+      const alwaysThinks = isAlwaysThinkingModel(this.model);
+      const shouldThink = (this.useExtendedThinking || alwaysThinks) && validMoves.length > 1;
 
       // Build API request parameters using structured outputs
       // (GA via output_config.format; output_format is deprecated)
@@ -320,8 +324,9 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
           // 4.6+ and the 5-family: adaptive thinking; explicit display
           // (the default is 'omitted' since Opus 4.7)
           requestParams.thinking = { type: 'adaptive', display: 'summarized' };
-          requestParams.output_config.effort =
-            getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
+          requestParams.output_config.effort = !this.useExtendedThinking
+            ? 'low'
+            : getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
         } else {
           // Older models: Use manual thinking with budget_tokens
           requestParams.thinking = {

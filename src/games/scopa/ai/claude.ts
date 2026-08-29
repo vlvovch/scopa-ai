@@ -35,6 +35,19 @@ export function isAdaptiveThinkingModel(model: string): boolean {
   return major === 4 && minor >= 6;
 }
 
+/**
+ * The 5-family (Sonnet 5, Opus 5, Fable 5) has thinking ON BY DEFAULT:
+ * omitting the `thinking` param still runs adaptive thinking. "Thinking
+ * off" there means adaptive at effort 'low' (explicit disabled has
+ * documented failure modes on Opus 5 and is rejected by Fable 5). On
+ * 4.6–4.8, omitting the param genuinely disables thinking.
+ */
+export function isAlwaysThinkingModel(model: string): boolean {
+  if (model.includes('fable')) return true;
+  const m = model.match(/claude-(?:opus|sonnet|haiku)-(\d+)/);
+  return m !== null && parseInt(m[1], 10) >= 5;
+}
+
 // Model info returned from API
 export interface ClaudeModelInfo {
   id: string;
@@ -426,7 +439,10 @@ class ClaudeAI implements AsyncAIPlayer {
       // Add user message to conversation
       this.messages.push({ role: 'user', content: prompt });
 
-      const shouldThink = this.useExtendedThinking;
+      // 5-family models think even when the param is omitted — "off"
+      // there is adaptive at effort 'low' (and needs thinking headroom).
+      const alwaysThinks = isAlwaysThinkingModel(this.model);
+      const shouldThink = this.useExtendedThinking || alwaysThinks;
 
       // Build API request parameters. Structured outputs are GA via
       // output_config.format (the old output_format param is deprecated);
@@ -454,8 +470,9 @@ class ClaudeAI implements AsyncAIPlayer {
           // default is 'omitted' (empty thinking text), which left the
           // reasoning UI blank on current models.
           requestParams.thinking = { type: 'adaptive', display: 'summarized' };
-          requestParams.output_config.effort =
-            getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
+          requestParams.output_config.effort = !this.useExtendedThinking
+            ? 'low'
+            : getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
         } else {
           // Older models (Sonnet/Haiku/Opus 4.5 and earlier): manual
           // thinking with budget_tokens

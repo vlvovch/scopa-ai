@@ -23,6 +23,7 @@ import {
   getCachedClaudeModels,
   getClaudeApiKey,
   isAdaptiveThinkingModel,
+  isAlwaysThinkingModel,
   type ClaudeModelInfo,
 } from '../../scopa/ai/claude';
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
@@ -136,7 +137,10 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
         ? [{ role: 'user', content: prompt }]
         : (this.messages.push({ role: 'user', content: prompt }), this.messages);
 
-    const shouldThink = this.useExtendedThinking;
+    // 5-family models think even when the param is omitted — "off"
+    // there is adaptive at effort 'low' (and needs thinking headroom).
+    const alwaysThinks = isAlwaysThinkingModel(this.model);
+    const shouldThink = this.useExtendedThinking || alwaysThinks;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const requestParams: any = {
@@ -157,8 +161,9 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
       if (isAdaptiveThinkingModel(this.model)) {
         // Explicit display: the default is 'omitted' since Opus 4.7
         requestParams.thinking = { type: 'adaptive', display: 'summarized' };
-        requestParams.output_config.effort =
-          getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
+        requestParams.output_config.effort = !this.useExtendedThinking
+          ? 'low'
+          : getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
       } else {
         requestParams.thinking = {
           type: 'enabled',
