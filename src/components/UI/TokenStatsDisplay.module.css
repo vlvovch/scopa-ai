@@ -44,6 +44,11 @@
   padding: var(--space-2);
   font-size: 0.7rem;
   min-width: 160px;
+  /* Abspos shrink-to-fit collapses to min-width (the positioning parent
+     is the tiny icon), wrapping labels and value+delta pairs onto two
+     lines. Size to content instead; cap for narrow phones. */
+  width: max-content;
+  max-width: min(320px, 90vw);
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.2s, visibility 0.2s, transform 0.2s;
@@ -99,12 +104,14 @@
 .label {
   color: var(--color-text-secondary);
   text-align: left;
+  white-space: nowrap;
 }
 
 .value {
   color: var(--color-text-primary);
   text-align: right;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .totalRow {
