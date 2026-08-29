@@ -340,6 +340,7 @@ export const it: Translation = {
     thought: 'Pensiero',
     total: 'Totale',
     cached: 'In cache',
+    cacheWrites: 'Scritture in cache',
     estCost: 'Costo stimato',
     timing: 'Tempi',
     last: 'Ultimo',

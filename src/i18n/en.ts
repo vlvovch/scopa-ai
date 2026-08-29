@@ -341,6 +341,7 @@ export const en = {
     thought: 'Thought',
     total: 'Total',
     cached: 'Cached',
+    cacheWrites: 'Cache writes',
     estCost: 'Est. cost',
     timing: 'Timing',
     last: 'Last',

@@ -195,6 +195,12 @@ export function TokenStatsDisplay({
                 <td className={styles.value}>{formatNumber(displayStats.cachedTokens)}</td>
               </tr>
             )}
+            {mode === 'game' && (s.cacheCreationTokens ?? 0) > 0 && (
+              <tr>
+                <td className={styles.label}>{t.tokenStats.cacheWrites}</td>
+                <td className={styles.value}>{formatNumber(s.cacheCreationTokens ?? 0)}</td>
+              </tr>
+            )}
             {mode === 'game' && estCost !== null && estCost > 0 && (
               <tr>
                 <td className={styles.label}>{t.tokenStats.estCost}</td>
