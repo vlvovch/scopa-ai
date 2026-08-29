@@ -48,7 +48,7 @@ export interface OpenAITokenDelta {
 }
 
 // Default model to use
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-5-mini';
 
 // Cached models list
 let cachedModels: OpenAIModelInfo[] | null = null;
@@ -113,7 +113,7 @@ export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
         /^gpt-4o(-mini)?$/,                              // gpt-4o, gpt-4o-mini (no date suffixes)
         /^gpt-4\.1(-mini|-nano)?$/,                      // gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
         /^gpt-4-turbo$/,                                 // gpt-4-turbo (no date suffixes)
-        /^gpt-5(\.\d+)?(-mini|-nano)?$/,                 // gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.1
+        /^gpt-5(\.\d+)?(-[a-z]+)?$/,                     // gpt-5[-mini|-nano|-pro], gpt-5.1, gpt-5.6-sol/terra/luna, …
         /^o[134](-mini|-pro)?$/,                         // o1, o3, o4, o3-mini, o4-mini, o1-pro
       ];
 
@@ -133,15 +133,20 @@ export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
         }
       }
 
-      // Sort: gpt-4.1 > gpt-4o > gpt-5 > o-series, then by variant (base > mini > nano)
+      // Sort: gpt-5 family (newest minor version first) > gpt-4.1 > gpt-4o
+      // > o-series, then by variant (base > mini > nano)
       models.sort((a, b) => {
         const order = (id: string): number => {
-          if (id.startsWith('gpt-4.1')) return 0;
-          if (id.startsWith('gpt-4o')) return 1;
-          if (id.startsWith('gpt-4-turbo')) return 2;
-          if (id.startsWith('gpt-5')) return 3;
+          if (id.startsWith('gpt-5')) return 0;
+          if (id.startsWith('gpt-4.1')) return 1;
+          if (id.startsWith('gpt-4o')) return 2;
+          if (id.startsWith('gpt-4-turbo')) return 3;
           if (id.startsWith('o')) return 4;
           return 5;
+        };
+        const minorOf = (id: string): number => {
+          const m = id.match(/^gpt-5\.(\d+)/);
+          return m ? parseInt(m[1], 10) : 0;
         };
         const variantOrder = (id: string): number => {
           if (id.includes('-nano')) return 2;
@@ -150,9 +155,11 @@ export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
           return 0;
         };
 
-        const orderDiff = order(a.id) - order(b.id);
-        if (orderDiff !== 0) return orderDiff;
-        return variantOrder(a.id) - variantOrder(b.id);
+        return (
+          order(a.id) - order(b.id) ||
+          minorOf(b.id) - minorOf(a.id) ||
+          variantOrder(a.id) - variantOrder(b.id)
+        );
       });
 
       cachedModels = models;
@@ -161,10 +168,10 @@ export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
       console.error('Failed to fetch OpenAI models:', error);
       // Return fallback models on error (use raw IDs as display names)
       return [
-        { id: 'gpt-4o-mini', displayName: 'gpt-4o-mini' },
-        { id: 'gpt-4o', displayName: 'gpt-4o' },
+        { id: 'gpt-5-mini', displayName: 'gpt-5-mini' },
+        { id: 'gpt-5', displayName: 'gpt-5' },
         { id: 'gpt-4.1-mini', displayName: 'gpt-4.1-mini' },
-        { id: 'gpt-4.1', displayName: 'gpt-4.1' },
+        { id: 'gpt-4o-mini', displayName: 'gpt-4o-mini' },
       ];
     } finally {
       modelsFetchPromise = null;

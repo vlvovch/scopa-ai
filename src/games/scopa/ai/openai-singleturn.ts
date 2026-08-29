@@ -14,7 +14,7 @@ import {
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 
 // Default model to use
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-5-mini';
 
 /**
  * Format model ID into display name

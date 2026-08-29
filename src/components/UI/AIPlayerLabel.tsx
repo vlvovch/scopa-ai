@@ -50,7 +50,7 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
  */
 function formatModelName(aiType: ExtendedAIType, model?: string): string {
   if (aiType === 'gemini' || aiType === 'gemini-singleturn') {
-    const modelId = model || 'gemini-2.0-flash';
+    const modelId = model || 'gemini-3.5-flash';
     return modelId
       .replace('gemini-', 'Gemini ')
       .split('-')
@@ -59,7 +59,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
   }
 
   if (aiType === 'openai' || aiType === 'openai-singleturn') {
-    const modelId = model || 'gpt-4o-mini';
+    const modelId = model || 'gpt-5-mini';
     return modelId
       .replace(/^gpt-/i, 'GPT-')
       .replace(/^o(\d)/, 'O$1')
@@ -77,7 +77,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
   }
 
   if (aiType === 'claude' || aiType === 'claude-singleturn') {
-    const modelId = model || 'claude-sonnet-4-5-20250929';
+    const modelId = model || 'claude-sonnet-5';
     // Remove date suffix and format
     const withoutDate = modelId.replace(/-\d{8}$/, '');
     return withoutDate

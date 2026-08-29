@@ -85,7 +85,7 @@ function loadSpectatorModels(): { player1: string; player2: string } {
   } catch (e) {
     console.warn('Failed to load spectator model settings:', e);
   }
-  return { player1: 'gemini-2.5-flash', player2: 'gemini-2.5-flash' };
+  return { player1: 'gemini-3.5-flash', player2: 'gemini-3.5-flash' };
 }
 
 // Session storage key (must match useMultiplayer.ts)

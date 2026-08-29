@@ -1,5 +1,5 @@
 // Mocked-SDK tests for the BYOK Claude bot. Replaces @anthropic-ai/sdk's
-// default export with a fake class exposing beta.messages.create.
+// default export with a fake class exposing messages.create.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { LLMAIContext } from './types';
@@ -40,7 +40,7 @@ const mocks = vi.hoisted(() => ({ messagesCreate: vi.fn() }));
 
 vi.mock('@anthropic-ai/sdk', () => ({
   default: class FakeAnthropic {
-    beta = { messages: { create: mocks.messagesCreate } };
+    messages = { create: mocks.messagesCreate };
   },
 }));
 
@@ -49,7 +49,10 @@ vi.mock('../../scopa/ai/claude', () => ({
   isClaudeAvailable: () => true,
   fetchClaudeModels: async () => [],
   getCachedClaudeModels: () => [],
-  isAdaptiveThinkingModel: (m: string) => /opus-4-(\d+)/.test(m),
+  // Mirror the real gating: adaptive for 4.6+ and the 5-family,
+  // legacy budget_tokens only for pre-4.6 models.
+  isAdaptiveThinkingModel: (m: string) =>
+    !/claude-3|sonnet-4-5|haiku-4-5|opus-4-5|opus-4-1|opus-4-2\d{7}/.test(m),
 }));
 
 function fakeClaudeResponse(json: object, options: { usage?: object } = {}) {
@@ -115,8 +118,11 @@ describe('ClaudeBriscolaAI', () => {
     await ai!.selectMove(ctx());
 
     const params = mocks.messagesCreate.mock.calls[0][0];
-    expect(params.thinking).toEqual({ type: 'adaptive' });
-    expect(params.output_config).toEqual({ effort: 'high' });
+    expect(params.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+    expect(params.output_config.effort).toBe('high');
+    // Structured outputs ride in output_config.format (output_format is deprecated)
+    expect(params.output_config.format).toBeDefined();
+    expect(params.output_format).toBeUndefined();
   });
 
   it('uses legacy thinking.enabled for non-adaptive models (Sonnet)', async () => {

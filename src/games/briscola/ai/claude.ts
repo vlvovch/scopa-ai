@@ -26,7 +26,7 @@ import {
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
-export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-4-5-20250929';
+export const DEFAULT_CLAUDE_MODEL = 'claude-sonnet-5';
 
 const EXTENDED_THINKING_BUDGET = 10000;
 
@@ -144,15 +144,15 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
         this.mode === 'singleturn'
           ? SYSTEM_INSTRUCTION_SINGLETURN
           : SYSTEM_INSTRUCTION_MULTITURN,
-      output_format: MOVE_OUTPUT_SCHEMA,
+      output_config: { format: MOVE_OUTPUT_SCHEMA },
       messages: messagesForCall,
-      betas: ['structured-outputs-2025-11-13'],
     };
 
     if (shouldThink) {
       if (isAdaptiveThinkingModel(this.model)) {
-        requestParams.thinking = { type: 'adaptive' };
-        requestParams.output_config = { effort: 'high' };
+        // Explicit display: the default is 'omitted' since Opus 4.7
+        requestParams.thinking = { type: 'adaptive', display: 'summarized' };
+        requestParams.output_config.effort = 'high';
       } else {
         requestParams.thinking = {
           type: 'enabled',
@@ -163,7 +163,7 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
 
     try {
       const startTime = performance.now();
-      const response = await this.client.beta.messages.create(requestParams);
+      const response = await this.client.messages.create(requestParams);
 
       // Anthropic usage: { input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens }
       // Extended-thinking tokens are part of output_tokens; the SDK exposes

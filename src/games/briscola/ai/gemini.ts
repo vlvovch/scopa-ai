@@ -29,7 +29,7 @@ import { TokenTracker } from '../../../ai/tokenTracker';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import type { Seat } from '../../../ai/seat';
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
 /** Pro models can't fully disable thinking — they need a minimum budget. */
 function isProModel(modelId: string): boolean {

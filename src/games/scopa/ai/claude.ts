@@ -12,20 +12,25 @@ import { getClaudeApiKey, isClaudeKeyValid } from '../../../hooks/useSettings';
 const EXTENDED_THINKING_BUDGET = 10000; // Max tokens for thinking (legacy, pre-Opus 4.6)
 
 /**
- * Check if a model requires adaptive thinking. All Opus 4.x models from 4.6
- * onward only support `thinking.type === 'adaptive'` with an `output_config.
- * effort` knob — the older `thinking.type === 'enabled'` + `budget_tokens`
- * shape produces a 400 ("'thinking.type.enabled' is not supported for this
- * model").
+ * Check if a model uses adaptive thinking. Everything from the 4.6
+ * generation onward — Opus 4.6/4.7/4.8, Sonnet 4.6, and the 5-family
+ * (Opus 5, Sonnet 5, Fable 5) — REJECTS the legacy `thinking.type ===
+ * 'enabled'` + `budget_tokens` shape with a 400 and takes
+ * `thinking: {type: 'adaptive'}` plus `output_config.effort` instead.
+ * Only the older generations (Sonnet 4.5, Haiku 4.5, Opus 4.5/4.1/4.0,
+ * 3.x) still use budget_tokens, so unknown and future models default to
+ * adaptive — that keeps next year's models working without a code change.
  */
 export function isAdaptiveThinkingModel(model: string): boolean {
-  // Match opus-4-N where N >= 6 (covers opus-4-6, opus-4-7, opus-4-8, …).
-  const m = model.match(/opus-4-(\d+)/);
-  if (m) {
-    const minor = parseInt(m[1], 10);
-    return !isNaN(minor) && minor >= 6;
-  }
-  return false;
+  if (model.includes('claude-3')) return false; // 3.x family: legacy shape
+  const m = model.match(/claude-(?:opus|sonnet|haiku)-(\d+)(?:-(\d+))?/);
+  if (!m) return true; // unrecognized family (fable, future names): adaptive
+  const major = parseInt(m[1], 10);
+  // A trailing 8-digit group is a date suffix, not a minor version
+  // (e.g. claude-opus-4-20250514 is Opus 4.0).
+  const minor = m[2] && m[2].length <= 2 ? parseInt(m[2], 10) : 0;
+  if (major >= 5) return true;
+  return major === 4 && minor >= 6;
 }
 
 // Model info returned from API
@@ -67,8 +72,8 @@ export interface ClaudeTokenDelta {
   turnTimeMs: number;
 }
 
-// Default model to use
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+// Default model to use — current model IDs are dateless
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 // Cached models list
 let cachedModels: ClaudeModelInfo[] | null = null;
@@ -153,24 +158,28 @@ export async function fetchClaudeModels(): Promise<ClaudeModelInfo[]> {
         }
       }
 
-      // Sort by model family and version (newest first)
-      models.sort((a, b) => {
-        // Extract version info for sorting
-        const getOrder = (id: string): number => {
-          if (id.includes('opus-4-6')) return 0;
-          if (id.includes('opus-4-5')) return 1;
-          if (id.includes('sonnet-4-5')) return 2;
-          if (id.includes('haiku-4-5')) return 3;
-          if (id.includes('opus-4')) return 4;
-          if (id.includes('sonnet-4')) return 5;
-          if (id.includes('haiku-4')) return 6;
-          if (id.includes('opus-3')) return 7;
-          if (id.includes('sonnet-3')) return 8;
-          if (id.includes('haiku-3')) return 9;
-          return 10;
-        };
-        return getOrder(a.id) - getOrder(b.id);
-      });
+      // Sort newest version first, then by capability tier within a
+      // version (fable > opus > sonnet > haiku). Parsed from the id so
+      // future models sort correctly without a code change.
+      const versionOf = (id: string): number => {
+        // "claude-opus-4-8" / "claude-sonnet-4-5-20250929" → major.minor;
+        // "claude-sonnet-5" → major only. A trailing 8-digit group is a
+        // date suffix, never a minor version.
+        let m = id.match(/-(\d+)-(\d{1,2})(?:-\d{8})?$/);
+        if (m) return parseInt(m[1], 10) + parseInt(m[2], 10) / 100;
+        m = id.match(/-(\d+)$/);
+        return m ? parseInt(m[1], 10) : 0;
+      };
+      const familyOf = (id: string): number => {
+        if (id.includes('fable')) return 3;
+        if (id.includes('opus')) return 2;
+        if (id.includes('sonnet')) return 1;
+        if (id.includes('haiku')) return 0;
+        return -1;
+      };
+      models.sort(
+        (a, b) => versionOf(b.id) - versionOf(a.id) || familyOf(b.id) - familyOf(a.id)
+      );
 
       cachedModels = models;
       return models;
@@ -178,10 +187,10 @@ export async function fetchClaudeModels(): Promise<ClaudeModelInfo[]> {
       console.error('Failed to fetch Claude models:', error);
       // Return fallback models on error
       return [
-        { id: 'claude-opus-4-6-20260205', displayName: 'Claude Opus 4.6' },
-        { id: 'claude-sonnet-4-5-20250929', displayName: 'Claude Sonnet 4.5' },
-        { id: 'claude-haiku-4-5-20251001', displayName: 'Claude Haiku 4.5' },
-        { id: 'claude-opus-4-5-20251101', displayName: 'Claude Opus 4.5' },
+        { id: 'claude-opus-5', displayName: 'Claude Opus 5' },
+        { id: 'claude-sonnet-5', displayName: 'Claude Sonnet 5' },
+        { id: 'claude-opus-4-8', displayName: 'Claude Opus 4.8' },
+        { id: 'claude-haiku-4-5', displayName: 'Claude Haiku 4.5' },
       ];
     } finally {
       modelsFetchPromise = null;
@@ -396,26 +405,30 @@ class ClaudeAI implements AsyncAIPlayer {
       // Skip extended thinking if only one move (no decision to make)
       const shouldThink = this.useExtendedThinking && validMoves.length > 1;
 
-      // Build API request parameters using structured outputs (beta)
-      // output_format is compatible with extended thinking - grammar applies only to direct output
+      // Build API request parameters. Structured outputs are GA via
+      // output_config.format (the old output_format param is deprecated);
+      // the grammar applies only to direct output, not thinking.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestParams: any = {
         model: this.model,
         max_tokens: shouldThink ? 16000 : 1024, // Higher limit for thinking
         system: SYSTEM_INSTRUCTION_MULTITURN,
-        output_format: MOVE_OUTPUT_SCHEMA,
+        output_config: { format: MOVE_OUTPUT_SCHEMA },
         messages: this.messages,
-        betas: ['structured-outputs-2025-11-13']
       };
 
       // Add extended thinking if enabled and there's a decision to make
       if (shouldThink) {
         if (isAdaptiveThinkingModel(this.model)) {
-          // Opus 4.6+: Use adaptive thinking with effort parameter
-          requestParams.thinking = { type: 'adaptive' };
-          requestParams.output_config = { effort: 'high' };
+          // 4.6+ and the 5-family: adaptive thinking + effort knob.
+          // display must be requested explicitly — since Opus 4.7 the
+          // default is 'omitted' (empty thinking text), which left the
+          // reasoning UI blank on current models.
+          requestParams.thinking = { type: 'adaptive', display: 'summarized' };
+          requestParams.output_config.effort = 'high';
         } else {
-          // Older models: Use manual thinking with budget_tokens
+          // Older models (Sonnet/Haiku/Opus 4.5 and earlier): manual
+          // thinking with budget_tokens
           requestParams.thinking = {
             type: 'enabled',
             budget_tokens: EXTENDED_THINKING_BUDGET
@@ -423,8 +436,7 @@ class ClaudeAI implements AsyncAIPlayer {
         }
       }
 
-      // Call Claude API with beta endpoint for structured outputs
-      const response = await this.client.beta.messages.create(requestParams);
+      const response = await this.client.messages.create(requestParams);
 
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usage);

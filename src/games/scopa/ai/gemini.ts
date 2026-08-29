@@ -18,7 +18,7 @@ import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
 // Default model to use
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.5-flash';
 
 /** Pro models cannot fully disable thinking, require minimum budget */
 function isProModel(modelId: string): boolean {
@@ -134,9 +134,9 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
       console.error('Failed to fetch Gemini models:', error);
       // Return fallback models on error (use raw IDs as display names)
       return [
-        { id: 'gemini-2.5-flash', displayName: 'gemini-2.5-flash' },
-        { id: 'gemini-2.5-pro', displayName: 'gemini-2.5-pro' },
-        { id: 'gemini-2.0-flash', displayName: 'gemini-2.0-flash' },
+        { id: 'gemini-3.7-flash', displayName: 'gemini-3.7-flash' },
+        { id: 'gemini-3.5-flash', displayName: 'gemini-3.5-flash' },
+        { id: 'gemini-3.1-flash-lite', displayName: 'gemini-3.1-flash-lite' },
       ];
     } finally {
       modelsFetchPromise = null;

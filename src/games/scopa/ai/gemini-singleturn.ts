@@ -16,7 +16,7 @@ import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
 // Default model to use
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.5-flash';
 
 /** Pro models cannot fully disable thinking, require minimum budget */
 function isProModel(modelId: string): boolean {

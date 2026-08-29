@@ -15,7 +15,7 @@ import {
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 
 // Default model to use
-const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+const DEFAULT_MODEL = 'claude-sonnet-5';
 
 // JSON schema for structured output using output_format
 const MOVE_OUTPUT_SCHEMA = {
@@ -299,23 +299,24 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       // Extended thinking enabled when useExtendedThinking is true and multiple moves available
       const shouldThink = this.useExtendedThinking && validMoves.length > 1;
 
-      // Build API request parameters using structured outputs (beta)
+      // Build API request parameters using structured outputs
+      // (GA via output_config.format; output_format is deprecated)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestParams: any = {
         model: this.model,
         max_tokens: shouldThink ? 16000 : 1024,
         system: SYSTEM_INSTRUCTION_SINGLETURN,
-        output_format: MOVE_OUTPUT_SCHEMA,
+        output_config: { format: MOVE_OUTPUT_SCHEMA },
         messages: [{ role: 'user', content: prompt }],
-        betas: ['structured-outputs-2025-11-13']
       };
 
       // Add extended thinking if enabled and there's a decision to make
       if (shouldThink) {
         if (isAdaptiveThinkingModel(this.model)) {
-          // Opus 4.6+: Use adaptive thinking with effort parameter
-          requestParams.thinking = { type: 'adaptive' };
-          requestParams.output_config = { effort: 'high' };
+          // 4.6+ and the 5-family: adaptive thinking; explicit display
+          // (the default is 'omitted' since Opus 4.7)
+          requestParams.thinking = { type: 'adaptive', display: 'summarized' };
+          requestParams.output_config.effort = 'high';
         } else {
           // Older models: Use manual thinking with budget_tokens
           requestParams.thinking = {
@@ -325,7 +326,7 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
         }
       }
 
-      const response = await this.client.beta.messages.create(requestParams);
+      const response = await this.client.messages.create(requestParams);
 
       const turnTime = performance.now() - startTime;
       this.updateTokenStats(response.usage);

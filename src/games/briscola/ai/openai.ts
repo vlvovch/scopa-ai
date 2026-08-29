@@ -24,7 +24,7 @@ import {
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
-export const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini';
+export const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
 
 const MOVE_SCHEMA = {
   type: 'object' as const,
