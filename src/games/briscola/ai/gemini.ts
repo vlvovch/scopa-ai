@@ -6,7 +6,7 @@
 // not game-specific. Only the prompts and the response handler are
 // Briscola-specific.
 
-import { GoogleGenAI, type Chat } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, type Chat, type ThinkingConfig } from '@google/genai';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
@@ -40,10 +40,16 @@ function thinkingConfigFor(
   modelId: string,
   useThinking: boolean,
   hasMultipleMoves: boolean
-): { thinkingBudget: number } {
-  const budget =
-    useThinking && hasMultipleMoves ? -1 : isProModel(modelId) ? 128 : 0;
-  return { thinkingBudget: budget };
+): ThinkingConfig {
+  const think = useThinking && hasMultipleMoves;
+  // Gemini 3+ takes thinkingLevel; thinkingBudget is the 2.5-era shape
+  // (deprecated on 3.x, and mixing the two errors).
+  const m = modelId.match(/gemini-(\d+)/);
+  const major = m ? parseInt(m[1], 10) : 3;
+  if (major >= 3) {
+    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.MINIMAL };
+  }
+  return { thinkingBudget: think ? -1 : isProModel(modelId) ? 128 : 0 };
 }
 
 /** Derive a human-readable display name from a model id. */

@@ -2,7 +2,7 @@
 // Unlike the multi-turn version, each request is independent and includes
 // the complete round history in the prompt.
 
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
@@ -30,13 +30,19 @@ function isProModel(modelId: string): boolean {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGenerationConfig(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): any {
-  const thinkingBudget = (useThinking && hasMultipleMoves)
-    ? -1
-    : isProModel(modelId) ? 128 : 0;
+  const think = useThinking && hasMultipleMoves;
+  // Gemini 3+ takes thinkingLevel; thinkingBudget is the 2.5-era shape
+  // (deprecated on 3.x, and mixing the two errors).
+  const m = modelId.match(/gemini-(\d+)/);
+  const major = m ? parseInt(m[1], 10) : 3;
+  const thinkingConfig =
+    major >= 3
+      ? { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.MINIMAL }
+      : { thinkingBudget: think ? -1 : isProModel(modelId) ? 128 : 0 };
 
   return {
     responseJsonSchema: MOVE_JSON_SCHEMA,
-    thinkingConfig: { thinkingBudget },
+    thinkingConfig,
   };
 }
 

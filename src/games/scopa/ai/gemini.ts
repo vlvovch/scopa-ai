@@ -1,6 +1,6 @@
 // Gemini AI Player - Uses Google's Gemini API for intelligent play
 
-import { GoogleGenAI, Chat } from '@google/genai';
+import { GoogleGenAI, Chat, ThinkingLevel } from '@google/genai';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
@@ -26,15 +26,23 @@ function isProModel(modelId: string): boolean {
 }
 
 /**
- * Get thinkingConfig for Gemini API requests.
- * - Thinking enabled + multiple moves: dynamic budget (-1)
- * - Thinking disabled: 0 for Flash models, 128 for Pro models (minimum required)
+ * Get thinkingConfig for Gemini API requests, gated by model generation:
+ * - Gemini 3+ uses thinkingLevel ('minimal'…'high'; default 'minimal').
+ *   thinkingBudget is deprecated there and mixing the two errors, so:
+ *   thinking on → 'high', off → 'minimal' (3.x can't fully disable).
+ * - Gemini 2.5 uses thinkingBudget: -1 dynamic when thinking is on,
+ *   0 = off for Flash, 128 minimum for Pro (cannot fully disable).
+ * Unknown/alias ids (gemini-flash-latest) are treated as current-gen.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getMessageThinkingConfig(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): any {
-  const thinkingBudget = (useThinking && hasMultipleMoves)
-    ? -1
-    : isProModel(modelId) ? 128 : 0;
+  const think = useThinking && hasMultipleMoves;
+  const m = modelId.match(/gemini-(\d+)/);
+  const major = m ? parseInt(m[1], 10) : 3;
+  if (major >= 3) {
+    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.MINIMAL };
+  }
+  const thinkingBudget = think ? -1 : isProModel(modelId) ? 128 : 0;
   return { thinkingBudget };
 }
 
