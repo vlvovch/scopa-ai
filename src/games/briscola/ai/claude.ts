@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
+import { heuristicAI } from './heuristic';
 import {
   SYSTEM_INSTRUCTION_MULTITURN,
   SYSTEM_INSTRUCTION_SINGLETURN,
@@ -146,6 +147,9 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
           : SYSTEM_INSTRUCTION_MULTITURN,
       output_config: { format: MOVE_OUTPUT_SCHEMA },
       messages: messagesForCall,
+      // Incremental prompt caching — in multiturn mode each call re-reads
+      // the system prompt + prior turns from cache at ~10% of input price.
+      cache_control: { type: 'ephemeral' },
     };
 
     if (shouldThink) {
@@ -182,6 +186,18 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
       });
       this.tracker.recordTiming(performance.now() - startTime);
 
+      // Safety refusal (HTTP 200 + stop_reason 'refusal' on current
+      // models): don't crash the game — play the heuristic move.
+      if (response.stop_reason === 'refusal') {
+        console.warn(`[briscola ${this.model}] Refusal stop reason, falling back.`);
+        if (this.mode === 'multiturn') {
+          this.messages.push({ role: 'assistant', content: '{}' });
+        }
+        this.lastThinking = '';
+        this.lastReasoning = 'Model declined — heuristic move played.';
+        return heuristicAI.selectMove(context);
+      }
+
       const thinkingBlocks = response.content.filter(
         (b): b is Anthropic.ThinkingBlock => b.type === 'thinking'
       );
@@ -196,8 +212,8 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
         if (this.mode === 'multiturn') {
           this.messages.push({ role: 'assistant', content: '{}' });
         }
-        this.lastReasoning = 'No text in response — fell back to first valid move.';
-        return validMoves[0];
+        this.lastReasoning = 'No text in response — heuristic move played.';
+        return heuristicAI.selectMove(context);
       }
 
       if (this.mode === 'multiturn') {
@@ -212,16 +228,16 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
         this.lastReasoning = parsed.reasoning ?? '';
         const idx = parsed.moveIndex;
         if (typeof idx === 'number' && idx >= 0 && idx < validMoves.length) {
-           
+
           console.log(`[briscola ${this.model}] move ${idx}: ${this.lastReasoning}`);
           return validMoves[idx];
         }
         console.warn(`[briscola ${this.model}] Invalid moveIndex ${idx}, falling back.`);
       } catch (e) {
         console.warn(`[briscola ${this.model}] JSON parse failed, falling back.`, e);
-        this.lastReasoning = 'Parse error — fell back to first valid move.';
+        this.lastReasoning = 'Parse error — heuristic move played.';
       }
-      return validMoves[0];
+      return heuristicAI.selectMove(context);
     } catch (error) {
       console.error(`[briscola ${this.model}] API error:`, error);
       this.lastReasoning = 'API error occurred.';

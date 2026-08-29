@@ -154,14 +154,44 @@ describe('ClaudeBriscolaAI', () => {
     expect(params.thinking).toBeUndefined();
   });
 
-  it('falls back to first valid move when response has no text block', async () => {
+  it('falls back to a legal (heuristic) move when response has no text block', async () => {
     mocks.messagesCreate.mockResolvedValueOnce({ content: [], usage: undefined });
     const { getClaudeBriscolaAI, clearClaudeCache } = await import('./claude');
     clearClaudeCache();
     const ai = getClaudeBriscolaAI('claude-sonnet-4-5-20250929', true, 'multiturn');
     ai!.startRound();
-    const move = await ai!.selectMove(ctx());
-    expect(move.cardPlayed.id).toBe('coins-1');
+    const context = ctx();
+    const move = await ai!.selectMove(context);
+    // The fallback delegates to the heuristic bot — any legal move is fine
+    expect(context.validMoves.map((m) => m.cardPlayed.id)).toContain(move.cardPlayed.id);
+  });
+
+  it('falls back to a legal move on a refusal stop reason (no throw)', async () => {
+    mocks.messagesCreate.mockResolvedValueOnce({
+      content: [],
+      usage: undefined,
+      stop_reason: 'refusal',
+    });
+    const { getClaudeBriscolaAI, clearClaudeCache } = await import('./claude');
+    clearClaudeCache();
+    const ai = getClaudeBriscolaAI('claude-sonnet-4-5-20250929', true, 'multiturn');
+    ai!.startRound();
+    const context = ctx();
+    const move = await ai!.selectMove(context);
+    expect(context.validMoves.map((m) => m.cardPlayed.id)).toContain(move.cardPlayed.id);
+  });
+
+  it('requests incremental prompt caching on every call', async () => {
+    mocks.messagesCreate.mockResolvedValueOnce(
+      fakeClaudeResponse({ moveIndex: 0, reasoning: 'x' })
+    );
+    const { getClaudeBriscolaAI, clearClaudeCache } = await import('./claude');
+    clearClaudeCache();
+    const ai = getClaudeBriscolaAI('claude-sonnet-5', true, 'multiturn');
+    ai!.startRound();
+    await ai!.selectMove(ctx());
+    const params = mocks.messagesCreate.mock.calls[0][0];
+    expect(params.cache_control).toEqual({ type: 'ephemeral' });
   });
 
   it('single-card hand short-circuits (no API call)', async () => {

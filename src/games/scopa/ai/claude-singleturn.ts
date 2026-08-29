@@ -13,6 +13,7 @@ import {
   type ClaudeTokenDelta,
 } from './claude';
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
+import { heuristicAI } from './heuristic';
 
 // Default model to use
 const DEFAULT_MODEL = 'claude-sonnet-5';
@@ -332,17 +333,37 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       this.updateTokenStats(response.usage);
       this.updateTimingStats(turnTime);
 
+      const heuristicFallback = (reason: string): Move => {
+        console.warn(`[${this.model}] ${reason}, using heuristic move`);
+        this.lastReasoning = `${reason} — heuristic move played.`;
+        const move = heuristicAI.selectMove(context);
+        this.roundMoveHistory.push(move);
+        return move;
+      };
+
+      // Safety refusal (HTTP 200 + stop_reason 'refusal' on current
+      // models): don't crash the game — play the heuristic move.
+      if (response.stop_reason === 'refusal') {
+        return heuristicFallback('Refusal stop reason');
+      }
+
       // Extract text block with JSON response
       const textBlock = response.content.find(
         (block): block is Anthropic.TextBlock => block.type === 'text'
       );
 
       if (!textBlock) {
-        throw new Error('No text in response');
+        return heuristicFallback('No text in response');
       }
 
-      // Parse JSON from text response (guaranteed by output_format schema)
-      const parsed = JSON.parse(textBlock.text) as { moveIndex: number; reasoning: string };
+      // Parse JSON from text response (schema-enforced, but a malformed
+      // response should degrade to the heuristic, not crash the game)
+      let parsed: { moveIndex?: number; reasoning?: string };
+      try {
+        parsed = JSON.parse(textBlock.text);
+      } catch {
+        return heuristicFallback('Unparseable response');
+      }
       const index = parsed.moveIndex;
       this.lastReasoning = parsed.reasoning || '';
 
@@ -356,10 +377,7 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
         return selectedMove;
       }
 
-      console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
-      const fallbackMove = validMoves[0];
-      this.roundMoveHistory.push(fallbackMove);
-      return fallbackMove;
+      return heuristicFallback(`Invalid moveIndex ${index}`);
     } catch (error) {
       console.error(`[${this.model}] API error:`, error);
       this.lastReasoning = 'API error occurred.';

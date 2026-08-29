@@ -6,6 +6,7 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { heuristicAI } from './heuristic';
 import { getClaudeApiKey, isClaudeKeyValid } from '../../../hooks/useSettings';
 
 // Extended thinking configuration
@@ -397,13 +398,30 @@ class ClaudeAI implements AsyncAIPlayer {
 
     try {
       const prompt = buildTurnPrompt(context);
+
+      // Single valid move: nothing to decide — skip the API round-trip.
+      // A synthetic exchange keeps the conversation history intact for
+      // later turns, and it keeps every real call's parameters
+      // byte-identical (a thinking/effort flip mid-round would
+      // invalidate the prompt cache).
+      if (validMoves.length === 1) {
+        this.messages.push({ role: 'user', content: prompt });
+        this.messages.push({
+          role: 'assistant',
+          content: '{"moveIndex":0,"reasoning":"Only one valid move."}',
+        });
+        this.lastReasoning = 'Only one valid move.';
+        this.lastThinking = '';
+        this.lastDelta = { promptTokens: 0, responseTokens: 0, totalTokens: 0, turnTimeMs: 0 };
+        return validMoves[0];
+      }
+
       const startTime = performance.now();
 
       // Add user message to conversation
       this.messages.push({ role: 'user', content: prompt });
 
-      // Skip extended thinking if only one move (no decision to make)
-      const shouldThink = this.useExtendedThinking && validMoves.length > 1;
+      const shouldThink = this.useExtendedThinking;
 
       // Build API request parameters. Structured outputs are GA via
       // output_config.format (the old output_format param is deprecated);
@@ -415,6 +433,12 @@ class ClaudeAI implements AsyncAIPlayer {
         system: SYSTEM_INSTRUCTION_MULTITURN,
         output_config: { format: MOVE_OUTPUT_SCHEMA },
         messages: this.messages,
+        // Incremental prompt caching: auto-places a breakpoint at the last
+        // cacheable block, so each turn re-reads the system prompt + all
+        // prior turns from cache (~10% of input price) instead of
+        // re-billing the whole growing conversation. Verify via the
+        // cache_read_input_tokens field in usage (shown in token stats).
+        cache_control: { type: 'ephemeral' },
       };
 
       // Add extended thinking if enabled and there's a decision to make
@@ -442,6 +466,16 @@ class ClaudeAI implements AsyncAIPlayer {
       this.updateTokenStats(response.usage);
       this.updateTimingStats(turnTime);
 
+      // Safety refusal (HTTP 200 + stop_reason 'refusal' on current
+      // models): don't crash the game — play the heuristic move.
+      if (response.stop_reason === 'refusal') {
+        console.warn(`[${this.model}] Refusal stop reason, using heuristic move`);
+        this.messages.push({ role: 'assistant', content: '{}' });
+        this.lastThinking = '';
+        this.lastReasoning = 'Model declined — heuristic move played.';
+        return heuristicAI.selectMove(context);
+      }
+
       // Extract thinking blocks (for extended thinking mode)
       const thinkingBlocks = response.content.filter(
         (block): block is Anthropic.ThinkingBlock => block.type === 'thinking'
@@ -461,25 +495,29 @@ class ClaudeAI implements AsyncAIPlayer {
       );
 
       if (!textBlock) {
-        console.warn(`[${this.model}] No text in response, using first valid move`);
+        console.warn(`[${this.model}] No text in response, using heuristic move`);
         // Store empty response for context continuity
         this.messages.push({ role: 'assistant', content: '{}' });
-        return validMoves[0];
+        this.lastReasoning = 'No response — heuristic move played.';
+        return heuristicAI.selectMove(context);
       }
 
-      // Parse JSON from text response (guaranteed by output_format schema)
-      const parsed = JSON.parse(textBlock.text) as { moveIndex: number; reasoning: string };
+      // Parse JSON from text response (schema-enforced, but a malformed
+      // response should degrade to the heuristic, not crash the game)
+      let parsed: { moveIndex?: number; reasoning?: string };
+      try {
+        parsed = JSON.parse(textBlock.text);
+      } catch {
+        console.warn(`[${this.model}] Unparseable response, using heuristic move`);
+        this.messages.push({ role: 'assistant', content: '{}' });
+        this.lastReasoning = 'Unparseable response — heuristic move played.';
+        return heuristicAI.selectMove(context);
+      }
       this.lastReasoning = parsed.reasoning || '';
 
       // Add assistant response to conversation for context continuity
-      // Store just the text (JSON) since beta content blocks have different types
+      // Store just the text (JSON) since content blocks have richer types
       this.messages.push({ role: 'assistant', content: textBlock.text });
-
-      // Only one move - still called API for context continuity
-      if (validMoves.length === 1) {
-        console.log(`[${this.model}] ${this.lastReasoning}`);
-        return validMoves[0];
-      }
 
       const index = parsed.moveIndex;
 
@@ -488,8 +526,8 @@ class ClaudeAI implements AsyncAIPlayer {
         return validMoves[index];
       }
 
-      console.warn(`[${this.model}] Invalid moveIndex ${index}, using first valid move`);
-      return validMoves[0];
+      console.warn(`[${this.model}] Invalid moveIndex ${index}, using heuristic move`);
+      return heuristicAI.selectMove(context);
     } catch (error) {
       console.error(`[${this.model}] API error:`, error);
       this.lastReasoning = 'API error occurred.';
