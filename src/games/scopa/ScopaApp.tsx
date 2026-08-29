@@ -680,7 +680,17 @@ function ScopaApp() {
   // Track if CPU animation is being scheduled to prevent double-firing
   const cpuAnimationScheduled = useRef(false);
   // Track if an async AI API request is in flight (prevents re-triggering on pause/unpause)
-  const aiRequestInFlight = useRef(false);
+  // Monotonic game counter — bumped when the reducer returns to 'idle'
+  // (quit / new game). In-flight LLM continuations capture it before the
+  // await and abandon themselves if the game changed; the in-flight guard
+  // stores the epoch so a stale request never blocks the next game.
+  const gameEpoch = useRef(0);
+  const aiRequestInFlight = useRef<number | null>(null);
+  useEffect(() => {
+    if (state.status === 'idle') {
+      gameEpoch.current += 1;
+    }
+  }, [state.status]);
 
   // Track deck count to detect deals (more reliable than hand count)
   // Deck decreases by 10 on round start (4 table + 6 hands), by 6 mid-round
@@ -1270,7 +1280,7 @@ function ScopaApp() {
     }
 
     // Don't start new animation if one is in progress, already scheduled, or API request in flight
-    if (animatingCard || cpuAnimationScheduled.current || aiRequestInFlight.current) {
+    if (animatingCard || cpuAnimationScheduled.current || aiRequestInFlight.current === gameEpoch.current) {
       return;
     }
 
@@ -1286,6 +1296,7 @@ function ScopaApp() {
     const baseDelay = 500 + Math.random() * 500;
     const delay = getAnimationDelay(baseDelay);
     const timeoutId = setTimeout(async () => {
+      const epoch = gameEpoch.current;
       // Use selected AI to select move (use spectator AI in spectator mode)
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
       const model = isSpectatorMode
@@ -1298,11 +1309,16 @@ function ScopaApp() {
       let reasoning: string | null = null;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
-        aiRequestInFlight.current = true;
+        aiRequestInFlight.current = epoch;
         try {
           // Async AI (e.g., Gemini) - build extended context and await
           const context = buildLLMContext(cpuHand, state.round.table, 'cpu');
           moveToExecute = await ai.selectMove(context);
+          if (gameEpoch.current !== epoch) {
+            // Game was reset while waiting — drop the stale move.
+            cpuAnimationScheduled.current = false;
+            return;
+          }
           // Capture reasoning from LLM AI (they all have lastReasoning property)
           reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
           // Clear any previous error on success
@@ -1314,11 +1330,15 @@ function ScopaApp() {
             updateTokenStats();
           }
         } catch (err) {
+          if (gameEpoch.current !== epoch) {
+            cpuAnimationScheduled.current = false;
+            return;
+          }
           if (err instanceof RateLimitError) {
             // Rate limit hit — stop the game and return to start screen
             console.warn('Free AI rate limit reached:', err.message);
             setPlayer2ApiError(err.message);
-            aiRequestInFlight.current = false;
+            aiRequestInFlight.current = null;
             resetGame();
             return;
           }
@@ -1335,7 +1355,9 @@ function ScopaApp() {
           });
           reasoning = null;
         } finally {
-          aiRequestInFlight.current = false;
+          if (aiRequestInFlight.current === epoch) {
+            aiRequestInFlight.current = null;
+          }
         }
       } else {
         // Sync AI. NOTE: expertAI.selectMove(context) is only the
@@ -1372,6 +1394,12 @@ function ScopaApp() {
         }));
       }
 
+      // Abandon if the game was reset while deciding.
+      if (gameEpoch.current !== epoch) {
+        cpuAnimationScheduled.current = false;
+        return;
+      }
+
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
         card: moveToExecute.cardPlayed,
@@ -1382,10 +1410,20 @@ function ScopaApp() {
 
       // Phase 2: moving to table (after flip completes)
       setTimeout(() => {
+        if (gameEpoch.current !== epoch) {
+          setAnimatingCard(null);
+          cpuAnimationScheduled.current = false;
+          return;
+        }
         setAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
 
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
+          if (gameEpoch.current !== epoch) {
+            setAnimatingCard(null);
+            cpuAnimationScheduled.current = false;
+            return;
+          }
           playCard(moveToExecute);
           // Play appropriate sound
           playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
@@ -1414,7 +1452,7 @@ function ScopaApp() {
     return () => {
       clearTimeout(timeoutId);
       // Only reset scheduled flag if we're cleaning up before animation started and no API request in flight
-      if (!animatingCard && !aiRequestInFlight.current) {
+      if (!animatingCard && aiRequestInFlight.current === null) {
         cpuAnimationScheduled.current = false;
       }
     };
@@ -2436,7 +2474,7 @@ function ScopaApp() {
     if (isDealing) return;
 
     // Don't start new animation if one is in progress, already scheduled, or API request in flight
-    if (animatingCard || cpuAnimationScheduled.current || aiRequestInFlight.current) return;
+    if (animatingCard || cpuAnimationScheduled.current || aiRequestInFlight.current === gameEpoch.current) return;
 
     const humanHand = state.players.human.hand;
     if (humanHand.length === 0) return;
@@ -2448,17 +2486,23 @@ function ScopaApp() {
     const baseDelay = 500 + Math.random() * 500;
     const delay = getAnimationDelay(baseDelay);
     const timeoutId = setTimeout(async () => {
+      const epoch = gameEpoch.current;
       const ai = getAIPlayer(spectatorAIs.player1, spectatorModels.player1, 'p1');
 
       let moveToExecute: Move;
       let reasoning: string | null = null;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
-        aiRequestInFlight.current = true;
+        aiRequestInFlight.current = epoch;
         try {
           // Async AI (e.g., Gemini) - build extended context and await
           const context = buildLLMContext(humanHand, state.round.table, 'human');
           moveToExecute = await ai.selectMove(context);
+          if (gameEpoch.current !== epoch) {
+            // Game was reset while waiting — drop the stale move.
+            cpuAnimationScheduled.current = false;
+            return;
+          }
           // Capture reasoning from LLM AI (they all have lastReasoning property)
           reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
           // Clear any previous error on success
@@ -2466,6 +2510,10 @@ function ScopaApp() {
           // Update token stats after async AI move (player1 in spectator mode)
           updatePlayerTokenStats('player1');
         } catch (err) {
+          if (gameEpoch.current !== epoch) {
+            cpuAnimationScheduled.current = false;
+            return;
+          }
           // Set error state for display
           const errorMessage = err instanceof Error ? err.message : t.game.apiCallFailed;
           setPlayer1ApiError(errorMessage);
@@ -2479,7 +2527,9 @@ function ScopaApp() {
           });
           reasoning = null;
         } finally {
-          aiRequestInFlight.current = false;
+          if (aiRequestInFlight.current === epoch) {
+            aiRequestInFlight.current = null;
+          }
         }
       } else {
         // Sync AI. Route 'expert' through the real ISMCTS solver (see
@@ -2513,6 +2563,12 @@ function ScopaApp() {
         }));
       }
 
+      // Abandon if the game was reset while deciding.
+      if (gameEpoch.current !== epoch) {
+        cpuAnimationScheduled.current = false;
+        return;
+      }
+
       // Start animation: reveal phase (flip card in place)
       setAnimatingCard({
         card: moveToExecute.cardPlayed,
@@ -2523,10 +2579,20 @@ function ScopaApp() {
 
       // Phase 2: moving to table (after flip completes)
       setTimeout(() => {
+        if (gameEpoch.current !== epoch) {
+          setAnimatingCard(null);
+          cpuAnimationScheduled.current = false;
+          return;
+        }
         setAnimatingCard(prev => prev ? { ...prev, phase: 'moving' } : null);
 
         // Phase 3: execute move and show capture (after card reaches table)
         setTimeout(() => {
+          if (gameEpoch.current !== epoch) {
+            setAnimatingCard(null);
+            cpuAnimationScheduled.current = false;
+            return;
+          }
           playCard(moveToExecute);
           // Play appropriate sound
           playSound(moveToExecute.capturedCards.length > 0 ? 'capture' : 'play');
@@ -2555,7 +2621,7 @@ function ScopaApp() {
     return () => {
       clearTimeout(timeoutId);
       // Only reset scheduled flag if we're cleaning up before animation started and no API request in flight
-      if (!animatingCard && !aiRequestInFlight.current) {
+      if (!animatingCard && aiRequestInFlight.current === null) {
         cpuAnimationScheduled.current = false;
       }
     };
