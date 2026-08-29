@@ -615,6 +615,32 @@ export function StartScreen({
                 )}
               </div>
             </div>
+            {/* Global thinking knob — applies to every LLM seat below */}
+            {[spectatorAIs.player1, spectatorAIs.player2].some(
+              (a) => isGeminiAIType(a) || isOpenAIAIType(a) || isClaudeAIType(a)
+            ) && (
+              <div className={styles.toggleGroup} style={{ justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                <button
+                  className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
+                  onClick={onCycleThinking}
+                  title={thinkingLevel === 'off'
+                    ? t.start.thinkingOffTitle
+                    : thinkingLevel === 'medium'
+                      ? t.start.thinkingMediumTitle
+                      : t.start.thinkingOnTitle}
+                >
+                  {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
+                </button>
+                <span className={styles.aiDescription} style={{ margin: 0 }}>
+                  {(thinkingLevel === 'off'
+                    ? t.start.fastMode
+                    : thinkingLevel === 'medium'
+                      ? t.start.plusThinkingBalanced
+                      : t.start.plusThinking
+                  ).trim()}
+                </span>
+              </div>
+            )}
             {!aiAvailable && onOpenSettings && (
               <div className={styles.aiHint}>
                 <span>{t.start.wantWatchAI}</span>

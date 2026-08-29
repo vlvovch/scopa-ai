@@ -562,6 +562,34 @@ export function StartScreen({
             )
         }
 
+        {/* Global thinking knob — applies to every LLM seat in Watch */}
+        {gameMode === 'watch' &&
+          (['gemini', 'openai', 'claude'] as const).some(
+            (p) => watchOpponents.player1 === p || watchOpponents.player2 === p
+          ) && (
+            <div className={styles.toggleGroup} style={{ justifyContent: 'center', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                <button
+                  className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
+                  onClick={onCycleThinking}
+                  title={thinkingLevel === 'off'
+                    ? t.start.thinkingOffTitle
+                    : thinkingLevel === 'medium'
+                      ? t.start.thinkingMediumTitle
+                      : t.start.thinkingOnTitle}
+                >
+                  {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
+                </button>
+                <span className={styles.aiDescription} style={{ margin: 0 }}>
+                  {(thinkingLevel === 'off'
+                    ? t.start.fastMode
+                    : thinkingLevel === 'medium'
+                      ? t.start.plusThinkingBalanced
+                      : t.start.plusThinking
+                  ).trim()}
+                </span>
+              </div>
+          )}
+
         {ITCH_MODE && gameMode === 'multiplayer' ? (
           <div className={styles.itchModeNotice}>
             <p>{t.start.itchNoMultiplayer}</p>
