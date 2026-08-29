@@ -183,6 +183,7 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
         totalTokens:
           (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0),
         cachedTokens: usage?.cache_read_input_tokens ?? undefined,
+        cacheCreationTokens: usage?.cache_creation_input_tokens ?? undefined,
       });
       this.tracker.recordTiming(performance.now() - startTime);
 

@@ -143,6 +143,8 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       promptTokens: promptDelta,
       responseTokens: responseDelta,
       totalTokens: totalDelta,
+      cachedTokens: cachedDelta,
+      cacheCreationTokens: cacheCreationDelta,
       turnTimeMs: 0,
     };
   }

@@ -131,6 +131,7 @@ class OpenAISingleTurnAI implements AsyncAIPlayer {
       responseTokens: responseDelta,
       reasoningTokens: reasoningDelta,
       totalTokens: totalDelta,
+      cachedTokens: cachedDelta,
       turnTimeMs: 0,
     };
   }

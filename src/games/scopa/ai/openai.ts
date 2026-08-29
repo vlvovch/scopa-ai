@@ -44,6 +44,8 @@ export interface OpenAITokenDelta {
   responseTokens: number;
   reasoningTokens: number;
   totalTokens: number;
+  cachedTokens?: number;
+  cacheCreationTokens?: number;
   turnTimeMs: number;
 }
 
@@ -275,6 +277,7 @@ class OpenAIAI implements AsyncAIPlayer {
       responseTokens: responseDelta,
       reasoningTokens: reasoningDelta,
       totalTokens: totalDelta,
+      cachedTokens: cachedDelta,
       turnTimeMs: 0,
     };
   }

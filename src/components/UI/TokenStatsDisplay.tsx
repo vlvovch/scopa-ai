@@ -1,6 +1,7 @@
 // Token Stats Display Component for LLM AIs (Gemini, OpenAI)
 
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../games/scopa/ai';
+import { estimateCostUsd, formatCostUsd } from '../../ai/pricing';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './TokenStatsDisplay.module.css';
 
@@ -113,6 +114,9 @@ export function TokenStatsDisplay({
   // Icon shows round tokens in round mode, total in game mode
   const iconTokens = mode === 'round' ? s.roundTotalTokens : s.totalTokens;
 
+  // Estimated spend from list prices (null for unknown/free models)
+  const estCost = mode === 'game' ? estimateCostUsd(s) : null;
+
   const positionClass = position === 'bottom' ? styles.popupBottom : styles.popupTop;
 
   return (
@@ -189,6 +193,12 @@ export function TokenStatsDisplay({
               <tr>
                 <td className={styles.label}>{t.tokenStats.cached}</td>
                 <td className={styles.value}>{formatNumber(displayStats.cachedTokens)}</td>
+              </tr>
+            )}
+            {mode === 'game' && estCost !== null && estCost > 0 && (
+              <tr>
+                <td className={styles.label}>{t.tokenStats.estCost}</td>
+                <td className={styles.value}>≈{formatCostUsd(estCost)}</td>
               </tr>
             )}
             {/* Timing stats */}

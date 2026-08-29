@@ -339,6 +339,7 @@ export const en = {
     thought: 'Thought',
     total: 'Total',
     cached: 'Cached',
+    estCost: 'Est. cost',
     timing: 'Timing',
     last: 'Last',
     avg: 'Avg',

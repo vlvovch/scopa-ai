@@ -475,7 +475,8 @@ function ScopaApp() {
         responseTokens: delta.responseTokens,
         thoughtTokens: thoughtDelta,
         totalTokens: delta.totalTokens,
-        cachedTokens: 0,
+        cachedTokens: delta.cachedTokens ?? 0,
+        cacheCreationTokens: delta.cacheCreationTokens ?? 0,
         requestCount: delta.totalTokens > 0 ? 1 : 0, // Only count if actual API call
         roundPromptTokens: delta.promptTokens,
         roundResponseTokens: delta.responseTokens,
@@ -511,6 +512,8 @@ function ScopaApp() {
       responseTokens: prevStats.responseTokens + delta.responseTokens,
       thoughtTokens: prevStats.thoughtTokens + thoughtDelta,
       totalTokens: prevStats.totalTokens + delta.totalTokens,
+      cachedTokens: prevStats.cachedTokens + (delta.cachedTokens ?? 0),
+      cacheCreationTokens: (prevStats.cacheCreationTokens ?? 0) + (delta.cacheCreationTokens ?? 0),
       requestCount: prevStats.requestCount + (delta.totalTokens > 0 ? 1 : 0),
       roundPromptTokens: prevStats.roundPromptTokens + delta.promptTokens,
       roundResponseTokens: prevStats.roundResponseTokens + delta.responseTokens,

@@ -43,6 +43,7 @@ export class TokenTracker {
     thoughtTokens?: number;
     totalTokens?: number;
     cachedTokens?: number;
+    cacheCreationTokens?: number;
   }): void {
     const p = usage.promptTokens ?? 0;
     const r = usage.responseTokens ?? 0;
@@ -53,6 +54,8 @@ export class TokenTracker {
     this.stats.thoughtTokens += t;
     this.stats.totalTokens += total;
     this.stats.cachedTokens += usage.cachedTokens ?? 0;
+    this.stats.cacheCreationTokens =
+      (this.stats.cacheCreationTokens ?? 0) + (usage.cacheCreationTokens ?? 0);
     this.stats.requestCount += 1;
     this.stats.roundPromptTokens += p;
     this.stats.roundResponseTokens += r;
@@ -64,6 +67,8 @@ export class TokenTracker {
       responseTokens: r,
       thoughtTokens: t,
       totalTokens: total,
+      cachedTokens: usage.cachedTokens ?? 0,
+      cacheCreationTokens: usage.cacheCreationTokens ?? 0,
       turnTimeMs: 0,
     };
   }

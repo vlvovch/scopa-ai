@@ -70,6 +70,8 @@ export interface ClaudeTokenDelta {
   promptTokens: number;
   responseTokens: number;
   totalTokens: number;
+  cachedTokens?: number;
+  cacheCreationTokens?: number;
   turnTimeMs: number;
 }
 
@@ -297,6 +299,8 @@ class ClaudeAI implements AsyncAIPlayer {
       promptTokens: promptDelta,
       responseTokens: responseDelta,
       totalTokens: totalDelta,
+      cachedTokens: cachedDelta,
+      cacheCreationTokens: cacheCreationDelta,
       turnTimeMs: 0,
     };
   }

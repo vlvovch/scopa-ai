@@ -12,6 +12,8 @@ export interface GeminiTokenStats {
   thoughtTokens: number;
   totalTokens: number;
   cachedTokens: number;
+  /** Anthropic cache writes (billed at 1.25x input); other providers 0 */
+  cacheCreationTokens?: number;
   requestCount: number;
   // Round-specific stats (reset each round)
   roundPromptTokens: number;
@@ -37,5 +39,7 @@ export interface GeminiTokenDelta {
   responseTokens: number;
   thoughtTokens: number;
   totalTokens: number;
+  cachedTokens?: number;
+  cacheCreationTokens?: number;
   turnTimeMs: number;
 }
