@@ -116,6 +116,9 @@ export function TokenStatsDisplay({
 
   // Estimated spend from list prices (null for unknown/free models)
   const estCost = mode === 'game' ? estimateCostUsd(s) : null;
+  // Badge-sized cost: two decimals once past a cent, three below
+  const formatCostCompact = (c: number) =>
+    c >= 0.01 ? `$${c.toFixed(2)}` : `$${c.toFixed(3)}`;
 
   const positionClass = position === 'bottom' ? styles.popupBottom : styles.popupTop;
 
@@ -127,7 +130,12 @@ export function TokenStatsDisplay({
           <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
           <text x="12" y="16" textAnchor="middle" fontSize="10" fill="currentColor">T</text>
         </svg>
-        <span className={styles.iconText}>{formatCompact(iconTokens)}</span>
+        <span className={styles.iconText}>
+          {formatCompact(iconTokens)}
+          {estCost !== null && estCost > 0 && (
+            <span className={styles.iconCost}> · {formatCostCompact(estCost)}</span>
+          )}
+        </span>
       </div>
 
       {/* Error indicator */}
