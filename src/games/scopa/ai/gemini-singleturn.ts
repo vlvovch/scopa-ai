@@ -31,13 +31,13 @@ function isProModel(modelId: string): boolean {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getGenerationConfig(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): any {
   const think = useThinking && hasMultipleMoves;
-  // Gemini 3+ takes thinkingLevel; thinkingBudget is the 2.5-era shape
-  // (deprecated on 3.x, and mixing the two errors).
+  // Gemini 3+ takes thinkingLevel (HIGH on, LOW off — MINIMAL is rejected
+  // by some 3.x models); thinkingBudget is the 2.5-era shape.
   const m = modelId.match(/gemini-(\d+)/);
   const major = m ? parseInt(m[1], 10) : 3;
   const thinkingConfig =
     major >= 3
-      ? { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.MINIMAL }
+      ? { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW }
       : { thinkingBudget: think ? -1 : isProModel(modelId) ? 128 : 0 };
 
   return {

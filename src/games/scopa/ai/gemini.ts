@@ -27,9 +27,11 @@ function isProModel(modelId: string): boolean {
 
 /**
  * Get thinkingConfig for Gemini API requests, gated by model generation:
- * - Gemini 3+ uses thinkingLevel ('minimal'…'high'; default 'minimal').
- *   thinkingBudget is deprecated there and mixing the two errors, so:
- *   thinking on → 'high', off → 'minimal' (3.x can't fully disable).
+ * - Gemini 3+ uses thinkingLevel; thinkingBudget is deprecated there and
+ *   mixing the two errors. Thinking on → HIGH, off → LOW. LOW (not
+ *   MINIMAL) because supported levels vary per model: 3.7 Flash and
+ *   3.1 Pro reject MINIMAL with a validation error, while LOW is
+ *   documented across the whole 3.x family. 3.x can't fully disable.
  * - Gemini 2.5 uses thinkingBudget: -1 dynamic when thinking is on,
  *   0 = off for Flash, 128 minimum for Pro (cannot fully disable).
  * Unknown/alias ids (gemini-flash-latest) are treated as current-gen.
@@ -40,7 +42,7 @@ function getMessageThinkingConfig(modelId: string, useThinking: boolean, hasMult
   const m = modelId.match(/gemini-(\d+)/);
   const major = m ? parseInt(m[1], 10) : 3;
   if (major >= 3) {
-    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.MINIMAL };
+    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW };
   }
   const thinkingBudget = think ? -1 : isProModel(modelId) ? 128 : 0;
   return { thinkingBudget };

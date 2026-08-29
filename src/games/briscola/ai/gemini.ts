@@ -42,12 +42,12 @@ function thinkingConfigFor(
   hasMultipleMoves: boolean
 ): ThinkingConfig {
   const think = useThinking && hasMultipleMoves;
-  // Gemini 3+ takes thinkingLevel; thinkingBudget is the 2.5-era shape
-  // (deprecated on 3.x, and mixing the two errors).
+  // Gemini 3+ takes thinkingLevel (HIGH on, LOW off — MINIMAL is rejected
+  // by some 3.x models); thinkingBudget is the 2.5-era shape.
   const m = modelId.match(/gemini-(\d+)/);
   const major = m ? parseInt(m[1], 10) : 3;
   if (major >= 3) {
-    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.MINIMAL };
+    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW };
   }
   return { thinkingBudget: think ? -1 : isProModel(modelId) ? 128 : 0 };
 }
