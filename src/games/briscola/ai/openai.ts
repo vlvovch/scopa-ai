@@ -4,6 +4,10 @@
 // list machinery; only the prompts are Briscola-specific.
 
 import OpenAI from 'openai';
+import { getAiThinkingLevel } from '../../../ai/effort';
+/** Families that accept the Responses API reasoning.effort param. */
+const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
+
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
@@ -104,8 +108,14 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
 
     try {
       const startTime = performance.now();
+      const thinkingKnob = getAiThinkingLevel();
       const response = await this.client.responses.create({
         model: this.model,
+        // Reasoning effort for reasoning-capable families (gpt-5*/o*);
+        // omitted otherwise and at knob 'off' (provider default applies).
+        reasoning: OPENAI_REASONING_MODELS.test(this.model) && thinkingKnob !== 'off'
+          ? { effort: thinkingKnob }
+          : undefined,
         instructions:
           this.mode === 'singleturn'
             ? SYSTEM_INSTRUCTION_SINGLETURN

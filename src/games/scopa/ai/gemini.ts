@@ -1,6 +1,7 @@
 // Gemini AI Player - Uses Google's Gemini API for intelligent play
 
 import { GoogleGenAI, Chat, ThinkingLevel } from '@google/genai';
+import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
@@ -41,10 +42,12 @@ function getMessageThinkingConfig(modelId: string, useThinking: boolean, hasMult
   const think = useThinking && hasMultipleMoves;
   const m = modelId.match(/gemini-(\d+)/);
   const major = m ? parseInt(m[1], 10) : 3;
+  const knob = getAiThinkingLevel();
   if (major >= 3) {
-    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW };
+    const onLevel = knob === 'medium' ? ThinkingLevel.MEDIUM : ThinkingLevel.HIGH;
+    return { thinkingLevel: think ? onLevel : ThinkingLevel.LOW };
   }
-  const thinkingBudget = think ? -1 : isProModel(modelId) ? 128 : 0;
+  const thinkingBudget = think ? (knob === 'medium' ? 8192 : -1) : isProModel(modelId) ? 128 : 0;
   return { thinkingBudget };
 }
 

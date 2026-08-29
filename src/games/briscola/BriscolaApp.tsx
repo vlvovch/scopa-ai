@@ -57,6 +57,7 @@ import { ThinkingBubble } from '../../components/UI/ThinkingBubble';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
 import { trackGameStarted, trackGameCompleted } from '../../analytics';
+import { setAiThinkingLevel, type AiThinkingLevel } from '../../ai/effort';
 import { GameControls } from '../../components/UI/GameControls';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
 import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
@@ -807,7 +808,12 @@ function BriscolaApp() {
 
   // Single thinking toggle applied to Gemini + Claude (OpenAI uses its own
   // server-side reasoning). Mirrors Scopa's behavior.
-  const [useThinking, setUseThinking] = useState<boolean>(true);
+  const [thinkingLevel, setThinkingLevel] = useState<AiThinkingLevel>('high');
+  // Bot wiring and instance caches key on the boolean; level refines depth.
+  const useThinking = thinkingLevel !== 'off';
+  useEffect(() => {
+    setAiThinkingLevel(thinkingLevel);
+  }, [thinkingLevel]);
 
   // Multi-turn (server-side chat history) vs single-turn (full round history
   // embedded in each prompt). Applies to all three BYOK LLMs. Gemini Free
@@ -1873,8 +1879,11 @@ function BriscolaApp() {
             setClaudeModel(m);
             updateSetting('claudeModel', m);
           }}
-          useThinking={useThinking}
-          onToggleThinking={setUseThinking}
+          thinkingLevel={thinkingLevel}
+          onCycleThinking={() =>
+            setThinkingLevel((l) => (l === 'off' ? 'medium' : l === 'medium' ? 'high' : 'off'))
+          }
+          onOpenSettings={() => setIsSettingsOpen(true)}
           conversationMode={conversationMode}
           onToggleConversationMode={setConversationMode}
           watchOpponents={watchOpponents}

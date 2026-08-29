@@ -7,6 +7,7 @@ import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
 import { heuristicAI } from './heuristic';
+import { getAiThinkingLevel } from '../../../ai/effort';
 import { getClaudeApiKey, isClaudeKeyValid } from '../../../hooks/useSettings';
 
 // Extended thinking configuration
@@ -453,13 +454,14 @@ class ClaudeAI implements AsyncAIPlayer {
           // default is 'omitted' (empty thinking text), which left the
           // reasoning UI blank on current models.
           requestParams.thinking = { type: 'adaptive', display: 'summarized' };
-          requestParams.output_config.effort = 'high';
+          requestParams.output_config.effort =
+            getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
         } else {
           // Older models (Sonnet/Haiku/Opus 4.5 and earlier): manual
           // thinking with budget_tokens
           requestParams.thinking = {
             type: 'enabled',
-            budget_tokens: EXTENDED_THINKING_BUDGET
+            budget_tokens: getAiThinkingLevel() === 'medium' ? 4000 : EXTENDED_THINKING_BUDGET
           };
         }
       }

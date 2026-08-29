@@ -39,8 +39,8 @@ interface StartScreenProps {
   spectatorModels: { player1: string; player2: string };
   onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
   defaultTargetScore: number;
-  useThinking: boolean;
-  onToggleThinking: (enabled: boolean) => void;
+  thinkingLevel: 'off' | 'medium' | 'high';
+  onCycleThinking: () => void;
   onOpenSettings?: () => void;
   onOpenRules?: () => void;
   /** AI provider availability (computed from React state, not localStorage) */
@@ -108,8 +108,8 @@ export function StartScreen({
   spectatorModels,
   onSelectSpectatorModel,
   defaultTargetScore,
-  useThinking,
-  onToggleThinking,
+  thinkingLevel,
+  onCycleThinking,
   onOpenSettings,
   onOpenRules,
   aiAvailability,
@@ -404,13 +404,17 @@ export function StartScreen({
                   {convMode === 'conversation' ? '💬' : '1️⃣'}
                 </button>
 
-                {(isGemini || isClaude) && (
+                {(isGemini || isClaude || isOpenAI) && (
                   <button
-                    className={`${styles.thinkingToggle} ${useThinking ? styles.thinkingEnabled : ''}`}
-                    onClick={() => onToggleThinking(!useThinking)}
-                    title={useThinking ? t.start.thinkingOnTitle : t.start.thinkingOffTitle}
+                    className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
+                    onClick={onCycleThinking}
+                    title={thinkingLevel === 'off'
+                      ? t.start.thinkingOffTitle
+                      : thinkingLevel === 'medium'
+                        ? t.start.thinkingMediumTitle
+                        : t.start.thinkingOnTitle}
                   >
-                    {useThinking ? '🧠' : '⚡'}
+                    {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
                   </button>
                 )}
               </div>
@@ -420,8 +424,12 @@ export function StartScreen({
         {/* Description with thinking status */}
         <p className={styles.aiDescription}>
           {t.aiDescriptions[currentAI] ?? AI_INFO[currentAI].description}
-          {cat === 'ai' && (isGemini || isClaude) && (
-            useThinking ? t.start.plusThinking : t.start.fastMode
+          {cat === 'ai' && (isGemini || isClaude || isOpenAI) && (
+            thinkingLevel === 'off'
+              ? t.start.fastMode
+              : thinkingLevel === 'medium'
+                ? t.start.plusThinkingBalanced
+                : t.start.plusThinking
           )}
         </p>
         {isFreeAI && (() => {
@@ -453,6 +461,29 @@ export function StartScreen({
   return (
     <div className={styles.container}>
       <LanguageToggle />
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          title={t.settings.title}
+          aria-label={t.settings.title}
+          style={{
+            position: 'fixed',
+            top: '0.75rem',
+            left: '0.75rem',
+            zIndex: 50,
+            padding: '6px 10px',
+            fontSize: '1.2rem',
+            lineHeight: 1,
+            background: 'rgba(0, 0, 0, 0.3)',
+            border: 'none',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          ⚙️
+        </button>
+      )}
       <div className={styles.content}>
         <h1 className={styles.title}>Scopa</h1>
         <p className={styles.subtitle}>{t.start.scopaSubtitle}</p>

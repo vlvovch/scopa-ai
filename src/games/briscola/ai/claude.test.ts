@@ -181,6 +181,24 @@ describe('ClaudeBriscolaAI', () => {
     expect(context.validMoves.map((m) => m.cardPlayed.id)).toContain(move.cardPlayed.id);
   });
 
+  it('maps the medium thinking knob to effort: medium', async () => {
+    const { setAiThinkingLevel } = await import('../../../ai/effort');
+    mocks.messagesCreate.mockResolvedValueOnce(
+      fakeClaudeResponse({ moveIndex: 0, reasoning: 'x' })
+    );
+    const { getClaudeBriscolaAI, clearClaudeCache } = await import('./claude');
+    clearClaudeCache();
+    setAiThinkingLevel('medium');
+    try {
+      const ai = getClaudeBriscolaAI('claude-sonnet-5', true, 'multiturn');
+      ai!.startRound();
+      await ai!.selectMove(ctx());
+      expect(mocks.messagesCreate.mock.calls[0][0].output_config.effort).toBe('medium');
+    } finally {
+      setAiThinkingLevel('high');
+    }
+  });
+
   it('requests incremental prompt caching on every call', async () => {
     mocks.messagesCreate.mockResolvedValueOnce(
       fakeClaudeResponse({ moveIndex: 0, reasoning: 'x' })

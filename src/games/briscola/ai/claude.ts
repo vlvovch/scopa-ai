@@ -8,6 +8,7 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { heuristicAI } from './heuristic';
+import { getAiThinkingLevel } from '../../../ai/effort';
 import {
   SYSTEM_INSTRUCTION_MULTITURN,
   SYSTEM_INSTRUCTION_SINGLETURN,
@@ -156,11 +157,12 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
       if (isAdaptiveThinkingModel(this.model)) {
         // Explicit display: the default is 'omitted' since Opus 4.7
         requestParams.thinking = { type: 'adaptive', display: 'summarized' };
-        requestParams.output_config.effort = 'high';
+        requestParams.output_config.effort =
+          getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
       } else {
         requestParams.thinking = {
           type: 'enabled',
-          budget_tokens: EXTENDED_THINKING_BUDGET,
+          budget_tokens: getAiThinkingLevel() === 'medium' ? 4000 : EXTENDED_THINKING_BUDGET,
         };
       }
     }

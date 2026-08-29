@@ -3,6 +3,10 @@
 // the complete round history in the prompt.
 
 import OpenAI from 'openai';
+import { getAiThinkingLevel } from '../../../ai/effort';
+/** Families that accept the Responses API reasoning.effort param. */
+const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
+
 import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
@@ -290,8 +294,14 @@ class OpenAISingleTurnAI implements AsyncAIPlayer {
       const startTime = performance.now();
 
       // Single request with full context (no conversation state)
+      const thinkingKnob = getAiThinkingLevel();
       const response = await this.client.responses.create({
         model: this.model,
+        // Reasoning effort for reasoning-capable families (gpt-5*/o*);
+        // omitted otherwise and at knob 'off' (provider default applies).
+        reasoning: OPENAI_REASONING_MODELS.test(this.model) && thinkingKnob !== 'off'
+          ? { effort: thinkingKnob }
+          : undefined,
         instructions: SYSTEM_INSTRUCTION_SINGLETURN,
         input: prompt,
         // No conversation parameter - each request is independent

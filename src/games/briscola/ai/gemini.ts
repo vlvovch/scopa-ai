@@ -7,6 +7,7 @@
 // Briscola-specific.
 
 import { GoogleGenAI, ThinkingLevel, type Chat, type ThinkingConfig } from '@google/genai';
+import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
@@ -46,10 +47,12 @@ function thinkingConfigFor(
   // by some 3.x models); thinkingBudget is the 2.5-era shape.
   const m = modelId.match(/gemini-(\d+)/);
   const major = m ? parseInt(m[1], 10) : 3;
+  const knob = getAiThinkingLevel();
   if (major >= 3) {
-    return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW };
+    const onLevel = knob === 'medium' ? ThinkingLevel.MEDIUM : ThinkingLevel.HIGH;
+    return { thinkingLevel: think ? onLevel : ThinkingLevel.LOW };
   }
-  return { thinkingBudget: think ? -1 : isProModel(modelId) ? 128 : 0 };
+  return { thinkingBudget: think ? (knob === 'medium' ? 8192 : -1) : isProModel(modelId) ? 128 : 0 };
 }
 
 /** Derive a human-readable display name from a model id. */

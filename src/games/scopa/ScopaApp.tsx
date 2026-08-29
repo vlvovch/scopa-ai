@@ -3082,8 +3082,15 @@ function ScopaApp() {
           spectatorModels={spectatorModels}
           onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
           defaultTargetScore={settings.defaultTargetScore}
-          useThinking={settings.useThinking}
-          onToggleThinking={(enabled) => updateSetting('useThinking', enabled)}
+          thinkingLevel={settings.thinkingLevel}
+          onCycleThinking={() => {
+            const next =
+              settings.thinkingLevel === 'off' ? 'medium'
+                : settings.thinkingLevel === 'medium' ? 'high' : 'off';
+            updateSetting('thinkingLevel', next);
+            // Keep the boolean in sync — bot wiring and instance caches key on it.
+            updateSetting('useThinking', next !== 'off');
+          }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenRules={() => setShowRules(true)}
           aiAvailability={{

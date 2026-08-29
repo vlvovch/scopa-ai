@@ -1,6 +1,10 @@
 // OpenAI GPT AI Player - Uses OpenAI's Responses API with conversation state
 
 import OpenAI from 'openai';
+import { getAiThinkingLevel } from '../../../ai/effort';
+/** Families that accept the Responses API reasoning.effort param. */
+const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
+
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
@@ -383,8 +387,14 @@ class OpenAIAI implements AsyncAIPlayer {
       const startTime = performance.now();
 
       // Use Responses API with conversation state management
+      const thinkingKnob = getAiThinkingLevel();
       const response = await this.client.responses.create({
         model: this.model,
+        // Reasoning effort for reasoning-capable families (gpt-5*/o*);
+        // omitted otherwise and at knob 'off' (provider default applies).
+        reasoning: OPENAI_REASONING_MODELS.test(this.model) && thinkingKnob !== 'off'
+          ? { effort: thinkingKnob }
+          : undefined,
         instructions: SYSTEM_INSTRUCTION_MULTITURN,
         input: prompt,
         // If we have a conversation ID, continue it; otherwise create new

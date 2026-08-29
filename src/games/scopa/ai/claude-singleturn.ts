@@ -14,6 +14,7 @@ import {
 } from './claude';
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 import { heuristicAI } from './heuristic';
+import { getAiThinkingLevel } from '../../../ai/effort';
 
 // Default model to use
 const DEFAULT_MODEL = 'claude-sonnet-5';
@@ -319,12 +320,13 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
           // 4.6+ and the 5-family: adaptive thinking; explicit display
           // (the default is 'omitted' since Opus 4.7)
           requestParams.thinking = { type: 'adaptive', display: 'summarized' };
-          requestParams.output_config.effort = 'high';
+          requestParams.output_config.effort =
+            getAiThinkingLevel() === 'medium' ? 'medium' : 'high';
         } else {
           // Older models: Use manual thinking with budget_tokens
           requestParams.thinking = {
             type: 'enabled',
-            budget_tokens: 10000,
+            budget_tokens: getAiThinkingLevel() === 'medium' ? 4000 : 10000,
           };
         }
       }

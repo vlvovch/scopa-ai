@@ -3,6 +3,7 @@
 // the complete round history in the prompt.
 
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
@@ -35,10 +36,12 @@ function getGenerationConfig(modelId: string, useThinking: boolean, hasMultipleM
   // by some 3.x models); thinkingBudget is the 2.5-era shape.
   const m = modelId.match(/gemini-(\d+)/);
   const major = m ? parseInt(m[1], 10) : 3;
+  const knob = getAiThinkingLevel();
+  const onLevel = knob === 'medium' ? ThinkingLevel.MEDIUM : ThinkingLevel.HIGH;
   const thinkingConfig =
     major >= 3
-      ? { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW }
-      : { thinkingBudget: think ? -1 : isProModel(modelId) ? 128 : 0 };
+      ? { thinkingLevel: think ? onLevel : ThinkingLevel.LOW }
+      : { thinkingBudget: think ? (knob === 'medium' ? 8192 : -1) : isProModel(modelId) ? 128 : 0 };
 
   return {
     responseJsonSchema: MOVE_JSON_SCHEMA,

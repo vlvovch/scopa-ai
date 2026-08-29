@@ -102,8 +102,9 @@ interface StartScreenProps {
   onSetOpenAIModel: (modelId: string) => void;
   claudeModel: string;
   onSetClaudeModel: (modelId: string) => void;
-  useThinking: boolean;
-  onToggleThinking: (enabled: boolean) => void;
+  thinkingLevel: 'off' | 'medium' | 'high';
+  onCycleThinking: () => void;
+  onOpenSettings?: () => void;
   /** Multi-turn = SDK manages chat history. Single-turn = full round
    *  history embedded in each request. Same toggle UX as Scopa. */
   conversationMode: 'multiturn' | 'singleturn';
@@ -125,8 +126,9 @@ export function StartScreen({
   onSetOpenAIModel,
   claudeModel,
   onSetClaudeModel,
-  useThinking,
-  onToggleThinking,
+  thinkingLevel,
+  onCycleThinking,
+  onOpenSettings,
   conversationMode,
   onToggleConversationMode,
   watchOpponents,
@@ -354,20 +356,19 @@ export function StartScreen({
                 {conversationMode === 'multiturn' ? '💬' : '1️⃣'}
               </button>
 
-              {/* Thinking toggle (Gemini + Claude only). Single global flag —
-                  matches Scopa. OpenAI uses its own server-side reasoning, no
-                  client-side toggle. */}
-              {(provider === 'gemini' || provider === 'claude') && (
+              {/* 3-state thinking knob (off → balanced → deep) — matches
+                  Scopa. OpenAI reasoning models get reasoning.effort too. */}
+              {(provider === 'gemini' || provider === 'claude' || provider === 'openai') && (
                 <button
-                  className={`${styles.thinkingToggle} ${useThinking ? styles.thinkingEnabled : ''}`}
-                  onClick={() => onToggleThinking(!useThinking)}
-                  title={
-                    useThinking
-                      ? t.start.thinkingOnTitle
-                      : t.start.thinkingOffTitle
-                  }
+                  className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
+                  onClick={onCycleThinking}
+                  title={thinkingLevel === 'off'
+                    ? t.start.thinkingOffTitle
+                    : thinkingLevel === 'medium'
+                      ? t.start.thinkingMediumTitle
+                      : t.start.thinkingOnTitle}
                 >
-                  {useThinking ? '🧠' : '⚡'}
+                  {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
                 </button>
               )}
             </>
@@ -376,8 +377,12 @@ export function StartScreen({
         <p className={styles.aiDescription}>
           {getOpponentDescription(current, t)}
           {cat === 'ai' &&
-            (provider === 'gemini' || provider === 'claude') &&
-            (useThinking ? t.start.plusThinking : t.start.fastMode)}
+            (provider === 'gemini' || provider === 'claude' || provider === 'openai') &&
+            (thinkingLevel === 'off'
+              ? t.start.fastMode
+              : thinkingLevel === 'medium'
+                ? t.start.plusThinkingBalanced
+                : t.start.plusThinking)}
         </p>
         {cat === 'free-ai' && (() => {
           const info = getGeminiFreeRateLimitInfo();
@@ -416,6 +421,29 @@ export function StartScreen({
   return (
     <div className={styles.container}>
       <LanguageToggle />
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          title={t.settings.title}
+          aria-label={t.settings.title}
+          style={{
+            position: 'fixed',
+            top: '0.75rem',
+            left: '0.75rem',
+            zIndex: 50,
+            padding: '6px 10px',
+            fontSize: '1.2rem',
+            lineHeight: 1,
+            background: 'rgba(0, 0, 0, 0.3)',
+            border: 'none',
+            borderRadius: '10px',
+            cursor: 'pointer',
+            backdropFilter: 'blur(2px)',
+          }}
+        >
+          ⚙️
+        </button>
+      )}
       <div className={styles.content}>
         <h1 className={styles.title}>Briscola</h1>
         <p className={styles.subtitle}>{t.start.briscolaSubtitle}</p>

@@ -41,6 +41,8 @@ export interface GameSettings {
   claudeModel: string;
   /** Enable extended thinking for LLM AI (Claude, Gemini) */
   useThinking: boolean;
+  /** 3-state thinking knob; useThinking stays the derived on/off. */
+  thinkingLevel: 'off' | 'medium' | 'high';
   /** Auto-advance rounds in spectator mode (show summary for 2 seconds then continue) */
   autoAdvanceSpectator: boolean;
   /** Enable sound effects */
@@ -97,6 +99,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   openaiModel: 'gpt-5-mini',
   claudeModel: 'claude-sonnet-5',
   useThinking: true,
+  thinkingLevel: 'high',
   autoAdvanceSpectator: true,
   soundEnabled: true,
   geminiApiKey: '',
@@ -118,7 +121,12 @@ function loadSettings(): GameSettings {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      const merged = { ...DEFAULT_SETTINGS, ...parsed };
+      // Migrate pre-knob installs: the boolean was the only control.
+      if (!('thinkingLevel' in parsed)) {
+        merged.thinkingLevel = merged.useThinking ? 'high' : 'off';
+      }
+      return merged;
     }
   } catch (e) {
     console.warn('Failed to load settings from localStorage:', e);
