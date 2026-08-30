@@ -83,15 +83,22 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
-  // Build stamp shown in the start-screen footer so a device's running
-  // version is verifiable at a glance (build time UTC + git commit).
+  // Version shown in the start-screen footer so a device's running build
+  // is verifiable at a glance: v1.<commit count> (date) — monotonic and
+  // maintenance-free. The tooltip carries build time UTC + git commit.
   let gitVersion = 'dev'
+  let commitCount = '0'
   try {
     gitVersion = execSync('git rev-parse --short HEAD').toString().trim()
+    commitCount = execSync('git rev-list --count HEAD').toString().trim()
   } catch { /* not a git checkout */ }
-  const buildStamp = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} ${gitVersion}`
+  const buildDate = new Date().toISOString().slice(0, 10)
+  const buildTime = new Date().toISOString().slice(11, 16)
   return {
-  define: { __APP_VERSION__: JSON.stringify(buildStamp) },
+  define: {
+    __APP_VERSION__: JSON.stringify(`1.${commitCount} (${buildDate})`),
+    __APP_BUILD_INFO__: JSON.stringify(`built ${buildDate} ${buildTime} UTC · ${gitVersion}`),
+  },
   plugins: [react(), copyVariantAssets(env.VITE_GAME), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER)],
   base: '/',  // Use absolute paths for SPA routing with /join/CODE paths
   server: {
