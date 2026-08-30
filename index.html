@@ -182,6 +182,26 @@
             .then(reg => console.log('SW registered'))
             .catch(err => console.log('SW registration failed:', err));
         });
+
+        // Warm resumes never navigate, so an app kept alive for days runs
+        // stale JS forever. Check for a new SW whenever we return to the
+        // foreground, and tell the app when one takes over — it reloads
+        // at the next safe moment (start screen, not mid-game).
+        // controllerchange also fires on the very first install claiming
+        // the page; only treat it as an update if we had a controller.
+        var __hadController = !!navigator.serviceWorker.controller;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!__hadController) { __hadController = true; return; }
+          window.__swUpdated = true;
+          window.dispatchEvent(new Event('sw-updated'));
+        });
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            navigator.serviceWorker.getRegistration()
+              .then(reg => reg && reg.update())
+              .catch(() => {});
+          }
+        });
       }
     }
 

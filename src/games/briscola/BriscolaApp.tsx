@@ -814,6 +814,23 @@ function BriscolaApp() {
   useEffect(() => {
     setAiThinkingLevel(thinkingLevel);
   }, [thinkingLevel]);
+  // Apply a pending service-worker update at the next safe moment: the
+  // page keeps running old code until a reload, so reload on the start
+  // screen only (never mid-game, never inside the multiplayer flow).
+  const [swUpdatePending, setSwUpdatePending] = useState<boolean>(
+    () => !!(window as unknown as { __swUpdated?: boolean }).__swUpdated
+  );
+  useEffect(() => {
+    const onSwUpdated = () => setSwUpdatePending(true);
+    window.addEventListener('sw-updated', onSwUpdated);
+    return () => window.removeEventListener('sw-updated', onSwUpdated);
+  }, []);
+  useEffect(() => {
+    if (swUpdatePending && state.status === 'idle' && !isMultiplayerMode) {
+      window.location.reload();
+    }
+  }, [swUpdatePending, state.status, isMultiplayerMode]);
+
 
   // Multi-turn (server-side chat history) vs single-turn (full round history
   // embedded in each prompt). Applies to all three BYOK LLMs. Gemini Free
