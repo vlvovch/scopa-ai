@@ -16,7 +16,7 @@ import type {
 // Configuration
 const WS_URL = import.meta.env.VITE_BRISCOLA_WS_URL || 'ws://localhost:8081';
 const RECONNECT_DELAY_MS = 2000;
-const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_ATTEMPTS = 8;
 const PING_INTERVAL_MS = 30000;
 const SESSION_STORAGE_KEY = 'briscola-mp-session';
 
@@ -516,12 +516,18 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
       const session = loadSession();
       if (session && reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttemptsRef.current++;
+        // Mild backoff — mobile radios can take 10-15s to come back
+        // after suspend, so early instant failures must not burn all
+        // attempts before the network even exists.
         reconnectTimeoutRef.current = window.setTimeout(() => {
           connect(true);
-        }, RECONNECT_DELAY_MS);
+        }, Math.min(RECONNECT_DELAY_MS * reconnectAttemptsRef.current, 10000));
       } else if (reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS) {
-        setConnectionError('Connection lost. Please refresh the page.');
-        clearSession();
+        // Give up for now but KEEP the session: the server holds our seat
+        // for token-based reconnection, and clearing it here forced users
+        // into a fresh join that bounces off "Room is already full". The
+        // online/visibility probes reset the attempt counter and resume.
+        setConnectionError('Connection lost. Reopen the app or check your network.');
       }
     };
 

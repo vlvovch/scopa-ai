@@ -3,6 +3,7 @@ import { defineConfig, configDefaults } from 'vitest/config'
 import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 
@@ -82,7 +83,15 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
+  // Build stamp shown in the start-screen footer so a device's running
+  // version is verifiable at a glance (build time UTC + git commit).
+  let gitVersion = 'dev'
+  try {
+    gitVersion = execSync('git rev-parse --short HEAD').toString().trim()
+  } catch { /* not a git checkout */ }
+  const buildStamp = `${new Date().toISOString().slice(0, 16).replace('T', ' ')} ${gitVersion}`
   return {
+  define: { __APP_VERSION__: JSON.stringify(buildStamp) },
   plugins: [react(), copyVariantAssets(env.VITE_GAME), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER)],
   base: '/',  // Use absolute paths for SPA routing with /join/CODE paths
   server: {
