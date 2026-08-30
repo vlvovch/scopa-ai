@@ -108,6 +108,9 @@ export interface UseMultiplayerReturn {
 export function useMultiplayer(): UseMultiplayerReturn {
   // WebSocket ref
   const wsRef = useRef<WebSocket | null>(null);
+  // Timestamp of the last message from the server (any type, incl. PONG)
+  const lastServerActivityRef = useRef(0);
+  const probeTimeoutRef = useRef<number | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const pingIntervalRef = useRef<number | null>(null);
@@ -457,9 +460,22 @@ export function useMultiplayer(): UseMultiplayerReturn {
     ws.onopen = () => {
       setConnectionStatus('connected');
       reconnectAttemptsRef.current = 0;
+      lastServerActivityRef.current = Date.now();
 
       // Start ping interval
       pingIntervalRef.current = window.setInterval(() => {
+        // Two silent ping cycles = the socket is dead even if it claims
+        // OPEN (silent mobile suspend) — recycle it via the reconnect path.
+        if (
+          Date.now() - lastServerActivityRef.current > PING_INTERVAL_MS * 2 + 5000 &&
+          wsRef.current === ws
+        ) {
+          reconnectAttemptsRef.current = 0;
+          wsRef.current = null;
+          try { ws.close(); } catch { /* already dead */ }
+          connect(true);
+          return;
+        }
         sendMessage({ type: 'PING' });
       }, PING_INTERVAL_MS);
 
@@ -482,6 +498,7 @@ export function useMultiplayer(): UseMultiplayerReturn {
     };
 
     ws.onmessage = (event) => {
+      lastServerActivityRef.current = Date.now();
       try {
         const message: ServerMessage = JSON.parse(event.data);
         // Use ref to always call the latest callback (avoids stale closure)
@@ -492,6 +509,9 @@ export function useMultiplayer(): UseMultiplayerReturn {
     };
 
     ws.onclose = () => {
+      // A socket we already detached and replaced must not disturb the
+      // live connection's state or schedule duplicate reconnects.
+      if (wsRef.current !== ws && wsRef.current !== null) return;
       setConnectionStatus('disconnected');
 
       // Clear ping interval
@@ -516,7 +536,58 @@ export function useMultiplayer(): UseMultiplayerReturn {
     ws.onerror = () => {
       setConnectionError('Failed to connect to server');
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sendMessage, loadSession, clearSession]);
+
+  // Android (and background tabs generally) kill the socket silently on
+  // suspend: no close event fires, timers freeze, and on resume the dead
+  // socket still reports OPEN — the UI looks live while the server (and
+  // the opponent) dropped us long ago. Re-validate whenever we return to
+  // the foreground or the network comes back: probe with a PING and run
+  // the normal reconnect path if the server stays silent.
+  const verifyConnection = useCallback(() => {
+    const session = loadSession();
+    if (!session) return; // not in a game
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      if (ws && ws.readyState === WebSocket.CONNECTING) return;
+      reconnectAttemptsRef.current = 0;
+      wsRef.current = null;
+      try { ws?.close(); } catch { /* already dead */ }
+      connect(true);
+      return;
+    }
+    // Socket claims OPEN — challenge it. Any server message counts.
+    const probeStart = Date.now();
+    sendMessage({ type: 'PING' });
+    if (probeTimeoutRef.current) clearTimeout(probeTimeoutRef.current);
+    probeTimeoutRef.current = window.setTimeout(() => {
+      if (lastServerActivityRef.current < probeStart && wsRef.current === ws) {
+        // Zombie socket: detach it so its late close event is ignored,
+        // then reconnect with the stored session.
+        reconnectAttemptsRef.current = 0;
+        wsRef.current = null;
+        try { ws.close(); } catch { /* already dead */ }
+        connect(true);
+      }
+    }, 4000);
+  }, [connect, sendMessage, loadSession]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') verifyConnection();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', verifyConnection);
+    window.addEventListener('focus', verifyConnection);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', verifyConnection);
+      window.removeEventListener('focus', verifyConnection);
+      if (probeTimeoutRef.current) clearTimeout(probeTimeoutRef.current);
+    };
+  }, [verifyConnection]);
+
 
   const disconnect = useCallback(() => {
     // Clear reconnect timeout
