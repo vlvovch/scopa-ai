@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+dist
+dist-briscola
+dist-itch
+scopa-server/node_modules
+scopa-server/dist
+scopa-proxy/node_modules
+scopa-proxy/dist
+screenshots
+*.log

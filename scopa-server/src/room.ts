@@ -42,7 +42,7 @@ export function generateRoomCode(): string {
   do {
     const suffix = nanoidAlphanumeric();
     code = `SCOPA-${suffix}`;
-  } while (rooms.has(code)); // Ensure uniqueness
+  } while (rooms.has(code) || code.startsWith('SCOPA-M')); // Mxxx is reserved for family rooms
   return code;
 }
 

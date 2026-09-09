@@ -32,6 +32,9 @@ export interface LobbyGameConfig {
    *  the lobby renders a switch per entry and reports their states back
    *  through onCreateRoom's roomOptions record (keyed by `key`). */
   extraToggles?: ExtraToggle[];
+  /** Supported room sizes. Omit for the legacy two-player flow. */
+  playerCountOptions?: readonly number[];
+  defaultPlayerCount?: number;
 }
 
 /** One host-configurable create-game switch. */
@@ -66,7 +69,7 @@ interface MultiplayerLobbyProps {
     turnTimerEnabled: boolean,
     /** Booleans for each config.extraToggles entry, keyed by toggle key.
      *  Final, future-proof arg — new toggles need no signature change. */
-    roomOptions: Record<string, boolean>
+    roomOptions: Record<string, boolean | number>
   ) => void;
   onJoinRoom: (code: string, nickname: string) => void;
   onBack: () => void;
@@ -107,6 +110,9 @@ export function MultiplayerLobby({
   const [joinCode, setJoinCode] = useState(initialJoinCode || codePrefix);
   const [targetScore, setTargetScore] = useState(config.defaultScore);
   const [turnTimerEnabled, setTurnTimerEnabled] = useState(false);
+  const [playerCount, setPlayerCount] = useState(
+    config.defaultPlayerCount ?? config.playerCountOptions?.[0] ?? 2
+  );
   // One boolean per extra toggle, keyed by toggle.key, seeded from
   // each toggle's defaultValue.
   const [toggleStates, setToggleStates] = useState<Record<string, boolean>>(
@@ -130,7 +136,10 @@ export function MultiplayerLobby({
 
   const handleCreateRoom = () => {
     if (!nickname.trim()) return;
-    onCreateRoom(nickname.trim(), targetScore, turnTimerEnabled, toggleStates);
+    onCreateRoom(nickname.trim(), targetScore, turnTimerEnabled, {
+      ...toggleStates,
+      maxPlayers: playerCount,
+    });
   };
 
   const handleJoinRoom = () => {
@@ -207,6 +216,24 @@ export function MultiplayerLobby({
               disabled={isDisabled}
             />
           </div>
+
+          {config.playerCountOptions && (
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Players</label>
+              <div className={styles.scoreOptions}>
+                {config.playerCountOptions.map((count) => (
+                  <button
+                    key={count}
+                    className={`${styles.scoreOption} ${playerCount === count ? styles.selected : ''}`}
+                    onClick={() => setPlayerCount(count)}
+                    disabled={isDisabled}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className={styles.formGroup}>
             <label className={styles.label}>{config.scoreLabel}</label>

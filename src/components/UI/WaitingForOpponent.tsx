@@ -11,6 +11,8 @@ interface WaitingForOpponentProps {
   turnTimerEnabled: boolean;
   onUpdateNickname: (nickname: string) => void;
   onLeaveRoom: () => void;
+  players?: Array<{ id: string; nickname: string; connected: boolean; isSelf: boolean }>;
+  maxPlayers?: number;
 }
 
 export function WaitingForOpponent({
@@ -20,6 +22,8 @@ export function WaitingForOpponent({
   turnTimerEnabled,
   onUpdateNickname,
   onLeaveRoom,
+  players,
+  maxPlayers = 2,
 }: WaitingForOpponentProps) {
   const t = useT();
   const [isEditingNickname, setIsEditingNickname] = useState(false);
@@ -84,7 +88,9 @@ export function WaitingForOpponent({
   return (
     <div className={styles.container}>
       <div className={styles.content}>
-        <h1 className={styles.title}>{t.multiplayer.waitingForOpponent}</h1>
+        <h1 className={styles.title}>
+          {maxPlayers > 2 ? 'Waiting for players' : t.multiplayer.waitingForOpponent}
+        </h1>
         <p className={styles.subtitle}>{t.multiplayer.shareCode}</p>
 
         {/* Room Code Display */}
@@ -122,6 +128,21 @@ export function WaitingForOpponent({
           <div className={styles.spinner}></div>
           <span>{t.multiplayer.waitingJoin}</span>
         </div>
+
+        {players && (
+          <div className={styles.roster}>
+            <span className={styles.rosterCount}>{players.length} / {maxPlayers}</span>
+            <div className={styles.rosterPlayers}>
+              {players.map((player) => (
+                <div className={styles.rosterPlayer} key={player.id}>
+                  <span className={styles.connectionDot} data-connected={player.connected} />
+                  <span>{player.nickname}</span>
+                  {player.isSelf && <small>{t.common.you}</small>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Game Settings Summary */}
         <div className={styles.settingsSummary}>

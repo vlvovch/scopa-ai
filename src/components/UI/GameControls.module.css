@@ -15,6 +15,27 @@
   flex-direction: row;
 }
 
+.compact {
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+}
+
+.compact .row {
+  gap: 3px;
+}
+
+.compact .button {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+}
+
+.compact .button svg {
+  width: 16px;
+  height: 16px;
+}
+
 .button {
   display: flex;
   align-items: center;
@@ -61,6 +82,17 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-1);
+  }
+
+  .multiplayerControls.compact {
+    flex-direction: row;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .compact .button {
+    width: 30px;
+    height: 30px;
   }
 }
 

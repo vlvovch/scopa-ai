@@ -112,6 +112,7 @@ export type ClientMessage =
         turnTimerEnabled: boolean;
         pileViewEnabled: boolean;
         pileStatsEnabled: boolean;
+        maxPlayers?: number;
       };
     }
   | {
@@ -343,4 +344,5 @@ export interface AuthenticatedWebSocket extends WebSocket {
   playerId?: MultiplayerPlayerId;
   roomCode?: string;
   sessionToken?: string;
+  familyMode?: boolean;
 }

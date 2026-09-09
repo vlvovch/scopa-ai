@@ -14,6 +14,8 @@ interface GameControlsProps {
   onQuitGame?: () => void;
   /** Whether in multiplayer mode */
   isMultiplayer?: boolean;
+  /** Keep all controls in one compact row (multi-seat board header). */
+  compact?: boolean;
 }
 
 export function GameControls({
@@ -24,10 +26,11 @@ export function GameControls({
   onRequestRestart,
   onQuitGame,
   isMultiplayer = false,
+  compact = false,
 }: GameControlsProps) {
   const t = useT();
   return (
-    <div className={`${styles.controls} ${isMultiplayer ? styles.multiplayerControls : ''}`}>
+    <div className={`${styles.controls} ${isMultiplayer ? styles.multiplayerControls : ''} ${compact ? styles.compact : ''}`}>
       {/* Row 1: Game actions */}
       <div className={styles.row}>
         {/* In multiplayer: show restart button */}

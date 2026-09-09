@@ -17,6 +17,11 @@ import {
   startGame,
 } from '../room.js';
 import { handleGameMessage } from './game.js';
+import {
+  handleFamilyConnection,
+  isFamilyCreateMessage,
+  isFamilyRoom,
+} from '../multiplayer6.js';
 
 /**
  * Handle a new WebSocket connection
@@ -27,6 +32,14 @@ export function handleConnection(ws: AuthenticatedWebSocket): void {
   ws.on('message', (data: Buffer) => {
     try {
       const message: ClientMessage = JSON.parse(data.toString());
+      if (ws.familyMode) return;
+      if (isFamilyCreateMessage(message) ||
+          (message.type === 'JOIN_ROOM' && isFamilyRoom(message.payload.roomCode)) ||
+          (message.type === 'RECONNECT' && isFamilyRoom(message.payload.roomCode))) {
+        ws.familyMode = true;
+        handleFamilyConnection(ws, message as never);
+        return;
+      }
       handleMessage(ws, message);
     } catch (error) {
       console.error('Failed to parse message:', error);
