@@ -2,16 +2,13 @@
 // Unlike the multi-turn version, each request is independent and includes
 // the complete round history in the prompt.
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import {
-  getGeminiApiKey,
-  isGeminiAvailable,
-  type GeminiTokenStats,
-  type GeminiTokenDelta,
-} from './gemini';
+import type { GeminiTokenStats, GeminiTokenDelta } from './gemini';
+import { getGeminiApiKey, isGeminiAvailable } from '../../../ai/geminiProvider';
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import { TokenTracker } from '../../../ai/tokenTracker';
@@ -378,3 +375,6 @@ export function endGeminiSingleTurnRound(): void {
 export function clearGeminiSingleTurnCache(): void {
   instanceCache.clear();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('gemini', clearGeminiSingleTurnCache);

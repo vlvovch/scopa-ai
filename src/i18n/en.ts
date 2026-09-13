@@ -15,6 +15,22 @@ export const en = {
     back: '← Back',
     you: 'You',
     opponent: 'Opponent',
+    chooseGame: 'Choose a game',
+    loadingGame: (name: string) => `Loading ${name}…`,
+    gameLoadFailed: (name: string) => `Could not load ${name}.`,
+    gameLoadFailedHint: 'Check your connection and try again.',
+    gameLoadFailedOffline: (name: string) =>
+      `You appear to be offline and ${name} has not been downloaded to this device yet. Reconnect and try again.`,
+    retry: 'Retry',
+    openGame: (name: string) => `Open ${name}`,
+    playGame: (name: string) => `Play ${name}`,
+    chooserHint: 'You can switch games any time from the start screen or Settings.',
+    /** One-time notice for existing players: the other game is now here too. */
+    announceTitle: (name: string) => `New: ${name}`,
+    announceBody: (name: string) =>
+      `${name} is now available here too. Play it against the computer, an AI opponent or a friend. You can switch between the two games whenever you like, using the selector at the top of the start screen or in Settings.`,
+    announceTry: (name: string) => `Try ${name}`,
+    announceLater: 'Not now',
   },
 
   controls: {
@@ -100,6 +116,11 @@ export const en = {
     newGameTitle: 'Start New Game?',
     newGameMessage: 'Current game progress will be lost.',
     newGameConfirm: 'New Game',
+    switchGameTitle: (name: string) => `Switch to ${name}?`,
+    switchGameMessage: (current: string) =>
+      `This will discard your current ${current} game. Its progress won't be saved.`,
+    switchGameMessageMultiplayer: 'You will leave the multiplayer game.',
+    switchGameConfirm: 'Switch',
     apiCallFailed: 'API call failed',
     pileReviewLabel: 'Captured-pile review',
     pileReviewOn: 'Players can open a pile to review captured cards',
@@ -350,6 +371,8 @@ export const en = {
   },
 
   settings: {
+    game: 'Game',
+    gameSwitchHint: 'Switching games discards a game in progress.',
     title: 'Settings',
     language: 'Language',
     defaultFirstTo: 'Default First To',

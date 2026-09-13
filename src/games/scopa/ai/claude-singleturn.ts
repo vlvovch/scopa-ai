@@ -2,17 +2,20 @@
 // Unlike the multi-turn version, each request is independent and includes
 // the complete round history in the prompt.
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import Anthropic from '@anthropic-ai/sdk';
 import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
+import {
+  type ClaudeTokenStats,
+  type ClaudeTokenDelta,
+} from './claude';
 import {
   getClaudeApiKey,
   isClaudeAvailable,
   isAdaptiveThinkingModel,
   isAlwaysThinkingModel,
-  type ClaudeTokenStats,
-  type ClaudeTokenDelta,
-} from './claude';
+} from '../../../ai/claudeProvider';
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 import { heuristicAI } from './heuristic';
 import { getAiThinkingLevel } from '../../../ai/effort';
@@ -516,3 +519,6 @@ export function endClaudeSingleTurnRound(): void {
 export function clearClaudeSingleTurnCache(): void {
   instanceCache.clear();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('claude', clearClaudeSingleTurnCache);

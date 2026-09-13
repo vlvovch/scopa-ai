@@ -5,12 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
 import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
 import { assetUrl } from '../../assetUrl';
-import { clearGeminiCache, clearGeminiSingleTurnCache, clearOpenAICache, clearOpenAISingleTurnCache, clearClaudeCache, clearClaudeSingleTurnCache } from '../../games/scopa/ai';
-import {
-  clearGeminiCache as clearBriscolaGeminiCache,
-  clearOpenAICache as clearBriscolaOpenAICache,
-  clearClaudeCache as clearBriscolaClaudeCache,
-} from '../../games/briscola/ai';
+import { clearApiKeyCaches } from '../../ai/apiKeyCaches';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Language } from '../../i18n/LanguageContext';
 import styles from './SettingsModal.module.css';
@@ -57,6 +52,9 @@ function fontSizeIndex(scale: number | undefined): number {
   return best;
 }
 
+import { GameSwitcher } from './GameSwitcher';
+import type { GameId } from '../../games/gameSelection';
+
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,6 +65,10 @@ interface SettingsModalProps {
    *  section (Target Score for Scopa vs First To for Briscola) and which
    *  game-specific sections are visible. Defaults to 'scopa'. */
   game?: 'scopa' | 'briscola';
+  /** Runtime Scopa ⇄ Briscola switch. Undefined = unavailable (itch builds);
+   *  the "Game" row is then hidden. The modal closes itself first so the
+   *  app's leave-game confirmation (if a game is in progress) is visible. */
+  onSwitchGame?: (game: GameId) => void;
 }
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
@@ -85,6 +87,7 @@ export function SettingsModal({
   onUpdateSetting,
   onResetSettings,
   game = 'scopa',
+  onSwitchGame,
 }: SettingsModalProps) {
   const { language, setLanguage, t } = useLanguage();
   // Track if warning popup should be shown
@@ -162,21 +165,13 @@ export function SettingsModal({
   // Clear AI caches for a specific provider (call when key changes).
   // Both Scopa and Briscola maintain their own per-(model, useThinking)
   // bot caches — clearing only Scopa's would leave Briscola holding an
-  // instance built with the stale (or missing) key.
+  // instance built with the stale (or missing) key. Every loaded bot
+  // module registers its clearer in src/ai/apiKeyCaches.ts (a game that
+  // has not been loaded yet has nothing to clear).
   const clearCacheForProvider = useCallback((key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey') => {
-    if (key === 'geminiApiKey') {
-      clearGeminiCache();
-      clearGeminiSingleTurnCache();
-      clearBriscolaGeminiCache();
-    } else if (key === 'openaiApiKey') {
-      clearOpenAICache();
-      clearOpenAISingleTurnCache();
-      clearBriscolaOpenAICache();
-    } else if (key === 'claudeApiKey') {
-      clearClaudeCache();
-      clearClaudeSingleTurnCache();
-      clearBriscolaClaudeCache();
-    }
+    clearApiKeyCaches(
+      key === 'geminiApiKey' ? 'gemini' : key === 'openaiApiKey' ? 'openai' : 'claude'
+    );
   }, []);
 
   // Handle API key input - show warning on first input if not shown before
@@ -260,6 +255,22 @@ export function SettingsModal({
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className={styles.title}>{t.settings.title}</h2>
+
+            {onSwitchGame && (
+              <div className={styles.setting}>
+                <label className={styles.label}>{t.settings.game}</label>
+                <div>
+                  <GameSwitcher
+                    value={game}
+                    onChange={(target) => {
+                      onClose();
+                      onSwitchGame(target);
+                    }}
+                  />
+                </div>
+                <p className={styles.settingHint}>{t.settings.gameSwitchHint}</p>
+              </div>
+            )}
 
             {game === 'briscola' ? (
               <div className={styles.setting}>

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { useGame } from './hooks/useGame';
+import { useGame, clearPersistedGame } from './hooks/useGame';
 import { useSettings } from '../../hooks/useSettings';
 import { useSound } from '../../hooks/useSound';
 import { useStats } from '../../hooks/useStats';
@@ -32,6 +32,9 @@ import { TurnTimer } from '../../components/UI/TurnTimer';
 import { DeckProvider } from '../../contexts/DeckContext';
 import { trackGameStarted, trackGameCompleted } from '../../analytics';
 import { useT } from '../../i18n/LanguageContext';
+import { setAiThinkingLevel } from '../../ai/effort';
+import { GAME_NAMES, gameHomePath, type GameId } from '../gameSelection';
+import type { GameAppProps } from '../gameLoaders';
 import { getValidMoves } from './rules';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
@@ -90,6 +93,9 @@ function loadSpectatorModels(): { player1: string; player2: string } {
 
 // Session storage key (must match useMultiplayer.ts)
 const MP_SESSION_KEY = 'scopa-mp-session';
+// Where the URL goes when Scopa leaves a multiplayer room: "/" on the Scopa
+// site, "/scopa" when Scopa is the switched-to game on the Briscola site.
+const HOME_PATH = gameHomePath('scopa');
 
 // Check for join code from URL on initial load
 // Only clear session if joining a DIFFERENT room than the stored session
@@ -147,10 +153,17 @@ function dropPoint(info: { point: { x: number; y: number } }): { x: number; y: n
   return { x: info.point.x, y: info.point.y };
 }
 
-function ScopaApp() {
+function ScopaApp({ onSwitchGame }: GameAppProps) {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
   const t = useT();
+
+  // Publish the thinking depth to the module-level registry the LLM bots read
+  // at request time. Briscola sets the same registry from its own knob, so
+  // each game re-asserts its level on mount and neither leaks into the other.
+  useEffect(() => {
+    setAiThinkingLevel(settings.thinkingLevel);
+  }, [settings.thinkingLevel]);
 
   // Apply table style class to body element
   useEffect(() => {
@@ -240,13 +253,18 @@ function ScopaApp() {
       if (window.location.pathname !== joinPath) {
         window.history.replaceState({}, '', joinPath);
       }
-    } else {
-      // Not in a room - clear the join URL if present
+    } else if (initialJoinCode === undefined) {
+      // Not in a room - clear the join URL if present. While an invitation
+      // is still open in the lobby (initialJoinCode set, not yet joined)
+      // the URL must keep naming it: a refresh re-resolves the game from
+      // the URL, and the invite — not a remembered other-game preference —
+      // is what should win. The lobby's Back handler clears the code and
+      // scrubs the URL explicitly when the user leaves.
       if (window.location.pathname.startsWith('/join/') || window.location.search.includes('join=')) {
-        window.history.replaceState({}, '', '/');
+        window.history.replaceState({}, '', HOME_PATH);
       }
     }
-  }, [multiplayer.roomCode]);
+  }, [multiplayer.roomCode, initialJoinCode]);
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [selectedTableCards, setSelectedTableCards] = useState<Card[]>([]);
@@ -268,6 +286,8 @@ function ScopaApp() {
   // Multiplayer captured-pile review: which seat's pile is open (host opt-in).
   const [mpOpenPile, setMpOpenPile] = useState<'self' | 'opponent' | null>(null);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
+  // Runtime game switch awaiting the leave-game confirmation (target game).
+  const [confirmSwitchGame, setConfirmSwitchGame] = useState<GameId | null>(null);
 
   // Spectator mode: track which hands are shown face-up (toggled by clicking)
   const [spectatorHandsVisible, setSpectatorHandsVisible] = useState<{ cpu: boolean; human: boolean }>({
@@ -691,6 +711,16 @@ function ScopaApp() {
       gameEpoch.current += 1;
     }
   }, [state.status]);
+  // Unmount (runtime game switch, load-failure fallback): the idle-state
+  // bump above can never run for an unmounting instance, so invalidate
+  // here — a still-pending LLM reply or an in-progress CPU animation
+  // timer must not play cards, schedule follow-ups or sounds afterwards.
+  useEffect(() => {
+    const epochRef = gameEpoch;
+    return () => {
+      epochRef.current += 1;
+    };
+  }, []);
   // Apply a pending service-worker update at the next safe moment: the
   // page keeps running old code until a reload, so reload on the start
   // screen only (never mid-game, never inside the multiplayer flow).
@@ -1646,8 +1676,8 @@ function ScopaApp() {
   const handleStartMultiplayer = useCallback(() => {
     setIsMultiplayerMode(true);
     // Clear URL join code after entering multiplayer mode
-    if (window.location.pathname !== '/' || window.location.search) {
-      window.history.replaceState({}, '', '/');
+    if (window.location.pathname !== HOME_PATH || window.location.search) {
+      window.history.replaceState({}, '', HOME_PATH);
     }
   }, []);
 
@@ -2240,7 +2270,7 @@ function ScopaApp() {
     if (multiplayer.gameState && !multiplayer.gameEndData) {
       if (!multiplayerStartTracked.current) {
         multiplayerStartTracked.current = true;
-        trackGameStarted({ mode: 'multiplayer', opponent: 'human' });
+        trackGameStarted({ game: 'scopa', mode: 'multiplayer', opponent: 'human' });
       }
     } else {
       multiplayerStartTracked.current = false;
@@ -2264,7 +2294,7 @@ function ScopaApp() {
         multiplayer.opponentNickname // Use opponent nickname as "model" for accumulation
       );
       multiplayerGameRecorded.current = true;
-      trackGameCompleted({ mode: 'multiplayer', opponent: 'human' });
+      trackGameCompleted({ game: 'scopa', mode: 'multiplayer', opponent: 'human' });
 
       // Play victory sound (only if we won)
       if (multiplayer.gameEndData.finalScores[myId] > multiplayer.gameEndData.finalScores[oppId]) {
@@ -2286,7 +2316,7 @@ function ScopaApp() {
     // Anonymous player analytics: one event per game the visitor actually
     // plays. Watch mode (cpuVsCPU) is spectating, not playing — excluded.
     if (gameMode === 'pvsCPU') {
-      trackGameStarted({ mode: 'solo', opponent: isLLMAI(settings.cpuAI) ? 'ai' : 'cpu' });
+      trackGameStarted({ game: 'scopa', mode: 'solo', opponent: isLLMAI(settings.cpuAI) ? 'ai' : 'cpu' });
     }
 
     // Reset token stats for all LLM types
@@ -2346,6 +2376,82 @@ function ScopaApp() {
     resetAllTokenStats();
     resetGame();
   }, [useWorkerMode, stopSimulation, resetGame, resetAllTokenStats]);
+
+  // ============================================================================
+  // RUNTIME GAME SWITCH (Scopa ⇄ Briscola)
+  // ============================================================================
+  // Leaving semantics are those of "New Game" / "Quit": anything in progress
+  // is abandoned only after the existing confirmation, and cancelling the
+  // dialog leaves the current game untouched. App.tsx swaps the mounted
+  // game once this component has cleaned up after itself.
+  const inMultiplayerFlow = isMultiplayerMode || initialJoinCode !== undefined;
+
+  const performSwitchGame = useCallback((target: GameId) => {
+    setConfirmSwitchGame(null);
+    if (!onSwitchGame) return;
+    if (useWorkerMode) {
+      stopSimulation();
+      setUseWorkerMode(false);
+      setWorkerFinalState(null);
+    }
+    if (inMultiplayerFlow) {
+      // Tells the server, closes the socket and clears the stored session,
+      // so nothing tries to reconnect to this room from the other game.
+      multiplayer.leaveRoom();
+      setIsMultiplayerMode(false);
+      setInitialJoinCode(undefined);
+    }
+    resetAllTokenStats();
+    // Discard ONLY a game this instance is showing (the user has just
+    // confirmed that). From the start screen there is nothing to discard,
+    // and a save written by another tab / a game that never mounted here
+    // must survive — so never touch the persisted game unconditionally.
+    // The explicit clear is needed because this component unmounts before
+    // its persistence effect could observe the idle state.
+    if (activeState.status !== 'idle') {
+      resetGame();
+      clearPersistedGame();
+    }
+    // Invalidate in-flight AI turns NOW (synchronously, before the parent
+    // unmounts us): the reducer's idle-state effect will not run for an
+    // unmounting instance, and a pending LLM reply must find the epoch
+    // already advanced when it resolves.
+    gameEpoch.current += 1;
+    onSwitchGame(target);
+  }, [onSwitchGame, useWorkerMode, stopSimulation, inMultiplayerFlow, multiplayer, resetAllTokenStats, resetGame, activeState.status]);
+
+  const requestSwitchGame = useCallback((target: GameId) => {
+    if (target === 'scopa') return;
+    const soloInProgress =
+      activeState.status === 'playing' || activeState.status === 'roundEnd' || workerIsRunning;
+    const multiplayerInProgress = inMultiplayerFlow && !!multiplayer.roomCode;
+    if (soloInProgress || multiplayerInProgress) {
+      setConfirmSwitchGame(target);
+    } else {
+      performSwitchGame(target);
+    }
+  }, [activeState.status, workerIsRunning, inMultiplayerFlow, multiplayer.roomCode, performSwitchGame]);
+
+  // Passed to the start screen and every Settings modal; undefined hides the
+  // switcher entirely (itch builds).
+  const switchGameProp = onSwitchGame ? requestSwitchGame : undefined;
+
+  const switchGameDialog = (
+    <ConfirmDialog
+      isOpen={confirmSwitchGame !== null}
+      title={t.game.switchGameTitle(GAME_NAMES[confirmSwitchGame ?? 'briscola'])}
+      message={
+        inMultiplayerFlow && multiplayer.roomCode
+          ? t.game.switchGameMessageMultiplayer
+          : t.game.switchGameMessage(GAME_NAMES.scopa)
+      }
+      confirmLabel={t.game.switchGameConfirm}
+      onConfirm={() => {
+        if (confirmSwitchGame) performSwitchGame(confirmSwitchGame);
+      }}
+      onCancel={() => setConfirmSwitchGame(null)}
+    />
+  );
 
   // Handle play again from game end screen (also resets worker mode)
   const handlePlayAgain = useCallback(() => {
@@ -2463,7 +2569,7 @@ function ScopaApp() {
         useThinking
       );
       gameRecorded.current = true;
-      trackGameCompleted({ mode: 'solo', opponent: isLLMOpponent ? 'ai' : 'cpu' });
+      trackGameCompleted({ game: 'scopa', mode: 'solo', opponent: isLLMOpponent ? 'ai' : 'cpu' });
 
       // Play victory celebration sound
       playSound('victory');
@@ -2940,7 +3046,9 @@ function ScopaApp() {
           settings={settings}
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
+          onSwitchGame={switchGameProp}
         />
+        {switchGameDialog}
         <RulesModal
           isOpen={showRules}
           onClose={() => setShowRules(false)}
@@ -3007,7 +3115,9 @@ function ScopaApp() {
           settings={settings}
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
+          onSwitchGame={switchGameProp}
         />
+        {switchGameDialog}
         <StatsModal
           isOpen={showStats}
           onClose={() => setShowStats(false)}
@@ -3137,8 +3247,8 @@ function ScopaApp() {
               // Clear initial join code so we can return to main menu
               setInitialJoinCode(undefined);
               // Clear URL if we came from a join link
-              if (window.location.pathname !== '/' || window.location.search) {
-                window.history.replaceState({}, '', '/');
+              if (window.location.pathname !== HOME_PATH || window.location.search) {
+                window.history.replaceState({}, '', HOME_PATH);
               }
             }}
           />
@@ -3176,6 +3286,7 @@ function ScopaApp() {
           }}
           onOpenSettings={() => setShowSettings(true)}
           onOpenRules={() => setShowRules(true)}
+          onSwitchGame={switchGameProp}
           aiAvailability={{
             geminiFree: !!import.meta.env.VITE_PROXY_URL,
             gemini: (!!settings.geminiApiKey && settings.geminiKeyValid) || !!import.meta.env.VITE_GEMINI_API_KEY,
@@ -3189,7 +3300,9 @@ function ScopaApp() {
           settings={settings}
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
+          onSwitchGame={switchGameProp}
         />
+        {switchGameDialog}
         <RulesModal
           isOpen={showRules}
           onClose={() => setShowRules(false)}
@@ -3318,7 +3431,9 @@ function ScopaApp() {
         settings={settings}
         onUpdateSetting={updateSetting}
         onResetSettings={resetSettings}
+        onSwitchGame={switchGameProp}
       />
+      {switchGameDialog}
       <StatsModal
         isOpen={showStats}
         onClose={() => setShowStats(false)}

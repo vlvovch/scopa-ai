@@ -1,8 +1,11 @@
 // OpenAI GPT bot for Briscola — uses OpenAI's Responses API with the
 // `conversation` parameter so the server tracks history across turns
-// (we just hand back the conversation id). Reuses Scopa's key + model-
-// list machinery; only the prompts are Briscola-specific.
+// (we just hand back the conversation id). Key + model-list machinery
+// comes from the shared src/ai/openaiProvider.ts (never from Scopa's bot
+// module — that would pull Scopa's bot into this build's main chunk); only
+// the prompts are Briscola-specific.
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import OpenAI from 'openai';
 import { getAiThinkingLevel } from '../../../ai/effort';
 /** Families that accept the Responses API reasoning.effort param. */
@@ -24,7 +27,7 @@ import {
   getCachedOpenAIModels,
   getOpenAIApiKey,
   type OpenAIModelInfo,
-} from '../../scopa/ai/openai';
+} from '../../../ai/openaiProvider';
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
@@ -212,6 +215,9 @@ export function getOpenAIBriscolaAI(
 export function clearOpenAICache(): void {
   instances.clear();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('openai', clearOpenAICache);
 
 export function startOpenAIRound(
   model: string,

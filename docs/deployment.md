@@ -183,6 +183,56 @@ Add an A record in your DNS provider:
 
 Caddy will automatically provision an SSL certificate from Let's Encrypt.
 
+## Both games on one origin (runtime game switch)
+
+Each deployment is still built for one game (`--mode scopa` / `--mode
+briscola`) and keeps its own manifest, service-worker scope, `start_url`,
+Digital Asset Links and Android TWA launch URL. Since the in-app
+Scopa ⇄ Briscola switch, the *other* game ships in each build as a lazily
+loaded chunk and is reachable at `/briscola` (Scopa site) or `/scopa`
+(Briscola site), so:
+
+- **Static hosting:** the SPA fallback must serve `index.html` for
+  `/scopa`, `/briscola` and `/join/*` (the `try_files {path} /index.html`
+  above already does).
+- **Multiplayer:** set **both** `VITE_WS_URL` and `VITE_BRISCOLA_WS_URL`
+  for **both** builds. The simplest option needs no proxy change: give each
+  build the other server's absolute URL (`VITE_BRISCOLA_WS_URL=wss://briscola.your-domain.com/ws`
+  in the Scopa build, `VITE_WS_URL=wss://your-domain.com/ws` in the
+  Briscola build) — cross-origin WebSockets are fine, the servers apply no
+  origin check. To keep multiplayer same-origin on every alias domain
+  instead, add a second `reverse_proxy` route per site and pass a path:
+
+  ```caddyfile
+  # Scopa site block
+  handle /ws-briscola {
+      reverse_proxy localhost:3102
+  }
+  # Briscola site block
+  handle /ws-scopa {
+      reverse_proxy localhost:3100
+  }
+  ```
+
+  then build with `VITE_BRISCOLA_WS_URL=/ws-briscola` (Scopa) and
+  `VITE_WS_URL=/ws-scopa` (Briscola); a leading `/` resolves against the
+  page's own origin (`wss:` on HTTPS).
+- **Free-AI proxy:** unchanged — `VITE_PROXY_URL` stays same-origin per
+  domain and the shared proxy serves both games.
+- **Room codes** are game-prefixed by the servers (`SCOPA-XXXX`,
+  `BRISCOLA-XXXX`); an invitation link opens its game on either site.
+- **Deploy guard:** the deploy script must refuse to upload a bundle that
+  is missing either production WebSocket URL (grep every `assets/*.js`,
+  the other game's URL lives in its lazy chunk) or whose `manifest.json`
+  names the wrong game for its docroot. `local/contabo.sh` does both
+  before any `rsync`.
+- **Download cost:** the service worker precaches the other game's chunk
+  at install, so the app-cache payload grows by roughly 100–180 KB raw
+  per build (see the size table in the switch report). The live Caddy
+  config serves assets **without** `Content-Encoding`, so precache and
+  first-visit costs are the raw sizes; adding `encode zstd gzip` to each
+  site block would cut the JS/CSS transfer to roughly a quarter.
+
 ## Verification
 
 1. Visit `https://your-domain.com` - should load the game
@@ -270,8 +320,8 @@ sudo systemctl restart caddy
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `VITE_WS_URL` | Scopa WebSocket server URL | `wss://your-domain.com/ws` |
-| `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL (separate build; falls back to `ws://localhost:8081` if unset) | `wss://briscola.your-domain.com/ws` |
+| `VITE_WS_URL` | Scopa WebSocket server URL — needed by **both** builds (falls back to `ws://localhost:8080` if unset). Absolute `wss://…` URL, or a same-origin path such as `/ws-scopa` | `wss://your-domain.com/ws` |
+| `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL — needed by **both** builds (falls back to `ws://localhost:8081` if unset). Absolute `wss://…` URL, or a same-origin path such as `/ws-briscola` | `wss://briscola.your-domain.com/ws` |
 | `VITE_PROXY_URL` | AI proxy server URL | `https://your-domain.com` |
 | `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.example.com/script.js` |
 | `VITE_UMAMI_WEBSITE_ID` | Umami website ID (optional) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |

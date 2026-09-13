@@ -2,10 +2,12 @@
 // user's own API key (no proxy, no daily quota). Multi-turn chat session
 // per round; thinking enabled on non-trivial moves.
 //
-// Reuses Scopa's API-key + model-list plumbing — those are provider-wide,
-// not game-specific. Only the prompts and the response handler are
-// Briscola-specific.
+// API-key + model-list plumbing comes from the shared src/ai/geminiProvider.ts
+// (provider-wide, not game-specific; never import it from Scopa's bot module,
+// that would pull Scopa's bot into this build's main chunk). Only the prompts
+// and the response handler are Briscola-specific.
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import { GoogleGenAI, ThinkingLevel, type Chat, type ThinkingConfig } from '@google/genai';
 import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Move } from '../types';
@@ -24,7 +26,7 @@ import {
   fetchGeminiModels,
   getCachedGeminiModels,
   type GeminiModelInfo,
-} from '../../scopa/ai/gemini';
+} from '../../../ai/geminiProvider';
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 import { TokenTracker } from '../../../ai/tokenTracker';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
@@ -256,6 +258,9 @@ export function getGeminiBriscolaAI(
 export function clearGeminiCache(): void {
   instances.clear();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('gemini', clearGeminiCache);
 
 export function startGeminiRound(
   model: string,

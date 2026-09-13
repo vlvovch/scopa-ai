@@ -44,7 +44,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }));
 
-vi.mock('../../scopa/ai/claude', () => ({
+vi.mock('../../../ai/claudeProvider', () => ({
   getClaudeApiKey: () => 'sk-test',
   isClaudeAvailable: () => true,
   fetchClaudeModels: async () => [],

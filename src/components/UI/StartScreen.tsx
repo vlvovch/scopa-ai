@@ -9,6 +9,10 @@ import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import { LanguageToggle } from './LanguageToggle';
 import { useT } from '../../i18n/LanguageContext';
+import { GameSwitcher } from './GameSwitcher';
+import { OtherGameAnnouncement } from './OtherGameAnnouncement';
+import switcherStyles from './GameSwitcher.module.css';
+import type { GameId } from '../../games/gameSelection';
 import styles from './StartScreen.module.css';
 
 // Check if running in itch.io mode (API keys disabled)
@@ -43,6 +47,8 @@ interface StartScreenProps {
   onCycleThinking: () => void;
   onOpenSettings?: () => void;
   onOpenRules?: () => void;
+  /** Runtime Scopa ⇄ Briscola switch; undefined when unavailable (itch builds). */
+  onSwitchGame?: (game: GameId) => void;
   /** AI provider availability (computed from React state, not localStorage) */
   aiAvailability: {
     geminiFree: boolean;
@@ -113,6 +119,7 @@ export function StartScreen({
   onOpenSettings,
   onOpenRules,
   aiAvailability,
+  onSwitchGame,
 }: StartScreenProps) {
   const t = useT();
   const [selectedScore, setSelectedScore] = useState<number>(defaultTargetScore);
@@ -461,6 +468,7 @@ export function StartScreen({
   return (
     <div className={styles.container}>
       <LanguageToggle />
+      {onSwitchGame && <OtherGameAnnouncement game="scopa" onSwitchGame={onSwitchGame} />}
       {onOpenSettings && (
         <button
           onClick={onOpenSettings}
@@ -485,6 +493,12 @@ export function StartScreen({
         </button>
       )}
       <div className={styles.content}>
+        {onSwitchGame && (
+          <div className={switcherStyles.startScreenRow}>
+            <span className={styles.label} style={{ marginBottom: 0 }}>{t.common.chooseGame}</span>
+            <GameSwitcher value="scopa" onChange={onSwitchGame} className={switcherStyles.startScreen} />
+          </div>
+        )}
         <h1 className={styles.title}>Scopa</h1>
         <p className={styles.subtitle}>{t.start.scopaSubtitle}</p>
 

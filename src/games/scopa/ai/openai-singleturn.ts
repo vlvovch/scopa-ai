@@ -2,6 +2,7 @@
 // Unlike the multi-turn version, each request is independent and includes
 // the complete round history in the prompt.
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import OpenAI from 'openai';
 import { getAiThinkingLevel } from '../../../ai/effort';
 /** Families that accept the Responses API reasoning.effort param. */
@@ -9,12 +10,8 @@ const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
 
 import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import {
-  getOpenAIApiKey,
-  isOpenAIAvailable,
-  type OpenAITokenStats,
-  type OpenAITokenDelta,
-} from './openai';
+import type { OpenAITokenStats, OpenAITokenDelta } from './openai';
+import { getOpenAIApiKey, isOpenAIAvailable } from '../../../ai/openaiProvider';
 import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
 
 // Default model to use
@@ -471,3 +468,6 @@ export function endOpenAISingleTurnRound(): void {
 export function clearOpenAISingleTurnCache(): void {
   instanceCache.clear();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('openai', clearOpenAISingleTurnCache);

@@ -5,12 +5,12 @@
 // Opus 5 errored whenever thinking was enabled).
 
 import { describe, it, expect, vi } from 'vitest';
-import { isAdaptiveThinkingModel, isAlwaysThinkingModel } from './claude';
+import { isAdaptiveThinkingModel, isAlwaysThinkingModel } from './claudeProvider';
 
-// claude.ts imports the SDK and the settings hook at module level;
+// claudeProvider.ts imports the SDK and the settings hook at module level;
 // neither is exercised by the pure gating function.
 vi.mock('@anthropic-ai/sdk', () => ({ default: class {} }));
-vi.mock('../../../hooks/useSettings', () => ({
+vi.mock('../hooks/useSettings', () => ({
   getClaudeApiKey: () => null,
   isClaudeKeyValid: () => false,
 }));

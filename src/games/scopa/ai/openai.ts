@@ -1,5 +1,6 @@
 // OpenAI GPT AI Player - Uses OpenAI's Responses API with conversation state
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import OpenAI from 'openai';
 import { getAiThinkingLevel } from '../../../ai/effort';
 /** Families that accept the Responses API reasoning.effort param. */
@@ -8,13 +9,18 @@ const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
-import { getOpenAIApiKey, isOpenAIKeyValid } from '../../../hooks/useSettings';
+import { getOpenAIApiKey, isOpenAIAvailable, clearOpenAIModelCache } from '../../../ai/openaiProvider';
 
-// Model info returned from API
-export interface OpenAIModelInfo {
-  id: string;
-  displayName: string;
-}
+// Provider plumbing (key availability, model list) lives in
+// src/ai/openaiProvider.ts, shared with Briscola. Re-exported so the Scopa
+// barrel and existing importers keep working.
+export {
+  fetchOpenAIModels,
+  getCachedOpenAIModels,
+  isOpenAIAvailable,
+  getOpenAIApiKey,
+} from '../../../ai/openaiProvider';
+export type { OpenAIModelInfo } from '../../../ai/openaiProvider';
 
 // Token usage statistics
 export interface OpenAITokenStats {
@@ -56,10 +62,6 @@ export interface OpenAITokenDelta {
 // Default model to use
 const DEFAULT_MODEL = 'gpt-5-mini';
 
-// Cached models list
-let cachedModels: OpenAIModelInfo[] | null = null;
-let modelsFetchPromise: Promise<OpenAIModelInfo[]> | null = null;
-
 /**
  * Format model ID into display name
  * e.g., "gpt-4o-mini" -> "GPT-4o Mini"
@@ -81,117 +83,6 @@ function formatModelName(modelId: string): string {
     })
     .filter(Boolean)
     .join(' ');
-}
-
-/**
- * Fetch available OpenAI models from the API
- * Results are cached after first successful fetch
- */
-export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
-  // Return cached models if available
-  if (cachedModels !== null) {
-    return cachedModels;
-  }
-
-  // Return existing promise if fetch is in progress
-  if (modelsFetchPromise !== null) {
-    return modelsFetchPromise;
-  }
-
-  const apiKey = getOpenAIApiKey();
-  if (!apiKey) {
-    return [];
-  }
-
-  modelsFetchPromise = (async () => {
-    try {
-      const client = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true
-      });
-
-      const models: OpenAIModelInfo[] = [];
-
-      // Allowlist pattern for chat models
-      // Only matches base models without date suffixes to avoid duplicates
-      // e.g., gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3, o4-mini, etc.
-      const ALLOWED_PATTERNS = [
-        /^gpt-4o(-mini)?$/,                              // gpt-4o, gpt-4o-mini (no date suffixes)
-        /^gpt-4\.1(-mini|-nano)?$/,                      // gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
-        /^gpt-4-turbo$/,                                 // gpt-4-turbo (no date suffixes)
-        /^gpt-5(\.\d+)?(-[a-z]+)?$/,                     // gpt-5[-mini|-nano|-pro], gpt-5.1, gpt-5.6-sol/terra/luna, …
-        /^o[134](-mini|-pro)?$/,                         // o1, o3, o4, o3-mini, o4-mini, o1-pro
-      ];
-
-      const isAllowedModel = (id: string): boolean => {
-        return ALLOWED_PATTERNS.some(pattern => pattern.test(id));
-      };
-
-      const response = await client.models.list();
-
-      for await (const model of response) {
-        if (isAllowedModel(model.id)) {
-          // Use raw model ID as display name for clarity
-          models.push({
-            id: model.id,
-            displayName: model.id
-          });
-        }
-      }
-
-      // Sort: gpt-5 family (newest minor version first) > gpt-4.1 > gpt-4o
-      // > o-series, then by variant (base > mini > nano)
-      models.sort((a, b) => {
-        const order = (id: string): number => {
-          if (id.startsWith('gpt-5')) return 0;
-          if (id.startsWith('gpt-4.1')) return 1;
-          if (id.startsWith('gpt-4o')) return 2;
-          if (id.startsWith('gpt-4-turbo')) return 3;
-          if (id.startsWith('o')) return 4;
-          return 5;
-        };
-        const minorOf = (id: string): number => {
-          const m = id.match(/^gpt-5\.(\d+)/);
-          return m ? parseInt(m[1], 10) : 0;
-        };
-        const variantOrder = (id: string): number => {
-          if (id.includes('-nano')) return 2;
-          if (id.includes('-mini')) return 1;
-          if (id.includes('-pro')) return 3;
-          return 0;
-        };
-
-        return (
-          order(a.id) - order(b.id) ||
-          minorOf(b.id) - minorOf(a.id) ||
-          variantOrder(a.id) - variantOrder(b.id)
-        );
-      });
-
-      cachedModels = models;
-      return models;
-    } catch (error) {
-      console.error('Failed to fetch OpenAI models:', error);
-      // Return fallback models on error (use raw IDs as display names)
-      return [
-        { id: 'gpt-5-mini', displayName: 'gpt-5-mini' },
-        { id: 'gpt-5', displayName: 'gpt-5' },
-        { id: 'gpt-4.1-mini', displayName: 'gpt-4.1-mini' },
-        { id: 'gpt-4o-mini', displayName: 'gpt-4o-mini' },
-      ];
-    } finally {
-      modelsFetchPromise = null;
-    }
-  })();
-
-  return modelsFetchPromise;
-}
-
-/**
- * Get cached models synchronously (returns empty if not yet fetched)
- */
-export function getCachedOpenAIModels(): OpenAIModelInfo[] {
-  return cachedModels || [];
 }
 
 /**
@@ -460,16 +351,6 @@ class OpenAIAI implements AsyncAIPlayer {
 }
 
 /**
- * Check if OpenAI API key is available AND valid
- */
-export function isOpenAIAvailable(): boolean {
-  return !!getOpenAIApiKey() && isOpenAIKeyValid();
-}
-
-// Re-export for backwards compatibility
-export { getOpenAIApiKey };
-
-/**
  * Create an OpenAI AI player instance
  */
 export function createOpenAI(model: string = DEFAULT_MODEL): AsyncAIPlayer | null {
@@ -590,5 +471,8 @@ export function endOpenAIRound(): void {
  */
 export function clearOpenAICache(): void {
   instanceCache.clear();
-  cachedModels = null;
+  clearOpenAIModelCache();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('openai', clearOpenAICache);

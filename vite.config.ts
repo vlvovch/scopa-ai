@@ -101,6 +101,22 @@ export default defineConfig(({ mode }) => {
   },
   plugins: [react(), copyVariantAssets(env.VITE_GAME), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER)],
   base: '/',  // Use absolute paths for SPA routing with /join/CODE paths
+  resolve: {
+    alias: {
+      // Runtime game switch code-splitting seam (see src/App.tsx): the game
+      // this build is for is imported STATICALLY through this alias, so it
+      // stays in the main chunk exactly as before; the other game is only
+      // ever imported dynamically (src/games/gameLoaders.ts) and becomes
+      // its own lazily fetched chunk. A plain static import of both apps
+      // would keep a module-graph edge to the unused one and Rollup would
+      // then hoist that game's dependencies into the main chunk.
+      '@default-game': path.resolve(
+        env.VITE_GAME === 'briscola'
+          ? 'src/games/briscola/BriscolaApp.tsx'
+          : 'src/games/scopa/ScopaApp.tsx'
+      ),
+    },
+  },
   server: {
     hmr: {
       // Use default WebSocket connection settings

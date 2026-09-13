@@ -15,6 +15,21 @@ export const it: Translation = {
     back: '← Indietro',
     you: 'Tu',
     opponent: 'Avversario',
+    chooseGame: 'Scegli un gioco',
+    loadingGame: (name: string) => `Caricamento di ${name}…`,
+    gameLoadFailed: (name: string) => `Impossibile caricare ${name}.`,
+    gameLoadFailedHint: 'Controlla la connessione e riprova.',
+    gameLoadFailedOffline: (name: string) =>
+      `Sembra che tu sia offline e ${name} non è ancora stato scaricato su questo dispositivo. Riconnettiti e riprova.`,
+    retry: 'Riprova',
+    openGame: (name: string) => `Apri ${name}`,
+    playGame: (name: string) => `Gioca a ${name}`,
+    chooserHint: 'Puoi cambiare gioco in qualsiasi momento dalla schermata iniziale o dalle Impostazioni.',
+    announceTitle: (name: string) => `Novità: ${name}`,
+    announceBody: (name: string) =>
+      `Ora qui puoi giocare anche a ${name}, contro il computer, un'IA o un amico. Puoi passare da un gioco all'altro quando vuoi, con il selettore in cima alla schermata iniziale o dalle Impostazioni.`,
+    announceTry: (name: string) => `Prova ${name}`,
+    announceLater: 'Non ora',
   },
 
   controls: {
@@ -100,6 +115,11 @@ export const it: Translation = {
     newGameTitle: 'Iniziare una nuova partita?',
     newGameMessage: 'I progressi della partita attuale andranno persi.',
     newGameConfirm: 'Nuova partita',
+    switchGameTitle: (name: string) => `Passare a ${name}?`,
+    switchGameMessage: (current: string) =>
+      `Se cambi gioco, la partita di ${current} in corso andrà persa. I progressi non vengono salvati.`,
+    switchGameMessageMultiplayer: 'Uscirai dalla partita multigiocatore.',
+    switchGameConfirm: 'Cambia gioco',
     apiCallFailed: 'Chiamata API non riuscita',
     pileReviewLabel: 'Consultazione dei mazzetti',
     pileReviewOn: 'I giocatori possono aprire un mazzetto per rivedere le carte prese',
@@ -349,6 +369,8 @@ export const it: Translation = {
   },
 
   settings: {
+    game: 'Gioco',
+    gameSwitchHint: 'Cambiando gioco la partita in corso viene eliminata.',
     title: 'Impostazioni',
     language: 'Lingua',
     defaultFirstTo: '“Primo a” predefinito',

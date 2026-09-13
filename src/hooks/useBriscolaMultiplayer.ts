@@ -12,9 +12,12 @@ import type {
   ConnectionStatus,
   RoundScore,
 } from '../games/briscola/multiplayer/types';
+import { resolveWsUrl } from '../multiplayer/wsUrl';
 
 // Configuration
-const WS_URL = import.meta.env.VITE_BRISCOLA_WS_URL || 'ws://localhost:8081';
+// Briscola server. Both games ship in one bundle, so every build carries both
+// servers' URLs (Scopa: VITE_WS_URL) — see src/multiplayer/wsUrl.ts.
+const WS_URL = resolveWsUrl(import.meta.env.VITE_BRISCOLA_WS_URL, 'ws://localhost:8081');
 const RECONNECT_DELAY_MS = 2000;
 const MAX_RECONNECT_ATTEMPTS = 8;
 const PING_INTERVAL_MS = 30000;

@@ -1,0 +1,188 @@
+/* First-launch game chooser (see GameChooser.tsx) — same card language as
+   the start screen. Desktop: two columns, signature card above the text.
+   Phones: one column, signature card beside the text. */
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+:global(html.dmode) .screen {
+  min-height: calc(100vh / var(--dmode-scale, 1));
+}
+
+.card {
+  background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  padding: var(--space-5) var(--space-6);
+  text-align: center;
+  max-width: 640px;
+  width: 100%;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(212, 175, 55, 0.15);
+}
+
+.title {
+  margin: 0 0 var(--space-4);
+  color: var(--color-accent);
+  font-size: 1.6rem;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 10px rgba(212, 175, 55, 0.3);
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-4);
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 12px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.option:hover,
+.option:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--color-accent);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+/* Real card proportions (210×345 source), a slight tilt like a card
+   dropped on the table, and a soft shadow so it sits on the felt. */
+.art {
+  display: block;
+  width: 104px;
+  aspect-ratio: 210 / 345;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  transform: rotate(-6deg);
+  flex: none;
+}
+
+.option:hover .art,
+.option:focus-visible .art {
+  transform: rotate(-3deg) scale(1.03);
+  transition: transform 0.15s;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-accent);
+  line-height: 1.1;
+}
+
+.tagline {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  line-height: 1.35;
+}
+
+.cta {
+  margin-top: auto;
+  padding: 7px 20px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #000;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hint {
+  margin: var(--space-4) 0 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  opacity: 0.8;
+}
+
+@media (max-width: 600px) {
+  .screen {
+    /* keep the card's top clear of the fixed language toggle */
+    padding: calc(var(--space-2) + 52px) var(--space-2) var(--space-2);
+  }
+
+  .card {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  .title {
+    font-size: 1.35rem;
+    margin-bottom: var(--space-3);
+  }
+
+  .options {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  /* Row layout: card on the left, text + button on the right. */
+  .option {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .art {
+    width: 68px;
+    margin: 6px 4px 6px 6px;      /* room for the tilted corners */
+    transform: rotate(-4deg);
+  }
+
+  .body {
+    gap: var(--space-2);
+  }
+
+  .cta {
+    margin-top: var(--space-1);
+  }
+
+  .body {
+    align-items: flex-start;
+    flex: 1;
+  }
+
+  .name {
+    font-size: 1.35rem;
+  }
+
+  .tagline {
+    font-size: 0.8rem;
+  }
+
+  .cta {
+    font-size: 0.8rem;
+    padding: 6px 16px;
+  }
+}

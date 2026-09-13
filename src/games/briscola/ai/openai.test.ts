@@ -46,7 +46,7 @@ vi.mock('openai', () => ({
   },
 }));
 
-vi.mock('../../scopa/ai/openai', () => ({
+vi.mock('../../../ai/openaiProvider', () => ({
   getOpenAIApiKey: () => 'sk-test',
   isOpenAIAvailable: () => true,
   fetchOpenAIModels: async () => [],

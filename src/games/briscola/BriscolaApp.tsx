@@ -32,6 +32,8 @@ import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
 import { useT } from '../../i18n/LanguageContext';
+import { GAME_NAMES, gameHomePath, type GameId } from '../gameSelection';
+import type { GameAppProps } from '../gameLoaders';
 import pileStyles from '../../components/Table/CapturedPile.module.css';
 import modalStyles from '../../components/UI/CapturedCardsModal.module.css';
 import { applyMove, trickWinner } from './rules';
@@ -107,7 +109,11 @@ import {
   DEFAULT_CLAUDE_MODEL,
 } from './ai/claude';
 import { TokenStatsDisplay } from '../../components/UI/TokenStatsDisplay';
-import type { GeminiTokenStats, GeminiTokenDelta, ExtendedAIType } from '../scopa/ai';
+import type { GeminiTokenStats, GeminiTokenDelta } from '../../ai/tokenStats';
+// Type-only (erased at build time, no chunk edge): the shared AIPlayerLabel /
+// stats UI is typed with Scopa's opponent union, so Briscola names are cast
+// to it for display. Never import runtime values from the other game's ai/.
+import type { ExtendedAIType } from '../scopa/ai';
 import {
   getAIDisplayNameText,
   AIPlayerLabel,
@@ -413,6 +419,10 @@ const CPU_BOTS: Record<CpuBotName, AIPlayer> = {
 // back up in multiplayer mode (the hook auto-reconnects, but the
 // isMultiplayerMode flag itself doesn't survive a reload).
 const MP_SESSION_KEY = 'briscola-mp-session';
+// Where the URL goes when Briscola leaves a multiplayer room: "/" on the
+// Briscola site, "/briscola" when Briscola is the switched-to game on the
+// Scopa site.
+const HOME_PATH = gameHomePath('briscola');
 
 function hasStoredMpSession(): boolean {
   try {
@@ -621,7 +631,7 @@ function mpToBriscolaAppState(
   return { status: 'playing', game };
 }
 
-function BriscolaApp() {
+function BriscolaApp({ onSwitchGame }: GameAppProps) {
   const t = useT();
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -693,7 +703,7 @@ function BriscolaApp() {
       window.location.pathname.startsWith('/join/') ||
       window.location.search.includes('join=')
     ) {
-      window.history.replaceState({}, '', '/');
+      window.history.replaceState({}, '', HOME_PATH);
     }
     // multiplayer.leaveRoom is stable; setters are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -701,6 +711,10 @@ function BriscolaApp() {
 
   // Keep the URL in sync with the room so the link is shareable and a
   // refresh stays on /join/CODE. Mirrors Scopa.
+  // While an invitation is still open in the lobby (initialJoinCode set,
+  // not yet joined) the URL keeps naming it, so a refresh reopens this
+  // game's lobby instead of a remembered other-game preference;
+  // exitMultiplayer scrubs it when the user explicitly leaves.
   useEffect(() => {
     if (multiplayer.roomCode) {
       const joinPath = `/join/${multiplayer.roomCode}`;
@@ -708,12 +722,13 @@ function BriscolaApp() {
         window.history.replaceState({}, '', joinPath);
       }
     } else if (
-      window.location.pathname.startsWith('/join/') ||
-      window.location.search.includes('join=')
+      initialJoinCode === undefined &&
+      (window.location.pathname.startsWith('/join/') ||
+        window.location.search.includes('join='))
     ) {
-      window.history.replaceState({}, '', '/');
+      window.history.replaceState({}, '', HOME_PATH);
     }
-  }, [multiplayer.roomCode]);
+  }, [multiplayer.roomCode, initialJoinCode]);
 
   // Trick-resolution overlay for multiplayer. When a follow move completes
   // a trick, we hold the BEFORE state visible (so the lead card is still
@@ -999,6 +1014,8 @@ function BriscolaApp() {
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
+  // Runtime game switch awaiting the leave-game confirmation (target game).
+  const [confirmSwitchGame, setConfirmSwitchGame] = useState<GameId | null>(null);
 
   // "New Game" sends us back to the StartScreen (idle) so the player can
   // re-pick opponent / best-of before the next match. Only confirm when a
@@ -1016,6 +1033,50 @@ function BriscolaApp() {
     setConfirmNewGame(false);
     dispatch({ type: 'RESET' });
   }, []);
+
+  // ---- Runtime game switch (Briscola ⇄ Scopa) ----------------------------
+  // Same leaving semantics as "New Game": a match in progress is abandoned
+  // only after the existing confirmation; cancelling keeps it. App.tsx swaps
+  // the mounted game once this component has cleaned up after itself.
+  const performSwitchGame = useCallback((target: GameId) => {
+    setConfirmSwitchGame(null);
+    if (!onSwitchGame) return;
+    // Leaves the room (server notified, socket closed, stored session and
+    // /join URL cleared) so nothing reconnects to it from the other game.
+    if (inMultiplayer) exitMultiplayer();
+    dispatch({ type: 'RESET' });
+    onSwitchGame(target);
+  }, [onSwitchGame, inMultiplayer, exitMultiplayer]);
+
+  const requestSwitchGame = useCallback((target: GameId) => {
+    if (target === 'briscola') return;
+    const soloInProgress =
+      state.status !== 'idle' && !(state.status === 'roundEnd' && state.matchOver);
+    const multiplayerInProgress = inMultiplayer && !!multiplayer.roomCode;
+    if (soloInProgress || multiplayerInProgress) setConfirmSwitchGame(target);
+    else performSwitchGame(target);
+  }, [state, inMultiplayer, multiplayer.roomCode, performSwitchGame]);
+
+  // Passed to the start screen and every Settings modal; undefined hides the
+  // switcher entirely (itch builds).
+  const switchGameProp = onSwitchGame ? requestSwitchGame : undefined;
+
+  const switchGameDialog = (
+    <ConfirmDialog
+      isOpen={confirmSwitchGame !== null}
+      title={t.game.switchGameTitle(GAME_NAMES[confirmSwitchGame ?? 'scopa'])}
+      message={
+        inMultiplayer && multiplayer.roomCode
+          ? t.game.switchGameMessageMultiplayer
+          : t.game.switchGameMessage(GAME_NAMES.briscola)
+      }
+      confirmLabel={t.game.switchGameConfirm}
+      onConfirm={() => {
+        if (confirmSwitchGame) performSwitchGame(confirmSwitchGame);
+      }}
+      onCancel={() => setConfirmSwitchGame(null)}
+    />
+  );
   const stats = useBriscolaStats();
 
   // Resolve the chosen model id for an opponent name (undefined for non-LLMs).
@@ -1102,7 +1163,7 @@ function BriscolaApp() {
       bestOf,
       state.game.roundHistory
     );
-    trackGameCompleted({ mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
+    trackGameCompleted({ game: 'briscola', mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
   }, [state, opponentName, bestOf, stats, gameMode, modelFor]);
 
   // Clear the dedup id whenever a new match starts.
@@ -1122,7 +1183,7 @@ function BriscolaApp() {
     if (multiplayer.gameState && !multiplayer.gameEndData) {
       if (!multiplayerStartTracked.current) {
         multiplayerStartTracked.current = true;
-        trackGameStarted({ mode: 'multiplayer', opponent: 'human' });
+        trackGameStarted({ game: 'briscola', mode: 'multiplayer', opponent: 'human' });
       }
     } else {
       multiplayerStartTracked.current = false;
@@ -1133,7 +1194,7 @@ function BriscolaApp() {
   useEffect(() => {
     if (multiplayer.gameEndData && !multiplayerCompletedTracked.current) {
       multiplayerCompletedTracked.current = true;
-      trackGameCompleted({ mode: 'multiplayer', opponent: 'human' });
+      trackGameCompleted({ game: 'briscola', mode: 'multiplayer', opponent: 'human' });
     }
     if (!multiplayer.gameEndData) {
       multiplayerCompletedTracked.current = false;
@@ -1772,7 +1833,9 @@ function BriscolaApp() {
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
           game="briscola"
+          onSwitchGame={switchGameProp}
         />
+        {switchGameDialog}
         <StatsModal
           isOpen={isStatsOpen}
           onClose={() => setIsStatsOpen(false)}
@@ -1916,7 +1979,7 @@ function BriscolaApp() {
             // Anonymous player analytics: one event per match the visitor
             // actually plays. Watch mode is spectating — excluded.
             if (mode === 'play') {
-              trackGameStarted({ mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
+              trackGameStarted({ game: 'briscola', mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
             }
             dispatch({ type: 'START', bestOf: n });
           }}
@@ -1925,6 +1988,8 @@ function BriscolaApp() {
             // createRoom/joinRoom is called from the lobby.
             setIsMultiplayerMode(true);
           }}
+          onSwitchGame={switchGameProp}
+          onOpenRules={() => setIsRulesOpen(true)}
         />
         <SettingsModal
           isOpen={isSettingsOpen}
@@ -1933,7 +1998,9 @@ function BriscolaApp() {
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
           game="briscola"
+          onSwitchGame={switchGameProp}
         />
+        {switchGameDialog}
         <StatsModal
           isOpen={isStatsOpen}
           onClose={() => setIsStatsOpen(false)}
@@ -2034,7 +2101,9 @@ function BriscolaApp() {
         onUpdateSetting={updateSetting}
         onResetSettings={resetSettings}
         game="briscola"
+        onSwitchGame={switchGameProp}
       />
+      {switchGameDialog}
       <StatsModal
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}

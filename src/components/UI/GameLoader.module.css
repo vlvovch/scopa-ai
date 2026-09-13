@@ -1,0 +1,81 @@
+/* Loading / load-failure screens for the lazily loaded game — same card
+   language as the start screen and the modals. */
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+:global(html.dmode) .screen {
+  min-height: calc(100vh / var(--dmode-scale, 1));
+}
+
+.card {
+  background: linear-gradient(180deg, #1e3a2f 0%, #0d1f17 100%);
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  padding: var(--space-5) var(--space-6);
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  color: var(--color-text-primary);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.title {
+  margin: 0 0 var(--space-3);
+  color: var(--color-accent);
+  font-size: 1.25rem;
+}
+
+.text {
+  margin: 0;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto var(--space-3);
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: gameLoaderSpin 0.9s linear infinite;
+}
+
+@keyframes gameLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.primary {
+  padding: 8px 20px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: 6px;
+  color: #000;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary {
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}

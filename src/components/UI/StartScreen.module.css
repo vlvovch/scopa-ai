@@ -797,12 +797,25 @@
   }
 }
 
-/* Briscola's rule bullets are longer (wrap to ~7 lines) and its box has
-   no "View Full Rules" link to fall back on, so on short screens hide
-   the whole box (full rules stay reachable in-game via the book icon).
-   Slightly earlier breakpoint than Scopa's because the card is taller. */
-@media (max-height: 790px) {
-  .rulesHintLong {
+/* Briscola's bullets are about twice as long as Scopa's and wrap to ~8
+   lines on a phone, so on phone-height screens drop them earlier; the
+   "View Full Rules" link keeps the full rules one tap away. */
+@media (max-height: 900px) {
+  .rulesHintLong ul {
     display: none;
+  }
+
+  .rulesHintLong .fullRulesLink {
+    margin-top: 0;
+  }
+}
+
+/* Phones: the fixed ⚙️ / language buttons sit in the top corners, and a
+   card taller than the viewport is top-aligned, so keep its first row
+   clear of them. KEEP THIS LAST — the short-viewport blocks above reset
+   the container's padding shorthand and would override it otherwise. */
+@media (max-width: 600px) {
+  .container {
+    padding-top: calc(var(--space-2) + 52px);
   }
 }

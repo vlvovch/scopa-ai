@@ -94,6 +94,15 @@ Play against friends online via WebSocket server:
 
 The Briscola build reuses the same game-mode menu, settings, multiplayer, watch mode, and LLM opponents as Scopa, with game-specific rules, prompts, and an Esperto bot tuned for trick-taking (determinization + alpha-beta minimax). Play at **[playbriscola.com](https://playbriscola.com)** or run locally with `npm run dev:briscola`.
 
+Both games are also available from either site: a compact **Scopa / Briscola**
+selector on the start screen (and in Settings, mid-game) switches at runtime.
+Each site still opens its own game by default; a manual choice is remembered on
+that device, while explicit game URLs (`/briscola`, `/scopa`) and multiplayer
+invitation links (`/join/SCOPA-XXXX`, `/join/BRISCOLA-XXXX`) always win. The
+other game is a lazily loaded chunk (precached by the service worker, so it
+works offline after one online visit), and switching mid-game goes through the
+usual leave-game confirmation.
+
 ---
 
 ## Quick Start
@@ -179,13 +188,19 @@ The server runs on port 8080 by default. Configure the client to connect via:
 VITE_WS_URL=ws://localhost:8080
 ```
 
-Briscola is a separate build with its own multiplayer server (`briscola-server`,
-default port 8081). Its client reads a **different** env var — a Briscola build
-that only sets `VITE_WS_URL` will silently fall back to `ws://localhost:8081`:
+Briscola has its own multiplayer server (`briscola-server`, default port 8081)
+and its client reads a **different** env var. Because either game can be played
+on either site, **every build needs both** URLs (each falls back to its
+localhost port if unset); a build that only sets `VITE_WS_URL` will silently
+point Briscola multiplayer at `ws://localhost:8081`:
 
 ```bash
+VITE_WS_URL=ws://localhost:8080
 VITE_BRISCOLA_WS_URL=ws://localhost:8081
 ```
+
+Both accept an absolute `ws(s)://` URL or a same-origin path such as
+`/ws-briscola` (see `docs/deployment.md`).
 
 ---
 

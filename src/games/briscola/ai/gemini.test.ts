@@ -59,7 +59,7 @@ vi.mock('@google/genai', () => ({
 
 // Stub the api-key getter + availability flag so the factory creates a real
 // instance instead of returning null.
-vi.mock('../../scopa/ai/gemini', () => ({
+vi.mock('../../../ai/geminiProvider', () => ({
   getGeminiApiKey: () => 'sk-test',
   isGeminiAvailable: () => true,
   fetchGeminiModels: async () => [],

@@ -1,8 +1,11 @@
 // Claude bot for Briscola — uses Anthropic's Messages API with locally
 // managed history (the SDK doesn't have a server-side conversation
-// concept like OpenAI's). Reuses Scopa's key + model-list machinery;
-// only the prompts are Briscola-specific.
+// concept like OpenAI's). Key + model-list machinery comes from the shared
+// src/ai/claudeProvider.ts (never from Scopa's bot module — that would pull
+// Scopa's bot into this build's main chunk); only the prompts are
+// Briscola-specific.
 
+import { registerApiKeyCacheClearer } from '../../../ai/apiKeyCaches';
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../types';
@@ -25,7 +28,7 @@ import {
   isAdaptiveThinkingModel,
   isAlwaysThinkingModel,
   type ClaudeModelInfo,
-} from '../../scopa/ai/claude';
+} from '../../../ai/claudeProvider';
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
@@ -286,6 +289,9 @@ export function getClaudeBriscolaAI(
 export function clearClaudeCache(): void {
   instances.clear();
 }
+// Let the shared Settings modal drop these instances when the key changes
+// without importing this module statically (keeps the code split intact).
+registerApiKeyCacheClearer('claude', clearClaudeCache);
 
 export function startClaudeRound(
   model: string,

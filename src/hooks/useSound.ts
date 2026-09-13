@@ -202,8 +202,19 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
    * sound, or one right after Safari suspended/interrupted the context,
    * takes the async fallback.
    */
+  // False once the owning game component has unmounted (runtime game
+  // switch): a timer or promise continuation that outlives the component
+  // must not make the previous game audible under the next one.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const play = useCallback((type: SoundType) => {
-    if (!enabled) return;
+    if (!enabled || !mountedRef.current) return;
 
     const src = getRandomSound(type);
     const context = getAudioContext();
@@ -229,6 +240,9 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
           await context.resume().catch(() => {});
         }
         const buffer = cached ?? (await loadAndDecodeAudio(src));
+        // The component may have unmounted (runtime game switch) while the
+        // resume / decode above was pending — re-check before starting.
+        if (!mountedRef.current) return;
         startBuffer(context, buffer, activeSources.current);
       } catch (err) {
         console.debug('Sound play failed:', err);

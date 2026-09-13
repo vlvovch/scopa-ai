@@ -2,13 +2,17 @@
 //
 // Mirrors Scopa's StartScreen layout: title, Game Mode (Play / Watch),
 // First To, cascading opponent selector (Category → CPU type / AI provider
-// → Model → Thinking toggle), Start, Quick Rules. Multiplayer isn't
-// included yet — no Briscola server.
+// → Model → Thinking toggle), Start, Quick Rules with a link to the full
+// rules modal, Multiplayer lobby entry.
 
 import { useEffect, useState } from 'react';
 import { useT } from '../../i18n/LanguageContext';
 import type { Translation } from '../../i18n/en';
 import { LanguageToggle } from '../../components/UI/LanguageToggle';
+import { GameSwitcher } from '../../components/UI/GameSwitcher';
+import { OtherGameAnnouncement } from '../../components/UI/OtherGameAnnouncement';
+import switcherStyles from '../../components/UI/GameSwitcher.module.css';
+import type { GameId } from '../gameSelection';
 import styles from '../../components/UI/StartScreen.module.css';
 import { CustomDropdown } from '../../components/UI/CustomDropdown';
 import { GeminiIcon } from '../../components/UI/GeminiIcon';
@@ -105,6 +109,8 @@ interface StartScreenProps {
   thinkingLevel: 'off' | 'medium' | 'high';
   onCycleThinking: () => void;
   onOpenSettings?: () => void;
+  /** Opens the full Briscola rules (RulesModal game="briscola"). */
+  onOpenRules?: () => void;
   /** Multi-turn = SDK manages chat history. Single-turn = full round
    *  history embedded in each request. Same toggle UX as Scopa. */
   conversationMode: 'multiturn' | 'singleturn';
@@ -115,6 +121,8 @@ interface StartScreenProps {
   defaultBestOf: number;
   onStartGame: (bestOf: number, gameMode: BriscolaGameMode) => void;
   onStartMultiplayer: () => void;
+  /** Runtime Briscola ⇄ Scopa switch; undefined when unavailable (itch builds). */
+  onSwitchGame?: (game: GameId) => void;
 }
 
 export function StartScreen({
@@ -129,6 +137,7 @@ export function StartScreen({
   thinkingLevel,
   onCycleThinking,
   onOpenSettings,
+  onOpenRules,
   conversationMode,
   onToggleConversationMode,
   watchOpponents,
@@ -136,6 +145,7 @@ export function StartScreen({
   defaultBestOf,
   onStartGame,
   onStartMultiplayer,
+  onSwitchGame,
 }: StartScreenProps) {
   const t = useT();
   const [bestOf, setBestOf] = useState<number>(defaultBestOf);
@@ -421,6 +431,7 @@ export function StartScreen({
   return (
     <div className={styles.container}>
       <LanguageToggle />
+      {onSwitchGame && <OtherGameAnnouncement game="briscola" onSwitchGame={onSwitchGame} />}
       {onOpenSettings && (
         <button
           onClick={onOpenSettings}
@@ -445,6 +456,12 @@ export function StartScreen({
         </button>
       )}
       <div className={styles.content}>
+        {onSwitchGame && (
+          <div className={switcherStyles.startScreenRow}>
+            <span className={styles.label} style={{ marginBottom: 0 }}>{t.common.chooseGame}</span>
+            <GameSwitcher value="briscola" onChange={onSwitchGame} className={switcherStyles.startScreen} />
+          </div>
+        )}
         <h1 className={styles.title}>Briscola</h1>
         <p className={styles.subtitle}>{t.start.briscolaSubtitle}</p>
 
@@ -602,6 +619,11 @@ export function StartScreen({
             <li>{t.start.briscolaRule3}</li>
             <li>{t.start.briscolaRule4}</li>
           </ul>
+          {onOpenRules && (
+            <a className={styles.fullRulesLink} onClick={onOpenRules}>
+              {t.start.viewFullRules}
+            </a>
+          )}
         </div>
 
         <footer className={styles.footer}>

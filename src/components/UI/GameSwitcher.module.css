@@ -1,0 +1,82 @@
+/* Scopa / Briscola segmented pill (see GameSwitcher.tsx). */
+
+.switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+/* Both segments read as buttons: the unselected one is bright, filled and
+   outlined (not a greyed label), the selected one is the accent fill used
+   for every other selected option on the start screen. */
+.option {
+  padding: 6px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.option:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--color-accent-light);
+  outline-offset: 2px;
+}
+
+.option.selected {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #000;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.35);
+  cursor: default;
+}
+
+.option.selected:hover {
+  background: var(--color-accent);
+}
+
+/* Start-screen placement: a captioned row above the title, in the same
+   label + options rhythm as "Game mode" / "Target score" below it, so a
+   first-time visitor reads it as a choice and not as decoration. */
+.startScreenRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 auto var(--space-4);
+}
+
+.startScreen {
+  margin: 0;
+}
+
+@media (max-height: 820px) {
+  .startScreenRow {
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+  }
+}
+
+@media (max-width: 380px) {
+  .option {
+    padding: 5px 14px;
+    font-size: 0.8rem;
+  }
+}
