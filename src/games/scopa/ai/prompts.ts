@@ -2,6 +2,7 @@
 
 import type { Card, Move } from '../types';
 import type { LLMAIContext } from './types';
+import { CARD_VALUES, PRIME_VALUES, SUITS } from '../constants';
 
 /**
  * Base game rules shared by all system instructions
@@ -121,7 +122,7 @@ export function formatLastMove(move: Move | null): string {
  * Build the turn prompt for multi-turn chat sessions
  * Used by Gemini (multi-turn) and OpenAI
  */
-export function buildTurnPrompt(context: LLMAIContext): string {
+export function buildTurnPrompt(context: LLMAIContext, memory = ''): string {
   const {
     hand, table, scores, targetScore, roundNumber,
     opponentHandCount, selfCapturedCount, opponentCapturedCount,
@@ -137,13 +138,73 @@ Deck: ${deckCount} | My pile: ${selfCapturedCount} | Opponent pile: ${opponentCa
 Your last move: ${formatLastMove(lastSelfMove)}
 Opponent's last move: ${formatLastMove(lastOpponentMove)}
 
-Table: ${formatCards(table)}
+${memory ? `${memory}\n\n` : ''}Table: ${formatCards(table)}
 My hand: ${formatCards(hand)}
 
 Valid moves:
 ${movesStr}
 
 Choose best move (0-${validMoves.length - 1}):`;
+}
+
+const UNSEEN = "in the deck or the opponent's hand";
+
+/** A side's primiera so far: the best prime card per suit, the total, the suits still missing. */
+function describePrime(captured: Card[]): string {
+  const parts: string[] = [];
+  const missing: string[] = [];
+  let total = 0;
+  for (const suit of SUITS) {
+    const best = captured
+      .filter((c) => c.suit === suit)
+      .reduce<Card | null>((top, c) => (!top || PRIME_VALUES[c.value] > PRIME_VALUES[top.value] ? c : top), null);
+    if (best) {
+      total += PRIME_VALUES[best.value];
+      parts.push(`${suit} ${best.value}`);
+    } else {
+      missing.push(suit);
+    }
+  }
+  const detail = parts.length > 0 ? parts.join(', ') : 'nothing yet';
+  return missing.length > 0 ? `${total} so far (${detail}; missing ${missing.join(', ')})` : `${total} (${detail})`;
+}
+
+/**
+ * What a good player remembers about the round, worked out from the cards
+ * this player has seen (captures are public as they are taken): the Denari
+ * race, where the Sette Bello is, both primiera hands, scope so far and
+ * which values are still out. For a model that gets no history. Empty when
+ * the context carries no captured piles.
+ */
+export function buildRoundMemory(context: LLMAIContext): string {
+  const { hand, table, selfCaptured, opponentCaptured, selfScopaCount = 0, opponentScopaCount = 0 } = context;
+  if (!selfCaptured || !opponentCaptured) return '';
+  const countCoins = (cards: Card[]) => cards.filter((c) => c.suit === 'coins').length;
+  const myCoins = countCoins(selfCaptured);
+  const oppCoins = countCoins(opponentCaptured);
+  const isSetteBello = (c: Card) => c.suit === 'coins' && c.value === 7;
+  const setteBello = selfCaptured.some(isSetteBello) ? 'you have captured it'
+    : opponentCaptured.some(isSetteBello) ? 'the opponent has captured it'
+    : hand.some(isSetteBello) ? 'in your hand'
+    : table.some(isSetteBello) ? 'on the table'
+    : `not seen yet (${UNSEEN})`;
+  const seen = [...hand, ...table, ...selfCaptured, ...opponentCaptured];
+  const unseenByValue = CARD_VALUES
+    .map((value) => ({ value, count: 4 - seen.filter((c) => c.value === value).length }))
+    .filter(({ count }) => count > 0)
+    .map(({ value, count }) => `${value}×${count}`)
+    .join(', ');
+  return `--- ROUND MEMORY (what has been seen so far) ---
+Denari captured: you ${myCoins}, opponent ${oppCoins} (${10 - myCoins - oppCoins} still in play; 6 win the Denari point)
+Sette Bello (7 of coins): ${setteBello}
+Primiera: you ${describePrime(selfCaptured)} vs opponent ${describePrime(opponentCaptured)}
+Scope this round: you ${selfScopaCount}, opponent ${opponentScopaCount}
+Not seen yet (${UNSEEN}): ${40 - seen.length} cards, by value: ${unseenByValue || 'none'}`;
+}
+
+/** The turn prompt for the on-device model: the position plus the round memory. */
+export function buildOnDeviceTurnPrompt(context: LLMAIContext): string {
+  return buildTurnPrompt(context, buildRoundMemory(context));
 }
 
 /**
@@ -211,3 +272,17 @@ ${movesStr}
 
 Choose best move (0-${validMoves.length - 1}):`;
 }
+
+
+/**
+ * System instruction for the on-device model (Apple Intelligence). One
+ * request per move, no memory between requests, and a small context
+ * window, so only the rules and the current position are sent.
+ */
+export const SYSTEM_INSTRUCTION_ON_DEVICE = `${SCOPA_RULES}
+
+MODE: one request per move
+Each request stands alone: you have no memory of earlier turns, so use only the state in the request.
+
+INPUT: the scores, a ROUND MEMORY of what has been captured and seen so far (Denari, Sette Bello, primiera, scope, values still out), the table, your hand and a numbered list of legal moves.
+OUTPUT: first candidates, the two or three strongest legal moves (their 0-based numbers, each with one short note on what it captures or risks); then reasoning, one sentence saying which is best and why; then moveIndex, the 0-based number of that best move.`;

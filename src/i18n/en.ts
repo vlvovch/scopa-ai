@@ -24,6 +24,8 @@ export const en = {
     retry: 'Retry',
     openGame: (name: string) => `Open ${name}`,
     playGame: (name: string) => `Play ${name}`,
+    /** First-launch chooser tagline for Scopa (Briscola reuses its start-screen subtitle). */
+    chooserScopaTagline: 'The Classic Italian Capture Card Game',
     chooserHint: 'You can switch games any time from the start screen or Settings.',
     /** One-time notice for existing players: the other game is now here too. */
     announceTitle: (name: string) => `New: ${name}`,
@@ -85,6 +87,7 @@ export const en = {
   reasoning: {
     moveTitle: (aiName: string | null) => (aiName ? `${aiName}'s Move` : "AI's Move"),
     clickToLock: '(click to lock)',
+    fallback: 'Fallback move',
     ai: 'AI',
     table: 'Table',
     empty: 'Empty',
@@ -121,6 +124,9 @@ export const en = {
       `This will discard your current ${current} game. Its progress won't be saved.`,
     switchGameMessageMultiplayer: 'You will leave the multiplayer game.',
     switchGameConfirm: 'Switch',
+    inviteJoinTitle: 'Join the game you were invited to?',
+    inviteJoinMessage: (current: string) => `This will discard your current ${current} game. Its progress won't be saved.`,
+    inviteJoinConfirm: 'Join',
     apiCallFailed: 'API call failed',
     pileReviewLabel: 'Captured-pile review',
     pileReviewOn: 'Players can open a pile to review captured cards',
@@ -139,6 +145,7 @@ export const en = {
     deckEmpty: 'Deck Empty',
     dealer: 'Dealer',
     showReasoning: 'Show AI reasoning',
+    fallbackMove: 'The AI did not answer this time, so a simple move was played',
   },
 
   scoreBoard: {
@@ -264,6 +271,7 @@ export const en = {
     player2: 'Player 2',
     categoryCpu: 'CPU',
     categoryFreeAI: 'Free AI',
+    categoryDeviceAI: 'On-device AI',
     categoryAI: 'AI (BYOK)',
     loading: 'Loading...',
     multiTurnTitle: 'Multi-turn chat (click for single-turn)',
@@ -328,6 +336,7 @@ export const en = {
     claude: 'Anthropic Claude with multi-turn conversation (remembers context)',
     'claude-singleturn': 'Anthropic Claude with single requests (full history each turn)',
     'gemini-free': 'Free AI with multi-turn chat + thinking (3 games/day)',
+    apple: 'Runs on this device, works offline',
     multiplayer: 'Online multiplayer opponent',
   } as Record<string, string>,
 

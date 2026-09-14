@@ -32,11 +32,54 @@
   color: #555;
 }
 
+/* The model did not deliver this move (a simple bot played): amber bubble
+   with a badge, so the fallback is visible without opening the modal. */
+.fallback {
+  background: #fff3d1;
+  box-shadow: 0 0 0 2px #e0a800, 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.fallback .icon {
+  color: #9a6b00;
+}
+
+.mark {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #e0a800;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
 /* Bottom player - position bubble above */
 .bubbleBottom {
   top: auto;
   bottom: calc(100% + 8px);
 }
+
+/* No token badge to centre on: hang off the anchor's start or end edge
+   so the bubble stays inside the pile's column. */
+.alignStart {
+  left: 0;
+  transform: none;
+}
+.alignStart:hover { transform: scale(1.1); }
+.alignStart:active { transform: scale(0.95); }
+.alignEnd {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+.alignEnd:hover { transform: scale(1.1); }
+.alignEnd:active { transform: scale(0.95); }
 
 /* Mobile adjustments */
 @media (max-width: 480px) {

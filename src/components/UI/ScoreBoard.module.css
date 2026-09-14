@@ -44,6 +44,11 @@
   font-size: calc(12px * var(--font-scale, 1));
   white-space: nowrap;
   flex: 1;
+  /* Long opponent names ("Apple Intelligence", long model names) get an
+     ellipsis instead of widening the board. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .playerName.current {
@@ -70,7 +75,11 @@
 /* Mobile responsive styles */
 @media (max-width: 600px) {
   .scoreBoard {
-    min-width: auto;
+    min-width: 0;
+    /* Phones: the four control buttons and the opponent's pile share the
+       row with this board; it yields whatever width the row lacks (the
+       layout lets it shrink) and long names wrap inside it. */
+    flex: 0 1 auto;
     padding: var(--space-2);
     background: var(--control-bg-light, rgba(0, 0, 0, 0.3));
   }
@@ -102,6 +111,14 @@
 
   .playerName {
     font-size: calc(12px * var(--font-scale, 1));
+    /* A long name ("Apple Intelligence") wraps onto a second line here
+       rather than widening the board or getting cut. */
+    white-space: normal;
+    /* Hyphenate first ("Intelli-gence"); break anywhere only as a last resort. */
+    -webkit-hyphens: auto;
+    hyphens: auto;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
   }
 
   .targetScore {

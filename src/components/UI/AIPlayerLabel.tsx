@@ -5,6 +5,8 @@ import type { ExtendedAIType } from '../../games/scopa/ai';
 import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import { GeminiIcon } from './GeminiIcon';
+import { AppleIntelligenceIcon } from './AppleIntelligenceIcon';
+import styles from './AIPlayerLabel.module.css';
 
 interface AIPlayerLabelProps {
   /** The AI type */
@@ -15,6 +17,9 @@ interface AIPlayerLabelProps {
   className?: string;
   /** Whether to show the mode indicator (💬/1️⃣) */
   showModeIndicator?: boolean;
+  /** Narrow column (the scoreboard): phones show the short form of a long
+   *  name ("Apple AI") instead of wrapping it. */
+  compact?: boolean;
 }
 
 /**
@@ -38,6 +43,8 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
       return <span style={{ fontSize: '1em' }}>🦊</span>;
     case 'expert':
       return <span style={{ fontSize: '1em' }}>🐍</span>;
+    case 'apple':
+      return <AppleIntelligenceIcon size="1em" className={className} />;
     case 'multiplayer':
       return <span style={{ fontSize: '1em' }}>👤</span>;
     default:
@@ -97,6 +104,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
   if (aiType === 'random') return 'Scimmietta';
   if (aiType === 'heuristic') return 'Furbo';
   if (aiType === 'expert') return 'Esperto';
+  if (aiType === 'apple') return 'Apple Intelligence';
   if (aiType === 'multiplayer') return model || 'Player';
 
   return aiType;
@@ -118,9 +126,13 @@ function getModeIndicator(aiType: ExtendedAIType): string | null {
 /**
  * Component that renders an AI player label with proper icon
  */
-export function AIPlayerLabel({ aiType, model, className, showModeIndicator = true }: AIPlayerLabelProps) {
+export function AIPlayerLabel({ aiType, model, className, showModeIndicator = true, compact = false }: AIPlayerLabelProps) {
   const icon = <AIIcon aiType={aiType} />;
-  const name = formatModelName(aiType, model);
+  // "Apple Intelligence" is the one long name; a compact column shows
+  // "Apple AI" on phones (CSS picks one of the two, so only one is read).
+  const name = aiType === 'apple' && compact
+    ? <><span className={styles.full}>Apple Intelligence</span><span className={styles.short}>Apple AI</span></>
+    : formatModelName(aiType, model);
   const modeIndicator = showModeIndicator ? getModeIndicator(aiType) : null;
 
   return (
@@ -148,6 +160,7 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
     claude: '◐',
     'claude-singleturn': '◐',
     'gemini-free': '✦',
+    apple: '✦',
     multiplayer: '👤',
   };
 

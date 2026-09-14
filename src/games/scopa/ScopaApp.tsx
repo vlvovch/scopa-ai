@@ -30,12 +30,14 @@ import { OpponentDisconnected } from '../../components/UI/OpponentDisconnected';
 import { RestartOverlay } from '../../components/UI/RestartOverlay';
 import { TurnTimer } from '../../components/UI/TurnTimer';
 import { DeckProvider } from '../../contexts/DeckContext';
-import { trackGameStarted, trackGameCompleted } from '../../analytics';
+import { trackGameStarted, trackGameCompleted } from '../../analytics/events';
 import { useT } from '../../i18n/LanguageContext';
 import { setAiThinkingLevel } from '../../ai/effort';
-import { GAME_NAMES, gameHomePath, type GameId } from '../gameSelection';
+import { DEFAULT_GAME, GAME_NAMES, gameFromRoomCode, gameHomePath, type GameId } from '../gameSelection';
 import type { GameAppProps } from '../gameLoaders';
 import { getValidMoves } from './rules';
+import { getAppleAI, isAppleAvailable, isOnDeviceAIType, cancelOnDeviceRequests, prewarmAppleAI } from './ai';
+import { useKeepAwake } from '../../hooks/useKeepAwake';
 import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { TokenStatsDisplay } from '../../components/UI/TokenStatsDisplay';
@@ -50,6 +52,7 @@ import { moveKey } from './ai/winOdds';
 import type { ScopaWinOddsView, WinOdds } from './ai/winOdds';
 import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
 import type { ReactNode } from 'react';
+import { storage } from '../../platform/storage';
 
 // Storage keys for persistence
 const SPECTATOR_AIS_KEY = 'scopa-spectator-ais';
@@ -60,7 +63,7 @@ const SPECTATOR_MODELS_KEY = 'scopa-spectator-models';
  */
 function loadSpectatorAIs(): { player1: ExtendedAIType; player2: ExtendedAIType } {
   try {
-    const saved = localStorage.getItem(SPECTATOR_AIS_KEY);
+    const saved = storage.get(SPECTATOR_AIS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed.player1 === 'string' && typeof parsed.player2 === 'string') {
@@ -78,7 +81,7 @@ function loadSpectatorAIs(): { player1: ExtendedAIType; player2: ExtendedAIType 
  */
 function loadSpectatorModels(): { player1: string; player2: string } {
   try {
-    const saved = localStorage.getItem(SPECTATOR_MODELS_KEY);
+    const saved = storage.get(SPECTATOR_MODELS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed && typeof parsed.player1 === 'string' && typeof parsed.player2 === 'string') {
@@ -117,18 +120,18 @@ function getInitialJoinCode(): string | undefined {
   if (joinCode) {
     // Check if we have a stored session for this room - if so, let auto-reconnect work
     try {
-      const stored = localStorage.getItem(MP_SESSION_KEY);
+      const stored = storage.get(MP_SESSION_KEY);
       if (stored) {
         const session = JSON.parse(stored);
         // Only clear if it's a DIFFERENT room
         if (session.roomCode !== joinCode) {
-          localStorage.removeItem(MP_SESSION_KEY);
+          storage.remove(MP_SESSION_KEY);
         }
         // If same room, keep session for reconnect
       }
     } catch {
       // localStorage error - clear to be safe
-      try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
+      try { storage.remove(MP_SESSION_KEY); } catch { /* ignore */ }
     }
     return joinCode;
   }
@@ -153,7 +156,7 @@ function dropPoint(info: { point: { x: number; y: number } }): { x: number; y: n
   return { x: info.point.x, y: info.point.y };
 }
 
-function ScopaApp({ onSwitchGame }: GameAppProps) {
+function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps) {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
   const t = useT();
@@ -288,6 +291,8 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   const [confirmNewGame, setConfirmNewGame] = useState(false);
   // Runtime game switch awaiting the leave-game confirmation (target game).
   const [confirmSwitchGame, setConfirmSwitchGame] = useState<GameId | null>(null);
+  // Invitation (room code) awaiting the leave-game confirmation.
+  const [confirmInvite, setConfirmInvite] = useState<string | null>(null);
 
   // Spectator mode: track which hands are shown face-up (toggled by clicking)
   const [spectatorHandsVisible, setSpectatorHandsVisible] = useState<{ cpu: boolean; human: boolean }>({
@@ -379,6 +384,9 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
   // Check if in spectator mode (use activeState for worker-aware check)
   const isSpectatorMode = activeState.gameMode === 'cpuVsCPU';
+  // Watch mode has no touch input for minutes: keep the screen from locking
+  // while the bots play (released at game end, reset or unmount).
+  useKeepAwake(isSpectatorMode && activeState.status !== 'idle' && activeState.status !== 'gameEnd');
 
   // Helper to check if an AI type is a Gemini variant (use exported function)
   const isGeminiAI = isGeminiAIType;
@@ -388,10 +396,15 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   const isClaudeAI = isClaudeAIType;
   // Helper to check if an AI type is any LLM (Gemini, OpenAI, or Claude)
   const isGeminiFree = isGeminiFreeAIType;
-  const isLLMAI = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType) || isGeminiFree(aiType), []);
+  // Cloud LLMs: token usage, cost and a model id exist. The on-device model
+  // has none of that, only reasoning, so it is an LLM opponent (below) but
+  // not one with token accounting.
+  const hasTokenAccounting = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType) || isGeminiFree(aiType), []);
+  const isLLMAI = useCallback((aiType: ExtendedAIType) => hasTokenAccounting(aiType) || isOnDeviceAIType(aiType), [hasTokenAccounting]);
 
   // Helper to get the model for a given AI type from settings
-  const getModelForAI = useCallback((aiType: ExtendedAIType): string => {
+  const getModelForAI = useCallback((aiType: ExtendedAIType): string | undefined => {
+    if (isOnDeviceAIType(aiType)) return undefined;
     if (isGeminiFree(aiType)) return 'gemini-3-flash-preview';
     if (isOpenAIAI(aiType)) return settings.openaiModel;
     if (isClaudeAI(aiType)) return settings.claudeModel;
@@ -445,7 +458,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
   // Helper to update token stats for single player mode
   const updateTokenStats = useCallback(() => {
-    if (!isSpectatorMode && isLLMAI(settings.cpuAI)) {
+    if (!isSpectatorMode && hasTokenAccounting(settings.cpuAI)) {
       const model = isOpenAIAI(settings.cpuAI)
         ? settings.openaiModel
         : isClaudeAI(settings.cpuAI)
@@ -456,7 +469,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
       setTokenStats(stats as GeminiTokenStats);
       setTokenDelta(delta as GeminiTokenDelta);
     }
-  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, isLLMAI, isOpenAIAI, isClaudeAI]);
+  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, hasTokenAccounting, isOpenAIAI, isClaudeAI]);
 
   // Helper to accumulate delta into existing stats
   const accumulateStats = useCallback((
@@ -552,7 +565,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   const updatePlayerTokenStats = useCallback((player: 'player1' | 'player2') => {
     const aiType = player === 'player1' ? spectatorAIs.player1 : spectatorAIs.player2;
     const model = player === 'player1' ? spectatorModels.player1 : spectatorModels.player2;
-    if (!isLLMAI(aiType)) return;
+    if (!hasTokenAccounting(aiType)) return;
 
     // Pass the matching seat key so we read the right per-seat instance.
     const seat = player === 'player1' ? 'p1' : 'p2';
@@ -565,7 +578,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
       setPlayer2TokenDelta(delta as GeminiTokenDelta);
       setPlayer2TokenStats(prev => accumulateStats(prev, delta, model, aiType));
     }
-  }, [spectatorAIs, spectatorModels, getDeltaForAIType, accumulateStats, isLLMAI]);
+  }, [spectatorAIs, spectatorModels, getDeltaForAIType, accumulateStats, hasTokenAccounting]);
 
   // Animation speed multipliers based on settings
   const getAnimationDelay = useCallback((baseMs: number) => {
@@ -626,6 +639,9 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
       if (claude) return claude;
       return AI_PLAYERS.heuristic;
     }
+    if (aiType === 'apple') {
+      return getAppleAI(seat) ?? AI_PLAYERS.heuristic;
+    }
     if (aiType === 'multiplayer') {
       return AI_PLAYERS.heuristic;
     }
@@ -665,6 +681,10 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
       lastOpponentMove: lastMoves.current[oppPlayer],
       lastSelfMove: lastMoves.current[selfPlayer],
       validMoves,
+      selfCaptured: state.players[selfPlayer].captured,
+      opponentCaptured: state.players[oppPlayer].captured,
+      selfScopaCount: state.players[selfPlayer].scopaCount,
+      opponentScopaCount: state.players[oppPlayer].scopaCount,
     };
   }, [state.scores, state.targetScore, state.roundNumber, state.players, state.round.deck.length]);
 
@@ -709,8 +729,12 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   useEffect(() => {
     if (state.status === 'idle') {
       gameEpoch.current += 1;
+      cancelOnDeviceRequests();
     }
   }, [state.status]);
+  // Unmounting (the runtime game switch swaps this component out): nothing
+  // will consume a pending on-device reply, so stop it here as well.
+  useEffect(() => () => cancelOnDeviceRequests(), []);
   // Unmount (runtime game switch, load-failure fallback): the idle-state
   // bump above can never run for an unmounting instance, so invalidate
   // here — a still-pending LLM reply or an in-progress CPU animation
@@ -766,7 +790,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   // Persist spectator AI settings to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(SPECTATOR_AIS_KEY, JSON.stringify(spectatorAIs));
+      storage.set(SPECTATOR_AIS_KEY, JSON.stringify(spectatorAIs));
     } catch (e) {
       console.warn('Failed to persist spectator AI settings:', e);
     }
@@ -775,7 +799,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   // Persist spectator model settings to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(SPECTATOR_MODELS_KEY, JSON.stringify(spectatorModels));
+      storage.set(SPECTATOR_MODELS_KEY, JSON.stringify(spectatorModels));
     } catch (e) {
       console.warn('Failed to persist spectator model settings:', e);
     }
@@ -1354,6 +1378,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
       let moveToExecute: Move;
       let reasoning: string | null = null;
+      let fallback = false;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
         aiRequestInFlight.current = epoch;
@@ -1368,6 +1393,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           }
           // Capture reasoning from LLM AI (they all have lastReasoning property)
           reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
+          fallback = (ai as { lastMoveWasFallback?: boolean }).lastMoveWasFallback === true;
           // Clear any previous error on success
           setPlayer2ApiError(null);
           // Update token stats after async AI move
@@ -1433,6 +1459,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
             tableCards: [...state.round.table], // Snapshot of table before move
             capturedCards: moveToExecute.capturedCards,
             reasoning,
+            fallback,
             player: 'cpu',
             aiName: isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name,
             opponentHandCount: state.players.human.hand.length,
@@ -2321,6 +2348,11 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
     // Reset token stats for all LLM types
     resetAllTokenStats();
+    cancelOnDeviceRequests();
+    // Load the on-device model while the cards are dealt.
+    if (gameMode === 'pvsCPU' && isOnDeviceAIType(settings.cpuAI)) prewarmAppleAI('cpu');
+    if (gameMode === 'cpuVsCPU' && isOnDeviceAIType(spectatorAIs.player1)) prewarmAppleAI('p1');
+    if (gameMode === 'cpuVsCPU' && isOnDeviceAIType(spectatorAIs.player2)) prewarmAppleAI('p2');
     // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
@@ -2417,6 +2449,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
     // unmounting instance, and a pending LLM reply must find the epoch
     // already advanced when it resolves.
     gameEpoch.current += 1;
+    cancelOnDeviceRequests();
     onSwitchGame(target);
   }, [onSwitchGame, useWorkerMode, stopSimulation, inMultiplayerFlow, multiplayer, resetAllTokenStats, resetGame, activeState.status]);
 
@@ -2435,6 +2468,82 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
   // Passed to the start screen and every Settings modal; undefined hides the
   // switcher entirely (itch builds).
   const switchGameProp = onSwitchGame ? requestSwitchGame : undefined;
+
+  // ============================================================================
+  // INVITATIONS ARRIVING WHILE THIS GAME IS ON SCREEN (native deep links)
+  // ============================================================================
+  // Same leaving semantics as the game switch: a match or room in progress
+  // is abandoned only after the confirmation; cancelling keeps it and
+  // drops the invitation. An invitation for the other game hands over to
+  // it with the code, so it mounts straight into its join lobby.
+  const applyInvite = useCallback((code: string) => {
+    setConfirmInvite(null);
+    onInviteHandled?.();
+    const target = gameFromRoomCode(code) ?? DEFAULT_GAME;
+    if (useWorkerMode) {
+      stopSimulation();
+      setUseWorkerMode(false);
+      setWorkerFinalState(null);
+    }
+    if (inMultiplayerFlow) {
+      multiplayer.leaveRoom();
+      setIsMultiplayerMode(false);
+      setInitialJoinCode(undefined);
+    }
+    if (activeState.status !== 'idle') {
+      resetAllTokenStats();
+      resetGame();
+      clearPersistedGame();
+    }
+    gameEpoch.current += 1;
+    cancelOnDeviceRequests();
+    if (target !== 'scopa') {
+      onSwitchGame?.(target, { joinCode: code });
+      return;
+    }
+    // A stored session for a DIFFERENT room would auto-reconnect there
+    // instead of joining the invitation (mirrors getInitialJoinCode).
+    try {
+      const stored = storage.get(MP_SESSION_KEY);
+      if (stored && JSON.parse(stored).roomCode !== code) storage.remove(MP_SESSION_KEY);
+    } catch {
+      try { storage.remove(MP_SESSION_KEY); } catch { /* ignore */ }
+    }
+    window.history.replaceState({}, '', `/join/${code}`);
+    setInitialJoinCode(code);
+    setIsMultiplayerMode(true);
+  }, [onInviteHandled, onSwitchGame, useWorkerMode, stopSimulation, inMultiplayerFlow, multiplayer, activeState.status, resetAllTokenStats, resetGame]);
+
+  useEffect(() => {
+    if (!pendingInvite) return;
+    const soloInProgress =
+      activeState.status === 'playing' || activeState.status === 'roundEnd' || workerIsRunning;
+    const multiplayerInProgress = inMultiplayerFlow && !!multiplayer.roomCode;
+    if (soloInProgress || multiplayerInProgress) setConfirmInvite(pendingInvite);
+    else applyInvite(pendingInvite);
+    // React only when a new invitation arrives, not on every state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInvite]);
+
+  const inviteDialog = (
+    <ConfirmDialog
+      isOpen={confirmInvite !== null}
+      title={t.game.inviteJoinTitle}
+      message={
+        inMultiplayerFlow && multiplayer.roomCode
+          ? t.game.switchGameMessageMultiplayer
+          : t.game.inviteJoinMessage(GAME_NAMES.scopa)
+      }
+      confirmLabel={t.game.inviteJoinConfirm}
+      onConfirm={() => {
+        if (confirmInvite) applyInvite(confirmInvite);
+      }}
+      onCancel={() => {
+        setConfirmInvite(null);
+        onInviteHandled?.();
+      }}
+    />
+  );
 
   const switchGameDialog = (
     <ConfirmDialog
@@ -2484,6 +2593,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
   // Handle next round (wraps nextRound to start fresh chat session)
   const handleNextRound = useCallback(() => {
+    cancelOnDeviceRequests();
     // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
@@ -2551,10 +2661,11 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
       // Determine AI mode for LLM opponents
       const isLLMOpponent = isLLMAI(settings.cpuAI);
-      const isMultiTurn = isLLMOpponent
+      const isCloudLLM = hasTokenAccounting(settings.cpuAI);
+      const isMultiTurn = isCloudLLM
         ? !settings.cpuAI.includes('singleturn')
         : undefined;
-      const useThinking = isLLMOpponent
+      const useThinking = isCloudLLM
         ? (isGeminiFree(settings.cpuAI) ? true : settings.useThinking)
         : undefined;
 
@@ -2614,6 +2725,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
 
       let moveToExecute: Move;
       let reasoning: string | null = null;
+      let fallback = false;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
         aiRequestInFlight.current = epoch;
@@ -2628,6 +2740,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           }
           // Capture reasoning from LLM AI (they all have lastReasoning property)
           reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
+          fallback = (ai as { lastMoveWasFallback?: boolean }).lastMoveWasFallback === true;
           // Clear any previous error on success
           setPlayer1ApiError(null);
           // Update token stats after async AI move (player1 in spectator mode)
@@ -2678,6 +2791,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
             tableCards: [...state.round.table], // Snapshot of table before move
             capturedCards: moveToExecute.capturedCards,
             reasoning,
+            fallback,
             player: 'human',
             aiName: AI_INFO[spectatorAIs.player1].name,
             opponentHandCount: state.players.cpu.hand.length,
@@ -3049,6 +3163,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           onSwitchGame={switchGameProp}
         />
         {switchGameDialog}
+        {inviteDialog}
         <RulesModal
           isOpen={showRules}
           onClose={() => setShowRules(false)}
@@ -3118,6 +3233,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           onSwitchGame={switchGameProp}
         />
         {switchGameDialog}
+        {inviteDialog}
         <StatsModal
           isOpen={showStats}
           onClose={() => setShowStats(false)}
@@ -3188,6 +3304,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
                 {t.multiplayer.leaveGame}
               </button>
             </div>
+            {inviteDialog}
           </DeckProvider>
         );
       }
@@ -3204,6 +3321,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
               onUpdateNickname={multiplayer.updateNickname}
               onLeaveRoom={handleLeaveMultiplayer}
             />
+            {inviteDialog}
           </DeckProvider>
         );
       }
@@ -3212,6 +3330,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
       return (
         <DeckProvider deck={settings.deck}>
           <MultiplayerLobby
+            key={initialJoinCode ?? 'lobby'}
             connectionStatus={multiplayer.connectionStatus}
             connectionError={multiplayer.connectionError}
             initialJoinCode={initialJoinCode}
@@ -3252,6 +3371,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
               }
             }}
           />
+          {inviteDialog}
         </DeckProvider>
       );
     }
@@ -3292,6 +3412,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
             gemini: (!!settings.geminiApiKey && settings.geminiKeyValid) || !!import.meta.env.VITE_GEMINI_API_KEY,
             openai: (!!settings.openaiApiKey && settings.openaiKeyValid) || !!import.meta.env.VITE_OPENAI_API_KEY,
             claude: (!!settings.claudeApiKey && settings.claudeKeyValid) || !!import.meta.env.VITE_CLAUDE_API_KEY,
+            apple: isAppleAvailable(),
           }}
         />
         <SettingsModal
@@ -3303,6 +3424,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           onSwitchGame={switchGameProp}
         />
         {switchGameDialog}
+        {inviteDialog}
         <RulesModal
           isOpen={showRules}
           onClose={() => setShowRules(false)}
@@ -3336,11 +3458,11 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
           player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
           player2Model={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
-          player1TokenStats={isSpectatorMode && isLLMAI(spectatorAIs.player1) ? player1TokenStats : null}
+          player1TokenStats={isSpectatorMode && hasTokenAccounting(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
-              : isLLMAI(settings.cpuAI) ? tokenStats : null
+              ? hasTokenAccounting(spectatorAIs.player2) ? player2TokenStats : null
+              : hasTokenAccounting(settings.cpuAI) ? tokenStats : null
           }
           autoAdvance={isSpectatorMode && settings.autoAdvanceSpectator}
         />
@@ -3361,11 +3483,11 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           player1Model={isSpectatorMode ? spectatorModels.player1 : undefined}
           player2AIType={isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI}
           player2Model={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
-          player1TokenStats={isSpectatorMode && isLLMAI(spectatorAIs.player1) ? player1TokenStats : null}
+          player1TokenStats={isSpectatorMode && hasTokenAccounting(spectatorAIs.player1) ? player1TokenStats : null}
           player2TokenStats={
             isSpectatorMode
-              ? isLLMAI(spectatorAIs.player2) ? player2TokenStats : null
-              : isLLMAI(settings.cpuAI) ? tokenStats : null
+              ? hasTokenAccounting(spectatorAIs.player2) ? player2TokenStats : null
+              : hasTokenAccounting(settings.cpuAI) ? tokenStats : null
           }
           roundHistory={activeState.roundHistory}
           categoryTotals={activeState.categoryTotals}
@@ -3434,6 +3556,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
         onSwitchGame={switchGameProp}
       />
       {switchGameDialog}
+        {inviteDialog}
       <StatsModal
         isOpen={showStats}
         onClose={() => setShowStats(false)}
@@ -3517,7 +3640,7 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           />
         }
         cpuPile={
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: hasTokenAccounting(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI) ? '12px' : 0 }}>
             <CapturedPile
               cards={activeState.players.cpu.captured}
               scopaCount={activeState.players.cpu.scopaCount}
@@ -3528,19 +3651,23 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
             />
             {((isSpectatorMode && isLLMAI(spectatorAIs.player2)) || (!isSpectatorMode && isLLMAI(settings.cpuAI))) && (
               <div style={{ position: 'relative' }}>
-                <TokenStatsDisplay
-                  stats={isSpectatorMode ? player2TokenStats : tokenStats}
-                  delta={isSpectatorMode ? player2TokenDelta : tokenDelta}
-                  show
-                  mode="game"
-                  position="bottom"
-                  modelName={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
-                  error={player2ApiError}
-                  onDismissError={() => setPlayer2ApiError(null)}
-                />
+                {hasTokenAccounting(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI) && (
+                  <TokenStatsDisplay
+                    stats={isSpectatorMode ? player2TokenStats : tokenStats}
+                    delta={isSpectatorMode ? player2TokenDelta : tokenDelta}
+                    show
+                    mode="game"
+                    position="bottom"
+                    modelName={isSpectatorMode ? spectatorModels.player2 : getModelForAI(settings.cpuAI)}
+                    error={player2ApiError}
+                    onDismissError={() => setPlayer2ApiError(null)}
+                  />
+                )}
                 <ThinkingBubble
                   show
                   hasReasoning={!!lastMoveData.cpu}
+                  fallback={lastMoveData.cpu?.fallback}
+                  align={hasTokenAccounting(isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI) ? 'center' : 'end'}
                   onClick={() => {
                     if (lastMoveData.cpu) {
                       setReasoningModal({ isOpen: true, player: 'cpu', locked: true });
@@ -3582,23 +3709,27 @@ function ScopaApp({ onSwitchGame }: GameAppProps) {
           />
         }
         humanPile={
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: hasTokenAccounting(spectatorAIs.player1) ? '12px' : 0 }}>
             {isSpectatorMode && isLLMAI(spectatorAIs.player1) && (
               <div style={{ position: 'relative' }}>
-                <TokenStatsDisplay
-                  stats={player1TokenStats}
-                  delta={player1TokenDelta}
-                  show
-                  mode="game"
-                  position="top"
-                  modelName={spectatorModels.player1}
-                  error={player1ApiError}
-                  onDismissError={() => setPlayer1ApiError(null)}
-                />
+                {hasTokenAccounting(spectatorAIs.player1) && (
+                  <TokenStatsDisplay
+                    stats={player1TokenStats}
+                    delta={player1TokenDelta}
+                    show
+                    mode="game"
+                    position="top"
+                    modelName={spectatorModels.player1}
+                    error={player1ApiError}
+                    onDismissError={() => setPlayer1ApiError(null)}
+                  />
+                )}
                 <ThinkingBubble
                   show
                   hasReasoning={!!lastMoveData.human}
+                  fallback={lastMoveData.human?.fallback}
                   position="bottom"
+                  align={hasTokenAccounting(spectatorAIs.player1) ? 'center' : 'start'}
                   onClick={() => {
                     if (lastMoveData.human) {
                       setReasoningModal({ isOpen: true, player: 'human', locked: true });

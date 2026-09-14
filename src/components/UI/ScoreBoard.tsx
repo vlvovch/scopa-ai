@@ -70,7 +70,7 @@ export function ScoreBoard({
       );
     }
     if (player1AIType) {
-      return <AIPlayerLabel aiType={player1AIType} model={player1Model} />;
+      return <AIPlayerLabel aiType={player1AIType} model={player1Model} compact />;
     }
     // Human player with person icon
     return (
@@ -92,7 +92,7 @@ export function ScoreBoard({
       );
     }
     if (player2AIType) {
-      return <AIPlayerLabel aiType={player2AIType} model={player2Model} />;
+      return <AIPlayerLabel aiType={player2AIType} model={player2Model} compact />;
     }
     return cpuName;
   };

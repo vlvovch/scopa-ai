@@ -18,9 +18,15 @@ interface ThinkingBubbleProps {
   onHoverEnd?: () => void;
   /** Position relative to token stats - 'top' for CPU, 'bottom' for human */
   position?: 'top' | 'bottom';
+  /** Horizontal anchoring: centred on the token badge, or flush to the
+   *  start / end of a zero-width anchor when there is no badge. */
+  align?: 'center' | 'start' | 'end';
+  /** The model did not deliver this move and a simple bot played instead:
+   *  the bubble turns amber with a badge, and its label says why. */
+  fallback?: boolean;
 }
 
-export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHoverEnd, position = 'top' }: ThinkingBubbleProps) {
+export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHoverEnd, position = 'top', align = 'center', fallback = false }: ThinkingBubbleProps) {
   const t = useT();
   if (!show || !hasReasoning) return null;
 
@@ -29,7 +35,7 @@ export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHo
   return (
     <AnimatePresence>
       <motion.button
-        className={`${styles.bubble} ${isBottom ? styles.bubbleBottom : ''}`}
+        className={`${styles.bubble} ${isBottom ? styles.bubbleBottom : ''} ${align === 'start' ? styles.alignStart : align === 'end' ? styles.alignEnd : ''} ${fallback ? styles.fallback : ''}`}
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.5 }}
@@ -37,7 +43,9 @@ export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHo
         onClick={onClick}
         onMouseEnter={onHoverStart}
         onMouseLeave={onHoverEnd}
-        aria-label={t.table.showReasoning}
+        aria-label={fallback ? t.table.fallbackMove : t.table.showReasoning}
+        title={fallback ? t.table.fallbackMove : undefined}
+        data-fallback={fallback ? 'true' : undefined}
       >
         <svg
           className={styles.icon}
@@ -55,6 +63,7 @@ export function ThinkingBubble({ show, hasReasoning, onClick, onHoverStart, onHo
           <circle cx="25" cy="75" r="8" />
           <circle cx="18" cy="88" r="5" />
         </svg>
+        {fallback && <span className={styles.mark} aria-hidden="true">!</span>}
       </motion.button>
     </AnimatePresence>
   );

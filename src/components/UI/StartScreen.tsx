@@ -5,6 +5,7 @@ import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGem
 import type { GameMode } from '../../games/scopa/types';
 import { CustomDropdown } from './CustomDropdown';
 import { GeminiIcon } from './GeminiIcon';
+import { AppleIntelligenceIcon } from './AppleIntelligenceIcon';
 import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import { LanguageToggle } from './LanguageToggle';
@@ -20,7 +21,7 @@ const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
 const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playscopa.net';
 
 type GameModeOption = 'play' | 'watch' | 'multiplayer';
-type OpponentCategory = 'cpu' | 'free-ai' | 'ai';
+type OpponentCategory = 'cpu' | 'free-ai' | 'device-ai' | 'ai';
 type CPUType = 'random' | 'heuristic' | 'expert';
 // AI provider (base type without mode suffix)
 type AIProvider = 'gemini' | 'openai' | 'claude';
@@ -55,6 +56,8 @@ interface StartScreenProps {
     gemini: boolean;
     openai: boolean;
     claude: boolean;
+    /** The on-device model (Apple Intelligence); only the iOS app can say yes */
+    apple: boolean;
   };
 }
 
@@ -64,6 +67,7 @@ const PRESET_SCORES = [11, 16, 21] as const;
 function getOpponentCategory(aiType: ExtendedAIType): OpponentCategory {
   if (aiType === 'random' || aiType === 'heuristic' || aiType === 'expert') return 'cpu';
   if (aiType === 'gemini-free') return 'free-ai';
+  if (aiType === 'apple') return 'device-ai';
   return 'ai';
 }
 
@@ -136,6 +140,16 @@ export function StartScreen({
   const geminiAvailable = aiAvailability.gemini;
   const openaiAvailable = aiAvailability.openai;
   const claudeAvailable = aiAvailability.claude;
+  const appleAvailable = aiAvailability.apple;
+  // The remembered choice can outlive the model (Apple Intelligence turned
+  // off, or the same settings on another device): fall back to the CPU
+  // rather than showing an empty selector.
+  useEffect(() => {
+    if (appleAvailable) return;
+    if (selectedAI === 'apple') onSelectAI('heuristic');
+    if (spectatorAIs.player1 === 'apple') onSelectSpectatorAI('player1', 'heuristic');
+    if (spectatorAIs.player2 === 'apple') onSelectSpectatorAI('player2', 'heuristic');
+  }, [selectedAI, spectatorAIs.player1, spectatorAIs.player2, appleAvailable, onSelectAI, onSelectSpectatorAI]);
   const aiAvailable = geminiAvailable || openaiAvailable || claudeAvailable;
 
   // Default AI provider based on availability
@@ -206,6 +220,8 @@ export function StartScreen({
     } else if (category === 'free-ai') {
       onSelectAI('gemini-free');
       setSelectedScore(11); // Free AI limited to 11 points
+    } else if (category === 'device-ai') {
+      onSelectAI('apple');
     } else {
       // Default to first available AI provider
       onSelectAI(defaultAIProvider);
@@ -234,6 +250,8 @@ export function StartScreen({
       onSelectSpectatorAI(player, 'heuristic');
     } else if (category === 'free-ai') {
       onSelectSpectatorAI(player, 'gemini-free');
+    } else if (category === 'device-ai') {
+      onSelectSpectatorAI(player, 'apple');
     } else {
       // Use default provider with conversation mode
       const newAI = getExtendedAIType(defaultAIProvider, 'conversation');
@@ -316,6 +334,7 @@ export function StartScreen({
           >
             <option value="cpu">{t.start.categoryCpu}</option>
             {geminiFreeAvailable && <option value="free-ai">{t.start.categoryFreeAI}</option>}
+            {appleAvailable && <option value="device-ai">{t.start.categoryDeviceAI}</option>}
             {aiAvailable && <option value="ai">{t.start.categoryAI}</option>}
           </select>
 
@@ -323,6 +342,10 @@ export function StartScreen({
           {cat === 'free-ai' ? (
             <span className={styles.freeAILabel}>
               <GeminiIcon size="1.1em" /> Gemini 3 Flash Preview
+            </span>
+          ) : cat === 'device-ai' ? (
+            <span className={styles.freeAILabel}>
+              <AppleIntelligenceIcon size="1.1em" /> {AI_INFO.apple.name}
             </span>
           ) : cat === 'cpu' ? (
             <select
@@ -476,7 +499,7 @@ export function StartScreen({
           aria-label={t.settings.title}
           style={{
             position: 'fixed',
-            top: '0.75rem',
+            top: 'calc(0.75rem + var(--safe-top, 0px))',
             left: '0.75rem',
             zIndex: 50,
             padding: '6px 10px',

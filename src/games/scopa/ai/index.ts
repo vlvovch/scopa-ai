@@ -9,6 +9,7 @@ import { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCache
 import { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, clearOpenAISingleTurnCache } from './openai-singleturn';
 import { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, clearClaudeCache, type ClaudeModelInfo, type ClaudeTokenStats, type ClaudeTokenDelta } from './claude';
 import { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, clearClaudeSingleTurnCache } from './claude-singleturn';
+import { getAppleAI, isAppleAvailable, cancelOnDeviceRequests, prewarmAppleAI } from './apple';
 import { getGeminiFreeAI, isGeminiFreeAvailable, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, clearGeminiFreeCache, getGeminiFreeRateLimitInfo, RateLimitError } from './gemini-free';
 
 // Re-export types
@@ -26,6 +27,7 @@ export { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCache
 export { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, clearOpenAISingleTurnCache };
 export { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, clearClaudeCache };
 export { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, clearClaudeSingleTurnCache };
+export { getAppleAI, isAppleAvailable, cancelOnDeviceRequests, prewarmAppleAI };
 export { getGeminiFreeAI, isGeminiFreeAvailable, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, clearGeminiFreeCache, getGeminiFreeRateLimitInfo, RateLimitError };
 export type { GeminiModelInfo, GeminiTokenStats, GeminiTokenDelta };
 export type { OpenAIModelInfo, OpenAITokenStats, OpenAITokenDelta };
@@ -42,7 +44,7 @@ export const AI_PLAYERS = {
 export type AIType = keyof typeof AI_PLAYERS;
 
 // Extended AI type including async AIs and multiplayer
-export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'gemini-free' | 'openai' | 'openai-singleturn' | 'claude' | 'claude-singleturn' | 'multiplayer';
+export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'gemini-free' | 'openai' | 'openai-singleturn' | 'claude' | 'claude-singleturn' | 'apple' | 'multiplayer';
 
 // Display info for each AI (including async and multiplayer)
 export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean; icon: string }> = {
@@ -56,6 +58,7 @@ export const AI_INFO: Record<ExtendedAIType, { name: string; description: string
   claude: { name: 'Claude 💬', description: 'Anthropic Claude with multi-turn conversation (remembers context)', isAsync: true, icon: '🔮' },
   'claude-singleturn': { name: 'Claude 1️⃣', description: 'Anthropic Claude with single requests (full history each turn)', isAsync: true, icon: '🔮' },
   'gemini-free': { name: 'Gemini 3 Flash Preview', description: 'Free AI with multi-turn chat + thinking (3 games/day)', isAsync: true, icon: '✦' },
+  apple: { name: 'Apple Intelligence', description: 'Runs on this device, works offline', isAsync: true, icon: '✦' },
   multiplayer: { name: 'Human', description: 'Online multiplayer opponent', icon: '👤' },
 };
 
@@ -79,7 +82,17 @@ export function getAvailableAITypes(): ExtendedAIType[] {
     types.push('claude');
     types.push('claude-singleturn');
   }
+  if (isAppleAvailable()) {
+    types.push('apple');
+  }
   return types;
+}
+
+/**
+ * Check if an AI type is the on-device model (Apple Intelligence, iOS app only)
+ */
+export function isOnDeviceAIType(aiType: ExtendedAIType): boolean {
+  return aiType === 'apple';
 }
 
 /**

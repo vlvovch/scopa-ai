@@ -23,8 +23,10 @@
   height: 100vh;
   height: 100dvh;
   padding: var(--space-3);
-  /* Fixed bottom padding ensures bottomRow stays visible */
-  padding-bottom: 24px;
+  padding-top: calc(var(--space-3) + var(--safe-top, 0px));
+  /* Fixed bottom padding ensures bottomRow stays visible (plus the home
+     indicator inset in the native app) */
+  padding-bottom: calc(24px + var(--safe-bottom, 0px));
   box-sizing: border-box;
   gap: var(--space-3);
   justify-items: center;
@@ -54,7 +56,10 @@
 }
 
 .scoreBoardArea {
-  flex-shrink: 0;
+  /* Shrinks before the pile does: a long opponent name wraps inside the
+     scoreboard instead of pushing the pile off the screen. */
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .cpuPileArea {

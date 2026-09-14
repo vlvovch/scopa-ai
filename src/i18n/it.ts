@@ -24,6 +24,7 @@ export const it: Translation = {
     retry: 'Riprova',
     openGame: (name: string) => `Apri ${name}`,
     playGame: (name: string) => `Gioca a ${name}`,
+    chooserScopaTagline: 'Il classico gioco di carte italiano di presa',
     chooserHint: 'Puoi cambiare gioco in qualsiasi momento dalla schermata iniziale o dalle Impostazioni.',
     announceTitle: (name: string) => `Novità: ${name}`,
     announceBody: (name: string) =>
@@ -84,6 +85,7 @@ export const it: Translation = {
   reasoning: {
     moveTitle: (aiName: string | null) => (aiName ? `Mossa di ${aiName}` : 'Mossa dell’IA'),
     clickToLock: '(clicca per bloccare)',
+    fallback: 'Mossa di riserva',
     ai: 'IA',
     table: 'Tavolo',
     empty: 'Vuoto',
@@ -120,6 +122,9 @@ export const it: Translation = {
       `Se cambi gioco, la partita di ${current} in corso andrà persa. I progressi non vengono salvati.`,
     switchGameMessageMultiplayer: 'Uscirai dalla partita multigiocatore.',
     switchGameConfirm: 'Cambia gioco',
+    inviteJoinTitle: 'Entrare nella partita a cui sei stato invitato?',
+    inviteJoinMessage: (current: string) => `La partita di ${current} in corso andrà persa. I progressi non vengono salvati.`,
+    inviteJoinConfirm: 'Entra',
     apiCallFailed: 'Chiamata API non riuscita',
     pileReviewLabel: 'Consultazione dei mazzetti',
     pileReviewOn: 'I giocatori possono aprire un mazzetto per rivedere le carte prese',
@@ -138,6 +143,7 @@ export const it: Translation = {
     deckEmpty: 'Mazzo finito',
     dealer: 'Mazziere',
     showReasoning: 'Mostra il ragionamento dell’IA',
+    fallbackMove: 'L’IA non ha risposto questa volta, quindi è stata giocata una mossa semplice',
   },
 
   scoreBoard: {
@@ -264,6 +270,7 @@ export const it: Translation = {
     player2: 'Giocatore 2',
     categoryCpu: 'CPU',
     categoryFreeAI: 'IA gratuita',
+    categoryDeviceAI: 'IA sul dispositivo',
     categoryAI: 'IA (BYOK)',
     loading: 'Caricamento…',
     multiTurnTitle: 'Chat multi-turno (clicca per turno singolo)',
@@ -326,6 +333,7 @@ export const it: Translation = {
     claude: 'Claude di Anthropic con conversazione multi-turno (ricorda il contesto)',
     'claude-singleturn': 'Claude di Anthropic con richieste singole (cronologia completa a ogni turno)',
     'gemini-free': 'IA gratuita con chat multi-turno + ragionamento (3 partite al giorno)',
+    apple: 'Gira su questo dispositivo, funziona offline',
     multiplayer: 'Avversario online',
   } as Record<string, string>,
 

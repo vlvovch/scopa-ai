@@ -6,6 +6,8 @@
 // rules modal, Multiplayer lobby entry.
 
 import { useEffect, useState } from 'react';
+import { isAppleAvailable } from './ai/apple';
+import { AppleIntelligenceIcon } from '../../components/UI/AppleIntelligenceIcon';
 import { useT } from '../../i18n/LanguageContext';
 import type { Translation } from '../../i18n/en';
 import { LanguageToggle } from '../../components/UI/LanguageToggle';
@@ -47,14 +49,15 @@ export type BriscolaOpponentName =
   | 'gemini-free'
   | 'gemini'
   | 'openai'
-  | 'claude';
+  | 'claude'
+  | 'apple';
 
 const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
 const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playbriscola.com';
 
 export type BriscolaGameMode = 'play' | 'watch' | 'multiplayer';
 
-type OpponentCategory = 'cpu' | 'free-ai' | 'ai';
+type OpponentCategory = 'cpu' | 'free-ai' | 'device-ai' | 'ai';
 type AIProvider = 'gemini' | 'openai' | 'claude';
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
@@ -74,6 +77,7 @@ const PROVIDER_INFO: Record<AIProvider, { icon: string; label: string }> = {
 function getOpponentCategory(name: BriscolaOpponentName): OpponentCategory {
   if (name === 'random' || name === 'heuristic' || name === 'expert') return 'cpu';
   if (name === 'gemini-free') return 'free-ai';
+  if (name === 'apple') return 'device-ai';
   return 'ai';
 }
 
@@ -94,6 +98,7 @@ function getOpponentDescription(name: BriscolaOpponentName, t: Translation): str
   if (name === 'heuristic') return t.start.briscolaHeuristicDesc;
   if (name === 'expert') return t.start.briscolaExpertDesc;
   if (name === 'gemini-free') return t.start.briscolaFreeDesc;
+  if (name === 'apple') return t.aiDescriptions.apple;
   return t.start.briscolaByokDesc(PROVIDER_INFO[getAIProvider(name)].label);
 }
 
@@ -161,6 +166,7 @@ export function StartScreen({
   const geminiOk = isGeminiAvailable();
   const openaiOk = isOpenAIAvailable();
   const claudeOk = isClaudeAvailable();
+  const appleOk = isAppleAvailable();
   const anyAIOk = geminiOk || openaiOk || claudeOk;
 
   // Default provider for the AI category (first one with a valid key).
@@ -219,6 +225,7 @@ export function StartScreen({
   const opponentForCategory = (cat: OpponentCategory): BriscolaOpponentName => {
     if (cat === 'cpu') return 'heuristic';
     if (cat === 'free-ai') return 'gemini-free';
+    if (cat === 'device-ai') return 'apple';
     return defaultProvider;
   };
 
@@ -307,6 +314,7 @@ export function StartScreen({
           >
             <option value="cpu">{t.start.categoryCpu}</option>
             {geminiFreeOk && <option value="free-ai">{t.start.categoryFreeAI}</option>}
+            {appleOk && <option value="device-ai">{t.start.categoryDeviceAI}</option>}
             {anyAIOk && <option value="ai">{t.start.categoryAI}</option>}
           </select>
 
@@ -324,6 +332,10 @@ export function StartScreen({
             </select>
           ) : cat === 'free-ai' ? (
             <span className={styles.freeAILabel}>✦ Gemini 3 Flash Preview</span>
+          ) : cat === 'device-ai' ? (
+            <span className={styles.freeAILabel}>
+              <AppleIntelligenceIcon size="1.1em" /> Apple Intelligence
+            </span>
           ) : (
             <>
               {/* AI provider — uses Scopa's CustomDropdown so the SVG brand
@@ -439,7 +451,7 @@ export function StartScreen({
           aria-label={t.settings.title}
           style={{
             position: 'fixed',
-            top: '0.75rem',
+            top: 'calc(0.75rem + var(--safe-top, 0px))',
             left: '0.75rem',
             zIndex: 50,
             padding: '6px 10px',

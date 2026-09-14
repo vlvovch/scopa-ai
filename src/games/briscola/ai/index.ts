@@ -11,6 +11,7 @@ export type {
 export { isAsyncAI } from './types';
 
 export { randomAI, createRandomAI } from './random';
+export { getAppleBriscolaAI, isAppleAvailable } from './apple';
 export { heuristicAI, createHeuristicAI, scoreCandidate } from './heuristic';
 export { expertAI, createExpertAI } from './expert';
 export {

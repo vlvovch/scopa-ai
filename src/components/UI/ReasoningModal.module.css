@@ -223,6 +223,12 @@
   margin-bottom: 6px;
 }
 
+/* The model did not deliver this move: say so where the reasoning label is. */
+.fallbackLabel {
+  color: #c98a00;
+  font-weight: 600;
+}
+
 .reasoningText {
   font-size: 0.85rem;
   line-height: 1.5;

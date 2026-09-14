@@ -16,6 +16,9 @@ interface LastMoveData {
   capturedCards: Card[];
   /** AI's reasoning for the move */
   reasoning: string;
+  /** The model did not deliver this move: a simple bot played instead and
+   *  `reasoning` says why. The bubble and this modal mark it. */
+  fallback?: boolean;
   /** Which player made this move */
   player: PlayerId;
   /** AI name for display */
@@ -43,7 +46,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
   const t = useT();
   if (!lastMove) return null;
 
-  const { cardPlayed, tableCards, capturedCards, reasoning, aiName, opponentHandCount, otherHandCards } = lastMove;
+  const { cardPlayed, tableCards, capturedCards, reasoning, aiName, opponentHandCount, otherHandCards, fallback } = lastMove;
   const capturedIds = new Set(capturedCards.map(c => c.id));
 
   // Determine modal class based on position (apply position for both hover and locked states)
@@ -156,7 +159,9 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
 
               {/* Reasoning */}
               <div className={styles.reasoningSection}>
-                <div className={styles.reasoningLabel}>{t.reasoning.reasoning}</div>
+                <div className={`${styles.reasoningLabel} ${fallback ? styles.fallbackLabel : ''}`}>
+                  {fallback ? <><span aria-hidden="true">&#9888;</span> {t.reasoning.fallback}</> : t.reasoning.reasoning}
+                </div>
                 <div className={styles.reasoningText}>
                   {reasoning}
                 </div>

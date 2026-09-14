@@ -8,6 +8,7 @@
 import type { Card, Move, Suit } from '../types';
 import type { LLMAIContext } from './types';
 import { POINT_VALUES, CARD_RANK } from '../constants';
+import { SUITS, CARD_VALUES } from '../../scopa/constants';
 import { trickWinner } from '../rules';
 
 const BRISCOLA_RULES = `You are an expert Italian Briscola player.
@@ -71,23 +72,29 @@ INPUT FORMAT (each request):
 
 OUTPUT: JSON with moveIndex (0-based) and a one-line reasoning.`;
 
+const SUIT_NAMES: Record<Suit, string> = {
+  coins: 'Coins',
+  cups: 'Cups',
+  swords: 'Swords',
+  clubs: 'Clubs',
+};
+
+const VALUE_NAMES: Record<number, string> = {
+  1: 'Ace',
+  8: 'Knave',
+  9: 'Knight',
+  10: 'King',
+};
+
+function rankName(value: number): string {
+  return VALUE_NAMES[value] ?? String(value);
+}
+
 /** Format a card by Italian short name. */
 export function formatCard(card: Card): string {
-  const suitName: Record<Card['suit'], string> = {
-    coins: 'Coins',
-    cups: 'Cups',
-    swords: 'Swords',
-    clubs: 'Clubs',
-  };
-  const valueName: Record<number, string> = {
-    1: 'Ace',
-    8: 'Knave',
-    9: 'Knight',
-    10: 'King',
-  };
-  const v = valueName[card.value] ?? String(card.value);
+  const v = rankName(card.value);
   const pts = POINT_VALUES[card.value];
-  return pts > 0 ? `${v} of ${suitName[card.suit]} (${pts}pt)` : `${v} of ${suitName[card.suit]}`;
+  return pts > 0 ? `${v} of ${SUIT_NAMES[card.suit]} (${pts}pt)` : `${v} of ${SUIT_NAMES[card.suit]}`;
 }
 
 export function formatCards(cards: Card[]): string {
@@ -151,7 +158,7 @@ export function formatMoveHistory(
  * the model already has the rules in the system instruction and tracks
  * history via the conversation.
  */
-export function buildTurnPrompt(context: LLMAIContext): string {
+export function buildTurnPrompt(context: LLMAIContext, memory = ''): string {
   const {
     hand,
     trump,
@@ -192,7 +199,7 @@ My pile: ${myCaptured.length} cards | Opponent pile: ${oppCaptured.length} cards
 Your last move: ${formatLastMove(lastSelfMove)}
 Opponent's last move: ${formatLastMove(lastOpponentMove)}
 
-${trickLine}
+${memory ? `${memory}\n\n` : ''}${trickLine}
 
 My hand (high to low): ${formatCards(sortedHand)}
 
@@ -200,6 +207,60 @@ Valid moves:
 ${moves}
 
 Choose the best move (0-${validMoves.length - 1}).`;
+}
+
+const byRankDesc = (a: Card, b: Card) => CARD_RANK[b.value] - CARD_RANK[a.value];
+const isHigh = (c: Card) => c.value === 1 || c.value === 3;
+const sumPoints = (cards: Card[]) => cards.reduce((sum, c) => sum + POINT_VALUES[c.value], 0);
+
+/**
+ * What a good player remembers about the round, worked out from the cards
+ * this player has seen (tricks are public as they are taken): the points
+ * each side holds, which trumps and high cards are gone and which are
+ * still out, and, once the deck is empty, the opponent's exact hand. For a
+ * model that gets no history. Empty when the context carries no captured
+ * piles.
+ */
+export function buildRoundMemory(context: LLMAIContext): string {
+  const { hand, trump, trumpSuit, leadCard, deckCount, myCaptured, oppCaptured } = context;
+  if (!myCaptured || !oppCaptured) return '';
+  const myPoints = sumPoints(myCaptured);
+  const oppPoints = sumPoints(oppCaptured);
+  const played = [...myCaptured, ...oppCaptured, ...(leadCard ? [leadCard] : [])];
+  // The face-up trump stays known while it is still at the bottom of the deck.
+  const known = [...played, ...hand, ...(deckCount > 0 ? [trump] : [])];
+  const unseen: Card[] = [];
+  for (const suit of SUITS) {
+    for (const value of CARD_VALUES) {
+      if (!known.some((c) => c.suit === suit && c.value === value)) unseen.push({ suit, value, id: `${suit}-${value}` });
+    }
+  }
+  const trumpsPlayed = played.filter((c) => c.suit === trumpSuit).sort(byRankDesc);
+  const trumpsUnseen = unseen.filter((c) => c.suit === trumpSuit);
+  const trumpsInHand = hand.filter((c) => c.suit === trumpSuit).length;
+  const highPlayed = played.filter(isHigh).sort(byRankDesc);
+  const highUnseen = unseen.filter(isHigh).sort(byRankDesc);
+  const lines = [
+    '--- ROUND MEMORY (what has been seen so far) ---',
+    `Points captured: you ${myPoints}, opponent ${oppPoints} (${120 - myPoints - oppPoints} still to be decided; 61 wins the round)`,
+    `Trumps (${SUIT_NAMES[trumpSuit]}) played so far: ${trumpsPlayed.length > 0 ? trumpsPlayed.map((c) => rankName(c.value)).join(', ') : 'none yet'} (${trumpsPlayed.length} of 10); you hold ${trumpsInHand}`,
+    `Aces and 3s played so far: ${highPlayed.length > 0 ? formatCards(highPlayed) : 'none yet'}`,
+  ];
+  if (deckCount === 0) {
+    lines.push(`Deck empty, so the opponent's hand is exactly: ${formatCards(unseen)}`);
+  } else {
+    const faceUp = trump.suit === trumpSuit ? `, plus the face-up ${formatCard(trump)} at the bottom of the deck` : '';
+    lines.push(
+      `Trumps not seen yet (in the deck or the opponent's hand): ${trumpsUnseen.length}${faceUp}`,
+      `Aces and 3s not seen yet: ${highUnseen.length > 0 ? formatCards(highUnseen) : 'none'}`
+    );
+  }
+  return lines.join('\n');
+}
+
+/** The turn prompt for the on-device model: the position plus the round memory. */
+export function buildOnDeviceTurnPrompt(context: LLMAIContext): string {
+  return buildTurnPrompt(context, buildRoundMemory(context));
 }
 
 /**
@@ -258,3 +319,17 @@ ${moves}
 
 Choose the best move (0-${validMoves.length - 1}).`;
 }
+
+
+/**
+ * System instruction for the on-device model (Apple Intelligence). One
+ * request per move, no memory between requests, and a small context
+ * window, so only the rules and the current position are sent.
+ */
+export const SYSTEM_INSTRUCTION_ON_DEVICE = `${BRISCOLA_RULES}
+
+MODE: one request per move
+Each request stands alone: you have no memory of earlier turns, so use only the state in the request.
+
+INPUT: the scores, the trump, a ROUND MEMORY of what has been captured and seen so far (points, trumps and high cards played or still out), the current trick, your hand and a numbered list of legal moves.
+OUTPUT: first candidates, the two or three strongest legal moves (their 0-based numbers, each with one short note on the points at stake or the trump it spends); then reasoning, one sentence saying which is best and why; then moveIndex, the 0-based number of that best move.`;

@@ -38,6 +38,14 @@ export interface LLMAIContext extends AIContext {
   lastSelfMove: Move | null;
   /** All valid moves available for this turn */
   validMoves: Move[];
+  /** Cards this player has captured so far this round (public as they are
+   *  taken). Optional: only the on-device prompt's round memory uses it. */
+  selfCaptured?: Card[];
+  /** Cards the opponent has captured so far this round. */
+  opponentCaptured?: Card[];
+  /** Scope each side has made this round. */
+  selfScopaCount?: number;
+  opponentScopaCount?: number;
 }
 
 /**

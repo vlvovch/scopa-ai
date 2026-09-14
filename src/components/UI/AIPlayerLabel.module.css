@@ -1,0 +1,19 @@
+/* AIPlayerLabel: "Apple Intelligence" is the one long name; in a compact
+   column (the scoreboard) phones show the short form instead. */
+.full {
+  display: inline;
+}
+
+.short {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .full {
+    display: none;
+  }
+
+  .short {
+    display: inline;
+  }
+}

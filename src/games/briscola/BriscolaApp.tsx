@@ -32,7 +32,7 @@ import { GameLayout } from '../../components/Layout/GameLayout';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { DeckProvider } from '../../contexts/DeckContext';
 import { useT } from '../../i18n/LanguageContext';
-import { GAME_NAMES, gameHomePath, type GameId } from '../gameSelection';
+import { DEFAULT_GAME, GAME_NAMES, gameFromRoomCode, gameHomePath, type GameId } from '../gameSelection';
 import type { GameAppProps } from '../gameLoaders';
 import pileStyles from '../../components/Table/CapturedPile.module.css';
 import modalStyles from '../../components/UI/CapturedCardsModal.module.css';
@@ -58,7 +58,7 @@ import { ReasoningModal, type LastMoveData } from '../../components/UI/Reasoning
 import { ThinkingBubble } from '../../components/UI/ThinkingBubble';
 import { useSettings, SPEED_MULTIPLIER } from '../../hooks/useSettings';
 import { useBriscolaStats } from './hooks/useStats';
-import { trackGameStarted, trackGameCompleted } from '../../analytics';
+import { trackGameStarted, trackGameCompleted } from '../../analytics/events';
 import { setAiThinkingLevel, type AiThinkingLevel } from '../../ai/effort';
 import { GameControls } from '../../components/UI/GameControls';
 import { MultiplayerLobby } from '../../components/UI/MultiplayerLobby';
@@ -119,11 +119,14 @@ import {
   AIPlayerLabel,
 } from '../../components/UI/AIPlayerLabel';
 import { isAsyncAI, type AnyAIPlayer, type LLMAIContext } from './ai/types';
+import { getAppleBriscolaAI, startAppleBriscolaRound, endAppleBriscolaRound, cancelOnDeviceRequests } from './ai/apple';
+import { useKeepAwake } from '../../hooks/useKeepAwake';
 import type { AIPlayer, AIContext } from './ai/types';
 import { useWinOdds } from './hooks/useWinOdds';
 import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, GameStatus, Move, PlayerId } from './types';
+import { storage } from '../../platform/storage';
 
 // ---------------------------------------------------------------------------
 // Timing — matches Scopa's CpuCardAnimation phases
@@ -426,7 +429,7 @@ const HOME_PATH = gameHomePath('briscola');
 
 function hasStoredMpSession(): boolean {
   try {
-    return localStorage.getItem(MP_SESSION_KEY) !== null;
+    return storage.get(MP_SESSION_KEY) !== null;
   } catch {
     return false;
   }
@@ -454,21 +457,31 @@ function getInitialJoinCode(): string | undefined {
 
   if (joinCode) {
     try {
-      const stored = localStorage.getItem(MP_SESSION_KEY);
+      const stored = storage.get(MP_SESSION_KEY);
       if (stored) {
         const session = JSON.parse(stored);
         if (session.roomCode !== joinCode) {
-          localStorage.removeItem(MP_SESSION_KEY);
+          storage.remove(MP_SESSION_KEY);
         }
         // Same room → keep the session so auto-reconnect works.
       }
     } catch {
-      try { localStorage.removeItem(MP_SESSION_KEY); } catch { /* ignore */ }
+      try { storage.remove(MP_SESSION_KEY); } catch { /* ignore */ }
     }
     return joinCode;
   }
 
   return undefined;
+}
+
+/** Cloud LLMs: token usage, cost and a model id exist. */
+function hasTokenAccounting(name: BriscolaOpponentName): boolean {
+  return name === 'gemini' || name === 'gemini-free' || name === 'openai' || name === 'claude';
+}
+
+/** Any opponent with reasoning to show: the cloud LLMs and the on-device model. */
+function isAIOpponent(name: BriscolaOpponentName): boolean {
+  return hasTokenAccounting(name) || name === 'apple';
 }
 
 const BOT_LABELS: Record<BriscolaOpponentName, string> = {
@@ -479,6 +492,7 @@ const BOT_LABELS: Record<BriscolaOpponentName, string> = {
   gemini: 'Gemini',
   openai: 'GPT',
   claude: 'Claude',
+  apple: 'Apple Intelligence',
 };
 
 // The "best of" value now directly represents wins needed to take the
@@ -631,7 +645,7 @@ function mpToBriscolaAppState(
   return { status: 'playing', game };
 }
 
-function BriscolaApp({ onSwitchGame }: GameAppProps) {
+function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps) {
   const t = useT();
   const [state, dispatch] = useReducer(reducer, { status: 'idle' } as AppState);
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -668,6 +682,9 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   // (CPU or LLM) — same as Scopa. Burning LLM quota in watch mode is the
   // user's call.
   const [gameMode, setGameMode] = useState<BriscolaGameMode>('play');
+  // Watch mode has no touch input for minutes: keep the screen from locking
+  // while the bots play (released at game end, reset or unmount).
+  useKeepAwake(gameMode === 'watch' && state.status !== 'idle' && !(state.status === 'roundEnd' && state.matchOver));
   const [watchOpponents, setWatchOpponents] = useState<{
     player1: BriscolaOpponentName;
     player2: BriscolaOpponentName;
@@ -696,6 +713,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   // (explicit toggle + inbound join link), and scrub the /join/CODE URL
   // so we don't immediately re-enter MP from it.
   const exitMultiplayer = useCallback(() => {
+    cancelOnDeviceRequests();
     multiplayer.leaveRoom();
     setIsMultiplayerMode(false);
     setInitialJoinCode(undefined);
@@ -940,6 +958,9 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
           CPU_BOTS.heuristic
         );
       }
+      if (name === 'apple') {
+        return getAppleBriscolaAI(seat) ?? CPU_BOTS.heuristic;
+      }
       return CPU_BOTS[name];
     },
     [geminiModel, openaiModel, claudeModel, useThinking, conversationMode]
@@ -1016,6 +1037,8 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   const [confirmNewGame, setConfirmNewGame] = useState(false);
   // Runtime game switch awaiting the leave-game confirmation (target game).
   const [confirmSwitchGame, setConfirmSwitchGame] = useState<GameId | null>(null);
+  // Invitation (room code) awaiting the leave-game confirmation.
+  const [confirmInvite, setConfirmInvite] = useState<string | null>(null);
 
   // "New Game" sends us back to the StartScreen (idle) so the player can
   // re-pick opponent / best-of before the next match. Only confirm when a
@@ -1026,13 +1049,23 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
       state.status !== 'idle' &&
       !(state.status === 'roundEnd' && state.matchOver);
     if (inProgress) setConfirmNewGame(true);
-    else dispatch({ type: 'RESET' });
+    else {
+      cancelOnDeviceRequests();
+      dispatch({ type: 'RESET' });
+    }
   }, [state]);
 
   const confirmRestart = useCallback(() => {
     setConfirmNewGame(false);
+    // A move the on-device model is still working on belongs to the game
+    // being abandoned: stop the generation, not just ignore its reply.
+    cancelOnDeviceRequests();
     dispatch({ type: 'RESET' });
   }, []);
+
+  // Unmounting (the runtime game switch swaps this component out): nothing
+  // will consume a pending on-device reply, so stop it here as well.
+  useEffect(() => () => cancelOnDeviceRequests(), []);
 
   // ---- Runtime game switch (Briscola ⇄ Scopa) ----------------------------
   // Same leaving semantics as "New Game": a match in progress is abandoned
@@ -1040,6 +1073,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   // the mounted game once this component has cleaned up after itself.
   const performSwitchGame = useCallback((target: GameId) => {
     setConfirmSwitchGame(null);
+    cancelOnDeviceRequests();
     if (!onSwitchGame) return;
     // Leaves the room (server notified, socket closed, stored session and
     // /join URL cleared) so nothing reconnects to it from the other game.
@@ -1060,6 +1094,62 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   // Passed to the start screen and every Settings modal; undefined hides the
   // switcher entirely (itch builds).
   const switchGameProp = onSwitchGame ? requestSwitchGame : undefined;
+
+  // ---- Invitations arriving while this game is on screen (native deep
+  // links). Same leaving semantics as the game switch; an invitation for
+  // Scopa hands over with the code so Scopa mounts into its join lobby.
+  const applyInvite = useCallback((code: string) => {
+    setConfirmInvite(null);
+    onInviteHandled?.();
+    const target = gameFromRoomCode(code) ?? DEFAULT_GAME;
+    if (inMultiplayer) exitMultiplayer();
+    cancelOnDeviceRequests();
+    if (state.status !== 'idle') dispatch({ type: 'RESET' });
+    if (target !== 'briscola') {
+      onSwitchGame?.(target, { joinCode: code });
+      return;
+    }
+    try {
+      const stored = storage.get(MP_SESSION_KEY);
+      if (stored && JSON.parse(stored).roomCode !== code) storage.remove(MP_SESSION_KEY);
+    } catch {
+      try { storage.remove(MP_SESSION_KEY); } catch { /* ignore */ }
+    }
+    window.history.replaceState({}, '', `/join/${code}`);
+    setInitialJoinCode(code);
+    setIsMultiplayerMode(true);
+  }, [onInviteHandled, onSwitchGame, inMultiplayer, exitMultiplayer, state.status]);
+
+  useEffect(() => {
+    if (!pendingInvite) return;
+    const soloInProgress =
+      state.status !== 'idle' && !(state.status === 'roundEnd' && state.matchOver);
+    const multiplayerInProgress = inMultiplayer && !!multiplayer.roomCode;
+    if (soloInProgress || multiplayerInProgress) setConfirmInvite(pendingInvite);
+    else applyInvite(pendingInvite);
+    // React only when a new invitation arrives, not on every state change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInvite]);
+
+  const inviteDialog = (
+    <ConfirmDialog
+      isOpen={confirmInvite !== null}
+      title={t.game.inviteJoinTitle}
+      message={
+        inMultiplayer && multiplayer.roomCode
+          ? t.game.switchGameMessageMultiplayer
+          : t.game.inviteJoinMessage(GAME_NAMES.briscola)
+      }
+      confirmLabel={t.game.inviteJoinConfirm}
+      onConfirm={() => {
+        if (confirmInvite) applyInvite(confirmInvite);
+      }}
+      onCancel={() => {
+        setConfirmInvite(null);
+        onInviteHandled?.();
+      }}
+    />
+  );
 
   const switchGameDialog = (
     <ConfirmDialog
@@ -1163,7 +1253,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
       bestOf,
       state.game.roundHistory
     );
-    trackGameCompleted({ game: 'briscola', mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
+    trackGameCompleted({ game: 'briscola', mode: 'solo', opponent: opponentName === 'apple' || modelFor(opponentName) ? 'ai' : 'cpu' });
   }, [state, opponentName, bestOf, stats, gameMode, modelFor]);
 
   // Clear the dedup id whenever a new match starts.
@@ -1242,6 +1332,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
       } else if (op === 'gemini') startGeminiRound(geminiModel, useThinking, conversationMode, seat);
       else if (op === 'openai') startOpenAIRound(openaiModel, conversationMode, seat);
       else if (op === 'claude') startClaudeRound(claudeModel, useThinking, conversationMode, seat);
+      else if (op === 'apple') startAppleBriscolaRound(seat);
     }
   }, [state, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking, conversationMode]);
 
@@ -1260,6 +1351,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
       else if (op === 'gemini') endGeminiRound(geminiModel, useThinking, conversationMode, seat);
       else if (op === 'openai') endOpenAIRound(openaiModel, conversationMode, seat);
       else if (op === 'claude') endClaudeRound(claudeModel, useThinking, conversationMode, seat);
+      else if (op === 'apple') endAppleBriscolaRound(seat);
     }
   }, [state.status, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking, conversationMode]);
 
@@ -1326,6 +1418,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
               : watchOpponents.player2
             : opponentName;
         const reasoning = (bot as { lastReasoning?: string }).lastReasoning ?? '';
+        const fallback = (bot as { lastMoveWasFallback?: boolean }).lastMoveWasFallback === true;
         const opp: PlayerId = current === 'human' ? 'cpu' : 'human';
         // For Briscola, the "table" at the moment of the play is just the
         // opponent's lead card (if the bot was following) or empty (if the
@@ -1351,6 +1444,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
             tableCards,
             capturedCards,
             reasoning,
+            fallback,
             player: current,
             aiName: bot.name || (seatOpponent ? BOT_LABELS[seatOpponent] : undefined),
             opponentHandCount: g.players[opp].hand.length,
@@ -1749,7 +1843,9 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
             /* no LLM errors in multiplayer */
           }}
           cpuIsLLM={false}
+          cpuHasTokens={false}
           humanIsLLM={false}
+          humanHasTokens={false}
           onNextRound={handleMultiplayerNextRound}
           onRestart={handleMultiplayerRestart}
           onOpenPile={setOpenPile}
@@ -1836,6 +1932,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
           onSwitchGame={switchGameProp}
         />
         {switchGameDialog}
+        {inviteDialog}
         <StatsModal
           isOpen={isStatsOpen}
           onClose={() => setIsStatsOpen(false)}
@@ -1866,17 +1963,20 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
     multiplayer.isReconnecting
   ) {
     return (
-      <div style={overlay}>
-        <div style={overlayCard}>
-          <h2 style={{ marginTop: 0 }}>Reconnecting…</h2>
-          <p style={{ opacity: 0.75, margin: '0.5rem 0 1.25rem' }}>
-            Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
-          </p>
-          <button style={primaryButton} onClick={exitMultiplayer}>
-            Leave Game
-          </button>
+      <>
+        <div style={overlay}>
+          <div style={overlayCard}>
+            <h2 style={{ marginTop: 0 }}>Reconnecting…</h2>
+            <p style={{ opacity: 0.75, margin: '0.5rem 0 1.25rem' }}>
+              Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
+            </p>
+            <button style={primaryButton} onClick={exitMultiplayer}>
+              Leave Game
+            </button>
+          </div>
         </div>
-      </div>
+        {inviteDialog}
+      </>
     );
   }
 
@@ -1886,14 +1986,17 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   // Create Game repeatedly thinking nothing happened.
   if (inMultiplayer && multiplayer.roomCode && !multiplayer.gameState) {
     return (
-      <WaitingForOpponent
-        roomCode={multiplayer.roomCode}
-        nickname={multiplayer.nickname}
-        targetScore={multiplayer.targetScore}
-        turnTimerEnabled={multiplayer.turnTimerEnabled}
-        onUpdateNickname={multiplayer.updateNickname}
-        onLeaveRoom={exitMultiplayer}
-      />
+      <>
+        <WaitingForOpponent
+          roomCode={multiplayer.roomCode}
+          nickname={multiplayer.nickname}
+          targetScore={multiplayer.targetScore}
+          turnTimerEnabled={multiplayer.turnTimerEnabled}
+          onUpdateNickname={multiplayer.updateNickname}
+          onLeaveRoom={exitMultiplayer}
+        />
+        {inviteDialog}
+      </>
     );
   }
 
@@ -1903,37 +2006,41 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
   // takes over; once gameState arrives, the in-game render takes over.
   if (inMultiplayer && !multiplayer.gameState) {
     return (
-      <MultiplayerLobby
-        connectionStatus={multiplayer.connectionStatus}
-        connectionError={multiplayer.connectionError}
-        initialJoinCode={initialJoinCode}
-        config={{
-          gameName: 'Briscola',
-          gameCodePrefix: 'BRISCOLA',
-          presetScores: [1, 3, 5],
-          defaultScore: 1,
-          scoreLabel: t.briscola.bestOfLabel,
-          extraToggles: [
-            {
-              key: 'pileView',
-              label: t.game.pileReviewLabel,
-              hintOn: t.game.pileReviewOn,
-              hintOff: t.game.pileReviewOff,
-              defaultValue: false,
-            },
-            {
-              key: 'pileStats',
-              label: t.game.pileStatsLabel,
-              hintOn: t.game.pileStatsOn,
-              hintOff: t.game.pileStatsOff,
-              defaultValue: false,
-            },
-          ],
-        }}
-        onCreateRoom={multiplayer.createRoom}
-        onJoinRoom={multiplayer.joinRoom}
-        onBack={exitMultiplayer}
-      />
+      <>
+        <MultiplayerLobby
+          key={initialJoinCode ?? 'lobby'}
+          connectionStatus={multiplayer.connectionStatus}
+          connectionError={multiplayer.connectionError}
+          initialJoinCode={initialJoinCode}
+          config={{
+            gameName: 'Briscola',
+            gameCodePrefix: 'BRISCOLA',
+            presetScores: [1, 3, 5],
+            defaultScore: 1,
+            scoreLabel: t.briscola.bestOfLabel,
+            extraToggles: [
+              {
+                key: 'pileView',
+                label: t.game.pileReviewLabel,
+                hintOn: t.game.pileReviewOn,
+                hintOff: t.game.pileReviewOff,
+                defaultValue: false,
+              },
+              {
+                key: 'pileStats',
+                label: t.game.pileStatsLabel,
+                hintOn: t.game.pileStatsOn,
+                hintOff: t.game.pileStatsOff,
+                defaultValue: false,
+              },
+            ],
+          }}
+          onCreateRoom={multiplayer.createRoom}
+          onJoinRoom={multiplayer.joinRoom}
+          onBack={exitMultiplayer}
+        />
+        {inviteDialog}
+      </>
     );
   }
 
@@ -1979,7 +2086,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
             // Anonymous player analytics: one event per match the visitor
             // actually plays. Watch mode is spectating — excluded.
             if (mode === 'play') {
-              trackGameStarted({ game: 'briscola', mode: 'solo', opponent: modelFor(opponentName) ? 'ai' : 'cpu' });
+              trackGameStarted({ game: 'briscola', mode: 'solo', opponent: opponentName === 'apple' || modelFor(opponentName) ? 'ai' : 'cpu' });
             }
             dispatch({ type: 'START', bestOf: n });
           }}
@@ -2001,6 +2108,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
           onSwitchGame={switchGameProp}
         />
         {switchGameDialog}
+        {inviteDialog}
         <StatsModal
           isOpen={isStatsOpen}
           onClose={() => setIsStatsOpen(false)}
@@ -2051,23 +2159,10 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
         onDismissApiError={(p) =>
           setApiErrorBySeat((prev) => ({ ...prev, [p]: null }))
         }
-        cpuIsLLM={(() => {
-          // The cpu seat in watch mode is player2, NOT the play-mode opponent.
-          const cpuOp = gameMode === 'watch' ? watchOpponents.player2 : opponentName;
-          return (
-            cpuOp === 'gemini' ||
-            cpuOp === 'gemini-free' ||
-            cpuOp === 'openai' ||
-            cpuOp === 'claude'
-          );
-        })()}
-        humanIsLLM={
-          gameMode === 'watch' &&
-          (watchOpponents.player1 === 'gemini' ||
-            watchOpponents.player1 === 'gemini-free' ||
-            watchOpponents.player1 === 'openai' ||
-            watchOpponents.player1 === 'claude')
-        }
+        cpuIsLLM={isAIOpponent(gameMode === 'watch' ? watchOpponents.player2 : opponentName)}
+        cpuHasTokens={hasTokenAccounting(gameMode === 'watch' ? watchOpponents.player2 : opponentName)}
+        humanIsLLM={gameMode === 'watch' && isAIOpponent(watchOpponents.player1)}
+        humanHasTokens={gameMode === 'watch' && hasTokenAccounting(watchOpponents.player1)}
         onNextRound={() => dispatch({ type: 'NEXT_ROUND' })}
         onRestart={handleRestartRequest}
         onOpenPile={setOpenPile}
@@ -2104,6 +2199,7 @@ function BriscolaApp({ onSwitchGame }: GameAppProps) {
         onSwitchGame={switchGameProp}
       />
       {switchGameDialog}
+        {inviteDialog}
       <StatsModal
         isOpen={isStatsOpen}
         onClose={() => setIsStatsOpen(false)}
@@ -2170,6 +2266,8 @@ function BriscolaBoard({
   onDismissApiError,
   cpuIsLLM,
   humanIsLLM,
+  cpuHasTokens,
+  humanHasTokens,
   onNextRound,
   onRestart,
   onOpenPile,
@@ -2217,10 +2315,14 @@ function BriscolaBoard({
   /** API error per seat (null if no error). */
   apiErrorBySeat: { human: string | null; cpu: string | null };
   onDismissApiError: (player: PlayerId) => void;
-  /** Whether the CPU seat is currently an LLM (controls whether the stats /
-   *  bubble container renders at all). */
+  /** Whether the seat is an AI opponent with reasoning to show (cloud LLMs
+   *  and the on-device model): controls the thinking bubble. */
   cpuIsLLM: boolean;
   humanIsLLM: boolean;
+  /** Whether the seat's provider counts tokens and cost (cloud LLMs only):
+   *  controls the token badge. */
+  cpuHasTokens: boolean;
+  humanHasTokens: boolean;
   onNextRound: () => void;
   onRestart: () => void;
   onOpenPile: (player: PlayerId) => void;
@@ -2420,7 +2522,7 @@ function BriscolaBoard({
           </div>
         }
         cpuPile={
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: cpuHasTokens ? 12 : 0 }}>
             <BriscolaPile
               captured={g.players.cpu.captured}
               label={seatLabelNode('cpu')}
@@ -2430,18 +2532,22 @@ function BriscolaBoard({
             />
             {cpuIsLLM && (
               <div style={{ position: 'relative' }}>
-                <TokenStatsDisplay
-                  stats={tokenStatsBySeat.cpu.stats}
-                  delta={tokenStatsBySeat.cpu.delta}
-                  show
-                  mode="game"
-                  position="bottom"
-                  error={apiErrorBySeat.cpu}
-                  onDismissError={() => onDismissApiError('cpu')}
-                />
+                {cpuHasTokens && (
+                  <TokenStatsDisplay
+                    stats={tokenStatsBySeat.cpu.stats}
+                    delta={tokenStatsBySeat.cpu.delta}
+                    show
+                    mode="game"
+                    position="bottom"
+                    error={apiErrorBySeat.cpu}
+                    onDismissError={() => onDismissApiError('cpu')}
+                  />
+                )}
                 <ThinkingBubble
                   show
                   hasReasoning={!!lastMoveData.cpu?.reasoning}
+                  fallback={lastMoveData.cpu?.fallback}
+                  align={cpuHasTokens ? 'center' : 'end'}
                   onClick={() => onOpenReasoning('cpu')}
                 />
               </div>
@@ -2474,7 +2580,7 @@ function BriscolaBoard({
           />
         }
         humanPile={
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: humanHasTokens ? 12 : 0 }}>
             <BriscolaPile
               captured={g.players.human.captured}
               label={seatLabelNode('human')}
@@ -2484,18 +2590,22 @@ function BriscolaBoard({
             />
             {isWatchMode && humanIsLLM && (
               <div style={{ position: 'relative' }}>
-                <TokenStatsDisplay
-                  stats={tokenStatsBySeat.human.stats}
-                  delta={tokenStatsBySeat.human.delta}
-                  show
-                  mode="game"
-                  position="top"
-                  error={apiErrorBySeat.human}
-                  onDismissError={() => onDismissApiError('human')}
-                />
+                {humanHasTokens && (
+                  <TokenStatsDisplay
+                    stats={tokenStatsBySeat.human.stats}
+                    delta={tokenStatsBySeat.human.delta}
+                    show
+                    mode="game"
+                    position="top"
+                    error={apiErrorBySeat.human}
+                    onDismissError={() => onDismissApiError('human')}
+                  />
+                )}
                 <ThinkingBubble
                   show
                   hasReasoning={!!lastMoveData.human?.reasoning}
+                  fallback={lastMoveData.human?.fallback}
+                  align={humanHasTokens ? 'center' : 'start'}
                   onClick={() => onOpenReasoning('human')}
                   position="top"
                 />
