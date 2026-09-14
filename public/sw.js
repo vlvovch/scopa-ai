@@ -75,9 +75,6 @@ const STATIC_ASSETS = [
   '/cards/napoletane/clubs-10.webp',
   // Suit icons for score screen
   '/cards/napoletane/suits/coins.svg',
-  '/cards/napoletane/suits/cups.svg',
-  '/cards/napoletane/suits/swords.svg',
-  '/cards/napoletane/suits/clubs.svg',
   // Sound effects (MP3 for Safari/iOS compatibility)
   '/sounds/broom-sweep.mp3',
   '/sounds/card-fan-1.mp3',
