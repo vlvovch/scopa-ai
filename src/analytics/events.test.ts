@@ -1,7 +1,7 @@
 // Tests run in the default node environment: `window` is stubbed onto
 // globalThis, matching how src/analytics.ts reads it at call time.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { trackGameStarted, trackGameCompleted, trackGameSwitched, trackGameChosen } from './analytics';
+import { trackGameStarted, trackGameCompleted, trackGameSwitched, trackGameChosen } from './events';
 
 type StubWindow = { swetrix?: { track: ReturnType<typeof vi.fn> }; __swetrixReady?: boolean };
 const g = globalThis as unknown as { window?: StubWindow };
@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe('analytics', () => {
-  it('sends GAME_STARTED with game/mode/opponent meta and no unique flag', () => {
+  it('sends GAME_STARTED with game/mode/opponent/platform meta and no unique flag', () => {
     const track = vi.fn();
     g.window = { swetrix: { track }, __swetrixReady: true };
 
@@ -21,7 +21,7 @@ describe('analytics', () => {
     const payload = track.mock.calls[0][0];
     expect(payload).toEqual({
       ev: 'GAME_STARTED',
-      meta: { game: 'scopa', mode: 'solo', opponent: 'cpu' },
+      meta: { game: 'scopa', mode: 'solo', opponent: 'cpu', platform: 'web' },
     });
     expect('unique' in payload).toBe(false);
   });
@@ -34,7 +34,7 @@ describe('analytics', () => {
 
     expect(track).toHaveBeenCalledWith({
       ev: 'GAME_COMPLETED',
-      meta: { game: 'briscola', mode: 'multiplayer', opponent: 'human' },
+      meta: { game: 'briscola', mode: 'multiplayer', opponent: 'human', platform: 'web' },
     });
   });
 
@@ -46,7 +46,7 @@ describe('analytics', () => {
 
     expect(track).toHaveBeenCalledWith({
       ev: 'GAME_SWITCHED',
-      meta: { from: 'scopa', to: 'briscola' },
+      meta: { from: 'scopa', to: 'briscola', platform: 'web' },
     });
   });
 
@@ -56,7 +56,7 @@ describe('analytics', () => {
 
     trackGameChosen({ game: 'briscola' });
 
-    expect(track).toHaveBeenCalledWith({ ev: 'GAME_CHOSEN', meta: { game: 'briscola' } });
+    expect(track).toHaveBeenCalledWith({ ev: 'GAME_CHOSEN', meta: { game: 'briscola', platform: 'web' } });
   });
 
   it('no-ops when swetrix was never initialized (dev host, DNT, blocked)', () => {
