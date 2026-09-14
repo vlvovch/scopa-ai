@@ -38,12 +38,18 @@
   /* At 100% zoom on 900px height: ~99px width, ~162px height */
   /* At 125% zoom: cards scale down proportionally */
   /* Lower minimums allow smooth scaling on short viewports */
-  --card-width: clamp(32px, 11vh, 110px);
-  --card-height: clamp(52px, 18vh, 180px);
+  --card-width: clamp(32px, calc(var(--viewport-height, 100vh) * 0.11), 110px);
+  --card-height: clamp(52px, calc(var(--viewport-height, 100vh) * 0.18), 180px);
   --card-border-radius: 6px;
 
-  /* Playing area width - enough for scoreboard + pile on same row */
-  --playing-area-width: min(95vw, 1000px);
+  /* Playing area width - enough for scoreboard + pile on same row.
+     --viewport-width / --viewport-height are fed from the layout viewport
+     by index.html (width) and, in the packaged app, src/platform/
+     bootstrap.ts (both): viewport units inside custom properties went
+     stale on an iPad after a multitasking resize. The website keeps the
+     100vh fallback for heights so the mobile address bar does not
+     resize the cards. */
+  --playing-area-width: min(calc(var(--viewport-width, 100vw) * 0.95), 1000px);
 
   /* Mini card dimensions for RoundEndScreen */
   --mini-card-width: 46px;
@@ -235,8 +241,8 @@ a,
 @media (max-width: 600px) {
   :root {
     /* Scale cards based on viewport height to fit in screen */
-    --card-width: clamp(45px, 11vh, 60px);
-    --card-height: clamp(74px, 18vh, 99px);
+    --card-width: clamp(45px, calc(var(--viewport-height, 100vh) * 0.11), 60px);
+    --card-height: clamp(74px, calc(var(--viewport-height, 100vh) * 0.18), 99px);
     --card-border-radius: 5px;
 
     /* Tighter spacing on mobile */
@@ -271,8 +277,8 @@ a,
     /* Trimmed a notch (was 18vw/29vw ≈ 74px at 412): the earlier bump
        overcorrected — the real "too small" cause was desktop-site mode,
        not the normal mobile size. Now ~66px at 412, ~58 at 360. */
-    --card-width: clamp(56px, 16vw, 80px);
-    --card-height: clamp(90px, 26vw, 128px);
+    --card-width: clamp(56px, calc(var(--viewport-width, 100vw) * 0.16), 80px);
+    --card-height: clamp(90px, calc(var(--viewport-width, 100vw) * 0.26), 128px);
     --card-border-radius: 5px;
 
     /* Tighter spacing */
@@ -295,8 +301,8 @@ a,
 @media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
   :root {
     /* In mobile landscape, height is the constraint - use smaller cards */
-    --card-width: clamp(36px, 12vh, 52px);
-    --card-height: clamp(59px, 19.6vh, 85px);
+    --card-width: clamp(36px, calc(var(--viewport-height, 100vh) * 0.12), 52px);
+    --card-height: clamp(59px, calc(var(--viewport-height, 100vh) * 0.196), 85px);
 
     /* Reduced spacing */
     --space-1: 3px;
@@ -309,7 +315,7 @@ a,
     --card-border-radius: 4px;
 
     /* Narrower playing area in landscape */
-    --playing-area-width: min(70vw, 600px);
+    --playing-area-width: min(calc(var(--viewport-width, 100vw) * 0.7), 600px);
   }
 
   html {
@@ -320,8 +326,8 @@ a,
 /* Very short landscape (e.g., phones with notch) */
 @media (max-height: 400px) and (max-width: 900px) and (orientation: landscape) {
   :root {
-    --card-width: clamp(28px, 10vh, 40px);
-    --card-height: clamp(46px, 16.4vh, 66px);
+    --card-width: clamp(28px, calc(var(--viewport-height, 100vh) * 0.10), 40px);
+    --card-height: clamp(46px, calc(var(--viewport-height, 100vh) * 0.164), 66px);
     --space-2: 2px;
     --space-3: 3px;
     --space-4: 4px;

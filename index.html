@@ -70,9 +70,36 @@
           el.style.removeProperty('--dmode-width');
         }
       }
-      applyDesktopModeFix();
-      window.addEventListener('resize', applyDesktopModeFix);
-      window.addEventListener('orientationchange', applyDesktopModeFix);
+      // The layout width the stylesheet sizes the play area from
+      // (--viewport-width, read by index.css instead of 100vw). Viewport
+      // units inside custom properties went stale on an iPad after a
+      // multitasking resize (the play area stayed at the split-view
+      // width after the app was full screen again), so the value comes
+      // from the layout viewport itself and is refreshed on every event
+      // that can follow a size change. The packaged app also feeds the
+      // height (src/platform/bootstrap.ts); the website keeps 100vh for
+      // card sizes so the mobile address bar does not resize them.
+      function applyViewportWidth() {
+        var el = document.documentElement;
+        var w = (el.clientWidth || window.innerWidth) + 'px';
+        if (el.style.getPropertyValue('--viewport-width') !== w)
+          el.style.setProperty('--viewport-width', w);
+      }
+      function onViewportChange() {
+        applyDesktopModeFix();
+        applyViewportWidth();
+      }
+      onViewportChange();
+      window.addEventListener('resize', onViewportChange);
+      window.addEventListener('orientationchange', onViewportChange);
+      window.addEventListener('pageshow', onViewportChange);
+      window.addEventListener('focus', onViewportChange);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          onViewportChange();
+          requestAnimationFrame(onViewportChange);
+        }
+      });
     })();
   </script>
   <!-- Seed the accessibility "Text size" scale before first paint (the

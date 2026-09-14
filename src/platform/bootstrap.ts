@@ -62,6 +62,7 @@ export interface NativeBootstrap {
  */
 export async function bootstrapNative(): Promise<NativeBootstrap> {
   document.documentElement.classList.add('native');
+  installViewportVars();
   const [, nativeBuild, onDevice] = await Promise.all([
     initNativeStorage(),
     readNativeBuildInfo(),
@@ -122,4 +123,33 @@ export function nativeDidRender(): void {
   requestAnimationFrame(() => {
     SplashScreen.hide().catch(() => {});
   });
+}
+
+/**
+ * Feed the layout viewport size to the stylesheet (--viewport-width and
+ * --viewport-height, see index.css). In the app the web view is resized
+ * by iPadOS multitasking (Split View, Slide Over, windowed mode), and
+ * viewport units inside custom properties were seen to stay at the old
+ * size once the app was full screen again. The values are refreshed on
+ * every event that can follow a resize, when the app resumes, and by a
+ * one-second check that costs two property reads.
+ */
+function installViewportVars(): void {
+  const root = document.documentElement;
+  const apply = () => {
+    const w = `${root.clientWidth || window.innerWidth}px`;
+    const h = `${root.clientHeight || window.innerHeight}px`;
+    if (root.style.getPropertyValue('--viewport-width') !== w) root.style.setProperty('--viewport-width', w);
+    if (root.style.getPropertyValue('--viewport-height') !== h) root.style.setProperty('--viewport-height', h);
+  };
+  apply();
+  for (const type of ['resize', 'orientationchange', 'pageshow', 'focus']) window.addEventListener(type, apply);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      apply();
+      requestAnimationFrame(apply);
+    }
+  });
+  void import('@capacitor/app').then(({ App }) => App.addListener('resume', apply)).catch(() => undefined);
+  window.setInterval(apply, 1000);
 }
