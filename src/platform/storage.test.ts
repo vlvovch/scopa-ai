@@ -87,12 +87,13 @@ describe('native storage', () => {
     const { stores, prefs, secrets } = fakeStores();
     const store = createNativeStorage(stores);
     await store.ready();
-    const settings = { deck: 'napoletane', geminiApiKey: 'sk-gem', openaiApiKey: '', claudeApiKey: 'sk-cl' };
+    const settings = { deck: 'napoletane', geminiApiKey: 'sk-gem', openaiApiKey: '', claudeApiKey: 'sk-cl', openrouterApiKey: 'sk-or' };
     store.set('scopa-settings', JSON.stringify(settings));
     await store.flush();
-    expect(JSON.parse(prefs.get('scopa-settings')!)).toEqual({ ...settings, geminiApiKey: '', claudeApiKey: '' });
+    expect(JSON.parse(prefs.get('scopa-settings')!)).toEqual({ ...settings, geminiApiKey: '', claudeApiKey: '', openrouterApiKey: '' });
     expect(secrets.get('geminiApiKey')).toBe('sk-gem');
     expect(secrets.get('claudeApiKey')).toBe('sk-cl');
+    expect(secrets.get('openrouterApiKey')).toBe('sk-or');
     expect(secrets.has('openaiApiKey')).toBe(false);
     // the app keeps seeing the full settings object
     expect(JSON.parse(store.get('scopa-settings')!)).toEqual(settings);

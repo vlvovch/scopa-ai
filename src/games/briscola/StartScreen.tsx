@@ -39,6 +39,15 @@ import {
   getCachedClaudeModels,
   type ClaudeModelInfo,
 } from './ai/claude';
+import {
+  isOpenRouterAvailable,
+  fetchOpenRouterModels,
+  getCachedOpenRouterModels,
+  type OpenRouterModelInfo,
+} from './ai/openrouter';
+import { OpenRouterIcon } from '../../components/UI/OpenRouterIcon';
+import { OpenRouterModelOptions } from '../../components/UI/OpenRouterModelOptions';
+import { DEFAULT_OPENROUTER_MODEL, OPENROUTER_FREE_ROUTER, isFreeOpenRouterModel, freeOpenRouterModels, normalizeOpenRouterSelection, getCachedOpenRouterModel, isMandatoryReasoningModel, isOpenRouterCatalogueLoaded, openRouterModelDisplayName } from '../../ai/openrouterProvider';
 
 /** Sync CPU bots — usable on either seat in Watch mode. */
 export type CpuBotName = 'random' | 'heuristic' | 'expert';
@@ -50,6 +59,7 @@ export type BriscolaOpponentName =
   | 'gemini'
   | 'openai'
   | 'claude'
+  | 'openrouter'
   | 'apple';
 
 const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
@@ -58,7 +68,7 @@ const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playbriscola.com
 export type BriscolaGameMode = 'play' | 'watch' | 'multiplayer';
 
 type OpponentCategory = 'cpu' | 'free-ai' | 'device-ai' | 'ai';
-type AIProvider = 'gemini' | 'openai' | 'claude';
+type AIProvider = 'gemini' | 'openai' | 'claude' | 'openrouter';
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
 
@@ -72,12 +82,15 @@ const PROVIDER_INFO: Record<AIProvider, { icon: string; label: string }> = {
   gemini: { icon: '✦', label: 'Gemini' },
   openai: { icon: '⬡', label: 'GPT' },
   claude: { icon: '🔮', label: 'Claude' },
+  openrouter: { icon: '⇄', label: 'OpenRouter' },
 };
 
-function getOpponentCategory(name: BriscolaOpponentName): OpponentCategory {
+function getOpponentCategory(name: BriscolaOpponentName, openrouterModel: string): OpponentCategory {
   if (name === 'random' || name === 'heuristic' || name === 'expert') return 'cpu';
   if (name === 'gemini-free') return 'free-ai';
   if (name === 'apple') return 'device-ai';
+  // OpenRouter's free models live under "Free AI", its paid ones under BYOK
+  if (name === 'openrouter' && isFreeOpenRouterModel(openrouterModel)) return 'free-ai';
   return 'ai';
 }
 
@@ -90,6 +103,7 @@ function getCPUType(name: BriscolaOpponentName): CpuBotName {
 function getAIProvider(name: BriscolaOpponentName): AIProvider {
   if (name === 'openai') return 'openai';
   if (name === 'claude') return 'claude';
+  if (name === 'openrouter') return 'openrouter';
   return 'gemini';
 }
 
@@ -111,6 +125,8 @@ interface StartScreenProps {
   onSetOpenAIModel: (modelId: string) => void;
   claudeModel: string;
   onSetClaudeModel: (modelId: string) => void;
+  openrouterModel: string;
+  onSetOpenRouterModel: (modelId: string) => void;
   thinkingLevel: 'off' | 'medium' | 'high';
   onCycleThinking: () => void;
   onOpenSettings?: () => void;
@@ -139,6 +155,8 @@ export function StartScreen({
   onSetOpenAIModel,
   claudeModel,
   onSetClaudeModel,
+  openrouterModel,
+  onSetOpenRouterModel,
   thinkingLevel,
   onCycleThinking,
   onOpenSettings,
@@ -166,8 +184,9 @@ export function StartScreen({
   const geminiOk = isGeminiAvailable();
   const openaiOk = isOpenAIAvailable();
   const claudeOk = isClaudeAvailable();
+  const openrouterOk = isOpenRouterAvailable();
   const appleOk = isAppleAvailable();
-  const anyAIOk = geminiOk || openaiOk || claudeOk;
+  const anyAIOk = geminiOk || openaiOk || claudeOk || openrouterOk;
 
   // Default provider for the AI category (first one with a valid key).
   const defaultProvider: AIProvider = geminiOk
@@ -176,7 +195,9 @@ export function StartScreen({
       ? 'openai'
       : claudeOk
         ? 'claude'
-        : 'gemini';
+        : openrouterOk
+          ? 'openrouter'
+          : 'gemini';
 
   // Lazily fetched model lists per provider.
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>(() =>
@@ -187,6 +208,9 @@ export function StartScreen({
   );
   const [claudeModels, setClaudeModels] = useState<ClaudeModelInfo[]>(() =>
     getCachedClaudeModels()
+  );
+  const [openrouterModels, setOpenRouterModels] = useState<OpenRouterModelInfo[]>(() =>
+    getCachedOpenRouterModels()
   );
 
   // Trigger fetches when an AI option is anywhere on the screen.
@@ -202,6 +226,12 @@ export function StartScreen({
     opponentName === 'claude' ||
     watchOpponents.player1 === 'claude' ||
     watchOpponents.player2 === 'claude';
+  // Both the BYOK picker and the Free AI category read the catalogue, so it
+  // is fetched (once, public) as soon as an OpenRouter key is in place.
+  const needOpenRouter = openrouterOk;
+  const freeOpenRouter = freeOpenRouterModels(openrouterModels);
+  const paidOpenRouter = openrouterModels.filter((m) => !isFreeOpenRouterModel(m.id));
+  const defaultFreeOpenRouter = freeOpenRouter[0]?.id ?? OPENROUTER_FREE_ROUTER;
 
   useEffect(() => {
     let cancelled = false;
@@ -214,17 +244,31 @@ export function StartScreen({
     if (needClaude && claudeOk && claudeModels.length === 0) {
       fetchClaudeModels().then((m) => !cancelled && setClaudeModels(m));
     }
+    if (needOpenRouter && openrouterOk && openrouterModels.length === 0) {
+      fetchOpenRouterModels().then((m) => !cancelled && setOpenRouterModels(m));
+    }
     return () => {
       cancelled = true;
     };
-  }, [needGemini, needOpenAI, needClaude, geminiOk, openaiOk, claudeOk, geminiModels.length, openaiModels.length, claudeModels.length]);
+  }, [needGemini, needOpenAI, needClaude, needOpenRouter, geminiOk, openaiOk, claudeOk, openrouterOk, geminiModels.length, openaiModels.length, claudeModels.length, openrouterModels.length]);
+
+  // Keep the OpenRouter selection inside the catalogue: a remembered id that
+  // has since retired would otherwise stay in state (and in requests) while
+  // the <select> shows something else. Only the fetched catalogue counts:
+  // after a failed fetch the list is the built-in fallback and the saved
+  // selection is left alone.
+  useEffect(() => {
+    if (!openrouterOk || openrouterModels.length === 0 || !isOpenRouterCatalogueLoaded()) return;
+    const fixed = normalizeOpenRouterSelection(openrouterModel, openrouterModels);
+    if (fixed !== openrouterModel) onSetOpenRouterModel(fixed);
+  }, [openrouterOk, openrouterModels, openrouterModel, onSetOpenRouterModel]);
 
   // -------- selector helpers ---------------------------------------------
 
   /** Convert a category choice into a concrete opponent name. */
   const opponentForCategory = (cat: OpponentCategory): BriscolaOpponentName => {
     if (cat === 'cpu') return 'heuristic';
-    if (cat === 'free-ai') return 'gemini-free';
+    if (cat === 'free-ai') return geminiFreeOk ? 'gemini-free' : 'openrouter';
     if (cat === 'device-ai') return 'apple';
     return defaultProvider;
   };
@@ -236,11 +280,30 @@ export function StartScreen({
     onModelChange: ((modelId: string) => void) | null,
     label: string
   ) => {
-    const cat = getOpponentCategory(current);
+    const cat = getOpponentCategory(current, openrouterModel);
     const provider = getAIProvider(current);
+    const isOpenRouterFree = current === 'openrouter' && isFreeOpenRouterModel(openrouterModel);
+    // A model that always reasons cannot be switched off: the knob's "off" is its minimum
+    const thinkingMinimum = current === 'openrouter' && isMandatoryReasoningModel(getCachedOpenRouterModel(openrouterModel));
 
     const handleCategoryChange = (c: OpponentCategory) => {
-      onChange(opponentForCategory(c));
+      const next = opponentForCategory(c);
+      onChange(next);
+      // Keep the OpenRouter model on the right side of the free / paid line
+      if (next === 'openrouter') {
+        if (c === 'free-ai' && !isFreeOpenRouterModel(openrouterModel)) onSetOpenRouterModel(defaultFreeOpenRouter);
+        if (c === 'ai' && isFreeOpenRouterModel(openrouterModel)) onSetOpenRouterModel(DEFAULT_OPENROUTER_MODEL);
+      }
+    };
+
+    // The Free AI dropdown: the proxy Gemini (no key) or an OpenRouter free model
+    const handleFreeChoice = (choice: string) => {
+      if (choice === 'gemini-free') {
+        onChange('gemini-free');
+        return;
+      }
+      onChange('openrouter');
+      onSetOpenRouterModel(choice);
     };
 
     const modelDropdownFor = (p: AIProvider) => {
@@ -283,6 +346,18 @@ export function StartScreen({
           </select>
         );
       }
+      if (p === 'openrouter') {
+        return (
+          <select
+            className={styles.dropdown}
+            value={openrouterModel}
+            onChange={(e) => onChangeModel(e.target.value)}
+            disabled={!onModelChange}
+          >
+            <OpenRouterModelOptions models={paidOpenRouter} selectedId={openrouterModel} />
+          </select>
+        );
+      }
       return (
         <select
           className={styles.dropdown}
@@ -302,6 +377,44 @@ export function StartScreen({
       );
     };
 
+    const toggles = (
+      <>
+        {/* Conversation-mode toggle: multi-turn chat (💬) vs single-
+            turn requests (1️⃣ — full round history in every prompt). */}
+        <button
+          className={styles.modeToggle}
+          onClick={() =>
+            onToggleConversationMode(
+              conversationMode === 'multiturn' ? 'singleturn' : 'multiturn'
+            )
+          }
+          title={
+            conversationMode === 'multiturn'
+              ? t.start.multiTurnTitle
+              : t.start.singleTurnTitle
+          }
+        >
+          {conversationMode === 'multiturn' ? '💬' : '1️⃣'}
+        </button>
+
+        {/* 3-state thinking knob (off → balanced → deep) — matches
+            Scopa. OpenAI reasoning models get reasoning.effort too. */}
+        {(provider === 'gemini' || provider === 'claude' || provider === 'openai' || provider === 'openrouter') && (
+          <button
+            className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
+            onClick={onCycleThinking}
+            title={thinkingLevel === 'off'
+              ? (thinkingMinimum ? t.start.thinkingMinimumTitle : t.start.thinkingOffTitle)
+              : thinkingLevel === 'medium'
+                ? t.start.thinkingMediumTitle
+                : t.start.thinkingOnTitle}
+          >
+            {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
+          </button>
+        )}
+      </>
+    );
+
     return (
       <div className={styles.opponentSelector}>
         <label className={styles.label}>{label}</label>
@@ -313,7 +426,7 @@ export function StartScreen({
             onChange={(e) => handleCategoryChange(e.target.value as OpponentCategory)}
           >
             <option value="cpu">{t.start.categoryCpu}</option>
-            {geminiFreeOk && <option value="free-ai">{t.start.categoryFreeAI}</option>}
+            {(geminiFreeOk || openrouterOk) && <option value="free-ai">{t.start.categoryFreeAI}</option>}
             {appleOk && <option value="device-ai">{t.start.categoryDeviceAI}</option>}
             {anyAIOk && <option value="ai">{t.start.categoryAI}</option>}
           </select>
@@ -331,7 +444,38 @@ export function StartScreen({
               ))}
             </select>
           ) : cat === 'free-ai' ? (
-            <span className={styles.freeAILabel}>✦ Gemini 3 Flash Preview</span>
+            <>
+              {/* The proxy Gemini (no key) and OpenRouter's free models */}
+              <select
+                className={styles.dropdown}
+                value={current === 'gemini-free' ? 'gemini-free' : openrouterModel}
+                onChange={(e) => handleFreeChoice(e.target.value)}
+              >
+                {geminiFreeOk && (
+                  <optgroup label={t.start.freeGroupNoKey}>
+                    <option value="gemini-free">Gemini 3 Flash Preview</option>
+                  </optgroup>
+                )}
+                {openrouterOk && (
+                  <optgroup label={t.start.freeGroupOpenRouter}>
+                    {freeOpenRouter.map((m) => (
+                      <option key={m.id} value={m.id}>{m.displayName}</option>
+                    ))}
+                    {/* The selected model is always an option (see Scopa's picker) */}
+                    {isOpenRouterFree && !freeOpenRouter.some((m) => m.id === openrouterModel) && (
+                      <option value={openrouterModel}>
+                        {openRouterModelDisplayName(openrouterModel)}
+                        {isOpenRouterCatalogueLoaded() ? ` (${t.start.modelUnavailable})` : ''}
+                      </option>
+                    )}
+                    {!isOpenRouterFree && freeOpenRouter.length === 0 && (
+                      <option value={OPENROUTER_FREE_ROUTER}>{openRouterModelDisplayName(OPENROUTER_FREE_ROUTER)}</option>
+                    )}
+                  </optgroup>
+                )}
+              </select>
+              {isOpenRouterFree && toggles}
+            </>
           ) : cat === 'device-ai' ? (
             <span className={styles.freeAILabel}>
               <AppleIntelligenceIcon size="1.1em" /> Apple Intelligence
@@ -352,61 +496,42 @@ export function StartScreen({
                   ...(claudeOk
                     ? [{ value: 'claude' as const, label: 'Claude', icon: <ClaudeIcon size="1.1em" /> }]
                     : []),
+                  ...(openrouterOk
+                    ? [{ value: 'openrouter' as const, label: 'OpenRouter', icon: <OpenRouterIcon size="1.1em" /> }]
+                    : []),
                 ]}
                 value={provider}
-                onChange={(p) => onChange(p)}
+                onChange={(p) => {
+                  onChange(p);
+                  if (p === 'openrouter' && isFreeOpenRouterModel(openrouterModel)) {
+                    onSetOpenRouterModel(DEFAULT_OPENROUTER_MODEL);
+                  }
+                }}
               />
 
               {/* Model picker for the chosen provider */}
               {modelDropdownFor(provider)}
 
-              {/* Conversation-mode toggle: multi-turn chat (💬) vs single-
-                  turn requests (1️⃣ — full round history in every prompt). */}
-              <button
-                className={styles.modeToggle}
-                onClick={() =>
-                  onToggleConversationMode(
-                    conversationMode === 'multiturn' ? 'singleturn' : 'multiturn'
-                  )
-                }
-                title={
-                  conversationMode === 'multiturn'
-                    ? t.start.multiTurnTitle
-                    : t.start.singleTurnTitle
-                }
-              >
-                {conversationMode === 'multiturn' ? '💬' : '1️⃣'}
-              </button>
-
-              {/* 3-state thinking knob (off → balanced → deep) — matches
-                  Scopa. OpenAI reasoning models get reasoning.effort too. */}
-              {(provider === 'gemini' || provider === 'claude' || provider === 'openai') && (
-                <button
-                  className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
-                  onClick={onCycleThinking}
-                  title={thinkingLevel === 'off'
-                    ? t.start.thinkingOffTitle
-                    : thinkingLevel === 'medium'
-                      ? t.start.thinkingMediumTitle
-                      : t.start.thinkingOnTitle}
-                >
-                  {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
-                </button>
-              )}
+              {toggles}
             </>
           )}
         </div>
         <p className={styles.aiDescription}>
           {getOpponentDescription(current, t)}
-          {cat === 'ai' &&
-            (provider === 'gemini' || provider === 'claude' || provider === 'openai') &&
+          {(cat === 'ai' || isOpenRouterFree) &&
+            (provider === 'gemini' || provider === 'claude' || provider === 'openai' || provider === 'openrouter') &&
             (thinkingLevel === 'off'
-              ? t.start.fastMode
+              ? (thinkingMinimum ? t.start.minimumThinking : t.start.fastMode)
               : thinkingLevel === 'medium'
                 ? t.start.plusThinkingBalanced
                 : t.start.plusThinking)}
         </p>
-        {cat === 'free-ai' && (() => {
+        {isOpenRouterFree && (
+          <p className={styles.aiDescription} style={{ opacity: 0.7, fontSize: '0.85em' }}>
+            {t.settings.openrouterFreeNote}
+          </p>
+        )}
+        {current === 'gemini-free' && (() => {
           const info = getGeminiFreeRateLimitInfo();
           const remaining = info
             ? Math.max(0, info.gamesLimit - info.gamesUsed)
@@ -553,7 +678,9 @@ export function StartScreen({
                   ? onSetOpenAIModel
                   : opponentName === 'claude'
                     ? onSetClaudeModel
-                    : null,
+                    : opponentName === 'openrouter'
+                      ? onSetOpenRouterModel
+                      : null,
               t.common.opponent
             )
           : (
@@ -568,7 +695,9 @@ export function StartScreen({
                         ? onSetOpenAIModel
                         : watchOpponents.player1 === 'claude'
                           ? onSetClaudeModel
-                          : null,
+                          : watchOpponents.player1 === 'openrouter'
+                            ? onSetOpenRouterModel
+                            : null,
                     t.start.player1
                   )}
                 </div>
@@ -583,7 +712,9 @@ export function StartScreen({
                         ? onSetOpenAIModel
                         : watchOpponents.player2 === 'claude'
                           ? onSetClaudeModel
-                          : null,
+                          : watchOpponents.player2 === 'openrouter'
+                            ? onSetOpenRouterModel
+                            : null,
                     t.start.player2
                   )}
                 </div>

@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
-import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
+import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, validateOpenRouterKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
 import { assetUrl } from '../../assetUrl';
 import { clearApiKeyCaches } from '../../ai/apiKeyCaches';
+import type { OpenRouterLogin } from '../../hooks/useOpenRouterLogin';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Language } from '../../i18n/LanguageContext';
 import styles from './SettingsModal.module.css';
@@ -27,6 +28,31 @@ const DECK_OPTIONS: { value: DeckType; label: string }[] = [
 const TABLE_STYLE_OPTIONS: TableStyle[] = ['green', 'tablecloth'];
 
 const PRESET_SCORES = [11, 16, 21] as const;
+
+// The BYOK providers: each has a key field, a validity flag and a checker.
+type ApiKeyField = 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey' | 'openrouterApiKey';
+type ApiKeyProviderId = 'gemini' | 'openai' | 'claude' | 'openrouter';
+const API_KEY_PROVIDER: Record<ApiKeyField, ApiKeyProviderId> = {
+  geminiApiKey: 'gemini',
+  openaiApiKey: 'openai',
+  claudeApiKey: 'claude',
+  openrouterApiKey: 'openrouter',
+};
+const KEY_VALIDITY_FIELD: Record<
+  ApiKeyProviderId,
+  'geminiKeyValid' | 'openaiKeyValid' | 'claudeKeyValid' | 'openrouterKeyValid'
+> = {
+  gemini: 'geminiKeyValid',
+  openai: 'openaiKeyValid',
+  claude: 'claudeKeyValid',
+  openrouter: 'openrouterKeyValid',
+};
+const KEY_VALIDATORS: Record<ApiKeyProviderId, (key: string) => Promise<{ valid: boolean; error?: string }>> = {
+  gemini: validateGeminiKey,
+  openai: validateOpenAIKey,
+  claude: validateClaudeKey,
+  openrouter: validateOpenRouterKey,
+};
 
 // Text Size slider stops (multiplier applied to the root font via
 // --font-scale). 1.2 (Normal) is the default.
@@ -69,6 +95,8 @@ interface SettingsModalProps {
    *  the "Game" row is then hidden. The modal closes itself first so the
    *  app's leave-game confirmation (if a game is in progress) is visible. */
   onSwitchGame?: (game: GameId) => void;
+  /** "Sign in with OpenRouter" (PKCE); undefined hides the button. */
+  openrouterLogin?: OpenRouterLogin;
 }
 
 const PRESET_BEST_OF = [1, 2, 3] as const;
@@ -88,6 +116,7 @@ export function SettingsModal({
   onResetSettings,
   game = 'scopa',
   onSwitchGame,
+  openrouterLogin,
 }: SettingsModalProps) {
   const { language, setLanguage, t } = useLanguage();
   // Track if warning popup should be shown
@@ -95,7 +124,7 @@ export function SettingsModal({
   // Track if deck selector modal should be shown
   const [showDeckSelector, setShowDeckSelector] = useState(false);
   const [pendingKeyUpdate, setPendingKeyUpdate] = useState<{
-    key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey';
+    key: ApiKeyField;
     value: string;
   } | null>(null);
 
@@ -103,33 +132,31 @@ export function SettingsModal({
   const [geminiStatus, setGeminiStatus] = useState<ValidationStatus>('idle');
   const [openaiStatus, setOpenaiStatus] = useState<ValidationStatus>('idle');
   const [claudeStatus, setClaudeStatus] = useState<ValidationStatus>('idle');
+  const [openrouterStatus, setOpenrouterStatus] = useState<ValidationStatus>('idle');
 
   // Validate API key and save validity status to settings
   const validateKey = useCallback(async (
-    provider: 'gemini' | 'openai' | 'claude',
+    provider: ApiKeyProviderId,
     key: string
   ) => {
-    const validityKey = provider === 'gemini' ? 'geminiKeyValid'
-      : provider === 'openai' ? 'openaiKeyValid' : 'claudeKeyValid';
+    const validityKey = KEY_VALIDITY_FIELD[provider];
+    const setStatus = {
+      gemini: setGeminiStatus,
+      openai: setOpenaiStatus,
+      claude: setClaudeStatus,
+      openrouter: setOpenrouterStatus,
+    }[provider];
 
     if (!key) {
-      if (provider === 'gemini') setGeminiStatus('idle');
-      else if (provider === 'openai') setOpenaiStatus('idle');
-      else setClaudeStatus('idle');
+      setStatus('idle');
       // Mark as invalid when key is empty
       onUpdateSetting(validityKey, false);
       return;
     }
 
-    const setStatus = provider === 'gemini' ? setGeminiStatus
-      : provider === 'openai' ? setOpenaiStatus : setClaudeStatus;
-
     setStatus('validating');
 
-    const validateFn = provider === 'gemini' ? validateGeminiKey
-      : provider === 'openai' ? validateOpenAIKey : validateClaudeKey;
-
-    const result = await validateFn(key);
+    const result = await KEY_VALIDATORS[provider](key);
     const isValid = result.valid;
     setStatus(isValid ? 'valid' : 'invalid');
     // Save validity status to settings
@@ -144,10 +171,11 @@ export function SettingsModal({
       if (settings.geminiApiKey) validateKey('gemini', settings.geminiApiKey);
       if (settings.openaiApiKey) validateKey('openai', settings.openaiApiKey);
       if (settings.claudeApiKey) validateKey('claude', settings.claudeApiKey);
+      if (settings.openrouterApiKey) validateKey('openrouter', settings.openrouterApiKey);
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [isOpen, settings.geminiApiKey, settings.openaiApiKey, settings.claudeApiKey, validateKey]);
+  }, [isOpen, settings.geminiApiKey, settings.openaiApiKey, settings.claudeApiKey, settings.openrouterApiKey, validateKey]);
 
   // Reset validation status when modal closes
   useEffect(() => {
@@ -155,12 +183,25 @@ export function SettingsModal({
       setGeminiStatus('idle');
       setOpenaiStatus('idle');
       setClaudeStatus('idle');
+      setOpenrouterStatus('idle');
     }
   }, [isOpen]);
 
   // Check if warning was already shown this session
-  const wasWarningShown = () => sessionStorage.getItem(API_KEY_WARNING_KEY) === 'true';
-  const markWarningShown = () => sessionStorage.setItem(API_KEY_WARNING_KEY, 'true');
+  const wasWarningShown = () => {
+    try {
+      return sessionStorage.getItem(API_KEY_WARNING_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  };
+  const markWarningShown = () => {
+    try {
+      sessionStorage.setItem(API_KEY_WARNING_KEY, 'true');
+    } catch {
+      // storage denied: the notice simply shows again next time
+    }
+  };
 
   // Clear AI caches for a specific provider (call when key changes).
   // Both Scopa and Briscola maintain their own per-(model, useThinking)
@@ -168,23 +209,20 @@ export function SettingsModal({
   // instance built with the stale (or missing) key. Every loaded bot
   // module registers its clearer in src/ai/apiKeyCaches.ts (a game that
   // has not been loaded yet has nothing to clear).
-  const clearCacheForProvider = useCallback((key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey') => {
-    clearApiKeyCaches(
-      key === 'geminiApiKey' ? 'gemini' : key === 'openaiApiKey' ? 'openai' : 'claude'
-    );
+  const clearCacheForProvider = useCallback((key: ApiKeyField) => {
+    clearApiKeyCaches(API_KEY_PROVIDER[key]);
   }, []);
 
   // Handle API key input - show warning on first input if not shown before
   const handleApiKeyChange = (
-    key: 'geminiApiKey' | 'openaiApiKey' | 'claudeApiKey',
+    key: ApiKeyField,
     value: string
   ) => {
     // Clear cache when key changes (so new key is used on next AI request)
     clearCacheForProvider(key);
 
     // Mark the key as invalid until validation completes
-    const validityKey = key === 'geminiApiKey' ? 'geminiKeyValid'
-      : key === 'openaiApiKey' ? 'openaiKeyValid' : 'claudeKeyValid';
+    const validityKey = KEY_VALIDITY_FIELD[API_KEY_PROVIDER[key]];
     onUpdateSetting(validityKey, false);
 
     // If clearing the key, just do it
@@ -629,9 +667,8 @@ export function SettingsModal({
               )}
             </div>
 
-            {/* API Keys — Briscola supports Gemini today (slice 9), OpenAI
-                and Claude still Scopa-only but keys are shared across both
-                games (stored in the same settings object). */}
+            {/* API Keys — shared by both games (one settings object); on iOS
+                they live in the Keychain (src/platform/storage.ts). */}
             <h3 className={styles.sectionTitle}>{t.settings.apiKeysTitle}</h3>
 
             {ITCH_MODE ? (
@@ -651,6 +688,46 @@ export function SettingsModal({
               </div>
             ) : (
               <>
+                <div className={styles.apiKeyGroup}>
+                  <label className={styles.apiKeyLabel}>
+                    OpenRouter
+                    {renderValidationStatus(openrouterStatus, !!settings.openrouterApiKey)}
+                  </label>
+                  {openrouterLogin?.available && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap', marginTop: '0.4rem' }}>
+                      <button
+                        type="button"
+                        className={styles.resetButton}
+                        onClick={openrouterLogin.start}
+                        disabled={openrouterLogin.status === 'redirecting' || openrouterLogin.status === 'exchanging'}
+                      >
+                        {t.settings.openrouterSignIn}
+                      </button>
+                      <span className={styles.settingHint} style={{ margin: 0 }} data-openrouter-login={openrouterLogin.status}>
+                        {openrouterLogin.status === 'redirecting'
+                          ? t.settings.openrouterOpening
+                          : openrouterLogin.status === 'exchanging'
+                            ? t.settings.openrouterConnecting
+                            : openrouterLogin.status === 'connected'
+                              ? t.settings.openrouterConnected
+                              : openrouterLogin.status === 'error'
+                                ? t.settings.openrouterConnectFailed(openrouterLogin.error ?? '')
+                                : t.settings.openrouterSignInHint}
+                      </span>
+                    </div>
+                  )}
+                  <input
+                    type="password"
+                    className={`${styles.apiKeyInput} ${openrouterStatus === 'invalid' ? styles.inputInvalid : ''}`}
+                    placeholder={t.settings.enterApiKey('OpenRouter')}
+                    value={settings.openrouterApiKey}
+                    onChange={(e) => handleApiKeyChange('openrouterApiKey', e.target.value)}
+                  />
+                  <p className={styles.settingHint}>{t.settings.openrouterHint}</p>
+                </div>
+
+                <p className={styles.settingHint} style={{ marginTop: '0.9rem' }}>{t.settings.vendorKeysCaption}</p>
+
                 <div className={styles.apiKeyGroup}>
                   <label className={styles.apiKeyLabel}>
                     Gemini

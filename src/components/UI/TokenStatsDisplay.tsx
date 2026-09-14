@@ -1,7 +1,8 @@
-// Token Stats Display Component for LLM AIs (Gemini, OpenAI)
+// Token Stats Display Component for LLM AIs (Gemini, OpenAI, Claude, OpenRouter)
 
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../games/scopa/ai';
-import { estimateCostUsd, formatCostUsd } from '../../ai/pricing';
+import { estimateCostUsd, formatCostUsd, isExactCost } from '../../ai/pricing';
+import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './TokenStatsDisplay.module.css';
 
@@ -114,8 +115,10 @@ export function TokenStatsDisplay({
   // Icon shows round tokens in round mode, total in game mode
   const iconTokens = mode === 'round' ? s.roundTotalTokens : s.totalTokens;
 
-  // Estimated spend from list prices (null for unknown/free models)
+  // Spend: the provider's own figure where it reports one (OpenRouter),
+  // else an estimate from list prices (null for unknown/free models)
   const estCost = mode === 'game' ? estimateCostUsd(s) : null;
+  const exactCost = isExactCost(s);
   // Badge-sized cost: two decimals once past a cent, three below
   const formatCostCompact = (c: number) =>
     c >= 0.01 ? `$${c.toFixed(2)}` : `$${c.toFixed(3)}`;
@@ -211,8 +214,14 @@ export function TokenStatsDisplay({
             )}
             {mode === 'game' && estCost !== null && estCost > 0 && (
               <tr>
-                <td className={styles.label}>{t.tokenStats.estCost}</td>
-                <td className={styles.value}>≈{formatCostUsd(estCost)}</td>
+                <td className={styles.label}>{exactCost ? t.tokenStats.cost : t.tokenStats.estCost}</td>
+                <td className={styles.value}>{exactCost ? '' : '≈'}{formatCostUsd(estCost)}</td>
+              </tr>
+            )}
+            {mode === 'game' && s.servedModel && (
+              <tr>
+                <td className={styles.label}>{t.tokenStats.servedBy}</td>
+                <td className={styles.value}>{openRouterModelDisplayName(s.servedModel)}</td>
               </tr>
             )}
             {/* Timing stats */}

@@ -12,6 +12,8 @@
 //   (legacy budget_tokens models: 4000 | 10000)
 // - Gemini 3.x: thinkingLevel MEDIUM | HIGH (2.5: budget 8192 | -1)
 // - OpenAI reasoning models (gpt-5*/o*): reasoning.effort
+// - OpenRouter: reasoning.effort, snapped to what the catalogue says the
+//   chosen model accepts (src/ai/openrouterProvider.ts resolveReasoningEffort)
 //
 // Note: changing the level mid-round alters request parameters, which
 // invalidates the Claude prompt cache for that conversation — a one-off

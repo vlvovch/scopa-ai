@@ -56,6 +56,7 @@ As such I am not an expert in any of the technologies used in this project, but 
 | Gemini | Google's Gemini LLM with multi-turn chat |
 | GPT | OpenAI's GPT models with Responses API |
 | Claude | Anthropic's Claude with extended thinking |
+| OpenRouter | Any model on [openrouter.ai](https://openrouter.ai) (OpenAI, Anthropic, Google, DeepSeek, …) with one key; exact per-game cost |
 
 LLM AIs support both multi-turn conversation mode (context preserved across moves) and single-turn mode (full history sent each request). Requires API keys (see below).
 The app shows token usage accumulated during the game.
@@ -145,10 +146,11 @@ To play against LLM-powered AI opponents, you need API keys from the respective 
 | Google Gemini | [aistudio.google.com](https://aistudio.google.com/apikey) | `VITE_GEMINI_API_KEY` |
 | OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | `VITE_OPENAI_API_KEY` |
 | Anthropic Claude | [console.anthropic.com](https://console.anthropic.com/) | `VITE_CLAUDE_API_KEY` |
+| OpenRouter | [openrouter.ai/keys](https://openrouter.ai/settings/keys) | `VITE_OPENROUTER_API_KEY` |
 
 ### Option 1: In-App Settings
 
-Add your API keys in the Settings modal. Keys are stored in your browser's localStorage and never transmitted to any server except when querying the AI provider.
+Add your API keys in the Settings modal. For OpenRouter you can also click **Sign in with OpenRouter**: it creates a key for the app in your OpenRouter account and stores it locally, no copy-paste. Keys are stored in your browser's localStorage and never transmitted to any server except when querying the AI provider.
 
 ### Option 2: Environment Variables
 
@@ -162,6 +164,7 @@ cp .env.local.example .env.local
 VITE_GEMINI_API_KEY=your-gemini-api-key
 VITE_OPENAI_API_KEY=your-openai-api-key
 VITE_CLAUDE_API_KEY=your-claude-api-key
+VITE_OPENROUTER_API_KEY=your-openrouter-api-key
 ```
 
 ---
@@ -222,6 +225,7 @@ Both accept an absolute `ws(s)://` URL or a same-origin path such as
 - `@google/genai` - Gemini API
 - `openai` - OpenAI Responses API
 - `@anthropic-ai/sdk` - Claude Messages API
+- OpenRouter - plain `fetch` against its OpenAI-compatible chat completions (no SDK)
 
 ---
 

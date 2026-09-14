@@ -1,13 +1,16 @@
 // Step 8.6: StartScreen Component
 
 import { useState, useEffect } from 'react';
-import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiFreeRateLimitInfo, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo } from '../../games/scopa/ai';
+import { AI_INFO, fetchGeminiModels, fetchOpenAIModels, fetchClaudeModels, fetchOpenRouterModels, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, isOpenRouterAIType, getGeminiFreeRateLimitInfo, type ExtendedAIType, type GeminiModelInfo, type OpenAIModelInfo, type ClaudeModelInfo, type OpenRouterModelInfo } from '../../games/scopa/ai';
 import type { GameMode } from '../../games/scopa/types';
 import { CustomDropdown } from './CustomDropdown';
 import { GeminiIcon } from './GeminiIcon';
 import { AppleIntelligenceIcon } from './AppleIntelligenceIcon';
 import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
+import { OpenRouterIcon } from './OpenRouterIcon';
+import { OpenRouterModelOptions } from './OpenRouterModelOptions';
+import { DEFAULT_OPENROUTER_MODEL, OPENROUTER_FREE_ROUTER, isFreeOpenRouterModel, freeOpenRouterModels, normalizeOpenRouterSelection, getCachedOpenRouterModel, isMandatoryReasoningModel, isOpenRouterCatalogueLoaded, openRouterModelDisplayName } from '../../ai/openrouterProvider';
 import { LanguageToggle } from './LanguageToggle';
 import { useT } from '../../i18n/LanguageContext';
 import { GameSwitcher } from './GameSwitcher';
@@ -24,7 +27,7 @@ type GameModeOption = 'play' | 'watch' | 'multiplayer';
 type OpponentCategory = 'cpu' | 'free-ai' | 'device-ai' | 'ai';
 type CPUType = 'random' | 'heuristic' | 'expert';
 // AI provider (base type without mode suffix)
-type AIProvider = 'gemini' | 'openai' | 'claude';
+type AIProvider = 'gemini' | 'openai' | 'claude' | 'openrouter';
 // Conversation mode for LLM AIs
 type ConversationMode = 'conversation' | 'singleturn';
 
@@ -41,6 +44,8 @@ interface StartScreenProps {
   onSelectOpenAIModel: (model: string) => void;
   claudeModel: string;
   onSelectClaudeModel: (model: string) => void;
+  openrouterModel: string;
+  onSelectOpenRouterModel: (model: string) => void;
   spectatorModels: { player1: string; player2: string };
   onSelectSpectatorModel: (player: 'player1' | 'player2', model: string) => void;
   defaultTargetScore: number;
@@ -56,6 +61,7 @@ interface StartScreenProps {
     gemini: boolean;
     openai: boolean;
     claude: boolean;
+    openrouter: boolean;
     /** The on-device model (Apple Intelligence); only the iOS app can say yes */
     apple: boolean;
   };
@@ -63,11 +69,13 @@ interface StartScreenProps {
 
 const PRESET_SCORES = [11, 16, 21] as const;
 
-// Helper to determine opponent category from AI type
-function getOpponentCategory(aiType: ExtendedAIType): OpponentCategory {
+// Helper to determine opponent category from AI type (+ model: OpenRouter's
+// free models live under "Free AI", its paid ones under "AI (BYOK)")
+function getOpponentCategory(aiType: ExtendedAIType, model?: string): OpponentCategory {
   if (aiType === 'random' || aiType === 'heuristic' || aiType === 'expert') return 'cpu';
   if (aiType === 'gemini-free') return 'free-ai';
   if (aiType === 'apple') return 'device-ai';
+  if (isOpenRouterAIType(aiType) && model && isFreeOpenRouterModel(model)) return 'free-ai';
   return 'ai';
 }
 
@@ -82,12 +90,13 @@ function getCPUType(aiType: ExtendedAIType): CPUType {
 function getAIProvider(aiType: ExtendedAIType): AIProvider {
   if (isOpenAIAIType(aiType)) return 'openai';
   if (isClaudeAIType(aiType)) return 'claude';
+  if (isOpenRouterAIType(aiType)) return 'openrouter';
   return 'gemini';
 }
 
 // Helper to get conversation mode from AI type
 function getConversationMode(aiType: ExtendedAIType): ConversationMode {
-  if (aiType === 'gemini-singleturn' || aiType === 'openai-singleturn' || aiType === 'claude-singleturn') return 'singleturn';
+  if (aiType === 'gemini-singleturn' || aiType === 'openai-singleturn' || aiType === 'claude-singleturn' || aiType === 'openrouter-singleturn') return 'singleturn';
   return 'conversation';
 }
 
@@ -98,6 +107,9 @@ function getExtendedAIType(provider: AIProvider, mode: ConversationMode): Extend
   }
   if (provider === 'claude') {
     return mode === 'singleturn' ? 'claude-singleturn' : 'claude';
+  }
+  if (provider === 'openrouter') {
+    return mode === 'singleturn' ? 'openrouter-singleturn' : 'openrouter';
   }
   return mode === 'singleturn' ? 'gemini-singleturn' : 'gemini';
 }
@@ -115,6 +127,8 @@ export function StartScreen({
   onSelectOpenAIModel,
   claudeModel,
   onSelectClaudeModel,
+  openrouterModel,
+  onSelectOpenRouterModel,
   spectatorModels,
   onSelectSpectatorModel,
   defaultTargetScore,
@@ -131,15 +145,18 @@ export function StartScreen({
   const [geminiModels, setGeminiModels] = useState<GeminiModelInfo[]>([]);
   const [openaiModels, setOpenAIModels] = useState<OpenAIModelInfo[]>([]);
   const [claudeModels, setClaudeModels] = useState<ClaudeModelInfo[]>([]);
+  const [openrouterModels, setOpenRouterModels] = useState<OpenRouterModelInfo[]>([]);
   const [loadingGeminiModels, setLoadingGeminiModels] = useState(false);
   const [loadingOpenAIModels, setLoadingOpenAIModels] = useState(false);
   const [loadingClaudeModels, setLoadingClaudeModels] = useState(false);
+  const [loadingOpenRouterModels, setLoadingOpenRouterModels] = useState(false);
 
   // Use availability from props (computed from React state in App.tsx)
   const geminiFreeAvailable = aiAvailability.geminiFree;
   const geminiAvailable = aiAvailability.gemini;
   const openaiAvailable = aiAvailability.openai;
   const claudeAvailable = aiAvailability.claude;
+  const openrouterAvailable = aiAvailability.openrouter;
   const appleAvailable = aiAvailability.apple;
   // The remembered choice can outlive the model (Apple Intelligence turned
   // off, or the same settings on another device): fall back to the CPU
@@ -150,10 +167,16 @@ export function StartScreen({
     if (spectatorAIs.player1 === 'apple') onSelectSpectatorAI('player1', 'heuristic');
     if (spectatorAIs.player2 === 'apple') onSelectSpectatorAI('player2', 'heuristic');
   }, [selectedAI, spectatorAIs.player1, spectatorAIs.player2, appleAvailable, onSelectAI, onSelectSpectatorAI]);
-  const aiAvailable = geminiAvailable || openaiAvailable || claudeAvailable;
+  const aiAvailable = geminiAvailable || openaiAvailable || claudeAvailable || openrouterAvailable;
 
   // Default AI provider based on availability
-  const defaultAIProvider: AIProvider = geminiAvailable ? 'gemini' : (openaiAvailable ? 'openai' : 'claude');
+  const defaultAIProvider: AIProvider = geminiAvailable
+    ? 'gemini'
+    : openaiAvailable
+      ? 'openai'
+      : claudeAvailable
+        ? 'claude'
+        : 'openrouter';
 
   // Check if any selected AI needs model fetching
   const needsGeminiModels = isGeminiAIType(selectedAI) ||
@@ -167,6 +190,13 @@ export function StartScreen({
   const needsClaudeModels = isClaudeAIType(selectedAI) ||
     isClaudeAIType(spectatorAIs.player1) ||
     isClaudeAIType(spectatorAIs.player2);
+
+  // Both the BYOK picker and the Free AI category read the catalogue, so it
+  // is fetched (once, public) as soon as an OpenRouter key is in place.
+  const needsOpenRouterModels = openrouterAvailable;
+  const freeOpenRouter = freeOpenRouterModels(openrouterModels);
+  const paidOpenRouter = openrouterModels.filter((m) => !isFreeOpenRouterModel(m.id));
+  const defaultFreeOpenRouter = freeOpenRouter[0]?.id ?? OPENROUTER_FREE_ROUTER;
 
   // Fetch Gemini models when needed
   useEffect(() => {
@@ -213,19 +243,62 @@ export function StartScreen({
     }
   }, [needsClaudeModels, claudeModels.length, loadingClaudeModels, claudeModel, onSelectClaudeModel]);
 
+  // Fetch OpenRouter models when needed (public catalogue, no key involved)
+  useEffect(() => {
+    if (needsOpenRouterModels && openrouterModels.length === 0 && !loadingOpenRouterModels) {
+      setLoadingOpenRouterModels(true);
+      fetchOpenRouterModels()
+        .then((models) => setOpenRouterModels(models))
+        .finally(() => setLoadingOpenRouterModels(false));
+    }
+  }, [needsOpenRouterModels, openrouterModels.length, loadingOpenRouterModels]);
+
+  // Keep every active OpenRouter selection inside the catalogue — the play
+  // opponent and each watch seat. A remembered id that has since retired
+  // would otherwise stay in state (and in requests) while the <select>
+  // shows something else; it maps to the default (or the first free entry).
+  // Only the fetched catalogue counts: after a failed fetch the list is the
+  // small built-in fallback and every saved selection is left alone.
+  useEffect(() => {
+    if (openrouterModels.length === 0 || !isOpenRouterCatalogueLoaded()) return;
+    const fixed = normalizeOpenRouterSelection(openrouterModel, openrouterModels);
+    if (fixed !== openrouterModel) onSelectOpenRouterModel(fixed);
+    for (const player of ['player1', 'player2'] as const) {
+      if (!isOpenRouterAIType(spectatorAIs[player])) continue;
+      const current = spectatorModels[player];
+      const next = normalizeOpenRouterSelection(current, openrouterModels);
+      if (next !== current) onSelectSpectatorModel(player, next);
+    }
+  }, [openrouterModels, openrouterModel, spectatorAIs, spectatorModels, onSelectOpenRouterModel, onSelectSpectatorModel]);
+
   // Handlers for cascading dropdowns
   const handleCategoryChange = (category: OpponentCategory) => {
     if (category === 'cpu') {
       onSelectAI('heuristic'); // Default to Furbo
     } else if (category === 'free-ai') {
-      onSelectAI('gemini-free');
-      setSelectedScore(11); // Free AI limited to 11 points
+      handleFreeChoice(geminiFreeAvailable ? 'gemini-free' : defaultFreeOpenRouter);
     } else if (category === 'device-ai') {
       onSelectAI('apple');
     } else {
       // Default to first available AI provider
       onSelectAI(defaultAIProvider);
+      // A free OpenRouter model belongs to the Free AI category, not here
+      if (defaultAIProvider === 'openrouter' && isFreeOpenRouterModel(openrouterModel)) {
+        onSelectOpenRouterModel(DEFAULT_OPENROUTER_MODEL);
+      }
     }
+  };
+
+  // The Free AI dropdown: the proxy Gemini (no key) or one of OpenRouter's
+  // free models (keeps the current conversation mode).
+  const handleFreeChoice = (choice: string) => {
+    if (choice === 'gemini-free') {
+      onSelectAI('gemini-free');
+      setSelectedScore(11); // Free AI limited to 11 points
+      return;
+    }
+    onSelectAI(getExtendedAIType('openrouter', getConversationMode(selectedAI)));
+    onSelectOpenRouterModel(choice);
   };
 
   const handleCPUTypeChange = (type: CPUType) => {
@@ -236,6 +309,9 @@ export function StartScreen({
     // Preserve current mode when changing provider
     const currentMode = getConversationMode(selectedAI);
     onSelectAI(getExtendedAIType(provider, currentMode));
+    if (provider === 'openrouter' && isFreeOpenRouterModel(openrouterModel)) {
+      onSelectOpenRouterModel(DEFAULT_OPENROUTER_MODEL);
+    }
   };
 
   const handleConversationModeChange = (mode: ConversationMode) => {
@@ -249,7 +325,7 @@ export function StartScreen({
     if (category === 'cpu') {
       onSelectSpectatorAI(player, 'heuristic');
     } else if (category === 'free-ai') {
-      onSelectSpectatorAI(player, 'gemini-free');
+      handleSpectatorFreeChoice(player, geminiFreeAvailable ? 'gemini-free' : defaultFreeOpenRouter);
     } else if (category === 'device-ai') {
       onSelectSpectatorAI(player, 'apple');
     } else {
@@ -261,6 +337,8 @@ export function StartScreen({
         onSelectSpectatorModel(player, openaiModel);
       } else if (defaultAIProvider === 'claude') {
         onSelectSpectatorModel(player, claudeModel);
+      } else if (defaultAIProvider === 'openrouter') {
+        onSelectSpectatorModel(player, isFreeOpenRouterModel(openrouterModel) ? DEFAULT_OPENROUTER_MODEL : openrouterModel);
       } else {
         onSelectSpectatorModel(player, geminiModel);
       }
@@ -269,6 +347,16 @@ export function StartScreen({
 
   const handleSpectatorCPUTypeChange = (player: 'player1' | 'player2', type: CPUType) => {
     onSelectSpectatorAI(player, type);
+  };
+
+  const handleSpectatorFreeChoice = (player: 'player1' | 'player2', choice: string) => {
+    if (choice === 'gemini-free') {
+      onSelectSpectatorAI(player, 'gemini-free');
+      return;
+    }
+    const currentAI = player === 'player1' ? spectatorAIs.player1 : spectatorAIs.player2;
+    onSelectSpectatorAI(player, getExtendedAIType('openrouter', getConversationMode(currentAI)));
+    onSelectSpectatorModel(player, choice);
   };
 
   const handleSpectatorAIProviderChange = (player: 'player1' | 'player2', provider: AIProvider) => {
@@ -281,6 +369,8 @@ export function StartScreen({
       onSelectSpectatorModel(player, openaiModel);
     } else if (provider === 'claude') {
       onSelectSpectatorModel(player, claudeModel);
+    } else if (provider === 'openrouter') {
+      onSelectSpectatorModel(player, isFreeOpenRouterModel(openrouterModel) ? DEFAULT_OPENROUTER_MODEL : openrouterModel);
     } else {
       onSelectSpectatorModel(player, geminiModel);
     }
@@ -311,9 +401,10 @@ export function StartScreen({
     onModeChange: (mode: ConversationMode) => void,
     onModelChange: (model: string) => void,
     currentModel: string,
+    onFreeChoice: (choice: string) => void,
     label: string
   ) => {
-    const cat = getOpponentCategory(currentAI);
+    const cat = getOpponentCategory(currentAI, currentModel);
     const cpu = getCPUType(currentAI);
     const provider = getAIProvider(currentAI);
     const convMode = getConversationMode(currentAI);
@@ -321,6 +412,39 @@ export function StartScreen({
     const isFreeAI = isGeminiFreeAIType(currentAI);
     const isOpenAI = isOpenAIAIType(currentAI);
     const isClaude = isClaudeAIType(currentAI);
+    const isOpenRouter = isOpenRouterAIType(currentAI);
+    const isOpenRouterFree = isOpenRouter && isFreeOpenRouterModel(currentModel);
+    // A model that always reasons cannot be switched off: the knob's "off" is its minimum
+    const thinkingMinimum = isOpenRouter && isMandatoryReasoningModel(getCachedOpenRouterModel(currentModel));
+
+    // Mode and thinking toggles (BYOK providers and OpenRouter's free models)
+    const toggles = (
+      <div className={styles.toggleGroup}>
+        <button
+          className={styles.modeToggle}
+          onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
+          title={convMode === 'conversation'
+            ? t.start.multiTurnTitle
+            : t.start.singleTurnTitle}
+        >
+          {convMode === 'conversation' ? '💬' : '1️⃣'}
+        </button>
+
+        {(isGemini || isClaude || isOpenAI || isOpenRouter) && (
+          <button
+            className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
+            onClick={onCycleThinking}
+            title={thinkingLevel === 'off'
+              ? (thinkingMinimum ? t.start.thinkingMinimumTitle : t.start.thinkingOffTitle)
+              : thinkingLevel === 'medium'
+                ? t.start.thinkingMediumTitle
+                : t.start.thinkingOnTitle}
+          >
+            {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
+          </button>
+        )}
+      </div>
+    );
 
     return (
       <div className={styles.opponentSelector}>
@@ -333,16 +457,49 @@ export function StartScreen({
             onChange={(e) => onCategoryChange(e.target.value as OpponentCategory)}
           >
             <option value="cpu">{t.start.categoryCpu}</option>
-            {geminiFreeAvailable && <option value="free-ai">{t.start.categoryFreeAI}</option>}
+            {(geminiFreeAvailable || openrouterAvailable) && <option value="free-ai">{t.start.categoryFreeAI}</option>}
             {appleAvailable && <option value="device-ai">{t.start.categoryDeviceAI}</option>}
             {aiAvailable && <option value="ai">{t.start.categoryAI}</option>}
           </select>
 
           {/* CPU type or AI provider dropdown */}
           {cat === 'free-ai' ? (
-            <span className={styles.freeAILabel}>
-              <GeminiIcon size="1.1em" /> Gemini 3 Flash Preview
-            </span>
+            <>
+              {/* The proxy Gemini (no key) and OpenRouter's free models */}
+              <select
+                className={styles.dropdown}
+                value={isFreeAI ? 'gemini-free' : currentModel}
+                onChange={(e) => onFreeChoice(e.target.value)}
+              >
+                {geminiFreeAvailable && (
+                  <optgroup label={t.start.freeGroupNoKey}>
+                    <option value="gemini-free">Gemini 3 Flash Preview</option>
+                  </optgroup>
+                )}
+                {openrouterAvailable && (
+                  <optgroup label={t.start.freeGroupOpenRouter}>
+                    {freeOpenRouter.map((model) => (
+                      <option key={model.id} value={model.id}>{model.displayName}</option>
+                    ))}
+                    {/* The selected model is always an option, so the <select>
+                        never shows another entry than the one in state (a
+                        saved model missing from a fallback or stale list). */}
+                    {isOpenRouterFree && !freeOpenRouter.some((m) => m.id === currentModel) && (
+                      <option value={currentModel}>
+                        {openRouterModelDisplayName(currentModel)}
+                        {isOpenRouterCatalogueLoaded() ? ` (${t.start.modelUnavailable})` : ''}
+                      </option>
+                    )}
+                    {!isOpenRouterFree && freeOpenRouter.length === 0 && (
+                      <option value={OPENROUTER_FREE_ROUTER}>
+                        {loadingOpenRouterModels ? t.start.loading : openRouterModelDisplayName(OPENROUTER_FREE_ROUTER)}
+                      </option>
+                    )}
+                  </optgroup>
+                )}
+              </select>
+              {isOpenRouterFree && toggles}
+            </>
           ) : cat === 'device-ai' ? (
             <span className={styles.freeAILabel}>
               <AppleIntelligenceIcon size="1.1em" /> {AI_INFO.apple.name}
@@ -365,6 +522,7 @@ export function StartScreen({
                   ...(geminiAvailable ? [{ value: 'gemini' as const, label: 'Gemini', icon: <GeminiIcon size="1.1em" /> }] : []),
                   ...(openaiAvailable ? [{ value: 'openai' as const, label: 'OpenAI', icon: <OpenAIIcon size="1.1em" /> }] : []),
                   ...(claudeAvailable ? [{ value: 'claude' as const, label: 'Claude', icon: <ClaudeIcon size="1.1em" /> }] : []),
+                  ...(openrouterAvailable ? [{ value: 'openrouter' as const, label: 'OpenRouter', icon: <OpenRouterIcon size="1.1em" /> }] : []),
                 ]}
                 value={provider}
                 onChange={onAIProviderChange}
@@ -420,48 +578,42 @@ export function StartScreen({
                     ))}
                   </select>
                 )
+              ) : isOpenRouter ? (
+                loadingOpenRouterModels ? (
+                  <select className={styles.dropdown} disabled>
+                    <option>{t.start.loading}</option>
+                  </select>
+                ) : (
+                  <select
+                    className={styles.dropdown}
+                    value={currentModel}
+                    onChange={(e) => onModelChange(e.target.value)}
+                  >
+                    <OpenRouterModelOptions models={paidOpenRouter} selectedId={currentModel} />
+                  </select>
+                )
               ) : null}
 
-              {/* Mode and thinking toggles */}
-              <div className={styles.toggleGroup}>
-                <button
-                  className={styles.modeToggle}
-                  onClick={() => onModeChange(convMode === 'conversation' ? 'singleturn' : 'conversation')}
-                  title={convMode === 'conversation'
-                    ? t.start.multiTurnTitle
-                    : t.start.singleTurnTitle}
-                >
-                  {convMode === 'conversation' ? '💬' : '1️⃣'}
-                </button>
-
-                {(isGemini || isClaude || isOpenAI) && (
-                  <button
-                    className={`${styles.thinkingToggle} ${thinkingLevel !== 'off' ? styles.thinkingEnabled : ''}`}
-                    onClick={onCycleThinking}
-                    title={thinkingLevel === 'off'
-                      ? t.start.thinkingOffTitle
-                      : thinkingLevel === 'medium'
-                        ? t.start.thinkingMediumTitle
-                        : t.start.thinkingOnTitle}
-                  >
-                    {thinkingLevel === 'off' ? '⚡' : thinkingLevel === 'medium' ? '🧠' : '🧠+'}
-                  </button>
-                )}
-              </div>
+              {toggles}
             </>
           )}
         </div>
         {/* Description with thinking status */}
         <p className={styles.aiDescription}>
           {t.aiDescriptions[currentAI] ?? AI_INFO[currentAI].description}
-          {cat === 'ai' && (isGemini || isClaude || isOpenAI) && (
+          {(cat === 'ai' || isOpenRouterFree) && (isGemini || isClaude || isOpenAI || isOpenRouter) && (
             thinkingLevel === 'off'
-              ? t.start.fastMode
+              ? (thinkingMinimum ? t.start.minimumThinking : t.start.fastMode)
               : thinkingLevel === 'medium'
                 ? t.start.plusThinkingBalanced
                 : t.start.plusThinking
           )}
         </p>
+        {isOpenRouterFree && (
+          <p className={styles.aiDescription} style={{ opacity: 0.7, fontSize: '0.85em' }}>
+            {t.settings.openrouterFreeNote}
+          </p>
+        )}
         {isFreeAI && (() => {
           const rateLimitInfo = getGeminiFreeRateLimitInfo();
           const gamesRemaining = rateLimitInfo
@@ -604,8 +756,9 @@ export function StartScreen({
               handleCPUTypeChange,
               handleAIProviderChange,
               handleConversationModeChange,
-              isGeminiAIType(selectedAI) ? onSelectGeminiModel : (isOpenAIAIType(selectedAI) ? onSelectOpenAIModel : onSelectClaudeModel),
-              isGeminiAIType(selectedAI) ? geminiModel : (isOpenAIAIType(selectedAI) ? openaiModel : claudeModel),
+              isGeminiAIType(selectedAI) ? onSelectGeminiModel : isOpenAIAIType(selectedAI) ? onSelectOpenAIModel : isOpenRouterAIType(selectedAI) ? onSelectOpenRouterModel : onSelectClaudeModel,
+              isGeminiAIType(selectedAI) ? geminiModel : isOpenAIAIType(selectedAI) ? openaiModel : isOpenRouterAIType(selectedAI) ? openrouterModel : claudeModel,
+              handleFreeChoice,
               t.common.opponent
             )}
             {!aiAvailable && !geminiFreeAvailable && (
@@ -635,6 +788,7 @@ export function StartScreen({
                   (mode) => handleSpectatorModeChange('player1', mode),
                   (model) => onSelectSpectatorModel('player1', model),
                   spectatorModels.player1,
+                  (choice) => handleSpectatorFreeChoice('player1', choice),
                   t.start.player1
                 )}
               </div>
@@ -648,6 +802,7 @@ export function StartScreen({
                   (mode) => handleSpectatorModeChange('player2', mode),
                   (model) => onSelectSpectatorModel('player2', model),
                   spectatorModels.player2,
+                  (choice) => handleSpectatorFreeChoice('player2', choice),
                   t.start.player2
                 )}
               </div>

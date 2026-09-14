@@ -6,6 +6,8 @@ import { OpenAIIcon } from './OpenAIIcon';
 import { ClaudeIcon } from './ClaudeIcon';
 import { GeminiIcon } from './GeminiIcon';
 import { AppleIntelligenceIcon } from './AppleIntelligenceIcon';
+import { OpenRouterIcon } from './OpenRouterIcon';
+import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
 import styles from './AIPlayerLabel.module.css';
 
 interface AIPlayerLabelProps {
@@ -37,6 +39,9 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
     case 'claude':
     case 'claude-singleturn':
       return <ClaudeIcon size="1em" className={className} />;
+    case 'openrouter':
+    case 'openrouter-singleturn':
+      return <OpenRouterIcon size="1em" className={className} />;
     case 'random':
       return <span style={{ fontSize: '1em' }}>🐒</span>;
     case 'heuristic':
@@ -100,6 +105,10 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
       .replace(/(\d) (\d)/g, '$1.$2'); // "4 5" -> "4.5"
   }
 
+  if (aiType === 'openrouter' || aiType === 'openrouter-singleturn') {
+    return openRouterModelDisplayName(model || 'openai/gpt-5-mini');
+  }
+
   if (aiType === 'gemini-free') return 'Gemini 3 Flash Preview';
   if (aiType === 'random') return 'Scimmietta';
   if (aiType === 'heuristic') return 'Furbo';
@@ -120,6 +129,8 @@ function getModeIndicator(aiType: ExtendedAIType): string | null {
   if (aiType === 'openai-singleturn') return '1️⃣';
   if (aiType === 'claude') return '💬';
   if (aiType === 'claude-singleturn') return '1️⃣';
+  if (aiType === 'openrouter') return '💬';
+  if (aiType === 'openrouter-singleturn') return '1️⃣';
   return null;
 }
 
@@ -159,6 +170,8 @@ export function getAIDisplayNameText(aiType: ExtendedAIType, model?: string, sho
     'openai-singleturn': '⬡',
     claude: '◐',
     'claude-singleturn': '◐',
+    openrouter: '⇄',
+    'openrouter-singleturn': '⇄',
     'gemini-free': '✦',
     apple: '✦',
     multiplayer: '👤',

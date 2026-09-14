@@ -421,6 +421,7 @@ All action dispatchers wrapped in `useCallback` for stable references.
 | `GeminiAI` | Gemini | ✦ (SVG) | Async | LLM-based using Google's Gemini API with structured JSON output |
 | `OpenAIAI` | GPT | Blossom (SVG) | Async | LLM-based using OpenAI's Responses API with structured JSON output |
 | `ClaudeAI` | Claude | 🔮 | Async | LLM-based using Anthropic's Messages API with tool use for structured output |
+| `OpenRouterScopaAI` | OpenRouter | ⇄ (SVG) | Async | Any catalogue model through OpenRouter's OpenAI-compatible chat completions; both conversation modes in one class |
 
 **Mode Icons:**
 - 💬 = Multi-turn chat (conversation with memory)
@@ -757,6 +758,24 @@ const response = await client.beta.messages.create({
 | `getClaudeSingleTurnTokenDelta()` | Returns last turn's delta |
 | `startClaudeSingleTurnRound()` | Resets move history for new round |
 | `endClaudeSingleTurnRound()` | Clears move history |
+
+### OpenRouter AI (openrouter.ts, both games)
+
+**Architecture:**
+- One key, any model: the user's OpenRouter key pays for whichever catalogue model they pick (OpenAI, Anthropic, Google, DeepSeek, …). Their own vendor keys can be attached on openrouter.ai (Integrations / BYOK) — nothing app-side changes for that.
+- Provider layer `src/ai/openrouterProvider.ts` (shared by both games, no SDK, plain `fetch`):
+  - `fetchOpenRouterModels()` — the public catalogue (`GET /api/v1/models`, no key), parsed into vendor-grouped `OpenRouterModelInfo` (`:batch` ids and non-text models dropped, per-million prices, `supported_parameters` flags, the `reasoning` block with `mandatory` / `supported_efforts`).
+  - `buildOpenRouterRequestBody()` — capability-gated: strict `response_format: json_schema` plus `provider.require_parameters` when the model supports structured outputs, `json_object` when it only supports JSON mode, nothing otherwise (the prompts ask for JSON; the bots parse defensively with `extractJsonObject`).
+  - `resolveReasoning()` — maps the app's thinking knob onto the `reasoning` parameter: 'off' switches reasoning off explicitly (`{enabled: false}`, or effort `none` where listed); models the catalogue marks `mandatory` get their lowest effort instead and the pickers label that state "minimum thinking"; 'medium'/'high' = nearest supported effort (ties go up).
+  - `withAnthropicCacheBreakpoints()` — for `anthropic/*` models the system prompt and, in multi-turn conversations, the latest user message carry `cache_control: {type: 'ephemeral'}` content parts (Claude only caches at breakpoints; the system prompt is identical across turns and games, the latest-turn breakpoint makes each turn re-read the earlier exchange at 0.1x and write only the new tail at 1.25x; single-turn requests mark the system prompt only). Reads/writes show up as `cached_tokens` / `cache_write_tokens` and in the exact cost. Other vendors cache automatically.
+  - `openRouterChat()` — bearer key + attribution headers (`HTTP-Referer`, `X-Title`), 5-minute timeout, two retries on 408/429/502/503 and network failures, every error surfaced as `OpenRouterError` (message + HTTP status) for the error badge; error payloads on a 200 are detected too.
+  - `parseOpenRouterResponse()` — content (string or parts), visible reasoning (`message.reasoning` or `reasoning_details`), and usage incl. the **exact** `cost` (plus the vendor's charge for BYOK requests) → `costUsd` on the shared token stats; `TokenStatsDisplay` then shows "Cost" instead of "Est. cost".
+- Bots: `src/games/scopa/ai/openrouter.ts` (`OpenRouterScopaAI`, multi-turn keeps the round's messages locally and echoes `reasoning_details` back; single-turn rebuilds the round history like the other single-turn bots) and `src/games/briscola/ai/openrouter.ts`. Unusable answers (empty, unparseable, out-of-range index) play the heuristic move, marked with `lastMoveWasFallback` (amber bubble); API errors re-throw for the badge. Every request is bound to a round epoch: `startRound` / `endRound` / `resetTokenStats` (Scopa) / `startMatch` (Briscola, called at round 1 so game totals restart per match) / `cancel` abort the in-flight fetch and a reply that still arrives is dropped as `OpenRouterCancelledError` (the apps already ignore results after a reset); `cancelOpenRouterRequests()` is wired next to every `cancelOnDeviceRequests()` call (game reset, switch, unmount).
+- Pickers keep every active selection inside the catalogue (`normalizeOpenRouterSelection`: retired paid id → default paid model, retired free id → first free entry, a free id is never turned into a paid one; Scopa also normalizes both watch seats) — but only against a genuinely fetched catalogue (`isOpenRouterCatalogueLoaded()`); after a failed fetch the pickers show the small built-in fallback list and leave every saved selection alone and `OpenRouterModelOptions` always renders the id in state, flagged "not in the catalogue" when missing, so the dropdown never shows a different model than requests use.
+- Key: `openrouterApiKey` / `openrouterKeyValid` in settings (Keychain on iOS via `SECRET_FIELDS`), validated against `GET /api/v1/key`; env fallback `VITE_OPENROUTER_API_KEY`.
+- Sign-in (website only): `src/ai/openrouterAuth.ts` runs OpenRouter's OAuth PKCE flow — `startOpenRouterLogin()` stores a verifier in sessionStorage and sends the browser to `https://openrouter.ai/auth` (S256 challenge, callback = the current page); `completeOpenRouterLogin()` on the callback load strips `?code=`, consumes the verifier once and exchanges the code at `POST /api/v1/auth/keys` for an ordinary key. `src/hooks/useOpenRouterLogin.ts` (both apps) completes it once per page load through a broker that hands the result only to a screen still mounted when it resolves (a screen unmounted by a game switch unsubscribes, so it cannot swallow the key), validates the key, stores it through the settings hook and opens Settings; the availability check probes `sessionStorage` inside try/catch because merely touching it throws where storage is denied; the button sits under the OpenRouter field in `SettingsModal`. Hidden in the iOS app (its web view is not a callback target) and in itch builds.
+- AI types: `openrouter` / `openrouter-singleturn` (Scopa), opponent name `openrouter` (Briscola); model id in `settings.openrouterModel` (default `openai/gpt-5-mini`).
+- Free models (`:free` variants and the `openrouter/free` router, `isFreeOpenRouterModel`) are listed under the **Free AI** category of both pickers next to the proxy Gemini, router first; the BYOK OpenRouter list holds only paid models. The category is derived from (type, model), so a free model keeps the mode and thinking toggles. Free endpoints share a public quota (429 "Provider returned error" when busy) and an account without purchased credits gets 50 free requests a day; the error badge and a note under the picker say so. The response's `model` field is kept as `servedModel` on the token stats / delta (`TokenTracker.noteServedModel`, only when it differs from the configured id, variant suffixes ignored) and as the bot's `lastServedModel`; the token popup shows an "Answered by" row and the reasoning modal header says "answered by …", so a router pick (`openrouter/free`) is visible per move.
 
 ### TokenStatsDisplay Component
 
@@ -1113,7 +1132,7 @@ All 30 phases implemented:
 
 ## BYOK API Key Management (Phase 33-34)
 
-The application supports user-provided API keys stored in localStorage for static deployment. Users can provide their own Gemini, OpenAI, or Claude API keys without any server-side infrastructure.
+The application supports user-provided API keys stored in localStorage for static deployment. Users can provide their own Gemini, OpenAI, Claude or OpenRouter API keys without any server-side infrastructure.
 
 ### API Key Storage
 
@@ -1124,9 +1143,11 @@ interface GameSettings {
   geminiApiKey: string;       // User's Gemini API key
   openaiApiKey: string;       // User's OpenAI API key
   claudeApiKey: string;       // User's Claude API key
+  openrouterApiKey: string;   // User's OpenRouter API key
   geminiKeyValid: boolean;    // Validation status
   openaiKeyValid: boolean;    // Validation status
   claudeKeyValid: boolean;    // Validation status
+  openrouterKeyValid: boolean; // Validation status
 }
 ```
 
@@ -1139,7 +1160,7 @@ export function isGeminiKeyValid(): boolean {
   }
   return !!import.meta.env.VITE_GEMINI_API_KEY;
 }
-// Similar for isOpenAIKeyValid(), isClaudeKeyValid()
+// Similar for isOpenAIKeyValid(), isClaudeKeyValid(), isOpenRouterKeyValid()
 ```
 
 ### API Key Validation (validateApiKey.ts)

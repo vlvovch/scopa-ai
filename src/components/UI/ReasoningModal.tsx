@@ -4,6 +4,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardImage, CardBack } from '../Card/CardImage';
 import { useT } from '../../i18n/LanguageContext';
+import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
 import styles from './ReasoningModal.module.css';
 import type { Card, PlayerId } from '../../games/scopa/types';
 
@@ -19,6 +20,9 @@ interface LastMoveData {
   /** The model did not deliver this move: a simple bot played instead and
    *  `reasoning` says why. The bubble and this modal mark it. */
   fallback?: boolean;
+  /** The model that actually answered when a router picked one per request
+   *  (OpenRouter's free router); shown next to the AI name. */
+  servedModel?: string;
   /** Which player made this move */
   player: PlayerId;
   /** AI name for display */
@@ -46,7 +50,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
   const t = useT();
   if (!lastMove) return null;
 
-  const { cardPlayed, tableCards, capturedCards, reasoning, aiName, opponentHandCount, otherHandCards, fallback } = lastMove;
+  const { cardPlayed, tableCards, capturedCards, reasoning, aiName, opponentHandCount, otherHandCards, fallback, servedModel } = lastMove;
   const capturedIds = new Set(capturedCards.map(c => c.id));
 
   // Determine modal class based on position (apply position for both hover and locked states)
@@ -79,6 +83,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
             <div className={styles.header}>
               <h3 className={styles.title}>
                 {t.reasoning.moveTitle(aiName ?? null)}
+                {servedModel && <span className={styles.previewHint}> · {t.reasoning.servedBy(openRouterModelDisplayName(servedModel))}</span>}
                 {!locked && <span className={styles.previewHint}> {t.reasoning.clickToLock}</span>}
               </h3>
               {locked && (

@@ -15,6 +15,7 @@ import { GameEndScreen } from '../../components/UI/GameEndScreen';
 import { ScopaCelebration } from '../../components/UI/ScopaCelebration';
 import { SetteBelloCelebration } from '../../components/UI/SetteBelloCelebration';
 import { SettingsModal } from '../../components/UI/SettingsModal';
+import { useOpenRouterLogin } from '../../hooks/useOpenRouterLogin';
 import { StatsModal, type StatsModalOpponent, type StatsModalGame } from '../../components/UI/StatsModal';
 import { AIPlayerLabel } from '../../components/UI/AIPlayerLabel';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
@@ -38,8 +39,9 @@ import type { GameAppProps } from '../gameLoaders';
 import { getValidMoves } from './rules';
 import { getAppleAI, isAppleAvailable, isOnDeviceAIType, cancelOnDeviceRequests, prewarmAppleAI } from './ai';
 import { useKeepAwake } from '../../hooks/useKeepAwake';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
+import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, isOpenRouterAIType, getOpenRouterAI, getOpenRouterTokenStats, getOpenRouterTokenDelta, resetOpenRouterTokenStats, startOpenRouterRound, endOpenRouterRound, cancelOpenRouterRequests, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
+import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
 import { TokenStatsDisplay } from '../../components/UI/TokenStatsDisplay';
 import { ThinkingBubble } from '../../components/UI/ThinkingBubble';
 import { ReasoningModal, type LastMoveData } from '../../components/UI/ReasoningModal';
@@ -283,6 +285,16 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
   // This prevents user input during the full celebration cycle
   const [celebrationActive, setCelebrationActive] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // "Sign in with OpenRouter": on the callback page load the new key is
+  // stored like a pasted one and Settings opens to show it.
+  const openrouterLogin = useOpenRouterLogin({
+    onKey: (key, valid) => {
+      updateSetting('openrouterApiKey', key);
+      updateSetting('openrouterKeyValid', valid);
+    },
+    onConnected: () => setShowSettings(true),
+  });
   const [showStats, setShowStats] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [showCapturedCards, setShowCapturedCards] = useState(false);
@@ -394,12 +406,14 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
   const isOpenAIAI = isOpenAIAIType;
   // Helper to check if an AI type is a Claude variant (use exported function)
   const isClaudeAI = isClaudeAIType;
+  // Helper to check if an AI type is an OpenRouter variant (use exported function)
+  const isOpenRouterAI = isOpenRouterAIType;
   // Helper to check if an AI type is any LLM (Gemini, OpenAI, or Claude)
   const isGeminiFree = isGeminiFreeAIType;
   // Cloud LLMs: token usage, cost and a model id exist. The on-device model
   // has none of that, only reasoning, so it is an LLM opponent (below) but
   // not one with token accounting.
-  const hasTokenAccounting = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType) || isGeminiFree(aiType), []);
+  const hasTokenAccounting = useCallback((aiType: ExtendedAIType) => isGeminiAI(aiType) || isOpenAIAI(aiType) || isClaudeAI(aiType) || isOpenRouterAI(aiType) || isGeminiFree(aiType), []);
   const isLLMAI = useCallback((aiType: ExtendedAIType) => hasTokenAccounting(aiType) || isOnDeviceAIType(aiType), [hasTokenAccounting]);
 
   // Helper to get the model for a given AI type from settings
@@ -408,8 +422,9 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (isGeminiFree(aiType)) return 'gemini-3-flash-preview';
     if (isOpenAIAI(aiType)) return settings.openaiModel;
     if (isClaudeAI(aiType)) return settings.claudeModel;
+    if (isOpenRouterAI(aiType)) return settings.openrouterModel;
     return settings.geminiModel;
-  }, [settings.openaiModel, settings.claudeModel, settings.geminiModel]);
+  }, [settings.openaiModel, settings.claudeModel, settings.openrouterModel, settings.geminiModel]);
 
   // Helper to get delta for a specific AI type and model
   // Returns a unified delta type (Gemini, OpenAI, and Claude deltas are structurally compatible)
@@ -425,6 +440,10 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       return getOpenAITokenDelta(model, seat);
     } else if (aiType === 'openai-singleturn') {
       return getOpenAISingleTurnTokenDelta(model, seat);
+    } else if (aiType === 'openrouter') {
+      return getOpenRouterTokenDelta(model, 'multiturn', seat);
+    } else if (aiType === 'openrouter-singleturn') {
+      return getOpenRouterTokenDelta(model, 'singleturn', seat);
     } else if (aiType === 'claude') {
       return getClaudeTokenDelta(model, useThinking, seat);
     } else if (aiType === 'claude-singleturn') {
@@ -448,6 +467,10 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       return getOpenAITokenStats(model, seat);
     } else if (aiType === 'openai-singleturn') {
       return getOpenAISingleTurnTokenStats(model, seat);
+    } else if (aiType === 'openrouter') {
+      return getOpenRouterTokenStats(model, 'multiturn', seat);
+    } else if (aiType === 'openrouter-singleturn') {
+      return getOpenRouterTokenStats(model, 'singleturn', seat);
     } else if (aiType === 'claude') {
       return getClaudeTokenStats(model, useThinking, seat);
     } else if (aiType === 'claude-singleturn') {
@@ -461,15 +484,17 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (!isSpectatorMode && hasTokenAccounting(settings.cpuAI)) {
       const model = isOpenAIAI(settings.cpuAI)
         ? settings.openaiModel
-        : isClaudeAI(settings.cpuAI)
-          ? settings.claudeModel
-          : settings.geminiModel;
+        : isOpenRouterAI(settings.cpuAI)
+          ? settings.openrouterModel
+          : isClaudeAI(settings.cpuAI)
+            ? settings.claudeModel
+            : settings.geminiModel;
       const stats = getStatsForAIType(settings.cpuAI, model);
       const delta = getDeltaForAIType(settings.cpuAI, model);
       setTokenStats(stats as GeminiTokenStats);
       setTokenDelta(delta as GeminiTokenDelta);
     }
-  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, hasTokenAccounting, isOpenAIAI, isClaudeAI]);
+  }, [isSpectatorMode, settings.cpuAI, settings.openaiModel, settings.openrouterModel, settings.claudeModel, settings.geminiModel, getStatsForAIType, getDeltaForAIType, hasTokenAccounting, isOpenAIAI, isOpenRouterAI, isClaudeAI]);
 
   // Helper to accumulate delta into existing stats
   const accumulateStats = useCallback((
@@ -485,6 +510,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (isOpenAIAI(aiType)) {
       const shortName = model.replace(/^gpt-/i, '').replace(/^o(\d)/, 'O$1');
       modelDisplayName = `GPT ${shortName}`;
+    } else if (isOpenRouterAI(aiType)) {
+      modelDisplayName = openRouterModelDisplayName(model);
     } else if (isClaudeAI(aiType)) {
       const withoutDate = model.replace(/-\d{8}$/, '');
       const shortName = withoutDate.replace('claude-', '').split('-').map(
@@ -500,6 +527,10 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
 
     // Get thought/reasoning tokens (Gemini uses thoughtTokens, OpenAI uses reasoningTokens)
     const thoughtDelta = 'thoughtTokens' in delta ? delta.thoughtTokens : ('reasoningTokens' in delta ? delta.reasoningTokens : 0);
+    // Exact spend, only from providers that report it (OpenRouter)
+    const costDelta = 'costUsd' in delta ? delta.costUsd : undefined;
+    // The model a router actually used for this call (OpenRouter's free router)
+    const servedDelta = 'servedModel' in delta ? delta.servedModel : undefined;
 
     if (!prevStats) {
       // Initialize new stats from first delta
@@ -510,6 +541,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
         totalTokens: delta.totalTokens,
         cachedTokens: delta.cachedTokens ?? 0,
         cacheCreationTokens: delta.cacheCreationTokens ?? 0,
+        costUsd: costDelta,
+        servedModel: servedDelta,
         requestCount: delta.totalTokens > 0 ? 1 : 0, // Only count if actual API call
         roundPromptTokens: delta.promptTokens,
         roundResponseTokens: delta.responseTokens,
@@ -547,6 +580,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       totalTokens: prevStats.totalTokens + delta.totalTokens,
       cachedTokens: prevStats.cachedTokens + (delta.cachedTokens ?? 0),
       cacheCreationTokens: (prevStats.cacheCreationTokens ?? 0) + (delta.cacheCreationTokens ?? 0),
+      costUsd: costDelta !== undefined ? (prevStats.costUsd ?? 0) + costDelta : prevStats.costUsd,
+      servedModel: delta.totalTokens > 0 ? servedDelta : prevStats.servedModel,
       requestCount: prevStats.requestCount + (delta.totalTokens > 0 ? 1 : 0),
       roundPromptTokens: prevStats.roundPromptTokens + delta.promptTokens,
       roundResponseTokens: prevStats.roundResponseTokens + delta.responseTokens,
@@ -559,7 +594,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       maxTurnTimeMs: newMaxTime,
       roundTotalTimeMs: prevStats.roundTotalTimeMs + delta.turnTimeMs,
     };
-  }, [isOpenAIAI, isClaudeAI]);
+  }, [isOpenAIAI, isClaudeAI, isOpenRouterAI]);
 
   // Helper to update token stats for a specific player in spectator mode
   const updatePlayerTokenStats = useCallback((player: 'player1' | 'player2') => {
@@ -627,6 +662,18 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       if (openai) return openai;
       return AI_PLAYERS.heuristic;
     }
+    if (aiType === 'openrouter') {
+      const openrouterModel = model || settings.openrouterModel;
+      const openrouter = getOpenRouterAI(openrouterModel, 'multiturn', seat);
+      if (openrouter) return openrouter;
+      return AI_PLAYERS.heuristic;
+    }
+    if (aiType === 'openrouter-singleturn') {
+      const openrouterModel = model || settings.openrouterModel;
+      const openrouter = getOpenRouterAI(openrouterModel, 'singleturn', seat);
+      if (openrouter) return openrouter;
+      return AI_PLAYERS.heuristic;
+    }
     if (aiType === 'claude') {
       const claudeModel = model || settings.claudeModel;
       const claude = getClaudeAI(claudeModel, useThinking, seat);
@@ -646,7 +693,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       return AI_PLAYERS.heuristic;
     }
     return AI_PLAYERS[aiType];
-  }, [settings.geminiModel, settings.openaiModel, settings.claudeModel, settings.useThinking]);
+  }, [settings.geminiModel, settings.openaiModel, settings.openrouterModel, settings.claudeModel, settings.useThinking]);
 
   // Build extended context for LLM AI
   const buildLLMContext = useCallback((
@@ -730,11 +777,12 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (state.status === 'idle') {
       gameEpoch.current += 1;
       cancelOnDeviceRequests();
+      cancelOpenRouterRequests();
     }
   }, [state.status]);
   // Unmounting (the runtime game switch swaps this component out): nothing
   // will consume a pending on-device reply, so stop it here as well.
-  useEffect(() => () => cancelOnDeviceRequests(), []);
+  useEffect(() => () => { cancelOnDeviceRequests(); cancelOpenRouterRequests(); }, []);
   // Unmount (runtime game switch, load-failure fallback): the idle-state
   // bump above can never run for an unmounting instance, so invalidate
   // here — a still-pending LLM reply or an in-progress CPU animation
@@ -1372,13 +1420,14 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       const aiType = isSpectatorMode ? spectatorAIs.player2 : settings.cpuAI;
       const model = isSpectatorMode
         ? spectatorModels.player2
-        : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : (isClaudeAI(settings.cpuAI) ? settings.claudeModel : settings.geminiModel));
+        : (isOpenAIAI(settings.cpuAI) ? settings.openaiModel : isOpenRouterAI(settings.cpuAI) ? settings.openrouterModel : (isClaudeAI(settings.cpuAI) ? settings.claudeModel : settings.geminiModel));
       // In spectator mode, the cpu seat is player2. Otherwise just 'cpu'.
       const ai = getAIPlayer(aiType, model, isSpectatorMode ? 'p2' : 'cpu');
 
       let moveToExecute: Move;
       let reasoning: string | null = null;
       let fallback = false;
+      let servedModel: string | undefined;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
         aiRequestInFlight.current = epoch;
@@ -1394,6 +1443,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           // Capture reasoning from LLM AI (they all have lastReasoning property)
           reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
           fallback = (ai as { lastMoveWasFallback?: boolean }).lastMoveWasFallback === true;
+          servedModel = (ai as { lastServedModel?: string }).lastServedModel;
           // Clear any previous error on success
           setPlayer2ApiError(null);
           // Update token stats after async AI move
@@ -1460,6 +1510,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             capturedCards: moveToExecute.capturedCards,
             reasoning,
             fallback,
+            servedModel,
             player: 'cpu',
             aiName: isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name,
             opponentHandCount: state.players.human.hand.length,
@@ -1590,6 +1641,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       endOpenAISingleTurnRound();
       endClaudeRound();
       endClaudeSingleTurnRound();
+      endOpenRouterRound();
       endRound();
     }, delay);
 
@@ -1688,6 +1740,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     resetOpenAISingleTurnTokenStats();
     resetClaudeTokenStats();
     resetClaudeSingleTurnTokenStats();
+    resetOpenRouterTokenStats();
     setTokenStats(null);
     setTokenDelta(null);
     setPlayer1TokenStats(null);
@@ -2349,6 +2402,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     // Reset token stats for all LLM types
     resetAllTokenStats();
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     // Load the on-device model while the cards are dealt.
     if (gameMode === 'pvsCPU' && isOnDeviceAIType(settings.cpuAI)) prewarmAppleAI('cpu');
     if (gameMode === 'cpuVsCPU' && isOnDeviceAIType(spectatorAIs.player1)) prewarmAppleAI('p1');
@@ -2362,6 +2416,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
+    startOpenRouterRound();
     // Clear any previous reasoning/move data
     setLastMoveData({ cpu: null, human: null });
 
@@ -2450,6 +2505,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     // already advanced when it resolves.
     gameEpoch.current += 1;
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     onSwitchGame(target);
   }, [onSwitchGame, useWorkerMode, stopSimulation, inMultiplayerFlow, multiplayer, resetAllTokenStats, resetGame, activeState.status]);
 
@@ -2497,6 +2553,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     }
     gameEpoch.current += 1;
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     if (target !== 'scopa') {
       onSwitchGame?.(target, { joinCode: code });
       return;
@@ -2594,6 +2651,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
   // Handle next round (wraps nextRound to start fresh chat session)
   const handleNextRound = useCallback(() => {
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     // Start fresh sessions for all LLM types (no-op if not active)
     startGeminiRound();
     startGeminiSingleTurnRound();
@@ -2602,6 +2660,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     startOpenAISingleTurnRound();
     startClaudeRound();
     startClaudeSingleTurnRound();
+    startOpenRouterRound();
     // Clear reasoning/move data from previous round
     setLastMoveData({ cpu: null, human: null });
     nextRound();
@@ -2651,6 +2710,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (activeState.status === 'gameEnd' && !gameRecorded.current) {
       const opponentModel = isOpenAIAI(settings.cpuAI)
         ? settings.openaiModel
+        : isOpenRouterAI(settings.cpuAI)
+        ? settings.openrouterModel
         : isClaudeAI(settings.cpuAI)
           ? settings.claudeModel
           : isGeminiAI(settings.cpuAI)
@@ -2690,7 +2751,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (activeState.status === 'idle') {
       gameRecorded.current = false;
     }
-  }, [activeState.status, activeState.gameMode, activeState.scores, activeState.roundNumber, activeState.targetScore, settings.cpuAI, settings.openaiModel, settings.claudeModel, settings.geminiModel, settings.useThinking, recordGame, isOpenAIAI, isClaudeAI, isGeminiAI, isLLMAI, playSound]);
+  }, [activeState.status, activeState.gameMode, activeState.scores, activeState.roundNumber, activeState.targetScore, settings.cpuAI, settings.openaiModel, settings.openrouterModel, settings.claudeModel, settings.geminiModel, settings.useThinking, recordGame, isOpenAIAI, isOpenRouterAI, isClaudeAI, isGeminiAI, isLLMAI, playSound]);
 
   // Human turn auto-play in spectator mode (with animation)
   // Uses same cpuAnimationScheduled ref since only one player moves at a time
@@ -2726,6 +2787,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       let moveToExecute: Move;
       let reasoning: string | null = null;
       let fallback = false;
+      let servedModel: string | undefined;
       if (isAsyncAI(ai)) {
         // Mark API request in flight to prevent re-triggering on pause/unpause
         aiRequestInFlight.current = epoch;
@@ -2741,6 +2803,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           // Capture reasoning from LLM AI (they all have lastReasoning property)
           reasoning = (ai as { lastReasoning?: string }).lastReasoning || null;
           fallback = (ai as { lastMoveWasFallback?: boolean }).lastMoveWasFallback === true;
+          servedModel = (ai as { lastServedModel?: string }).lastServedModel;
           // Clear any previous error on success
           setPlayer1ApiError(null);
           // Update token stats after async AI move (player1 in spectator mode)
@@ -2792,6 +2855,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             capturedCards: moveToExecute.capturedCards,
             reasoning,
             fallback,
+            servedModel,
             player: 'human',
             aiName: AI_INFO[spectatorAIs.player1].name,
             opponentHandCount: state.players.cpu.hand.length,
@@ -3161,6 +3225,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
           onSwitchGame={switchGameProp}
+          openrouterLogin={openrouterLogin}
         />
         {switchGameDialog}
         {inviteDialog}
@@ -3231,6 +3296,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
           onSwitchGame={switchGameProp}
+          openrouterLogin={openrouterLogin}
         />
         {switchGameDialog}
         {inviteDialog}
@@ -3392,6 +3458,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           onSelectOpenAIModel={(model) => updateSetting('openaiModel', model)}
           claudeModel={settings.claudeModel}
           onSelectClaudeModel={(model) => updateSetting('claudeModel', model)}
+          openrouterModel={settings.openrouterModel}
+          onSelectOpenRouterModel={(model) => updateSetting('openrouterModel', model)}
           spectatorModels={spectatorModels}
           onSelectSpectatorModel={(player, model) => setSpectatorModels(prev => ({ ...prev, [player]: model }))}
           defaultTargetScore={settings.defaultTargetScore}
@@ -3412,6 +3480,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             gemini: (!!settings.geminiApiKey && settings.geminiKeyValid) || !!import.meta.env.VITE_GEMINI_API_KEY,
             openai: (!!settings.openaiApiKey && settings.openaiKeyValid) || !!import.meta.env.VITE_OPENAI_API_KEY,
             claude: (!!settings.claudeApiKey && settings.claudeKeyValid) || !!import.meta.env.VITE_CLAUDE_API_KEY,
+            openrouter: (!!settings.openrouterApiKey && settings.openrouterKeyValid) || !!import.meta.env.VITE_OPENROUTER_API_KEY,
             apple: isAppleAvailable(),
           }}
         />
@@ -3422,6 +3491,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           onUpdateSetting={updateSetting}
           onResetSettings={resetSettings}
           onSwitchGame={switchGameProp}
+          openrouterLogin={openrouterLogin}
         />
         {switchGameDialog}
         {inviteDialog}
@@ -3554,6 +3624,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
         onUpdateSetting={updateSetting}
         onResetSettings={resetSettings}
         onSwitchGame={switchGameProp}
+        openrouterLogin={openrouterLogin}
       />
       {switchGameDialog}
         {inviteDialog}

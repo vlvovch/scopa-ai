@@ -9,6 +9,7 @@ import { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCache
 import { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, clearOpenAISingleTurnCache } from './openai-singleturn';
 import { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, clearClaudeCache, type ClaudeModelInfo, type ClaudeTokenStats, type ClaudeTokenDelta } from './claude';
 import { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, clearClaudeSingleTurnCache } from './claude-singleturn';
+import { getOpenRouterAI, isOpenRouterAvailable, fetchOpenRouterModels, getCachedOpenRouterModels, getDefaultOpenRouterModel, getOpenRouterTokenStats, getOpenRouterTokenDelta, resetOpenRouterTokenStats, startOpenRouterRound, endOpenRouterRound, cancelOpenRouterRequests, clearOpenRouterCache, type OpenRouterModelInfo, type OpenRouterConversationMode } from './openrouter';
 import { getAppleAI, isAppleAvailable, cancelOnDeviceRequests, prewarmAppleAI } from './apple';
 import { getGeminiFreeAI, isGeminiFreeAvailable, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, clearGeminiFreeCache, getGeminiFreeRateLimitInfo, RateLimitError } from './gemini-free';
 
@@ -27,11 +28,13 @@ export { getOpenAI, isOpenAIAvailable, createOpenAI, fetchOpenAIModels, getCache
 export { getOpenAISingleTurnAI, createOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, clearOpenAISingleTurnCache };
 export { getClaudeAI, isClaudeAvailable, createClaudeAI, fetchClaudeModels, getCachedClaudeModels, getDefaultClaudeModel, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, clearClaudeCache };
 export { getClaudeSingleTurnAI, createClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, clearClaudeSingleTurnCache };
+export { getOpenRouterAI, isOpenRouterAvailable, fetchOpenRouterModels, getCachedOpenRouterModels, getDefaultOpenRouterModel, getOpenRouterTokenStats, getOpenRouterTokenDelta, resetOpenRouterTokenStats, startOpenRouterRound, endOpenRouterRound, cancelOpenRouterRequests, clearOpenRouterCache };
 export { getAppleAI, isAppleAvailable, cancelOnDeviceRequests, prewarmAppleAI };
 export { getGeminiFreeAI, isGeminiFreeAvailable, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, clearGeminiFreeCache, getGeminiFreeRateLimitInfo, RateLimitError };
 export type { GeminiModelInfo, GeminiTokenStats, GeminiTokenDelta };
 export type { OpenAIModelInfo, OpenAITokenStats, OpenAITokenDelta };
 export type { ClaudeModelInfo, ClaudeTokenStats, ClaudeTokenDelta };
+export type { OpenRouterModelInfo, OpenRouterConversationMode };
 
 // Available sync AI players for selection
 export const AI_PLAYERS = {
@@ -44,7 +47,7 @@ export const AI_PLAYERS = {
 export type AIType = keyof typeof AI_PLAYERS;
 
 // Extended AI type including async AIs and multiplayer
-export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'gemini-free' | 'openai' | 'openai-singleturn' | 'claude' | 'claude-singleturn' | 'apple' | 'multiplayer';
+export type ExtendedAIType = AIType | 'gemini' | 'gemini-singleturn' | 'gemini-free' | 'openai' | 'openai-singleturn' | 'claude' | 'claude-singleturn' | 'openrouter' | 'openrouter-singleturn' | 'apple' | 'multiplayer';
 
 // Display info for each AI (including async and multiplayer)
 export const AI_INFO: Record<ExtendedAIType, { name: string; description: string; isAsync?: boolean; icon: string }> = {
@@ -57,6 +60,8 @@ export const AI_INFO: Record<ExtendedAIType, { name: string; description: string
   'openai-singleturn': { name: 'GPT 1️⃣', description: 'OpenAI GPT with single requests (full history each turn)', isAsync: true, icon: '⬡' },
   claude: { name: 'Claude 💬', description: 'Anthropic Claude with multi-turn conversation (remembers context)', isAsync: true, icon: '🔮' },
   'claude-singleturn': { name: 'Claude 1️⃣', description: 'Anthropic Claude with single requests (full history each turn)', isAsync: true, icon: '🔮' },
+  openrouter: { name: 'OpenRouter 💬', description: 'Any model via OpenRouter with multi-turn conversation (remembers context)', isAsync: true, icon: '⇄' },
+  'openrouter-singleturn': { name: 'OpenRouter 1️⃣', description: 'Any model via OpenRouter with single requests (full history each turn)', isAsync: true, icon: '⇄' },
   'gemini-free': { name: 'Gemini 3 Flash Preview', description: 'Free AI with multi-turn chat + thinking (3 games/day)', isAsync: true, icon: '✦' },
   apple: { name: 'Apple Intelligence', description: 'Runs on this device, works offline', isAsync: true, icon: '✦' },
   multiplayer: { name: 'Human', description: 'Online multiplayer opponent', icon: '👤' },
@@ -81,6 +86,10 @@ export function getAvailableAITypes(): ExtendedAIType[] {
   if (isClaudeAvailable()) {
     types.push('claude');
     types.push('claude-singleturn');
+  }
+  if (isOpenRouterAvailable()) {
+    types.push('openrouter');
+    types.push('openrouter-singleturn');
   }
   if (isAppleAvailable()) {
     types.push('apple');
@@ -121,4 +130,11 @@ export function isOpenAIAIType(aiType: ExtendedAIType): boolean {
  */
 export function isClaudeAIType(aiType: ExtendedAIType): boolean {
   return aiType === 'claude' || aiType === 'claude-singleturn';
+}
+
+/**
+ * Check if an AI type is an OpenRouter variant (multi-turn or single-turn)
+ */
+export function isOpenRouterAIType(aiType: ExtendedAIType): boolean {
+  return aiType === 'openrouter' || aiType === 'openrouter-singleturn';
 }

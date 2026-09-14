@@ -134,7 +134,7 @@ VITE_PROXY_URL=https://playscopa.net
   `capacitor://localhost`. The proxy's CORS allow-list (`ALLOWED_ORIGIN` in
   the `scopa-proxy` systemd unit) must include `capacitor://localhost` for
   the free Gemini opponent to work in the app; until then it reports an
-  error and the CPU bots remain available. BYOK providers (Gemini, OpenAI,
+  error and the CPU bots remain available. BYOK providers (Gemini, OpenAI, OpenRouter,
   Claude) are called directly and already accept browser origins.
 - **Offline.** CPU play needs no network; LLM opponents and multiplayer do.
 - Nothing from a developer's `.env.local` reaches the bundle: `.env.ios`

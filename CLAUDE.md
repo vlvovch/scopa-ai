@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-A web-based implementation of two classic Italian card games — **Scopa** (capture / scoring) and **Briscola** (trick-taking with trump) — sharing a single React/TypeScript codebase with CPU opponents, LLM AI opponents (Gemini, GPT, Claude), real-time multiplayer, watch mode, and multiple card-deck themes. Each game ships as its own deployment (Scopa at scopa-ai.vovchenko.net, Briscola at briscola-ai.vovchenko.net) selected at build time via Vite mode (`--mode scopa` vs `--mode briscola`). Since the runtime game switch, each deployment also carries the *other* game as a lazily loaded chunk: the build-time game is the first-visit default, a compact Scopa / Briscola selector (start screen + Settings) switches at runtime, the choice is remembered per origin, and explicit URLs (`/briscola`, `/scopa`) and invitation links (`/join/<GAME>-XXXX`) take priority — see `src/games/gameSelection.ts` and `src/App.tsx`.
+A web-based implementation of two classic Italian card games — **Scopa** (capture / scoring) and **Briscola** (trick-taking with trump) — sharing a single React/TypeScript codebase with CPU opponents, LLM AI opponents (Gemini, GPT, Claude, any model via OpenRouter), real-time multiplayer, watch mode, and multiple card-deck themes. Each game ships as its own deployment (Scopa at scopa-ai.vovchenko.net, Briscola at briscola-ai.vovchenko.net) selected at build time via Vite mode (`--mode scopa` vs `--mode briscola`). Since the runtime game switch, each deployment also carries the *other* game as a lazily loaded chunk: the build-time game is the first-visit default, a compact Scopa / Briscola selector (start screen + Settings) switches at runtime, the choice is remembered per origin, and explicit URLs (`/briscola`, `/scopa`) and invitation links (`/join/<GAME>-XXXX`) take priority — see `src/games/gameSelection.ts` and `src/App.tsx`.
 
 ## Repository Structure
 
@@ -39,11 +39,11 @@ scopa-ai/
 | `src/components/UI/GameSwitcher.tsx` | The Scopa / Briscola segmented control (start screens + Settings) |
 | `src/games/scopa/ScopaApp.tsx` | Scopa game component (state machine, UI orchestration) |
 | `src/games/scopa/rules.ts` / `scoring.ts` / `reducer.ts` | Scopa game logic |
-| `src/games/scopa/ai/` | Scopa AI bots (random, heuristic, ismcts, gemini/openai/claude + single-turn variants, gemini-free, apple = the on-device model of the iOS app via `src/ai/onDeviceModel.ts`) |
+| `src/games/scopa/ai/` | Scopa AI bots (random, heuristic, ismcts, gemini/openai/claude + single-turn variants, openrouter (both modes in one module), gemini-free, apple = the on-device model of the iOS app via `src/ai/onDeviceModel.ts`) |
 | `src/games/briscola/BriscolaApp.tsx` | Briscola game component |
 | `src/games/briscola/rules.ts` / `scoring.ts` | Briscola game logic |
-| `src/games/briscola/ai/` | Briscola AI bots (random, heuristic, expert, gemini, openai, claude, gemini-free, apple = on-device, iOS app) |
-| `src/ai/` | Shared LLM utilities — Seat type, TokenTracker, GeminiTokenStats canonical shape, MOVE_JSON_SCHEMA, thinking-level registry (`effort.ts`), API-key cache registry (`apiKeyCaches.ts`), and the per-provider plumbing (`claudeProvider.ts` / `geminiProvider.ts` / `openaiProvider.ts`: key availability, cached model lists, Claude thinking-mode gating) |
+| `src/games/briscola/ai/` | Briscola AI bots (random, heuristic, expert, gemini, openai, claude, openrouter, gemini-free, apple = on-device, iOS app) |
+| `src/ai/` | Shared LLM utilities — Seat type, TokenTracker, GeminiTokenStats canonical shape, MOVE_JSON_SCHEMA, thinking-level registry (`effort.ts`), API-key cache registry (`apiKeyCaches.ts`), and the per-provider plumbing (`claudeProvider.ts` / `geminiProvider.ts` / `openaiProvider.ts` / `openrouterProvider.ts`: key availability, cached model lists, Claude thinking-mode gating; the OpenRouter one also holds the fetch-based chat client, the capability-gated request builder and the exact-cost usage parser; `openrouterAuth.ts` is the PKCE "Sign in with OpenRouter" flow used by `src/hooks/useOpenRouterLogin.ts`) |
 | `src/hooks/useMultiplayer.ts` | WebSocket multiplayer hook (Scopa-only currently) |
 | `scopa-server/src/` | Multiplayer server code |
 
@@ -99,7 +99,7 @@ npm start                  # Runs on port 8080
 
 1. **Static-first**: Frontend works without backend (except multiplayer)
 2. **Per-game build artifacts**: Each game (Scopa, Briscola) ships as its own static bundle selected via Vite mode at build time; the other game is code-split into a lazy chunk (its app is imported statically only through the `@default-game` alias in `vite.config.ts` — never import a game app statically from shared code, or Rollup hoists its dependencies into the main chunk). Both builds need both multiplayer URLs (`VITE_WS_URL`, `VITE_BRISCOLA_WS_URL`)
-3. **User-provided API keys**: Stored in localStorage, calls go directly to LLM providers (free Gemini tier uses a Cloudflare Worker proxy with daily rate limiting)
+3. **User-provided API keys**: Stored in localStorage, calls go directly to LLM providers (free Gemini tier uses a Cloudflare Worker proxy with daily rate limiting). OpenRouter is a fourth BYOK provider: one key, any catalogue model, exact cost per response, its free models listed under the Free AI category; a user's own vendor keys go through OpenRouter's BYOK integration on openrouter.ai, nothing app-side
 4. **One storage seam**: all persistence goes through `src/platform/storage.ts` (never `localStorage` directly) so the iOS app can persist natively while the website keeps its keys and data
 5. **Analytics only through the gate**: Swetrix is the only analytics provider; no tag in `index.html`; `src/analytics/loader.ts` loads it only where `src/analytics/gate.ts` allows it, and verification never uses the production project (`docs/analytics.md`)
 6. **Shared infrastructure, game-specific logic**: `src/ai/`, `src/components/`, `src/hooks/` are shared; game rules / prompts / bots live under `src/games/<game>/`. A game's `ai/` modules must never import runtime values from the other game's `ai/` (type-only imports are fine): provider-wide code belongs in `src/ai/*Provider.ts`. A cross-game runtime import re-attaches that game's bot code to the main chunk of the build where it should be lazy (verify with a `--sourcemap` build: the main chunk's `sources` must contain no `src/games/<other game>/ai/` modules)

@@ -44,6 +44,7 @@ export class TokenTracker {
     totalTokens?: number;
     cachedTokens?: number;
     cacheCreationTokens?: number;
+    costUsd?: number;
   }): void {
     const p = usage.promptTokens ?? 0;
     const r = usage.responseTokens ?? 0;
@@ -56,6 +57,11 @@ export class TokenTracker {
     this.stats.cachedTokens += usage.cachedTokens ?? 0;
     this.stats.cacheCreationTokens =
       (this.stats.cacheCreationTokens ?? 0) + (usage.cacheCreationTokens ?? 0);
+    // Stays undefined until a provider reports a cost, so the UI can tell
+    // "exact" from "estimated".
+    if (usage.costUsd !== undefined) {
+      this.stats.costUsd = (this.stats.costUsd ?? 0) + usage.costUsd;
+    }
     this.stats.requestCount += 1;
     this.stats.roundPromptTokens += p;
     this.stats.roundResponseTokens += r;
@@ -69,8 +75,21 @@ export class TokenTracker {
       totalTokens: total,
       cachedTokens: usage.cachedTokens ?? 0,
       cacheCreationTokens: usage.cacheCreationTokens ?? 0,
+      costUsd: usage.costUsd,
       turnTimeMs: 0,
     };
+  }
+
+  /**
+   * Remember which model actually answered when it is not the one asked for
+   * (a router such as OpenRouter's `openrouter/free` picks one per request).
+   * Variant suffixes (":free") do not count as a substitution.
+   */
+  noteServedModel(served: string | null | undefined): void {
+    const base = (id: string) => id.split(':')[0].toLowerCase();
+    const differs = !!served && base(served) !== base(this.stats.modelId);
+    this.stats.servedModel = differs ? served : undefined;
+    this.lastDelta.servedModel = differs ? served : undefined;
   }
 
   recordTiming(turnTimeMs: number): void {

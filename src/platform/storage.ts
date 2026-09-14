@@ -74,7 +74,7 @@ export const FILE_KEYS: ReadonlySet<string> = new Set([
 
 /** The settings JSON key and the fields inside it that are secrets. */
 export const SETTINGS_KEY = 'scopa-settings';
-export const SECRET_FIELDS = ['geminiApiKey', 'openaiApiKey', 'claudeApiKey'] as const;
+export const SECRET_FIELDS = ['geminiApiKey', 'openaiApiKey', 'claudeApiKey', 'openrouterApiKey'] as const;
 
 const FILE_SUFFIX = '.json';
 

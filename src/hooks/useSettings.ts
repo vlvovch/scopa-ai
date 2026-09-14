@@ -40,6 +40,8 @@ export interface GameSettings {
   openaiModel: string;
   /** Claude model to use (when cpuAI is 'claude' or 'claude-singleturn') */
   claudeModel: string;
+  /** OpenRouter model id, e.g. "openai/gpt-5-mini" (when cpuAI is 'openrouter' or 'openrouter-singleturn') */
+  openrouterModel: string;
   /** Enable extended thinking for LLM AI (Claude, Gemini) */
   useThinking: boolean;
   /** 3-state thinking knob; useThinking stays the derived on/off. */
@@ -54,12 +56,16 @@ export interface GameSettings {
   openaiApiKey: string;
   /** User-provided Claude API key (BYOK) */
   claudeApiKey: string;
+  /** User-provided OpenRouter API key (BYOK; one key for many vendors' models) */
+  openrouterApiKey: string;
   /** Whether the Gemini API key has been validated as working */
   geminiKeyValid: boolean;
   /** Whether the OpenAI API key has been validated as working */
   openaiKeyValid: boolean;
   /** Whether the Claude API key has been validated as working */
   claudeKeyValid: boolean;
+  /** Whether the OpenRouter API key has been validated as working */
+  openrouterKeyValid: boolean;
   /** Whether to show pile stats (coins count, sette bello, scopas) */
   showPileStats: boolean;
   /** Accessibility: multiplier applied to the root font size so all
@@ -99,6 +105,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   geminiModel: 'gemini-3.5-flash',
   openaiModel: 'gpt-5-mini',
   claudeModel: 'claude-sonnet-5',
+  openrouterModel: 'openai/gpt-5-mini',
   useThinking: true,
   thinkingLevel: 'high',
   autoAdvanceSpectator: true,
@@ -106,9 +113,11 @@ const DEFAULT_SETTINGS: GameSettings = {
   geminiApiKey: '',
   openaiApiKey: '',
   claudeApiKey: '',
+  openrouterApiKey: '',
   geminiKeyValid: false,
   openaiKeyValid: false,
   claudeKeyValid: false,
+  openrouterKeyValid: false,
   showPileStats: true,
   fontScale: 1.2,
   showWinOdds: false,
@@ -205,6 +214,30 @@ export function isClaudeKeyValid(): boolean {
   }
   // Env var key is assumed valid if present
   return !!import.meta.env.VITE_CLAUDE_API_KEY;
+}
+
+/**
+ * Get OpenRouter API key: user-provided (localStorage) > env var
+ */
+export function getOpenRouterApiKey(): string | null {
+  const settings = loadSettings();
+  if (settings.openrouterApiKey) {
+    return settings.openrouterApiKey;
+  }
+  return import.meta.env.VITE_OPENROUTER_API_KEY || null;
+}
+
+/**
+ * Check if OpenRouter API key is valid (user key must be validated, env key assumed valid)
+ */
+export function isOpenRouterKeyValid(): boolean {
+  const settings = loadSettings();
+  // User-provided key requires validation
+  if (settings.openrouterApiKey) {
+    return settings.openrouterKeyValid;
+  }
+  // Env var key is assumed valid if present
+  return !!import.meta.env.VITE_OPENROUTER_API_KEY;
 }
 
 function saveSettings(settings: GameSettings): void {

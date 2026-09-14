@@ -4,7 +4,7 @@
 // Schema:
 //   - `opponentType`: a wide BriscolaOpponentName covering both sync CPU
 //     bots (random/heuristic/expert) and async LLM opponents (gemini /
-//     gemini-free / openai / claude).
+//     gemini-free / openai / claude / openrouter).
 //   - `opponentModel`: the model id for LLM opponents (e.g.
 //     "claude-opus-4-7-20251015"). Empty for CPU bots. Lets the player
 //     see "Claude Opus 4.7" stats separately from "Claude Sonnet 4.5".

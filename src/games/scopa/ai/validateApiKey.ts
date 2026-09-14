@@ -76,4 +76,34 @@ export async function validateClaudeKey(apiKey: string): Promise<{ valid: boolea
   return { valid: true };
 }
 
+/**
+ * Validate an OpenRouter API key by reading the key's own record
+ * (GET /api/v1/key answers 401 for an unknown key; CORS is open).
+ */
+export async function validateOpenRouterKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+  if (!apiKey || apiKey.trim() === '') {
+    return { valid: false, error: 'API key is empty' };
+  }
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/key', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    if (response.ok) {
+      return { valid: true };
+    }
+
+    if (response.status === 401 || response.status === 403) {
+      return { valid: false, error: 'Invalid API key' };
+    }
+
+    return { valid: false, error: `API error: ${response.status}` };
+  } catch {
+    return { valid: false, error: 'Network error' };
+  }
+}
+
 export type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid';

@@ -14,6 +14,14 @@ export interface GeminiTokenStats {
   cachedTokens: number;
   /** Anthropic cache writes (billed at 1.25x input); other providers 0 */
   cacheCreationTokens?: number;
+  /** Exact spend in USD as reported by the provider (OpenRouter); undefined
+   *  for providers that report tokens only — the UI then estimates from
+   *  list prices (src/ai/pricing.ts). */
+  costUsd?: number;
+  /** The model that answered the last request when a router substituted
+   *  one for the configured id (OpenRouter's free router); undefined when
+   *  the configured model answered. */
+  servedModel?: string;
   requestCount: number;
   // Round-specific stats (reset each round)
   roundPromptTokens: number;
@@ -41,5 +49,7 @@ export interface GeminiTokenDelta {
   totalTokens: number;
   cachedTokens?: number;
   cacheCreationTokens?: number;
+  costUsd?: number;
+  servedModel?: string;
   turnTimeMs: number;
 }

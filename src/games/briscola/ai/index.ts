@@ -67,3 +67,18 @@ export {
   DEFAULT_CLAUDE_MODEL,
   type ClaudeModelInfo,
 } from './claude';
+export {
+  getOpenRouterBriscolaAI,
+  isOpenRouterAvailable,
+  fetchOpenRouterModels,
+  getCachedOpenRouterModels,
+  startOpenRouterMatch,
+  startOpenRouterRound,
+  endOpenRouterRound,
+  cancelOpenRouterRequests,
+  clearOpenRouterCache,
+  getOpenRouterBriscolaTokenStats,
+  getOpenRouterBriscolaTokenDelta,
+  DEFAULT_OPENROUTER_MODEL,
+  type OpenRouterModelInfo,
+} from './openrouter';

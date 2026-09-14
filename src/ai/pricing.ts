@@ -11,6 +11,11 @@
 // - Gemini: promptTokenCount INCLUDES cached tokens (implicit caching,
 //   billed at 0.25x); thought tokens are separate and bill as output.
 //
+// - OpenRouter: reports the exact charge in every response (usage.cost,
+//   plus the vendor's charge for BYOK requests); the bots accumulate it in
+//   stats.costUsd and estimateCostUsd() returns that as-is — its model ids
+//   ("openai/gpt-5-mini") never match the table below.
+//
 // Prices are per 1M tokens in USD (input, output), list prices as of
 // 2026-08. Unknown models return null and the UI hides the cost row —
 // notably the free-tier 'gemini-3-flash-preview' is intentionally
@@ -80,11 +85,18 @@ function priceFor(modelId: string): Price | null {
   return key ? PRICES[key] : null;
 }
 
+/** True when the provider reported the spend itself (no estimate involved). */
+export function isExactCost(stats: GeminiTokenStats): boolean {
+  return typeof stats.costUsd === 'number';
+}
+
 /**
- * Estimated cost in USD for the tracked usage, or null when the model's
- * price is unknown (the UI hides the row then).
+ * Cost in USD for the tracked usage: the provider's own figure when it
+ * reports one, otherwise an estimate from list prices, or null when the
+ * model's price is unknown (the UI hides the row then).
  */
 export function estimateCostUsd(stats: GeminiTokenStats): number | null {
+  if (typeof stats.costUsd === 'number') return stats.costUsd;
   const price = priceFor(stats.modelId);
   if (!price) return null;
 

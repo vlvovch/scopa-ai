@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { estimateCostUsd, formatCostUsd } from './pricing';
+import { estimateCostUsd, formatCostUsd, isExactCost } from './pricing';
 import type { GeminiTokenStats } from './tokenStats';
 
 const stats = (overrides: Partial<GeminiTokenStats>): GeminiTokenStats => ({
@@ -25,6 +25,14 @@ const stats = (overrides: Partial<GeminiTokenStats>): GeminiTokenStats => ({
 });
 
 describe('estimateCostUsd', () => {
+  it('returns the provider-reported cost as-is when there is one (OpenRouter ids never match the table)', () => {
+    const s = stats({ modelId: 'openai/gpt-5-mini', promptTokens: 1_000_000, responseTokens: 1_000_000, costUsd: 0.0042 });
+    expect(estimateCostUsd(s)).toBe(0.0042);
+    expect(isExactCost(s)).toBe(true);
+    expect(estimateCostUsd(stats({ modelId: 'openai/gpt-5-mini', promptTokens: 1000 }))).toBeNull();
+    expect(isExactCost(stats({ modelId: 'gpt-5-mini' }))).toBe(false);
+  });
+
   it('prices Claude with cache reads (0.1x) and writes (1.25x) on top of uncached input', () => {
     // Sonnet 5: $2 in / $10 out per 1M
     const cost = estimateCostUsd(

@@ -47,6 +47,7 @@ import {
   type BriscolaGameMode,
 } from './StartScreen';
 import { SettingsModal } from '../../components/UI/SettingsModal';
+import { useOpenRouterLogin } from '../../hooks/useOpenRouterLogin';
 import {
   StatsModal,
   type StatsModalOpponent,
@@ -100,6 +101,16 @@ import {
   getOpenAIBriscolaTokenDelta,
   DEFAULT_OPENAI_MODEL,
 } from './ai/openai';
+import {
+  getOpenRouterBriscolaAI,
+  startOpenRouterMatch,
+  startOpenRouterRound,
+  endOpenRouterRound,
+  cancelOpenRouterRequests,
+  getOpenRouterBriscolaTokenStats,
+  getOpenRouterBriscolaTokenDelta,
+  DEFAULT_OPENROUTER_MODEL,
+} from './ai/openrouter';
 import {
   getClaudeBriscolaAI,
   startClaudeRound,
@@ -476,7 +487,7 @@ function getInitialJoinCode(): string | undefined {
 
 /** Cloud LLMs: token usage, cost and a model id exist. */
 function hasTokenAccounting(name: BriscolaOpponentName): boolean {
-  return name === 'gemini' || name === 'gemini-free' || name === 'openai' || name === 'claude';
+  return name === 'gemini' || name === 'gemini-free' || name === 'openai' || name === 'claude' || name === 'openrouter';
 }
 
 /** Any opponent with reasoning to show: the cloud LLMs and the on-device model. */
@@ -492,6 +503,7 @@ const BOT_LABELS: Record<BriscolaOpponentName, string> = {
   gemini: 'Gemini',
   openai: 'GPT',
   claude: 'Claude',
+  openrouter: 'OpenRouter',
   apple: 'Apple Intelligence',
 };
 
@@ -677,6 +689,9 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
   const [claudeModel, setClaudeModel] = useState<string>(
     settings.claudeModel || DEFAULT_CLAUDE_MODEL
   );
+  const [openrouterModel, setOpenRouterModel] = useState<string>(
+    settings.openrouterModel || DEFAULT_OPENROUTER_MODEL
+  );
   const [bestOf, setBestOf] = useState<number>(settings.defaultBestOf);
   // Game mode + watch-mode opponents. Both seats accept any opponent
   // (CPU or LLM) — same as Scopa. Burning LLM quota in watch mode is the
@@ -714,6 +729,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
   // so we don't immediately re-enter MP from it.
   const exitMultiplayer = useCallback(() => {
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     multiplayer.leaveRoom();
     setIsMultiplayerMode(false);
     setInitialJoinCode(undefined);
@@ -952,6 +968,12 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
           CPU_BOTS.heuristic
         );
       }
+      if (name === 'openrouter') {
+        return (
+          getOpenRouterBriscolaAI(openrouterModel, conversationMode, seat) ??
+          CPU_BOTS.heuristic
+        );
+      }
       if (name === 'claude') {
         return (
           getClaudeBriscolaAI(claudeModel, useThinking, conversationMode, seat) ??
@@ -963,7 +985,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       }
       return CPU_BOTS[name];
     },
-    [geminiModel, openaiModel, claudeModel, useThinking, conversationMode]
+    [geminiModel, openaiModel, openrouterModel, claudeModel, useThinking, conversationMode]
   );
 
   // Look up the current token stats for an opponent name (seat-aware so
@@ -991,6 +1013,12 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
           delta: getOpenAIBriscolaTokenDelta(openaiModel, conversationMode, seat),
         };
       }
+      if (name === 'openrouter') {
+        return {
+          stats: getOpenRouterBriscolaTokenStats(openrouterModel, conversationMode, seat),
+          delta: getOpenRouterBriscolaTokenDelta(openrouterModel, conversationMode, seat),
+        };
+      }
       if (name === 'claude') {
         return {
           stats: getClaudeBriscolaTokenStats(claudeModel, useThinking, conversationMode, seat),
@@ -999,7 +1027,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       }
       return { stats: null, delta: null };
     },
-    [geminiModel, openaiModel, claudeModel, useThinking, conversationMode]
+    [geminiModel, openaiModel, openrouterModel, claudeModel, useThinking, conversationMode]
   );
 
   // Resolve which bot drives a given player. Returns AnyAIPlayer because
@@ -1032,6 +1060,16 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
     [speed]
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // "Sign in with OpenRouter": on the callback page load the new key is
+  // stored like a pasted one and Settings opens to show it.
+  const openrouterLogin = useOpenRouterLogin({
+    onKey: (key, valid) => {
+      updateSetting('openrouterApiKey', key);
+      updateSetting('openrouterKeyValid', valid);
+    },
+    onConnected: () => setIsSettingsOpen(true),
+  });
   const [isStatsOpen, setIsStatsOpen] = useState(false);
   const [isRulesOpen, setIsRulesOpen] = useState(false);
   const [confirmNewGame, setConfirmNewGame] = useState(false);
@@ -1051,6 +1089,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
     if (inProgress) setConfirmNewGame(true);
     else {
       cancelOnDeviceRequests();
+      cancelOpenRouterRequests();
       dispatch({ type: 'RESET' });
     }
   }, [state]);
@@ -1060,12 +1099,13 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
     // A move the on-device model is still working on belongs to the game
     // being abandoned: stop the generation, not just ignore its reply.
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     dispatch({ type: 'RESET' });
   }, []);
 
   // Unmounting (the runtime game switch swaps this component out): nothing
   // will consume a pending on-device reply, so stop it here as well.
-  useEffect(() => () => cancelOnDeviceRequests(), []);
+  useEffect(() => () => { cancelOnDeviceRequests(); cancelOpenRouterRequests(); }, []);
 
   // ---- Runtime game switch (Briscola ⇄ Scopa) ----------------------------
   // Same leaving semantics as "New Game": a match in progress is abandoned
@@ -1074,6 +1114,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
   const performSwitchGame = useCallback((target: GameId) => {
     setConfirmSwitchGame(null);
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     if (!onSwitchGame) return;
     // Leaves the room (server notified, socket closed, stored session and
     // /join URL cleared) so nothing reconnects to it from the other game.
@@ -1104,6 +1145,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
     const target = gameFromRoomCode(code) ?? DEFAULT_GAME;
     if (inMultiplayer) exitMultiplayer();
     cancelOnDeviceRequests();
+    cancelOpenRouterRequests();
     if (state.status !== 'idle') dispatch({ type: 'RESET' });
     if (target !== 'briscola') {
       onSwitchGame?.(target, { joinCode: code });
@@ -1175,10 +1217,11 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       if (name === 'gemini') return geminiModel;
       if (name === 'openai') return openaiModel;
       if (name === 'claude') return claudeModel;
+      if (name === 'openrouter') return openrouterModel;
       if (name === 'gemini-free') return 'gemini-3-flash-preview';
       return undefined;
     },
-    [geminiModel, openaiModel, claudeModel]
+    [geminiModel, openaiModel, openrouterModel, claudeModel]
   );
 
   // Build the StatsModal opponent list from the stats store: always shows
@@ -1332,9 +1375,14 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       } else if (op === 'gemini') startGeminiRound(geminiModel, useThinking, conversationMode, seat);
       else if (op === 'openai') startOpenAIRound(openaiModel, conversationMode, seat);
       else if (op === 'claude') startClaudeRound(claudeModel, useThinking, conversationMode, seat);
+      else if (op === 'openrouter') {
+        // Game totals belong to one match: a new match starts them from zero
+        if (roundNumber === 1) startOpenRouterMatch(openrouterModel, conversationMode, seat);
+        startOpenRouterRound(openrouterModel, conversationMode, seat);
+      }
       else if (op === 'apple') startAppleBriscolaRound(seat);
     }
-  }, [state, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking, conversationMode]);
+  }, [state, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, openrouterModel, claudeModel, useThinking, conversationMode]);
 
   // Close out the LLM round when we hit roundEnd. (No-op for sync bots.)
   useEffect(() => {
@@ -1351,9 +1399,10 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       else if (op === 'gemini') endGeminiRound(geminiModel, useThinking, conversationMode, seat);
       else if (op === 'openai') endOpenAIRound(openaiModel, conversationMode, seat);
       else if (op === 'claude') endClaudeRound(claudeModel, useThinking, conversationMode, seat);
+      else if (op === 'openrouter') endOpenRouterRound(openrouterModel, conversationMode, seat);
       else if (op === 'apple') endAppleBriscolaRound(seat);
     }
-  }, [state.status, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, claudeModel, useThinking, conversationMode]);
+  }, [state.status, opponentName, gameMode, watchOpponents, geminiModel, openaiModel, openrouterModel, claudeModel, useThinking, conversationMode]);
 
   // CPU decision → CPU_START. Fires whenever the current player is bot-
   // controlled: always 'cpu' in Play mode, both 'human' and 'cpu' in Watch.
@@ -1419,6 +1468,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
             : opponentName;
         const reasoning = (bot as { lastReasoning?: string }).lastReasoning ?? '';
         const fallback = (bot as { lastMoveWasFallback?: boolean }).lastMoveWasFallback === true;
+        const servedModel = (bot as { lastServedModel?: string }).lastServedModel;
         const opp: PlayerId = current === 'human' ? 'cpu' : 'human';
         // For Briscola, the "table" at the moment of the play is just the
         // opponent's lead card (if the bot was following) or empty (if the
@@ -1445,6 +1495,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
             capturedCards,
             reasoning,
             fallback,
+            servedModel,
             player: current,
             aiName: bot.name || (seatOpponent ? BOT_LABELS[seatOpponent] : undefined),
             opponentHandCount: g.players[opp].hand.length,
@@ -1930,6 +1981,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
           onResetSettings={resetSettings}
           game="briscola"
           onSwitchGame={switchGameProp}
+          openrouterLogin={openrouterLogin}
         />
         {switchGameDialog}
         {inviteDialog}
@@ -2066,6 +2118,11 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
             setClaudeModel(m);
             updateSetting('claudeModel', m);
           }}
+          openrouterModel={openrouterModel}
+          onSetOpenRouterModel={(m) => {
+            setOpenRouterModel(m);
+            updateSetting('openrouterModel', m);
+          }}
           thinkingLevel={thinkingLevel}
           onCycleThinking={() =>
             setThinkingLevel((l) => (l === 'off' ? 'medium' : l === 'medium' ? 'high' : 'off'))
@@ -2106,6 +2163,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
           onResetSettings={resetSettings}
           game="briscola"
           onSwitchGame={switchGameProp}
+          openrouterLogin={openrouterLogin}
         />
         {switchGameDialog}
         {inviteDialog}
@@ -2197,6 +2255,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
         onResetSettings={resetSettings}
         game="briscola"
         onSwitchGame={switchGameProp}
+        openrouterLogin={openrouterLogin}
       />
       {switchGameDialog}
         {inviteDialog}
