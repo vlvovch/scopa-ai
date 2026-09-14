@@ -3,6 +3,14 @@
 
 import { useCallback, useRef, useEffect } from 'react';
 import { assetUrl } from '../assetUrl';
+import { IS_NATIVE_BUILD } from '../platform/native';
+
+// The packaged app cannot rely on an MP3 decoder in its web view (the iPad
+// build on a Mac has none), so its bundle carries the effects in the format
+// named by VITE_NATIVE_SOUND_FORMAT (WAV, or AAC in .m4a), converted at
+// build time (vite.config.ts nativeSounds). The website keeps the MP3s.
+const NATIVE_SOUND_EXT = (import.meta.env.VITE_NATIVE_SOUND_FORMAT as string | undefined) || 'wav';
+const soundFile = (mp3: string): string => assetUrl(IS_NATIVE_BUILD ? mp3.replace(/\.mp3$/, `.${NATIVE_SOUND_EXT}`) : mp3);
 
 // Sound types available in the game
 export type SoundType =
@@ -18,14 +26,14 @@ export type SoundType =
 // Sound file mapping with variants for variety
 // Use absolute paths to work correctly with SPA routing (e.g., /join/CODE paths)
 const SOUND_FILES: Record<SoundType, string[]> = {
-  deal: ['/sounds/card-fan-1.mp3'].map(assetUrl),
-  play: ['/sounds/card-place-1.mp3', '/sounds/card-place-2.mp3'].map(assetUrl),
-  capture: ['/sounds/card-shove-1.mp3', '/sounds/card-shove-2.mp3'].map(assetUrl),
-  slide: ['/sounds/card-slide-1.mp3', '/sounds/card-slide-2.mp3'].map(assetUrl),
-  scopa: ['/sounds/broom-sweep.mp3'].map(assetUrl),
-  setteBello: ['/sounds/chips-stack-4.mp3'].map(assetUrl),
-  victory: ['/sounds/chips-stack-1.mp3', '/sounds/chips-stack-4.mp3'].map(assetUrl),
-  coin: ['/sounds/coin-dropped-81172.mp3'].map(assetUrl),
+  deal: ['/sounds/card-fan-1.mp3'].map(soundFile),
+  play: ['/sounds/card-place-1.mp3', '/sounds/card-place-2.mp3'].map(soundFile),
+  capture: ['/sounds/card-shove-1.mp3', '/sounds/card-shove-2.mp3'].map(soundFile),
+  slide: ['/sounds/card-slide-1.mp3', '/sounds/card-slide-2.mp3'].map(soundFile),
+  scopa: ['/sounds/broom-sweep.mp3'].map(soundFile),
+  setteBello: ['/sounds/chips-stack-4.mp3'].map(soundFile),
+  victory: ['/sounds/chips-stack-1.mp3', '/sounds/chips-stack-4.mp3'].map(soundFile),
+  coin: ['/sounds/coin-dropped-81172.mp3'].map(soundFile),
 };
 
 // --- Web Audio API Singleton ---
@@ -102,7 +110,7 @@ async function resumeContext(): Promise<void> {
   const context = getAudioContext();
   if (context.state === 'suspended') {
     await context.resume().catch(err => {
-      console.debug('Failed to resume AudioContext:', err);
+      console.warn('[sound] Failed to resume AudioContext:', err);
     });
   }
 }
@@ -225,7 +233,7 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
       try {
         startBuffer(context, cached, activeSources.current);
       } catch (err) {
-        console.debug('Sound play failed:', err);
+        console.warn('[sound] play failed:', err);
       }
       return;
     }
@@ -245,7 +253,7 @@ export function useSound(options: UseSoundOptions = {}): UseSoundReturn {
         if (!mountedRef.current) return;
         startBuffer(context, buffer, activeSources.current);
       } catch (err) {
-        console.debug('Sound play failed:', err);
+        console.warn('[sound] play failed:', err);
       }
     })();
   }, [enabled]);

@@ -2,10 +2,11 @@
 import { defineConfig, configDefaults } from 'vitest/config'
 import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
-import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync, mkdirSync } from 'node:fs'
+import { execSync, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
+import { stripWebOnlyBlocks } from './scripts/build/webOnlyHtml'
 
 /**
  * Vite plugin: after the build is written to disk, copy every file in
@@ -34,6 +35,71 @@ function copyVariantAssets(game: string | undefined) {
 }
 
 /**
+ * Vite plugin (native builds only): the packaged app's web view cannot
+ * always decode MP3 through Web Audio (the iPad build running on a Mac has
+ * no MP3 decoder in its content process: "unable to find converter"), so
+ * the sound effects are converted from public/sounds/*.mp3 with macOS's
+ * afconvert after the bundle is written, to the format named by
+ * VITE_NATIVE_SOUND_FORMAT: 'wav' (22 kHz 16-bit PCM, about 0.7 MB, the
+ * only format that runtime decodes: AAC fails there exactly like MP3) or
+ * 'm4a' (AAC, about the size of the MP3s, for devices only). The
+ * website keeps the MP3s; src/hooks/useSound.ts asks for the same
+ * extension when built for the app. The MP3s are dropped from the bundle.
+ */
+const NATIVE_SOUND_FORMATS = {
+  m4a: { args: ['-f', 'm4af', '-d', 'aac', '-b', '64000'], label: 'AAC' },
+  wav: { args: ['-f', 'WAVE', '-d', 'LEI16@22050'], label: 'WAV' },
+} as const
+
+function nativeSounds(native: boolean, format: string | undefined) {
+  let outDir = 'dist'
+  return {
+    name: 'briscola-scopa:native-sounds',
+    configResolved(config: { build: { outDir: string } }) {
+      outDir = config.build.outDir
+    },
+    closeBundle() {
+      if (!native) return
+      const ext = (format ?? 'wav') as keyof typeof NATIVE_SOUND_FORMATS
+      const spec = NATIVE_SOUND_FORMATS[ext]
+      if (!spec) throw new Error(`native sounds: VITE_NATIVE_SOUND_FORMAT must be m4a or wav, got "${format}"`)
+      const srcDir = path.resolve('public/sounds')
+      const dstDir = path.join(outDir, 'sounds')
+      mkdirSync(dstDir, { recursive: true })
+      const mp3s = readdirSync(srcDir).filter((f) => f.endsWith('.mp3'))
+      for (const file of mp3s) {
+        const out = path.join(dstDir, file.replace(/\.mp3$/, `.${ext}`))
+        try {
+          execFileSync('afconvert', [...spec.args, path.join(srcDir, file), out], { stdio: 'pipe' })
+        } catch (err) {
+          throw new Error(`native sounds: afconvert failed for ${file} (macOS only): ${err instanceof Error ? err.message : String(err)}`)
+        }
+        const shippedMp3 = path.join(dstDir, file)
+        if (existsSync(shippedMp3)) unlinkSync(shippedMp3)
+      }
+      console.log(`native sounds: ${mp3s.length} effects converted to ${spec.label}`)
+    },
+  }
+}
+
+/**
+ * Vite plugin (native builds only): drop the parts of index.html that belong
+ * to the website — service-worker registration and its update/reload flow,
+ * the analytics loaders, the PWA install counter. They are fenced with
+ * `<!-- @web-only:start -->` … `<!-- @web-only:end -->` in index.html. The
+ * packaged app bundles everything locally and updates through the store,
+ * so a service worker would only add a second, stale copy of the assets.
+ */
+function stripWebOnlyHtml(native: boolean) {
+  return {
+    name: 'briscola-scopa:strip-web-only-html',
+    transformIndexHtml(html: string) {
+      return native ? stripWebOnlyBlocks(html) : html
+    },
+  }
+}
+
+/**
  * Vite plugin: after the build is written, replace the __TOKENS__ in
  * `<outDir>/sw.js` with the game name, icon, a build id, and the actual
  * content-hashed /assets/* file list. The service worker must precache
@@ -41,7 +107,7 @@ function copyVariantAssets(game: string | undefined) {
  * failure mode), and only the finished build knows their hashed names.
  * Throws if a token is missing so an unpatched sw.js can never ship.
  */
-function injectSwPrecache(game: string | undefined, iconPath: string | undefined, staticVer: string | undefined) {
+function injectSwPrecache(game: string | undefined, iconPath: string | undefined, staticVer: string | undefined, native = false) {
   let outDir = 'dist'
   return {
     name: 'briscola-scopa:inject-sw-precache',
@@ -49,6 +115,13 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
       outDir = config.build.outDir
     },
     closeBundle() {
+      if (native) {
+        // The packaged app registers no service worker (see stripWebOnlyHtml);
+        // don't ship one at all so it can never be picked up by accident.
+        const swPath = path.join(outDir, 'sw.js')
+        if (existsSync(swPath)) unlinkSync(swPath)
+        return
+      }
       if (!game) throw new Error('injectSwPrecache: VITE_GAME is not set')
       if (!iconPath) throw new Error('injectSwPrecache: VITE_ICON_PATH is not set')
       if (!staticVer) throw new Error('injectSwPrecache: VITE_STATIC_CACHE_VER is not set')
@@ -83,6 +156,8 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
+  // `vite build --mode ios` → the Capacitor-packaged app (see .env.ios).
+  const native = env.VITE_NATIVE === 'true'
   // Version shown in the start-screen footer so a device's running build
   // is verifiable at a glance: v1.<commit count> (date) — monotonic and
   // maintenance-free. The tooltip carries build time UTC + git commit.
@@ -99,7 +174,7 @@ export default defineConfig(({ mode }) => {
     __APP_VERSION__: JSON.stringify(`1.${commitCount} (${buildDate})`),
     __APP_BUILD_INFO__: JSON.stringify(`built ${buildDate} ${buildTime} UTC · ${gitVersion}`),
   },
-  plugins: [react(), copyVariantAssets(env.VITE_GAME), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER)],
+  plugins: [react(), stripWebOnlyHtml(native), copyVariantAssets(env.VITE_GAME), nativeSounds(native, env.VITE_NATIVE_SOUND_FORMAT), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER, native)],
   base: '/',  // Use absolute paths for SPA routing with /join/CODE paths
   resolve: {
     alias: {

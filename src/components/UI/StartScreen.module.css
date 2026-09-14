@@ -6,6 +6,8 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
+  padding-top: calc(var(--space-4) + var(--safe-top, 0px));
+  padding-bottom: calc(var(--space-4) + var(--safe-bottom, 0px));
 }
 
 /* Desktop-site-mode rescue: body is zoomed by --dmode-scale but vh is
@@ -816,6 +818,6 @@
    the container's padding shorthand and would override it otherwise. */
 @media (max-width: 600px) {
   .container {
-    padding-top: calc(var(--space-2) + 52px);
+    padding-top: calc(var(--space-2) + 52px + var(--safe-top, 0px));
   }
 }

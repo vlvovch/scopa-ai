@@ -30,16 +30,19 @@ scopa-ai/
 
 | Path | Purpose |
 |------|---------|
+| `src/platform/` | Native (Capacitor iOS) seam: `native.ts` build flag, `storage.ts` key/value facade (web = localStorage pass-through; native = Preferences/Filesystem/Keychain, hydrated before render), `links.ts` invite URLs + deep links, `bootstrap.ts` start-up, `buildInfo.ts` / `appleIntelligence.ts` plugin wrappers. Website bundles reach none of it |
+| `capacitor.config.ts`, `.env.ios`, `ios/` | The iOS app (`npm run ios:sync` / `ios:open`), see `docs/ios.md`; local Swift plugins in `ios/App/App/*Plugin.swift` (Keychain, build info, Apple Intelligence, keep-awake), registered in `MainViewController.swift` |
+| `src/analytics/` | `gate.ts` decides whether this copy may send analytics at all (production build + public host, or Release build on a real device; never dev, `vite preview`, LAN, native Debug, Simulator), `loader.ts` adds the Swetrix tag at runtime after that decision (the native app reports to the Scopa project, events carry the game), `events.ts` the gameplay events. Verification uses a separate test project: `docs/analytics.md` |
 | `src/App.tsx` | Root shell: resolves which game to mount (invite > URL > remembered choice > build default), lazy-loads the other game, load-failure fallback |
 | `src/games/gameSelection.ts` | Game ids, route resolution, remembered selection (`selected-game`), per-game home paths |
 | `src/games/gameLoaders.ts` | Dynamic imports for both game apps (the code-splitting seam) + `GameAppProps` |
 | `src/components/UI/GameSwitcher.tsx` | The Scopa / Briscola segmented control (start screens + Settings) |
 | `src/games/scopa/ScopaApp.tsx` | Scopa game component (state machine, UI orchestration) |
 | `src/games/scopa/rules.ts` / `scoring.ts` / `reducer.ts` | Scopa game logic |
-| `src/games/scopa/ai/` | Scopa AI bots (random, heuristic, ismcts, gemini/openai/claude + single-turn variants, gemini-free) |
+| `src/games/scopa/ai/` | Scopa AI bots (random, heuristic, ismcts, gemini/openai/claude + single-turn variants, gemini-free, apple = the on-device model of the iOS app via `src/ai/onDeviceModel.ts`) |
 | `src/games/briscola/BriscolaApp.tsx` | Briscola game component |
 | `src/games/briscola/rules.ts` / `scoring.ts` | Briscola game logic |
-| `src/games/briscola/ai/` | Briscola AI bots (random, heuristic, expert, gemini, openai, claude, gemini-free) |
+| `src/games/briscola/ai/` | Briscola AI bots (random, heuristic, expert, gemini, openai, claude, gemini-free, apple = on-device, iOS app) |
 | `src/ai/` | Shared LLM utilities — Seat type, TokenTracker, GeminiTokenStats canonical shape, MOVE_JSON_SCHEMA, thinking-level registry (`effort.ts`), API-key cache registry (`apiKeyCaches.ts`), and the per-provider plumbing (`claudeProvider.ts` / `geminiProvider.ts` / `openaiProvider.ts`: key availability, cached model lists, Claude thinking-mode gating) |
 | `src/hooks/useMultiplayer.ts` | WebSocket multiplayer hook (Scopa-only currently) |
 | `scopa-server/src/` | Multiplayer server code |
@@ -57,6 +60,10 @@ npm run build              # Production build to dist/
 npm run dev:briscola       # Dev server, Briscola mode
 npm run build:briscola     # Production build to dist-briscola/
 npm run preview:briscola   # Preview Briscola build
+
+# iOS app (Capacitor) — see docs/ios.md
+npm run ios:sync           # build the native web bundle (dist-ios) and sync into ios/
+npm run ios:open           # open in Xcode
 
 # Tests / lint (cover both games)
 npm test                   # Run all vitest tests
@@ -93,4 +100,6 @@ npm start                  # Runs on port 8080
 1. **Static-first**: Frontend works without backend (except multiplayer)
 2. **Per-game build artifacts**: Each game (Scopa, Briscola) ships as its own static bundle selected via Vite mode at build time; the other game is code-split into a lazy chunk (its app is imported statically only through the `@default-game` alias in `vite.config.ts` — never import a game app statically from shared code, or Rollup hoists its dependencies into the main chunk). Both builds need both multiplayer URLs (`VITE_WS_URL`, `VITE_BRISCOLA_WS_URL`)
 3. **User-provided API keys**: Stored in localStorage, calls go directly to LLM providers (free Gemini tier uses a Cloudflare Worker proxy with daily rate limiting)
-4. **Shared infrastructure, game-specific logic**: `src/ai/`, `src/components/`, `src/hooks/` are shared; game rules / prompts / bots live under `src/games/<game>/`. A game's `ai/` modules must never import runtime values from the other game's `ai/` (type-only imports are fine): provider-wide code belongs in `src/ai/*Provider.ts`. A cross-game runtime import re-attaches that game's bot code to the main chunk of the build where it should be lazy (verify with a `--sourcemap` build: the main chunk's `sources` must contain no `src/games/<other game>/ai/` modules)
+4. **One storage seam**: all persistence goes through `src/platform/storage.ts` (never `localStorage` directly) so the iOS app can persist natively while the website keeps its keys and data
+5. **Analytics only through the gate**: Swetrix is the only analytics provider; no tag in `index.html`; `src/analytics/loader.ts` loads it only where `src/analytics/gate.ts` allows it, and verification never uses the production project (`docs/analytics.md`)
+6. **Shared infrastructure, game-specific logic**: `src/ai/`, `src/components/`, `src/hooks/` are shared; game rules / prompts / bots live under `src/games/<game>/`. A game's `ai/` modules must never import runtime values from the other game's `ai/` (type-only imports are fine): provider-wide code belongs in `src/ai/*Provider.ts`. A cross-game runtime import re-attaches that game's bot code to the main chunk of the build where it should be lazy (verify with a `--sourcemap` build: the main chunk's `sources` must contain no `src/games/<other game>/ai/` modules)

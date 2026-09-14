@@ -8,6 +8,8 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
+  padding-top: calc(var(--space-4) + var(--safe-top, 0px));
+  padding-bottom: calc(var(--space-4) + var(--safe-bottom, 0px));
 }
 
 :global(html.dmode) .screen {
@@ -128,7 +130,7 @@
 @media (max-width: 600px) {
   .screen {
     /* keep the card's top clear of the fixed language toggle */
-    padding: calc(var(--space-2) + 52px) var(--space-2) var(--space-2);
+    padding: calc(var(--space-2) + 52px + var(--safe-top, 0px)) var(--space-2) calc(var(--space-2) + var(--safe-bottom, 0px));
   }
 
   .card {

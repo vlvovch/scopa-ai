@@ -9,6 +9,7 @@
 import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { en, type Translation } from './en';
 import { it } from './it';
+import { storage } from '../platform/storage';
 
 export type Language = 'en' | 'it';
 
@@ -18,7 +19,7 @@ const DICTIONARIES: Record<Language, Translation> = { en, it };
 
 export function detectLanguage(): Language {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = storage.get(STORAGE_KEY);
     if (stored === 'en' || stored === 'it') return stored;
   } catch {
     // localStorage unavailable (private mode) — fall through to locale
@@ -52,7 +53,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, language);
+      storage.set(STORAGE_KEY, language);
     } catch {
       // best effort — private mode keeps the in-session choice only
     }

@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { CpuBotName, BriscolaOpponentName } from '../StartScreen';
+import { storage } from '../../../platform/storage';
 
 /** One finished match (best-of-N round wins ⇒ a single MatchRecord) */
 export interface MatchRecord {
@@ -98,7 +99,7 @@ function migrate(raw: unknown): MatchRecord[] {
 
 function load(): StatsStore {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = storage.get(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
@@ -114,7 +115,7 @@ function load(): StatsStore {
 
 function save(s: StatsStore): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    storage.set(STORAGE_KEY, JSON.stringify(s));
   } catch (e) {
     console.warn('Failed to save Briscola stats:', e);
   }

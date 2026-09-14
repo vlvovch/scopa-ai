@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ExtendedAIType } from '../games/scopa/ai';
+import { storage } from '../platform/storage';
 
 export type DeckType = 'napoletane' | 'siciliane' | 'sarde' | 'piacentine' | 'bergamasche' | 'romagnole';
 export type TableStyle = 'green' | 'tablecloth';
@@ -118,7 +119,7 @@ const DEFAULT_SETTINGS: GameSettings = {
 
 function loadSettings(): GameSettings {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = storage.get(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       const merged = { ...DEFAULT_SETTINGS, ...parsed };
@@ -208,7 +209,7 @@ export function isClaudeKeyValid(): boolean {
 
 function saveSettings(settings: GameSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    storage.set(STORAGE_KEY, JSON.stringify(settings));
   } catch (e) {
     console.warn('Failed to save settings to localStorage:', e);
   }

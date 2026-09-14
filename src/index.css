@@ -79,6 +79,25 @@ html {
   font-size: calc(16px * var(--font-scale, 1));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Safe-area insets, 0 on the website. The packaged iOS app (html.native,
+     set by src/platform/bootstrap.ts) draws edge to edge under the status
+     bar and home indicator, so layouts add these to their own padding. */
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+}
+
+html.native {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* App-like touch feel: no grey tap flash, no long-press callouts. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html.native body {
+  /* The web view is not zoomable and never shows browser chrome. */
+  overscroll-behavior: none;
 }
 
 body {

@@ -47,7 +47,7 @@ export function GameChooser({ defaultGame, onChoose }: GameChooserProps) {
               <span className={styles.body}>
                 <span className={styles.name}>{GAME_NAMES[id]}</span>
                 <span className={styles.tagline}>
-                  {id === 'scopa' ? t.start.scopaSubtitle : t.start.briscolaSubtitle}
+                  {id === 'scopa' ? t.common.chooserScopaTagline : t.start.briscolaSubtitle}
                 </span>
                 <span className={styles.cta}>{t.common.playGame(GAME_NAMES[id])}</span>
               </span>

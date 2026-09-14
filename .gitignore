@@ -11,6 +11,7 @@ dist-ssr
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+scripts/build/*.d.ts
 
 # Environment variables
 .env
@@ -47,3 +48,16 @@ local/
 
 # Android build
 android-twa/
+
+# Native (Capacitor) web bundle
+dist-ios
+
+# Capacitor iOS build products (the ios/ project itself is committed)
+ios/build
+ios/build-release
+ios/App/App/public
+ios/App/App/capacitor.config.json
+ios/DerivedData
+
+# Your Apple team id for device builds (see ios/Signing.xcconfig)
+ios/Signing.local.xcconfig

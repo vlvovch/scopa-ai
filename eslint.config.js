@@ -7,7 +7,9 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
   // .claude/worktrees are agent scratch checkouts and shouldn't be linted
   // (they'd be double-linted against the main checkout).
-  { ignores: ['dist', 'scopa-server', 'briscola-server', '.claude'] },
+  // Build outputs and the native projects (the iOS app embeds a copy of the
+  // built bundle under ios/App/App/public) are never linted.
+  { ignores: ['dist', 'dist-*', 'ios', 'scopa-server', 'briscola-server', '.claude'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

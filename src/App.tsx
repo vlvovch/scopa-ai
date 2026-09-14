@@ -20,7 +20,7 @@ import {
   GameLoadingScreen,
 } from './components/UI/GameLoader';
 import { GameChooser } from './components/UI/GameChooser';
-import { trackGameChosen, trackGameSwitched } from './analytics';
+import { trackGameChosen, trackGameSwitched } from './analytics/events';
 import { LanguageProvider } from './i18n/LanguageContext';
 
 /**
@@ -100,17 +100,35 @@ function App() {
    * load-failure fallback: opening the default game because the other
    * one could not be fetched must not overwrite the user's preference.
    */
-  const switchGame = useCallback((target: GameId, options: { remember?: boolean } = {}) => {
-    const from = gameRef.current;
-    if (from === target) return;
-    if (options.remember !== false) saveGamePreference(target);
-    const homePath = gameHomePath(target);
-    if (window.location.pathname !== homePath || window.location.search) {
-      window.history.replaceState({}, '', homePath);
-    }
-    trackGameSwitched({ from, to: target });
-    setRoute({ game: target, source: 'switch' });
+  const switchGame = useCallback(
+    (target: GameId, options: { remember?: boolean; joinCode?: string } = {}) => {
+      const from = gameRef.current;
+      if (from === target) return;
+      if (options.remember !== false) saveGamePreference(target);
+      // With a join code the other game mounts into its join lobby: its
+      // getInitialJoinCode reads the URL exactly as for an invite link.
+      const nextPath = options.joinCode ? `/join/${options.joinCode}` : gameHomePath(target);
+      if (window.location.pathname !== nextPath || window.location.search) {
+        window.history.replaceState({}, '', nextPath);
+      }
+      trackGameSwitched({ from, to: target });
+      setRoute({ game: target, source: 'switch' });
+    },
+    []
+  );
+
+  // Invitations that arrive while the app is running (native universal
+  // links / custom scheme; src/platform/bootstrap.ts dispatches them).
+  const [pendingInvite, setPendingInvite] = useState<string | null>(null);
+  useEffect(() => {
+    const onInvite = (event: Event) => {
+      const code = (event as CustomEvent<{ joinCode: string }>).detail?.joinCode;
+      if (code) setPendingInvite(code);
+    };
+    window.addEventListener('app-invite', onInvite);
+    return () => window.removeEventListener('app-invite', onInvite);
   }, []);
+  const onInviteHandled = useCallback(() => setPendingInvite(null), []);
 
   // The tab / window title names the game on screen; the deployment's own
   // title (index.html, e.g. "Scopa AI") is restored for its default game.
@@ -145,7 +163,12 @@ function App() {
           )}
         >
           <Suspense fallback={<GameLoadingScreen game={game} />}>
-            <CurrentGame key={game} onSwitchGame={onSwitchGame} />
+            <CurrentGame
+              key={game}
+              onSwitchGame={onSwitchGame}
+              pendingInvite={pendingInvite}
+              onInviteHandled={onInviteHandled}
+            />
           </Suspense>
         </GameLoadBoundary>
       </MotionConfig>

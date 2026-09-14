@@ -323,8 +323,6 @@ sudo systemctl restart caddy
 | `VITE_WS_URL` | Scopa WebSocket server URL — needed by **both** builds (falls back to `ws://localhost:8080` if unset). Absolute `wss://…` URL, or a same-origin path such as `/ws-scopa` | `wss://your-domain.com/ws` |
 | `VITE_BRISCOLA_WS_URL` | Briscola WebSocket server URL — needed by **both** builds (falls back to `ws://localhost:8081` if unset). Absolute `wss://…` URL, or a same-origin path such as `/ws-briscola` | `wss://briscola.your-domain.com/ws` |
 | `VITE_PROXY_URL` | AI proxy server URL | `https://your-domain.com` |
-| `VITE_UMAMI_SCRIPT_URL` | Umami script URL (optional) | `https://analytics.example.com/script.js` |
-| `VITE_UMAMI_WEBSITE_ID` | Umami website ID (optional) | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 
 ### WebSocket Server (runtime)
 

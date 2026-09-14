@@ -1,0 +1,13 @@
+// Distribution identity for the iOS app. Edit here or override per build:
+//   xcodebuild ... DEVELOPMENT_TEAM=ABCDE12345 PRODUCT_BUNDLE_IDENTIFIER=com.example.app
+// Simulator builds need no team. For device builds put your team in
+// ios/Signing.local.xcconfig (git-ignored, included at the end of this
+// file), so the project file never carries a personal identity.
+// See docs/ios.md.
+PRODUCT_BUNDLE_IDENTIFIER = net.vovchenko.scopaai
+DEVELOPMENT_TEAM =
+CODE_SIGN_STYLE = Automatic
+MARKETING_VERSION = 1.0
+CURRENT_PROJECT_VERSION = 1
+
+#include? "Signing.local.xcconfig"

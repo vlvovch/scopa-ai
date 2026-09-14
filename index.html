@@ -124,13 +124,12 @@
   <link rel="manifest" href="/manifest.json" />
   <title>%VITE_APP_NAME%</title>
 
-  <!-- Umami, Plausible -->
-  <script defer src="%VITE_UMAMI_SCRIPT_URL%" data-website-id="%VITE_UMAMI_WEBSITE_ID%"></script>
-  <script async src="%VITE_PLAUSIBLE_SCRIPT_URL%"></script>
-  <script>
-    window.plausible = window.plausible || function () { (plausible.q = plausible.q || []).push(arguments) }, plausible.init = plausible.init || function (i) { plausible.o = i || {} };
-    plausible.init()
-  </script>
+  <!-- No analytics tag here: src/analytics/loader.ts adds the Swetrix
+       script at runtime, and only where the gate in src/analytics/gate.ts
+       allows it (production builds on public hosts, Release builds on
+       real devices). The dev server, vite preview, LAN or *.test hosts,
+       native Debug builds and the iOS Simulator load no tag and send no
+       request. -->
 
 </head>
 
@@ -138,28 +137,7 @@
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 
-  <!-- Swetrix -->
-  <script src="%VITE_SWETRIX_SCRIPT_URL%" defer></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // The loader above comes from an external CDN and never arrives on
-      // an offline (airplane-mode) launch — don't throw in that case.
-      if (typeof swetrix === 'undefined') return
-      // Exclude development/testing traffic: only production hostnames
-      // report analytics (localhost dev servers, *.test Playwright runs).
-      var h = location.hostname
-      if (h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost') ||
-          h.endsWith('.test') || h.endsWith('.local')) return
-      swetrix.init('%VITE_SWETRIX_PROJECT_ID%', {
-        apiURL: '%VITE_SWETRIX_API_URL%',
-        respectDNT: true,
-      })
-      swetrix.trackViews()
-      // Gate for in-app gameplay events (src/analytics.ts).
-      window.__swetrixReady = true
-    })
-  </script>
-
+  <!-- @web-only:start -->
   <!-- Register Service Worker for offline support.
        Skip in Vite dev (localhost): the SW's /index.html fallback
        intercepts module-script requests (returning HTML for .tsx →
@@ -215,19 +193,13 @@
       });
     }
 
-    // PWA installation counter
+    // PWA installation counter (the tag exists only where the analytics
+    // gate loaded it, see src/analytics/loader.ts)
     window.addEventListener('appinstalled', () => {
-      if (window.umami?.track) window.umami.track('pwa_install');
-      if (window.plausible) window.plausible('pwa_install');
       if (window.swetrix?.track) window.swetrix.track({ ev: 'pwa_install' });
     });
   </script>
-
-  <!-- Swetrix noscript fallback -->
-  <noscript>
-    <img src="%VITE_SWETRIX_API_URL%/noscript?pid=%VITE_SWETRIX_PROJECT_ID%" alt=""
-      referrerpolicy="no-referrer-when-downgrade" />
-  </noscript>
+  <!-- @web-only:end -->
 
 </body>
 

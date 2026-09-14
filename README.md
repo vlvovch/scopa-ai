@@ -94,6 +94,8 @@ Play against friends online via WebSocket server:
 
 The Briscola build reuses the same game-mode menu, settings, multiplayer, watch mode, and LLM opponents as Scopa, with game-specific rules, prompts, and an Esperto bot tuned for trick-taking (determinization + alpha-beta minimax). Play at **[playbriscola.com](https://playbriscola.com)** or run locally with `npm run dev:briscola`.
 
+An iOS app (Capacitor) packages both games with all assets bundled for offline play; see `docs/ios.md`.
+
 Both games are also available from either site: a compact **Scopa / Briscola**
 selector on the start screen (and in Settings, mid-game) switches at runtime.
 Each site still opens its own game by default; a manual choice is remembered on

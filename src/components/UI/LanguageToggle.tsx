@@ -18,7 +18,7 @@ export function LanguageToggle() {
       aria-label="Language / Lingua"
       style={{
         position: 'fixed',
-        top: '0.75rem',
+        top: 'calc(0.75rem + var(--safe-top, 0px))',
         right: '0.75rem',
         zIndex: 50,
         display: 'flex',

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { ExtendedAIType } from '../games/scopa/ai';
+import { storage } from '../platform/storage';
 
 /** Record of a single game played */
 export interface GameRecord {
@@ -67,7 +68,7 @@ function generateGameId(): string {
 /** Load stats from localStorage */
 function loadStats(): GameStats {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = storage.get(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
@@ -84,7 +85,7 @@ function loadStats(): GameStats {
 /** Save stats to localStorage */
 function saveStats(stats: GameStats): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    storage.set(STORAGE_KEY, JSON.stringify(stats));
   } catch (e) {
     console.warn('Failed to save game stats to localStorage:', e);
   }

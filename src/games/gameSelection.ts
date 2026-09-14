@@ -19,6 +19,8 @@
 //      its own preference).
 //   4. The deployment's build-time default.
 
+import { storage } from '../platform/storage';
+
 export type GameId = 'scopa' | 'briscola';
 
 export const GAME_IDS: readonly GameId[] = ['scopa', 'briscola'];
@@ -58,7 +60,7 @@ export function otherGame(game: GameId): GameId {
 
 export function loadGamePreference(): GameId | null {
   try {
-    const stored = localStorage.getItem(GAME_PREFERENCE_KEY);
+    const stored = storage.get(GAME_PREFERENCE_KEY);
     return isGameId(stored) ? stored : null;
   } catch {
     return null; // localStorage unavailable (private mode) — fall through
@@ -67,7 +69,7 @@ export function loadGamePreference(): GameId | null {
 
 export function saveGamePreference(game: GameId): void {
   try {
-    localStorage.setItem(GAME_PREFERENCE_KEY, game);
+    storage.set(GAME_PREFERENCE_KEY, game);
   } catch {
     // best effort — the in-session choice still applies
   }
@@ -94,7 +96,7 @@ const SHARED_USE_KEYS = ['mp-nickname'];
 const PRIOR_USE_KEYS = [...GAME_USE_KEYS.scopa, ...GAME_USE_KEYS.briscola, ...SHARED_USE_KEYS];
 
 function hasAnyKey(keys: string[]): boolean {
-  return keys.some((key) => localStorage.getItem(key) !== null);
+  return keys.some((key) => storage.get(key) !== null);
 }
 
 /**
@@ -114,8 +116,8 @@ export const OTHER_GAME_ANNOUNCED_KEY = 'other-game-announced';
 export function shouldAnnounceOtherGame(): boolean {
   if (!GAME_SWITCH_ENABLED) return false;
   try {
-    if (localStorage.getItem(GAME_PREFERENCE_KEY) !== null) return false;
-    if (localStorage.getItem(OTHER_GAME_ANNOUNCED_KEY) !== null) return false;
+    if (storage.get(GAME_PREFERENCE_KEY) !== null) return false;
+    if (storage.get(OTHER_GAME_ANNOUNCED_KEY) !== null) return false;
     if (hasAnyKey(GAME_USE_KEYS[otherGame(DEFAULT_GAME)])) return false;
     return hasAnyKey(GAME_USE_KEYS[DEFAULT_GAME]) || hasAnyKey(SHARED_USE_KEYS);
   } catch {
@@ -125,7 +127,7 @@ export function shouldAnnounceOtherGame(): boolean {
 
 export function markOtherGameAnnounced(): void {
   try {
-    localStorage.setItem(OTHER_GAME_ANNOUNCED_KEY, '1');
+    storage.set(OTHER_GAME_ANNOUNCED_KEY, '1');
   } catch {
     // best effort
   }
@@ -139,7 +141,7 @@ export function markOtherGameAnnounced(): void {
  */
 export function isFirstVisit(): boolean {
   try {
-    if (localStorage.getItem(GAME_PREFERENCE_KEY) !== null) return false;
+    if (storage.get(GAME_PREFERENCE_KEY) !== null) return false;
     return !hasAnyKey(PRIOR_USE_KEYS);
   } catch {
     return false; // storage unavailable: never gate the game behind a chooser

@@ -4,6 +4,7 @@ import { useReducer, useCallback, useEffect } from 'react';
 import type { Move, GameMode, GameState } from '../types';
 import { gameReducer, createInitialState } from '../reducer';
 import { DEFAULT_TARGET_SCORE } from '../constants';
+import { storage } from '../../../platform/storage';
 
 const STORAGE_KEY = 'scopa-game-state';
 
@@ -12,7 +13,7 @@ const STORAGE_KEY = 'scopa-game-state';
  */
 function loadPersistedState(): GameState | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = storage.get(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       // Basic validation - ensure it has required fields
@@ -33,10 +34,10 @@ function persistState(state: GameState): void {
   try {
     // Only persist if game is in progress (not idle)
     if (state.status !== 'idle') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      storage.set(STORAGE_KEY, JSON.stringify(state));
     } else {
       // Clear persisted state when game is reset
-      localStorage.removeItem(STORAGE_KEY);
+      storage.remove(STORAGE_KEY);
     }
   } catch (e) {
     console.warn('Failed to persist game state:', e);
@@ -47,7 +48,7 @@ function persistState(state: GameState): void {
  * Clear persisted game state
  */
 export function clearPersistedGame(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  storage.remove(STORAGE_KEY);
 }
 
 /**

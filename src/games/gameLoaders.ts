@@ -15,9 +15,19 @@ export interface GameAppProps {
    * Switch to the other game. Undefined when switching is unavailable
    * (itch.io single-game embeds) — the apps then hide the switcher.
    * The app must leave / confirm-leave whatever is in progress itself
-   * before calling this; App.tsx only swaps the mounted game.
+   * before calling this; App.tsx only swaps the mounted game. With
+   * `joinCode`, the other game mounts straight into its join lobby
+   * (an invitation for it arrived while this game was on screen).
    */
-  onSwitchGame?: (target: GameId) => void;
+  onSwitchGame?: (target: GameId, options?: { joinCode?: string }) => void;
+  /**
+   * An invitation received while the app is running (native deep link).
+   * The app on screen decides how to honour it — immediately when idle,
+   * after the leave-game confirmation when a match or room is in
+   * progress — and calls onInviteHandled once consumed or declined.
+   */
+  pendingInvite?: string | null;
+  onInviteHandled?: () => void;
 }
 
 type GameAppModule = { default: ComponentType<GameAppProps> };
