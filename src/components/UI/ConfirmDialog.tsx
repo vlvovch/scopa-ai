@@ -37,7 +37,11 @@ export function ConfirmDialog({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 160,
+        // Topmost: a confirmation must be answerable over every overlay
+        // (round-end cards, opponent-disconnected, capture choice and
+        // reasoning modals all sit at 1000), or an invitation / switch
+        // prompt arriving during one of them could not be answered.
+        zIndex: 1100,
       }}
       onClick={onCancel}
     >

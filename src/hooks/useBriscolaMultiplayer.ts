@@ -13,6 +13,7 @@ import type {
   RoundScore,
 } from '../games/briscola/multiplayer/types';
 import { resolveWsUrl } from '../multiplayer/wsUrl';
+import { storage } from '../platform/storage';
 
 // Configuration
 // Briscola server. Both games ship in one bundle, so every build carries both
@@ -178,7 +179,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
   const saveSession = useCallback((session: MultiplayerSession) => {
     sessionRef.current = session;
     try {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      storage.set(SESSION_STORAGE_KEY, JSON.stringify(session));
     } catch {
       // localStorage not available
     }
@@ -186,7 +187,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
 
   const loadSession = useCallback((): MultiplayerSession | null => {
     try {
-      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      const stored = storage.get(SESSION_STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
@@ -199,7 +200,7 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
   const clearSession = useCallback(() => {
     sessionRef.current = null;
     try {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
+      storage.remove(SESSION_STORAGE_KEY);
     } catch {
       // localStorage not available
     }
@@ -737,6 +738,14 @@ export function useBriscolaMultiplayer(): UseBriscolaMultiplayerReturn {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
+
+    // A reconnect still pending is abandoned together with the room.
+    // Without this the flag outlives the room and the "Reconnecting…"
+    // screen keeps winning over the lobby the next time multiplayer is
+    // entered (Leave Game then Multiplayer, or joining an invitation
+    // from the reconnecting screen).
+    reconnectPendingRef.current = false;
+    setIsReconnecting(false);
 
     // Reset all state
     setRoomCode(null);

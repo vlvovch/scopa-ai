@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './MultiplayerLobby.module.css';
+import { storage } from '../../platform/storage';
 
 // Structurally identical to the per-game ConnectionStatus union; inlined
 // so the shared component doesn't import from one game's types module.
@@ -74,7 +75,7 @@ interface MultiplayerLobbyProps {
 
 function loadSavedNickname(): string {
   try {
-    const saved = localStorage.getItem(NICKNAME_STORAGE_KEY);
+    const saved = storage.get(NICKNAME_STORAGE_KEY);
     if (saved) return saved;
   } catch {
     // localStorage not available
@@ -84,7 +85,7 @@ function loadSavedNickname(): string {
 
 function saveNickname(nickname: string) {
   try {
-    localStorage.setItem(NICKNAME_STORAGE_KEY, nickname);
+    storage.set(NICKNAME_STORAGE_KEY, nickname);
   } catch {
     // localStorage not available
   }

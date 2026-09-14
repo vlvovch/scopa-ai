@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './WaitingForOpponent.module.css';
+import { inviteUrl } from '../../platform/links';
 
 interface WaitingForOpponentProps {
   roomCode: string;
@@ -26,8 +27,9 @@ export function WaitingForOpponent({
   const [editedNickname, setEditedNickname] = useState(nickname);
   const [copied, setCopied] = useState(false);
 
-  // Generate the share URL
-  const shareUrl = `${window.location.origin}/join/${roomCode}`;
+  // Generate the share URL (the page origin on the website; the game's
+  // public domain inside the packaged app — see src/platform/links.ts)
+  const shareUrl = inviteUrl(roomCode);
 
   const handleCopyCode = useCallback(async () => {
     try {
