@@ -24,6 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "simulate": "tsx scripts/simulate.ts",
+    "bench:decisions": "tsx scripts/decision-bench.ts",
     "ios:install": "xcrun simctl install booted ios/build/Build/Products/Debug-iphonesimulator/App.app && xcrun simctl launch --console-pty booted net.vvlabs.scopa"
   },
   "dependencies": {

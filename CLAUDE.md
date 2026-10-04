@@ -23,7 +23,7 @@ scopa-ai/
 │   └── platform/           # Native (iOS app) seam: storage, links, start-up, plugin wrappers
 ├── scopa-server/           # WebSocket multiplayer server (Node.js)
 ├── public/                 # Static assets (cards, sounds, icons)
-├── scripts/                # CLI sim tools (simulate.ts for Scopa, briscola-sim.ts)
+├── scripts/                # CLI sim tools (simulate.ts for Scopa, briscola-sim.ts, decision-bench.ts: docs/decision-models.md)
 └── docs/                   # Design documentation
 ```
 
