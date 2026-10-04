@@ -34,9 +34,9 @@
 </head>
 <body>
   <h1>Privacy Policy</h1>
-  <p class="updated">Last updated: August 22, 2026</p>
+  <p class="updated">Last updated: September 15, 2026</p>
 
-  <p>Scopa AI ("the App") is a web-based card game developed by Volodymyr Vovchenko. This Privacy Policy explains how we handle your information when you use our App.</p>
+  <p>Scopa AI ("the App") is a card game developed by VV Labs LLC. This Privacy Policy explains how we handle your information when you use our App.</p>
 
   <h2>Information We Do Not Collect</h2>
   <p>We do not collect, store, or transmit any personal information to our servers. The App operates primarily on your device with no account registration or login required.</p>
@@ -46,20 +46,23 @@
   <ul>
     <li><strong>Game settings</strong> - Your preferences such as sound settings, card deck theme, and game options</li>
     <li><strong>Game statistics</strong> - Your win/loss record and gameplay history</li>
-    <li><strong>API keys</strong> - If you choose to use AI opponents, your API keys for third-party AI services (Google Gemini, OpenAI, Anthropic Claude) are stored locally on your device</li>
+    <li><strong>API keys</strong> - If you choose to use AI opponents, your API keys for third-party AI services (Google Gemini, OpenAI, Anthropic Claude, OpenRouter) are stored locally on your device (in the Keychain on iPhone and iPad)</li>
+    <li><strong>AI data notice</strong> - Whether you allowed games against AI opponents, and when</li>
   </ul>
   <p>This data never leaves your device and is not accessible to us.</p>
 
   <h2>Third-Party AI Services</h2>
-  <p>The App offers optional AI opponents powered by third-party services. If you choose to use these features, you must provide your own API keys. When you play against AI opponents:</p>
+  <p>The App offers optional AI opponents powered by third-party services. Before your first game against such an opponent, the App shows a notice describing what is sent and asks for your permission; you can review the notice again in the App's settings. When you play against AI opponents:</p>
   <ul>
-    <li>Game state information is sent directly from your device to the AI provider you selected</li>
-    <li>We do not have access to your API keys or the data exchanged with these services</li>
+    <li>Only the current game is sent: the cards on the table and in the AI's hand, the scores and the moves. No other data is sent</li>
+    <li><strong>Free AI</strong> - The game is sent to our own server, which forwards it to Google Gemini under our API key. Google does not see your device. Our server sees your network address only to apply its daily limit of free games, keeps that count in memory until the next day, and stores nothing else</li>
+    <li><strong>Your own API key</strong> - The game is sent directly from your device to the provider you selected (Google Gemini, OpenAI, Anthropic Claude or OpenRouter), which can see your device's network address. We do not have access to your API keys or the data exchanged with these services</li>
     <li>Your use of these services is subject to their respective privacy policies:
       <ul>
         <li><a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a> (for Gemini)</li>
         <li><a href="https://openai.com/privacy" target="_blank">OpenAI Privacy Policy</a></li>
         <li><a href="https://www.anthropic.com/privacy" target="_blank">Anthropic Privacy Policy</a></li>
+        <li><a href="https://openrouter.ai/privacy" target="_blank">OpenRouter Privacy Policy</a></li>
       </ul>
     </li>
   </ul>

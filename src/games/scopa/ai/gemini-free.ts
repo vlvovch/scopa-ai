@@ -4,7 +4,7 @@
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import type { GeminiTokenStats, GeminiTokenDelta } from './gemini';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { systemInstruction, buildTurnPrompt } from './prompts';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
@@ -18,16 +18,30 @@ interface ContentEntry {
   parts: Array<{ text: string }>;
 }
 
+/** The scope of a refused game: the player's own allowance, or the shared daily cap. */
+export type RateLimitScope = 'user' | 'global';
+
 /** Error thrown when rate limit is exceeded */
 export class RateLimitError extends Error {
   gamesUsed: number;
   gamesLimit: number;
-  constructor(gamesUsed: number, gamesLimit: number) {
-    super(`Daily game limit reached (${gamesUsed}/${gamesLimit}). Add your own API key in Settings for unlimited games.`);
+  scope: RateLimitScope;
+  constructor(gamesUsed: number, gamesLimit: number, scope: RateLimitScope = 'user') {
+    super(
+      scope === 'global'
+        ? "The no-key AI has reached today's limit for all players. Try again tomorrow, or add your own API key in Settings for unlimited games."
+        : `Daily game limit reached (${gamesUsed}/${gamesLimit}). Add your own API key in Settings for unlimited games.`
+    );
     this.name = 'RateLimitError';
     this.gamesUsed = gamesUsed;
     this.gamesLimit = gamesLimit;
+    this.scope = scope;
   }
+}
+
+/** Today's UTC date, the key the proxy counts games under. */
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 /** Generate a simple game ID */
@@ -64,6 +78,8 @@ class GeminiFreeAI implements AsyncAIPlayer {
   // Rate limit info from last response
   public gamesUsed: number = 0;
   public gamesLimit: number = 3;
+  /** The day the proxy last refused a new game for everyone (shared cap). */
+  public globalExhaustedOn: string | null = null;
 
   constructor() {
     this.gameId = generateGameId();
@@ -146,7 +162,7 @@ class GeminiFreeAI implements AsyncAIPlayer {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
+          systemInstruction: systemInstruction('multiturn'),
           contents: contentsToSend,
           responseJsonSchema: MOVE_JSON_SCHEMA,
           gameId: this.gameId,
@@ -157,10 +173,15 @@ class GeminiFreeAI implements AsyncAIPlayer {
       const turnTime = performance.now() - startTime;
 
       if (response.status === 429) {
-        const errorData = await response.json() as { gamesUsed: number; gamesLimit: number };
-        this.gamesUsed = errorData.gamesUsed;
-        this.gamesLimit = errorData.gamesLimit;
-        throw new RateLimitError(errorData.gamesUsed, errorData.gamesLimit);
+        const errorData = (await response.json()) as { gamesUsed: number; gamesLimit: number; scope?: RateLimitScope };
+        const scope: RateLimitScope = errorData.scope === 'global' ? 'global' : 'user';
+        if (scope === 'global') {
+          this.globalExhaustedOn = todayKey();
+        } else {
+          this.gamesUsed = errorData.gamesUsed;
+          this.gamesLimit = errorData.gamesLimit;
+        }
+        throw new RateLimitError(errorData.gamesUsed, errorData.gamesLimit, scope);
       }
 
       if (!response.ok) {
@@ -287,13 +308,10 @@ export function clearGeminiFreeCache(): void {
   instances.clear();
 }
 
-/** Get rate limit info from the free AI instance */
-export function getGeminiFreeRateLimitInfo(
-  seat: Seat = 'cpu'
-): { gamesUsed: number; gamesLimit: number } | null {
+/** Rate limit info from the free AI instance: the player's own count, and
+ *  whether the proxy refused a new game for everyone today (shared cap). */
+export function getGeminiFreeRateLimitInfo(seat: Seat = 'cpu'): { gamesUsed: number; gamesLimit: number; globalExhausted: boolean } | null {
   const inst = instances.get(seat);
-  if (inst) {
-    return { gamesUsed: inst.gamesUsed, gamesLimit: inst.gamesLimit };
-  }
-  return null;
+  if (!inst) return null;
+  return { gamesUsed: inst.gamesUsed, gamesLimit: inst.gamesLimit, globalExhausted: inst.globalExhaustedOn === todayKey() };
 }

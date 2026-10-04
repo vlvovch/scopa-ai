@@ -16,7 +16,7 @@ import {
   isAdaptiveThinkingModel,
   isAlwaysThinkingModel,
 } from '../../../ai/claudeProvider';
-import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
+import { systemInstruction, buildSingleTurnPrompt } from './prompts';
 import { heuristicAI } from './heuristic';
 import { getAiThinkingLevel } from '../../../ai/effort';
 
@@ -316,7 +316,7 @@ class ClaudeSingleTurnAI implements AsyncAIPlayer {
       const requestParams: any = {
         model: this.model,
         max_tokens: shouldThink ? 16000 : 1024,
-        system: SYSTEM_INSTRUCTION_SINGLETURN,
+        system: systemInstruction('singleturn'),
         output_config: { format: MOVE_OUTPUT_SCHEMA },
         messages: [{ role: 'user', content: prompt }],
       };

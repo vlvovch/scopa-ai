@@ -13,7 +13,7 @@ vi.mock('../ai/openrouterAuth', () => ({
   hasOpenRouterCallback: () => false,
   startOpenRouterLogin: async () => false,
 }));
-vi.mock('../games/scopa/ai/validateApiKey', () => ({ validateOpenRouterKey: async () => ({ valid: true }) }));
+vi.mock('../ai/validateApiKey', () => ({ validateOpenRouterKey: async () => ({ valid: true }) }));
 vi.mock('../ai/apiKeyCaches', () => ({ clearApiKeyCaches: () => {} }));
 
 const connected: LoginResult = { outcome: { status: 'connected', key: 'sk-or-v1-new' }, valid: true };

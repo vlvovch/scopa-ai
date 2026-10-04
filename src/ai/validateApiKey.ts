@@ -1,4 +1,6 @@
-// API Key Validation Functions
+// API Key Validation Functions — provider-wide (both games): used by the
+// shared Settings modal and the OpenRouter sign-in, so it lives in src/ai/
+// rather than under a game's ai/ folder (CLAUDE.md, principle 6).
 
 /**
  * Validate a Gemini API key by listing models

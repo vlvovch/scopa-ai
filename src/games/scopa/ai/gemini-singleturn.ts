@@ -9,12 +9,12 @@ import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import type { GeminiTokenStats, GeminiTokenDelta } from './gemini';
 import { getGeminiApiKey, isGeminiAvailable } from '../../../ai/geminiProvider';
-import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
+import { systemInstruction, buildSingleTurnPrompt } from './prompts';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
 // Default model to use
-const DEFAULT_MODEL = 'gemini-3.5-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /** Pro models cannot fully disable thinking, require minimum budget */
 function isProModel(modelId: string): boolean {
@@ -210,7 +210,7 @@ class GeminiSingleTurnAI implements AsyncAIPlayer {
         model: this.model,
         contents: prompt,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
+          systemInstruction: systemInstruction('singleturn'),
           responseMimeType: 'application/json',
           ...generationConfig,
         },

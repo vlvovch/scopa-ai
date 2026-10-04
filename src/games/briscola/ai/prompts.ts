@@ -10,6 +10,7 @@ import type { LLMAIContext } from './types';
 import { POINT_VALUES, CARD_RANK } from '../constants';
 import { SUITS, CARD_VALUES } from '../../scopa/constants';
 import { trickWinner } from '../rules';
+import { reasoningLanguageNote } from '../../../ai/reasoningLanguage';
 
 const BRISCOLA_RULES = `You are an expert Italian Briscola player.
 
@@ -158,7 +159,7 @@ export function formatMoveHistory(
  * the model already has the rules in the system instruction and tracks
  * history via the conversation.
  */
-export function buildTurnPrompt(context: LLMAIContext, memory = ''): string {
+export function buildTurnPrompt(context: LLMAIContext, memory = '', describeMove: (move: Move, index: number) => string = formatMove): string {
   const {
     hand,
     trump,
@@ -188,7 +189,7 @@ export function buildTurnPrompt(context: LLMAIContext, memory = ''): string {
       CARD_RANK[b.value] - CARD_RANK[a.value]
   );
 
-  const moves = validMoves.map((m, i) => formatMove(m, i)).join('\n');
+  const moves = validMoves.map((m, i) => describeMove(m, i)).join('\n');
 
   return `--- TURN ---
 Round ${roundNumber} (Score: You ${scores.self} - Opponent ${scores.opponent}, first to ${targetScore})
@@ -209,17 +210,16 @@ ${moves}
 Choose the best move (0-${validMoves.length - 1}).`;
 }
 
-const byRankDesc = (a: Card, b: Card) => CARD_RANK[b.value] - CARD_RANK[a.value];
 const isHigh = (c: Card) => c.value === 1 || c.value === 3;
 const sumPoints = (cards: Card[]) => cards.reduce((sum, c) => sum + POINT_VALUES[c.value], 0);
 
 /**
- * What a good player remembers about the round, worked out from the cards
- * this player has seen (tricks are public as they are taken): the points
- * each side holds, which trumps and high cards are gone and which are
- * still out, and, once the deck is empty, the opponent's exact hand. For a
- * model that gets no history. Empty when the context carries no captured
- * piles.
+ * What the on-device model is told about the round so far, kept to what a
+ * three-billion-parameter model can use: the points each side holds, the
+ * trump count, how many Aces and 3s are still out, and, once the deck is
+ * empty, the opponent's exact hand (the only time it is known). Worked out
+ * from the cards this player has seen: tricks are public as they are
+ * taken. Empty when the context carries no captured piles.
  */
 export function buildRoundMemory(context: LLMAIContext): string {
   const { hand, trump, trumpSuit, leadCard, deckCount, myCaptured, oppCaptured } = context;
@@ -235,32 +235,49 @@ export function buildRoundMemory(context: LLMAIContext): string {
       if (!known.some((c) => c.suit === suit && c.value === value)) unseen.push({ suit, value, id: `${suit}-${value}` });
     }
   }
-  const trumpsPlayed = played.filter((c) => c.suit === trumpSuit).sort(byRankDesc);
-  const trumpsUnseen = unseen.filter((c) => c.suit === trumpSuit);
+  const trumpsPlayed = played.filter((c) => c.suit === trumpSuit).length;
   const trumpsInHand = hand.filter((c) => c.suit === trumpSuit).length;
-  const highPlayed = played.filter(isHigh).sort(byRankDesc);
-  const highUnseen = unseen.filter(isHigh).sort(byRankDesc);
   const lines = [
-    '--- ROUND MEMORY (what has been seen so far) ---',
-    `Points captured: you ${myPoints}, opponent ${oppPoints} (${120 - myPoints - oppPoints} still to be decided; 61 wins the round)`,
-    `Trumps (${SUIT_NAMES[trumpSuit]}) played so far: ${trumpsPlayed.length > 0 ? trumpsPlayed.map((c) => rankName(c.value)).join(', ') : 'none yet'} (${trumpsPlayed.length} of 10); you hold ${trumpsInHand}`,
-    `Aces and 3s played so far: ${highPlayed.length > 0 ? formatCards(highPlayed) : 'none yet'}`,
+    '--- ROUND MEMORY ---',
+    `Points captured: you ${myPoints}, opponent ${oppPoints} (61 wins the round)`,
+    `Trumps (${SUIT_NAMES[trumpSuit]}): ${trumpsPlayed} played, you hold ${trumpsInHand}, ${10 - trumpsPlayed - trumpsInHand} still out`,
   ];
   if (deckCount === 0) {
-    lines.push(`Deck empty, so the opponent's hand is exactly: ${formatCards(unseen)}`);
+    lines.push(`Deck empty: the opponent holds ${formatCards(unseen)}`);
   } else {
-    const faceUp = trump.suit === trumpSuit ? `, plus the face-up ${formatCard(trump)} at the bottom of the deck` : '';
-    lines.push(
-      `Trumps not seen yet (in the deck or the opponent's hand): ${trumpsUnseen.length}${faceUp}`,
-      `Aces and 3s not seen yet: ${highUnseen.length > 0 ? formatCards(highUnseen) : 'none'}`
-    );
+    lines.push(`Aces and 3s still out: ${unseen.filter(isHigh).length}`);
   }
   return lines.join('\n');
 }
 
-/** The turn prompt for the on-device model: the position plus the round memory. */
+/**
+ * A legal move spelled out for the on-device model with what the rules
+ * already decide: whether the card is a trump, and when following, whether
+ * it wins the trick and the points that change hands; when leading, the
+ * points the card puts at risk. The small model called non-trumps trumps
+ * and gave away aces when left to work this out itself.
+ */
+export function formatOnDeviceMove(move: Move, index: number, context: LLMAIContext): string {
+  const { leadCard, trumpSuit, player } = context;
+  const card = move.cardPlayed;
+  const trump = card.suit === trumpSuit ? ' (trump)' : '';
+  const own = POINT_VALUES[card.value];
+  if (leadCard) {
+    const opponent = player === 'cpu' ? 'human' : 'cpu';
+    const wins = trickWinner(leadCard, opponent, card, player, trumpSuit) === player;
+    const stake = own + POINT_VALUES[leadCard.value];
+    const points = stake === 0 ? 'no points' : `${stake} points`;
+    return `[${index}] Play ${formatCard(card)}${trump}: ${wins ? `wins the trick, takes ${points}` : `loses the trick, gives ${points}`}`;
+  }
+  const risk = own === 0 ? 'safe lead, nothing at risk'
+    : trump ? `risky lead: its ${own} points go to the opponent if they hold a higher trump`
+    : `risky lead: its ${own} points go to the opponent if they trump`;
+  return `[${index}] Play ${formatCard(card)}${trump}: ${risk}`;
+}
+
+/** The turn prompt for the on-device model: the position, the round memory and the spelled-out moves. */
 export function buildOnDeviceTurnPrompt(context: LLMAIContext): string {
-  return buildTurnPrompt(context, buildRoundMemory(context));
+  return buildTurnPrompt(context, buildRoundMemory(context), (move, index) => formatOnDeviceMove(move, index, context));
 }
 
 /**
@@ -326,10 +343,24 @@ Choose the best move (0-${validMoves.length - 1}).`;
  * request per move, no memory between requests, and a small context
  * window, so only the rules and the current position are sent.
  */
-export const SYSTEM_INSTRUCTION_ON_DEVICE = `${BRISCOLA_RULES}
+export const SYSTEM_INSTRUCTION_ON_DEVICE = `You play Briscola, the Italian trick-taking card game, against one opponent. Cards are named "rank of suit" with their points in brackets: Ace 11, 3 10, King 4, Knight 3, Knave 2, the other ranks 0. One suit is the trump (briscola).
 
-MODE: one request per move
-Each request stands alone: you have no memory of earlier turns, so use only the state in the request.
+WHAT MATTERS
+- The two cards of a trick go to its winner: a trump beats any non-trump; between two trumps, or two cards of the suit led, the higher rank wins (Ace, 3, King, Knight, Knave, 7, 6, 5, 4, 2); a non-trump of another suit never wins.
+- Only points count: 61 of the 120 points win the round, the number of tricks does not matter.
+- Leading: play a low card without points unless you hold a sure winner. Do not lead an Ace or a 3 that a trump can take.
+- Following: if the trick holds points and you can win it, win it with the cheapest card that wins. If you cannot win, throw the card with the fewest points. Do not spend a high trump on a trick without points.
 
-INPUT: the scores, the trump, a ROUND MEMORY of what has been captured and seen so far (points, trumps and high cards played or still out), the current trick, your hand and a numbered list of legal moves.
-OUTPUT: first candidates, the two or three strongest legal moves (their 0-based numbers, each with one short note on the points at stake or the trump it spends); then reasoning, one sentence saying which is best and why; then moveIndex, the 0-based number of that best move.`;
+You cannot see the opponent's cards or the deck unless the round memory lists them. Never describe or guess them. Each request stands alone: use only the state in the request.
+
+INPUT: the scores, the trump, a short ROUND MEMORY (points captured, trumps left), the current trick, your hand and the numbered legal moves, each saying whether it wins the trick and the points at stake.
+OUTPUT: candidates, the two or three strongest legal moves (their 0-based numbers, each with one short note on why it is good or risky); then reasoning, one sentence naming the best move and why, mentioning only cards from the request; then moveIndex, the 0-based number of that best move.`;
+
+/**
+ * The system instruction a cloud model gets: the multi-turn or single-turn
+ * text plus the reasoning-language line for the current interface language
+ * (src/ai/reasoningLanguage.ts). The on-device instruction stays as it is.
+ */
+export function systemInstruction(mode: 'multiturn' | 'singleturn'): string {
+  return (mode === 'singleturn' ? SYSTEM_INSTRUCTION_SINGLETURN : SYSTEM_INSTRUCTION_MULTITURN) + reasoningLanguageNote();
+}

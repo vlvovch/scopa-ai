@@ -8,7 +8,7 @@
 
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { systemInstruction, buildTurnPrompt } from './prompts';
 import { TokenTracker } from '../../../ai/tokenTracker';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
@@ -21,17 +21,29 @@ interface ContentEntry {
   parts: Array<{ text: string }>;
 }
 
+/** The scope of a refused game: the player's own allowance, or the shared daily cap. */
+export type RateLimitScope = 'user' | 'global';
+
 export class RateLimitError extends Error {
   gamesUsed: number;
   gamesLimit: number;
-  constructor(gamesUsed: number, gamesLimit: number) {
+  scope: RateLimitScope;
+  constructor(gamesUsed: number, gamesLimit: number, scope: RateLimitScope = 'user') {
     super(
-      `Daily game limit reached (${gamesUsed}/${gamesLimit}). Add your own API key in Settings for unlimited games.`
+      scope === 'global'
+        ? "The no-key AI has reached today's limit for all players. Try again tomorrow, or add your own API key in Settings for unlimited games."
+        : `Daily game limit reached (${gamesUsed}/${gamesLimit}). Add your own API key in Settings for unlimited games.`
     );
     this.name = 'RateLimitError';
     this.gamesUsed = gamesUsed;
     this.gamesLimit = gamesLimit;
+    this.scope = scope;
   }
+}
+
+/** Today's UTC date, the key the proxy counts games under. */
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function generateGameId(): string {
@@ -53,6 +65,8 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
   public lastReasoning: string = '';
   public gamesUsed: number = 0;
   public gamesLimit: number = 3;
+  /** The day the proxy last refused a new game for everyone (shared cap). */
+  public globalExhaustedOn: string | null = null;
 
   get tokenStats(): GeminiTokenStats {
     return this.tracker.stats;
@@ -116,7 +130,7 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
+          systemInstruction: systemInstruction('multiturn'),
           contents: contentsToSend,
           responseJsonSchema: MOVE_JSON_SCHEMA,
           gameId: this.gameId,
@@ -130,13 +144,15 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
     }
 
     if (response.status === 429) {
-      const errorData = (await response.json()) as {
-        gamesUsed: number;
-        gamesLimit: number;
-      };
-      this.gamesUsed = errorData.gamesUsed;
-      this.gamesLimit = errorData.gamesLimit;
-      throw new RateLimitError(errorData.gamesUsed, errorData.gamesLimit);
+      const errorData = (await response.json()) as { gamesUsed: number; gamesLimit: number; scope?: RateLimitScope };
+      const scope: RateLimitScope = errorData.scope === 'global' ? 'global' : 'user';
+      if (scope === 'global') {
+        this.globalExhaustedOn = todayKey();
+      } else {
+        this.gamesUsed = errorData.gamesUsed;
+        this.gamesLimit = errorData.gamesLimit;
+      }
+      throw new RateLimitError(errorData.gamesUsed, errorData.gamesLimit, scope);
     }
 
     if (!response.ok) {
@@ -196,8 +212,8 @@ class GeminiFreeBriscolaAI implements AsyncAIPlayer {
     return validMoves[0];
   }
 
-  getRateLimitInfo(): { gamesUsed: number; gamesLimit: number } {
-    return { gamesUsed: this.gamesUsed, gamesLimit: this.gamesLimit };
+  getRateLimitInfo(): { gamesUsed: number; gamesLimit: number; globalExhausted: boolean } {
+    return { gamesUsed: this.gamesUsed, gamesLimit: this.gamesLimit, globalExhausted: this.globalExhaustedOn === todayKey() };
   }
 }
 
@@ -239,7 +255,7 @@ export function clearGeminiFreeCache(): void {
 
 export function getGeminiFreeRateLimitInfo(
   seat: Seat = 'cpu'
-): { gamesUsed: number; gamesLimit: number } | null {
+): { gamesUsed: number; gamesLimit: number; globalExhausted: boolean } | null {
   const inst = instances.get(seat);
   return inst ? inst.getRateLimitInfo() : null;
 }

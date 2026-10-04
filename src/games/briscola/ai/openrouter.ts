@@ -36,8 +36,7 @@ import type { AsyncAIPlayer, LLMAIContext } from './types';
 import type { ConversationMode } from './gemini';
 import { heuristicAI } from './heuristic';
 import {
-  SYSTEM_INSTRUCTION_MULTITURN,
-  SYSTEM_INSTRUCTION_SINGLETURN,
+  systemInstruction,
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
@@ -139,7 +138,7 @@ class OpenRouterBriscolaAI implements AsyncAIPlayer {
     const messages: OpenRouterMessage[] = [
       {
         role: 'system',
-        content: this.mode === 'singleturn' ? SYSTEM_INSTRUCTION_SINGLETURN : SYSTEM_INSTRUCTION_MULTITURN,
+        content: this.mode === 'singleturn' ? systemInstruction('singleturn') : systemInstruction('multiturn'),
       },
       ...(this.mode === 'multiturn' ? this.messages : [{ role: 'user' as const, content: prompt }]),
     ];

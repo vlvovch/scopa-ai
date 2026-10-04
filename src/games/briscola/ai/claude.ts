@@ -13,8 +13,7 @@ import type { AsyncAIPlayer, LLMAIContext } from './types';
 import { heuristicAI } from './heuristic';
 import { getAiThinkingLevel } from '../../../ai/effort';
 import {
-  SYSTEM_INSTRUCTION_MULTITURN,
-  SYSTEM_INSTRUCTION_SINGLETURN,
+  systemInstruction,
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
@@ -151,8 +150,8 @@ class ClaudeBriscolaAI implements AsyncAIPlayer {
       max_tokens: shouldThink ? 16000 : 1024,
       system:
         this.mode === 'singleturn'
-          ? SYSTEM_INSTRUCTION_SINGLETURN
-          : SYSTEM_INSTRUCTION_MULTITURN,
+          ? systemInstruction('singleturn')
+          : systemInstruction('multiturn'),
       output_config: { format: MOVE_OUTPUT_SCHEMA },
       messages: messagesForCall,
       // Incremental prompt caching — in multiturn mode each call re-reads

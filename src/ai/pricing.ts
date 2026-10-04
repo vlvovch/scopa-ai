@@ -17,10 +17,13 @@
 //   ("openai/gpt-5-mini") never match the table below.
 //
 // Prices are per 1M tokens in USD (input, output), list prices as of
-// 2026-08. Unknown models return null and the UI hides the cost row —
-// notably the free-tier 'gemini-3-flash-preview' is intentionally
-// absent (the player pays nothing). Matching is longest-prefix on the
-// date-stripped model id, so dated Claude ids resolve to their family.
+// 2026-09-19 (checked against the OpenRouter catalogue, which carries
+// the vendors' list prices). Unknown models return null and the UI hides
+// the cost row — notably the free-tier 'gemini-3-flash-preview' is
+// intentionally absent (the player pays nothing). Matching is
+// longest-prefix on the date-stripped model id, so dated Claude ids
+// resolve to their family; a "-lite" variant needs its own entry or it
+// would inherit the full model's price.
 
 import type { GeminiTokenStats } from './tokenStats';
 
@@ -47,7 +50,7 @@ const PRICES: Record<string, Price> = {
   'claude-haiku-4-5': { in: 1, out: 5 },
   'claude-3-5-haiku': { in: 0.8, out: 4 },
   // OpenAI
-  'gpt-5.6-sol': { in: 5, out: 30 },
+  'gpt-5.6-sol': { in: 2, out: 10 },
   'gpt-5.6-terra': { in: 2, out: 12 },
   'gpt-5.6-luna': { in: 0.2, out: 1.2 },
   'gpt-5.5': { in: 5, out: 30 },
@@ -67,9 +70,13 @@ const PRICES: Record<string, Price> = {
   'o3': { in: 2, out: 8 },
   'o4-mini': { in: 1.1, out: 4.4 },
   // Gemini
+  'gemini-3.8-flash': { in: 0.75, out: 3.75 },
   'gemini-3.7-flash': { in: 0.75, out: 3.75 },
-  'gemini-3.6-flash': { in: 1.5, out: 7.5 },
+  'gemini-3.6-flash': { in: 0.75, out: 3.75 },
+  'gemini-3.5-flash-lite': { in: 0.3, out: 2.5 },
   'gemini-3.5-flash': { in: 1.5, out: 9 },
+  'gemini-3.1-flash-lite': { in: 0.25, out: 1.5 },
+  'gemini-3.1-pro': { in: 2, out: 12 },
   'gemini-2.5-flash-lite': { in: 0.1, out: 0.4 },
   'gemini-2.5-flash': { in: 0.3, out: 2.5 },
   'gemini-2.5-pro': { in: 1.25, out: 10 },

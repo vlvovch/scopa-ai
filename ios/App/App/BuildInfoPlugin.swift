@@ -11,13 +11,24 @@ import Capacitor
 ///     Info.plist as `AppBuildConfiguration = $(CONFIGURATION)`.
 /// If this plugin is missing or fails, the web layer treats the build
 /// information as unavailable and keeps analytics off.
+///
+/// `language` is separate from the build facts: the localization iOS chose
+/// for this app out of the ones the bundle declares (CFBundleLocalizations:
+/// en, it), from the device's ordered language list and the app's own
+/// language in iOS Settings. The web view reports only the first device
+/// language, so the web layer asks here (src/i18n/systemLanguage.ts).
 @objc(BuildInfoPlugin)
 public class BuildInfoPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "BuildInfoPlugin"
     public let jsName = "BuildInfo"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "get", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "language", returnType: CAPPluginReturnPromise),
     ]
+
+    @objc func language(_ call: CAPPluginCall) {
+        call.resolve(["language": Bundle.main.preferredLocalizations.first ?? ""])
+    }
 
     @objc func get(_ call: CAPPluginCall) {
         #if DEBUG

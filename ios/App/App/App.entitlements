@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Universal Links for invitations (https://<domain>/join/CODE). Each
+	     domain serves /.well-known/apple-app-site-association naming this
+	     app (Team ID + bundle id); see docs/ios.md. Needs the paid Apple
+	     Developer team: the free Personal Team cannot sign this capability. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:playscopa.net</string>
+		<string>applinks:playbriscola.com</string>
+	</array>
+</dict>
+</plist>

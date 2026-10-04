@@ -56,6 +56,12 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* Popup opens towards the left when the badge is near the right screen edge */
+.popupLeft {
+  left: auto;
+  right: 0;
+}
+
 /* Popup opens upward (default, for bottom players) */
 .popupTop {
   bottom: 100%;
@@ -175,4 +181,23 @@
 
 .iconCost {
   opacity: 0.75;
+}
+
+/* Phones: the badge shows the token count only; the cost stays in the
+   popup. The top row (scoreboard, controls, pile, badge) is tight there. */
+@media (max-width: 480px) {
+  .iconCost {
+    display: none;
+  }
+}
+
+/* Small phones: the badge is the count alone, without the coin glyph. */
+@media (max-width: 400px) {
+  .tokenIcon {
+    display: none;
+  }
+
+  .icon {
+    padding: 3px 6px;
+  }
 }

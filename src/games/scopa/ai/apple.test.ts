@@ -54,7 +54,7 @@ describe('AppleScopaAI', () => {
     const ai = new AppleScopaAI({ selectMove, cancel: async () => {}, prewarm });
     await ai.selectMove(ctx);
     expect(selectMove.mock.calls[0][0].prompt).toContain('--- ROUND MEMORY');
-    expect(selectMove.mock.calls[0][0].prompt).toContain('Sette Bello (7 of coins): in your hand');
+    expect(selectMove.mock.calls[0][0].prompt).toContain('7 of coins: in your hand');
     expect(prewarm).toHaveBeenCalledTimes(1);
     expect(prewarm.mock.calls[0][0]).toBe(selectMove.mock.calls[0][0].instructions);
     ai.startRound();
@@ -70,7 +70,7 @@ describe('AppleScopaAI', () => {
     expect(move).toBe(ctx.validMoves[1]);
     const card0 = `${ctx.validMoves[0].cardPlayed.value} of ${ctx.validMoves[0].cardPlayed.suit}`;
     const card1 = `${ctx.validMoves[1].cardPlayed.value} of ${ctx.validMoves[1].cardPlayed.suit}`;
-    expect(ai.lastReasoning).toBe(`${card0}: takes the 4 and 3. ${card1}: takes the 3. The second is best.`);
+    expect(ai.lastReasoning).toBe(`• ${card0}: takes the 4 and 3.\n✓ ${card1}: takes the 3.\n\nThe second is best.`);
   });
 
   it('falls back to a legal heuristic move on an out-of-range answer', async () => {

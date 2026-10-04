@@ -15,13 +15,16 @@ import { LanguageToggle } from './LanguageToggle';
 import { useT } from '../../i18n/LanguageContext';
 import { GameSwitcher } from './GameSwitcher';
 import { OtherGameAnnouncement } from './OtherGameAnnouncement';
+import { AIConsentModal } from './AIConsentModal';
+import { AppStoreBadge, AppStoreCredit } from './AppStoreBadge';
+import { aiDataDestinations, hasAIDataConsent, grantAIDataConsent, type AIDataDestination } from '../../ai/consent';
 import switcherStyles from './GameSwitcher.module.css';
 import type { GameId } from '../../games/gameSelection';
+import { MAIN_SITE_URL } from '../../platform/links';
 import styles from './StartScreen.module.css';
 
 // Check if running in itch.io mode (API keys disabled)
 const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
-const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playscopa.net';
 
 type GameModeOption = 'play' | 'watch' | 'multiplayer';
 type OpponentCategory = 'cpu' | 'free-ai' | 'device-ai' | 'ai';
@@ -69,8 +72,11 @@ interface StartScreenProps {
 
 const PRESET_SCORES = [11, 16, 21] as const;
 
-// Helper to determine opponent category from AI type (+ model: OpenRouter's
-// free models live under "Free AI", its paid ones under "AI (BYOK)")
+// Helper to determine opponent category from AI type (+ model). The
+// categories are about cost: "AI (free)" holds what costs the player
+// nothing — the proxy Gemini and OpenRouter's free models (those still
+// need an OpenRouter key) — and "AI (your key)" the models billed to the
+// player's own key.
 function getOpponentCategory(aiType: ExtendedAIType, model?: string): OpponentCategory {
   if (aiType === 'random' || aiType === 'heuristic' || aiType === 'expert') return 'cpu';
   if (aiType === 'gemini-free') return 'free-ai';
@@ -191,7 +197,7 @@ export function StartScreen({
     isClaudeAIType(spectatorAIs.player1) ||
     isClaudeAIType(spectatorAIs.player2);
 
-  // Both the BYOK picker and the Free AI category read the catalogue, so it
+  // Both the BYOK picker and the free category read the catalogue, so it
   // is fetched (once, public) as soon as an OpenRouter key is in place.
   const needsOpenRouterModels = openrouterAvailable;
   const freeOpenRouter = freeOpenRouterModels(openrouterModels);
@@ -282,19 +288,19 @@ export function StartScreen({
     } else {
       // Default to first available AI provider
       onSelectAI(defaultAIProvider);
-      // A free OpenRouter model belongs to the Free AI category, not here
+      // A free OpenRouter model belongs to the free category, not here
       if (defaultAIProvider === 'openrouter' && isFreeOpenRouterModel(openrouterModel)) {
         onSelectOpenRouterModel(DEFAULT_OPENROUTER_MODEL);
       }
     }
   };
 
-  // The Free AI dropdown: the proxy Gemini (no key) or one of OpenRouter's
-  // free models (keeps the current conversation mode).
+  // The free category's dropdown: the proxy Gemini (no key) or one of
+  // OpenRouter's free models (keeps the current conversation mode).
   const handleFreeChoice = (choice: string) => {
     if (choice === 'gemini-free') {
       onSelectAI('gemini-free');
-      setSelectedScore(11); // Free AI limited to 11 points
+      setSelectedScore(11); // the proxy opponent plays to 11
       return;
     }
     onSelectAI(getExtendedAIType('openrouter', getConversationMode(selectedAI)));
@@ -383,13 +389,41 @@ export function StartScreen({
     onSelectSpectatorAI(player, getExtendedAIType(currentProvider, mode));
   };
 
+  // The data notice before the first game against an AI service
+  // (src/ai/consent.ts): asked once for the seats about to play, remembered
+  // through the storage seam; "Not now" seats a CPU opponent instead.
+  const [consentRequest, setConsentRequest] = useState<AIDataDestination[] | null>(null);
+  const startWithSelection = () => {
+    const mode: GameMode = gameMode === 'play' ? 'pvsCPU' : 'cpuVsCPU';
+    onStartGame(selectedScore, mode);
+  };
   const handleStartGame = () => {
     if (gameMode === 'multiplayer') {
       onStartMultiplayer();
       return;
     }
-    const mode: GameMode = gameMode === 'play' ? 'pvsCPU' : 'cpuVsCPU';
-    onStartGame(selectedScore, mode);
+    const seats = gameMode === 'play' ? [selectedAI] : [spectatorAIs.player1, spectatorAIs.player2];
+    const destinations = aiDataDestinations(seats);
+    if (destinations.length > 0 && !hasAIDataConsent()) {
+      setConsentRequest(destinations);
+      return;
+    }
+    startWithSelection();
+  };
+  const handleConsentAllow = () => {
+    grantAIDataConsent();
+    setConsentRequest(null);
+    startWithSelection();
+  };
+  const handleConsentDecline = () => {
+    setConsentRequest(null);
+    if (gameMode === 'play') {
+      if (aiDataDestinations([selectedAI]).length > 0) onSelectAI('heuristic');
+      return;
+    }
+    for (const player of ['player1', 'player2'] as const) {
+      if (aiDataDestinations([spectatorAIs[player]]).length > 0) onSelectSpectatorAI(player, 'heuristic');
+    }
   };
 
   // Render opponent selector (reusable for play and spectator modes)
@@ -619,7 +653,7 @@ export function StartScreen({
           const gamesRemaining = rateLimitInfo
             ? Math.max(0, rateLimitInfo.gamesLimit - rateLimitInfo.gamesUsed)
             : null;
-          const isExhausted = gamesRemaining === 0;
+          const isExhausted = gamesRemaining === 0 || !!rateLimitInfo?.globalExhausted;
           return (
             <>
               <p className={styles.aiDescription} style={{ opacity: 0.7, fontSize: '0.85em' }}>
@@ -630,7 +664,7 @@ export function StartScreen({
               </p>
               {isExhausted && (
                 <p className={styles.aiDescription} style={{ color: '#e57373', fontSize: '0.85em' }}>
-                  {t.start.dailyLimitReached}
+                  {rateLimitInfo?.globalExhausted ? t.start.sharedLimitReached : t.start.dailyLimitReached}
                 </p>
               )}
             </>
@@ -836,7 +870,7 @@ export function StartScreen({
             disabled={(() => {
               if (gameMode !== 'play' || !isGeminiFreeAIType(selectedAI)) return false;
               const info = getGeminiFreeRateLimitInfo();
-              return info !== null && info.gamesUsed >= info.gamesLimit;
+              return info !== null && (info.gamesUsed >= info.gamesLimit || info.globalExhausted);
             })()}
           >
             {gameMode === 'play'
@@ -862,10 +896,19 @@ export function StartScreen({
           )}
         </div>
 
+        <AppStoreBadge />
+
         <footer className={styles.footer}>
-          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a> | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. {t.start.builtWithPrefix}<a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>. <span title={__APP_BUILD_INFO__} style={{ opacity: 0.55, fontSize: '0.75em', whiteSpace: 'nowrap' }}>· v{__APP_VERSION__}</span>
+          © 2026 VV Labs | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. <span title={__APP_BUILD_INFO__} style={{ opacity: 0.55, fontSize: '0.75em', whiteSpace: 'nowrap' }}>· v{__APP_VERSION__}</span>
+          <AppStoreCredit />
         </footer>
       </div>
+      <AIConsentModal
+        isOpen={consentRequest !== null}
+        destinations={consentRequest ?? []}
+        onAllow={handleConsentAllow}
+        onDecline={handleConsentDecline}
+      />
     </div>
   );
 }

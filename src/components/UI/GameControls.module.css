@@ -77,8 +77,8 @@
   }
 
   .button {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 
   .button svg {
@@ -114,5 +114,18 @@
   .button svg {
     width: 16px;
     height: 16px;
+  }
+}
+
+/* Small phones: the four buttons give the scoreboard another 11px. */
+@media (max-width: 400px) {
+  .controls,
+  .row {
+    gap: 3px;
+  }
+
+  .button {
+    width: 30px;
+    height: 30px;
   }
 }

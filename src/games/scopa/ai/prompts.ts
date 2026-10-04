@@ -2,7 +2,7 @@
 
 import type { Card, Move } from '../types';
 import type { LLMAIContext } from './types';
-import { CARD_VALUES, PRIME_VALUES, SUITS } from '../constants';
+import { reasoningLanguageNote } from '../../../ai/reasoningLanguage';
 
 /**
  * Base game rules shared by all system instructions
@@ -78,6 +78,15 @@ OUTPUT: JSON with moveIndex (0-based) and reasoning.`;
 export const SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTION_MULTITURN;
 
 /**
+ * The system instruction a cloud model gets: the multi-turn or single-turn
+ * text plus the reasoning-language line for the current interface language
+ * (src/ai/reasoningLanguage.ts). The on-device instruction stays as it is.
+ */
+export function systemInstruction(mode: 'multiturn' | 'singleturn'): string {
+  return (mode === 'singleturn' ? SYSTEM_INSTRUCTION_SINGLETURN : SYSTEM_INSTRUCTION_MULTITURN) + reasoningLanguageNote();
+}
+
+/**
  * Format a card for display in prompts
  */
 export function formatCard(card: Card): string {
@@ -122,14 +131,14 @@ export function formatLastMove(move: Move | null): string {
  * Build the turn prompt for multi-turn chat sessions
  * Used by Gemini (multi-turn) and OpenAI
  */
-export function buildTurnPrompt(context: LLMAIContext, memory = ''): string {
+export function buildTurnPrompt(context: LLMAIContext, memory = '', describeMove: (move: Move, index: number) => string = formatMove): string {
   const {
     hand, table, scores, targetScore, roundNumber,
     opponentHandCount, selfCapturedCount, opponentCapturedCount,
     deckCount, lastOpponentMove, lastSelfMove, validMoves
   } = context;
 
-  const movesStr = validMoves.map((m, i) => formatMove(m, i)).join('\n');
+  const movesStr = validMoves.map((m, i) => describeMove(m, i)).join('\n');
 
   return `--- TURN ---
 Round ${roundNumber} | Score: You ${scores.self} - Opponent ${scores.opponent} (target: ${targetScore})
@@ -147,64 +156,47 @@ ${movesStr}
 Choose best move (0-${validMoves.length - 1}):`;
 }
 
-const UNSEEN = "in the deck or the opponent's hand";
-
-/** A side's primiera so far: the best prime card per suit, the total, the suits still missing. */
-function describePrime(captured: Card[]): string {
-  const parts: string[] = [];
-  const missing: string[] = [];
-  let total = 0;
-  for (const suit of SUITS) {
-    const best = captured
-      .filter((c) => c.suit === suit)
-      .reduce<Card | null>((top, c) => (!top || PRIME_VALUES[c.value] > PRIME_VALUES[top.value] ? c : top), null);
-    if (best) {
-      total += PRIME_VALUES[best.value];
-      parts.push(`${suit} ${best.value}`);
-    } else {
-      missing.push(suit);
-    }
-  }
-  const detail = parts.length > 0 ? parts.join(', ') : 'nothing yet';
-  return missing.length > 0 ? `${total} so far (${detail}; missing ${missing.join(', ')})` : `${total} (${detail})`;
-}
-
 /**
- * What a good player remembers about the round, worked out from the cards
- * this player has seen (captures are public as they are taken): the Denari
- * race, where the Sette Bello is, both primiera hands, scope so far and
- * which values are still out. For a model that gets no history. Empty when
- * the context carries no captured piles.
+ * What the on-device model is told about the round so far, kept to what a
+ * three-billion-parameter model can use without confusing it: the coins
+ * race, where the 7 of coins is, and the scope. (The cloud bots carry the
+ * history instead; the primiera and the unseen values used to be here and
+ * were read as cards in the opponent's hand.) Empty when the context
+ * carries no captured piles.
  */
 export function buildRoundMemory(context: LLMAIContext): string {
   const { hand, table, selfCaptured, opponentCaptured, selfScopaCount = 0, opponentScopaCount = 0 } = context;
   if (!selfCaptured || !opponentCaptured) return '';
   const countCoins = (cards: Card[]) => cards.filter((c) => c.suit === 'coins').length;
-  const myCoins = countCoins(selfCaptured);
-  const oppCoins = countCoins(opponentCaptured);
   const isSetteBello = (c: Card) => c.suit === 'coins' && c.value === 7;
-  const setteBello = selfCaptured.some(isSetteBello) ? 'you have captured it'
-    : opponentCaptured.some(isSetteBello) ? 'the opponent has captured it'
+  const setteBello = selfCaptured.some(isSetteBello) ? 'in your pile'
+    : opponentCaptured.some(isSetteBello) ? "in the opponent's pile"
     : hand.some(isSetteBello) ? 'in your hand'
     : table.some(isSetteBello) ? 'on the table'
-    : `not seen yet (${UNSEEN})`;
-  const seen = [...hand, ...table, ...selfCaptured, ...opponentCaptured];
-  const unseenByValue = CARD_VALUES
-    .map((value) => ({ value, count: 4 - seen.filter((c) => c.value === value).length }))
-    .filter(({ count }) => count > 0)
-    .map(({ value, count }) => `${value}×${count}`)
-    .join(', ');
-  return `--- ROUND MEMORY (what has been seen so far) ---
-Denari captured: you ${myCoins}, opponent ${oppCoins} (${10 - myCoins - oppCoins} still in play; 6 win the Denari point)
-Sette Bello (7 of coins): ${setteBello}
-Primiera: you ${describePrime(selfCaptured)} vs opponent ${describePrime(opponentCaptured)}
-Scope this round: you ${selfScopaCount}, opponent ${opponentScopaCount}
-Not seen yet (${UNSEEN}): ${40 - seen.length} cards, by value: ${unseenByValue || 'none'}`;
+    : 'not seen yet';
+  return `--- ROUND MEMORY ---
+Coins captured: you ${countCoins(selfCaptured)}, opponent ${countCoins(opponentCaptured)} (6 win the coins point)
+7 of coins: ${setteBello}
+Scope this round: you ${selfScopaCount}, opponent ${opponentScopaCount}`;
 }
 
-/** The turn prompt for the on-device model: the position plus the round memory. */
+/**
+ * A legal move spelled out for the on-device model: what it captures, or
+ * that the card stays on the table, and a scopa named as such. The small
+ * model read "(place on table)" as a capture and mixed the two up.
+ */
+export function formatOnDeviceMove(move: Move, index: number): string {
+  const cardStr = formatCard(move.cardPlayed);
+  if (move.capturedCards.length === 0) {
+    return `[${index}] Play ${cardStr}: no capture, it stays on the table`;
+  }
+  const scopa = move.isScopa ? ' and empties the table: a SCOPA' : '';
+  return `[${index}] Play ${cardStr}: captures ${formatCards(move.capturedCards)}${scopa}`;
+}
+
+/** The turn prompt for the on-device model: the position, the round memory and the spelled-out moves. */
 export function buildOnDeviceTurnPrompt(context: LLMAIContext): string {
-  return buildTurnPrompt(context, buildRoundMemory(context));
+  return buildTurnPrompt(context, buildRoundMemory(context), formatOnDeviceMove);
 }
 
 /**
@@ -279,10 +271,15 @@ Choose best move (0-${validMoves.length - 1}):`;
  * request per move, no memory between requests, and a small context
  * window, so only the rules and the current position are sent.
  */
-export const SYSTEM_INSTRUCTION_ON_DEVICE = `${SCOPA_RULES}
+export const SYSTEM_INSTRUCTION_ON_DEVICE = `You play Scopa, the Italian card game, against one opponent. Cards are named "value of suit": values 1 to 10, suits coins, cups, swords and clubs.
 
-MODE: one request per move
-Each request stands alone: you have no memory of earlier turns, so use only the state in the request.
+WHAT MATTERS
+- Playing a card that captures moves it and the captured cards into your pile. Playing a card that captures nothing leaves it on the table for the opponent.
+- Points at the end of the round: most cards, most coins, the 7 of coins, the primiera (7s and 6s count most) and one point for every scopa, a capture that empties the table.
+- Prefer a capture over placing a card. The best captures take the 7 of coins, other coins, 7s and 6s, or several cards at once.
+- A capture that empties the table is a scopa: take it. Avoid leaving a table the opponent can clear with one card.
 
-INPUT: the scores, a ROUND MEMORY of what has been captured and seen so far (Denari, Sette Bello, primiera, scope, values still out), the table, your hand and a numbered list of legal moves.
-OUTPUT: first candidates, the two or three strongest legal moves (their 0-based numbers, each with one short note on what it captures or risks); then reasoning, one sentence saying which is best and why; then moveIndex, the 0-based number of that best move.`;
+You cannot see the opponent's cards or the deck. Never describe or guess them. Each request stands alone: use only the state in the request.
+
+INPUT: the scores, a short ROUND MEMORY (coins, the 7 of coins, scope), the table, your hand and the numbered legal moves, each saying what it captures or that it captures nothing.
+OUTPUT: candidates, the two or three strongest legal moves (their 0-based numbers, each with one short note on why it is good or risky); then reasoning, one sentence naming the best move and why, mentioning only cards from the request; then moveIndex, the 0-based number of that best move.`;

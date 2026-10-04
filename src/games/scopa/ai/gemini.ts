@@ -5,7 +5,7 @@ import { GoogleGenAI, Chat, ThinkingLevel } from '@google/genai';
 import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { systemInstruction, buildTurnPrompt } from './prompts';
 import { getGeminiApiKey, isGeminiAvailable, clearGeminiModelCache } from '../../../ai/geminiProvider';
 
 // Provider plumbing (key availability, model list) lives in
@@ -25,7 +25,7 @@ import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
 // Default model to use
-const DEFAULT_MODEL = 'gemini-3.5-flash';
+const DEFAULT_MODEL = 'gemini-3.8-flash';
 
 /** Pro models cannot fully disable thinking, require minimum budget */
 function isProModel(modelId: string): boolean {
@@ -127,7 +127,7 @@ class GeminiAI implements AsyncAIPlayer {
     this.chat = this.ai.chats.create({
       model: this.model,
       config: {
-        systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
+        systemInstruction: systemInstruction('multiturn'),
         responseMimeType: 'application/json',
         responseJsonSchema: MOVE_JSON_SCHEMA,
       },

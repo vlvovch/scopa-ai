@@ -17,3 +17,20 @@
     display: inline;
   }
 }
+
+/* The icon's wrapper in a compact label (the icons themselves carry an
+   inline display, so the wrapper is what a phone hides). */
+.icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Compact column on phones: the 💬 / 1️⃣ mode indicator and the icon are
+   dropped so the (short) name gets the whole width; both stay visible in
+   the pile label and on the start screen. */
+@media (max-width: 480px) {
+  .compact .mode,
+  .compact .icon {
+    display: none;
+  }
+}

@@ -233,6 +233,8 @@
   font-size: 0.85rem;
   line-height: 1.5;
   color: var(--color-text-primary, #fff);
+  /* The on-device bot lists the weighed moves one per line */
+  white-space: pre-line;
 }
 
 /* Close button */

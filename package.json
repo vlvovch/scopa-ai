@@ -16,6 +16,7 @@
     "ios:open": "cap open ios",
     "ios:run": "npm run ios:sync && cap run ios",
     "ios:build": "xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/build build",
+    "ios:release": "sh ios/release.sh",
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:briscola": "vite preview --outDir dist-briscola",
@@ -23,11 +24,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "simulate": "tsx scripts/simulate.ts",
-    "ios:install": "xcrun simctl install booted ios/build/Build/Products/Debug-iphonesimulator/App.app && xcrun simctl launch --console-pty booted net.vovchenko.scopaai"
+    "ios:install": "xcrun simctl install booted ios/build/Build/Products/Debug-iphonesimulator/App.app && xcrun simctl launch --console-pty booted net.vvlabs.scopa"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.5.2",
     "@capacitor/filesystem": "^8.1.3",
     "@capacitor/keyboard": "^8.0.5",

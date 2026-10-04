@@ -4,10 +4,17 @@
 // ios/Signing.local.xcconfig (git-ignored, included at the end of this
 // file), so the project file never carries a personal identity.
 // See docs/ios.md.
-PRODUCT_BUNDLE_IDENTIFIER = net.vovchenko.scopaai
+// net.vovchenko.scopaai (the prototype's id) was registered by the free Personal
+// Team on 2026-09-13 and Apple keeps App IDs unique across teams, so the paid
+// team could not use it; the store build ships under the company's id
+// (net.vovchenko.scopa was registered under VV Labs on 2026-09-15 as an
+// interim id and never uploaded). The id is permanent once a build has been
+// uploaded to App Store Connect.
+PRODUCT_BUNDLE_IDENTIFIER = net.vvlabs.scopa
 DEVELOPMENT_TEAM =
 CODE_SIGN_STYLE = Automatic
-MARKETING_VERSION = 1.0
-CURRENT_PROJECT_VERSION = 1
+MARKETING_VERSION = 1.0.1
+// Builds 1-6 are uploaded (6 is version 1.0, released 2026-09-29); this is the NEXT build number.
+CURRENT_PROJECT_VERSION = 7
 
 #include? "Signing.local.xcconfig"

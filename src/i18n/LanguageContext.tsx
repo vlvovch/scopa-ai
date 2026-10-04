@@ -1,7 +1,8 @@
 // Language Context — UI language (English / Italian) for both games.
 //
-// Resolution order: explicit user choice (localStorage) > browser locale
-// (any Italian variant in navigator.languages) > English. The choice is
+// Resolution order: explicit user choice (localStorage) > the system's
+// choice for the app (iOS app only, src/i18n/systemLanguage.ts) > browser
+// locale (any Italian variant in navigator.languages) > English. The choice is
 // stored outside GameSettings on purpose: it's a device-level preference
 // like Text Size's pre-paint value, and "Reset to Defaults" in Settings
 // should not silently flip the app's language.
@@ -10,6 +11,8 @@ import { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { en, type Translation } from './en';
 import { it } from './it';
 import { storage } from '../platform/storage';
+import { getSystemLanguage } from './systemLanguage';
+import { setCurrentLanguage } from './currentLanguage';
 
 export type Language = 'en' | 'it';
 
@@ -24,6 +27,8 @@ export function detectLanguage(): Language {
   } catch {
     // localStorage unavailable (private mode) — fall through to locale
   }
+  const system = getSystemLanguage();
+  if (system) return system;
   const locales = navigator.languages?.length
     ? navigator.languages
     : [navigator.language];
@@ -49,9 +54,16 @@ const LanguageContext = createContext<LanguageContextValue>({
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>(detectLanguage);
+  // The bots read the language outside React (currentLanguage.ts): known
+  // from the first render on, then kept in step with every change.
+  const [language, setLanguage] = useState<Language>(() => {
+    const detected = detectLanguage();
+    setCurrentLanguage(detected);
+    return detected;
+  });
 
   useEffect(() => {
+    setCurrentLanguage(language);
     try {
       storage.set(STORAGE_KEY, language);
     } catch {

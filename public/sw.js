@@ -75,6 +75,11 @@ const STATIC_ASSETS = [
   '/cards/napoletane/clubs-10.webp',
   // Suit icons for score screen
   '/cards/napoletane/suits/coins.svg',
+  // The App Store badge on the start screens (one per language), so an
+  // installed copy that updates in the background never shows a broken
+  // image when it is next opened offline
+  '/badges/app-store-badge-en.svg',
+  '/badges/app-store-badge-it.svg',
   // Sound effects (MP3 for Safari/iOS compatibility)
   '/sounds/broom-sweep.mp3',
   '/sounds/card-fan-1.mp3',

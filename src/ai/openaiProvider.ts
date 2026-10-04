@@ -108,6 +108,7 @@ export async function fetchOpenAIModels(): Promise<OpenAIModelInfo[]> {
       console.error('Failed to fetch OpenAI models:', error);
       // Return fallback models on error (use raw IDs as display names)
       return [
+        { id: 'gpt-5.6-luna', displayName: 'gpt-5.6-luna' },
         { id: 'gpt-5-mini', displayName: 'gpt-5-mini' },
         { id: 'gpt-5', displayName: 'gpt-5' },
         { id: 'gpt-4.1-mini', displayName: 'gpt-4.1-mini' },

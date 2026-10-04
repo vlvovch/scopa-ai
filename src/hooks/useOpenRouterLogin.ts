@@ -19,7 +19,7 @@ import {
   type OpenRouterLoginOutcome,
 } from '../ai/openrouterAuth';
 import { clearApiKeyCaches } from '../ai/apiKeyCaches';
-import { validateOpenRouterKey } from '../games/scopa/ai/validateApiKey';
+import { validateOpenRouterKey } from '../ai/validateApiKey';
 
 export type OpenRouterLoginStatus = 'idle' | 'redirecting' | 'exchanging' | 'connected' | 'error';
 

@@ -70,7 +70,7 @@ public class AppleIntelligencePlugin: CAPPlugin, CAPBridgedPlugin {
                 let work = Task { () -> MoveAnswer in
                     let session = prepared.take(for: instructions) as? LanguageModelSession
                         ?? LanguageModelSession(instructions: instructions)
-                    let options = GenerationOptions(temperature: 0.5, maximumResponseTokens: 384)
+                    let options = GenerationOptions(temperature: 0.3, maximumResponseTokens: 384)
                     let schema = try Self.moveChoiceSchema(moveCount: moveCount)
                     let content = try await session.respond(to: prompt, schema: schema, options: options).content
                     return try MoveAnswer(content)
@@ -170,7 +170,7 @@ public class AppleIntelligencePlugin: CAPPlugin, CAPBridgedPlugin {
             description: "One of the legal moves being weighed",
             properties: [
                 .init(name: "moveIndex", description: "The number of this move in the numbered list of legal moves", schema: index),
-                .init(name: "note", description: "At most twelve words: what this move captures or risks", schema: DynamicGenerationSchema(type: String.self)),
+                .init(name: "note", description: "At most twelve words: why this move is good or risky", schema: DynamicGenerationSchema(type: String.self)),
             ]
         )
         let choice = DynamicGenerationSchema(
@@ -179,7 +179,7 @@ public class AppleIntelligencePlugin: CAPPlugin, CAPBridgedPlugin {
             properties: [
                 .init(name: "candidates", description: "The two or three strongest legal moves",
                       schema: DynamicGenerationSchema(arrayOf: DynamicGenerationSchema(referenceTo: "Candidate"), minimumElements: min(2, moveCount), maximumElements: min(3, moveCount))),
-                .init(name: "reasoning", description: "One sentence: which of those moves is best and why", schema: DynamicGenerationSchema(type: String.self)),
+                .init(name: "reasoning", description: "One sentence naming the best move and why, mentioning only cards from the request", schema: DynamicGenerationSchema(type: String.self)),
                 .init(name: "moveIndex", description: "The number of that best move in the numbered list of legal moves", schema: index),
             ]
         )

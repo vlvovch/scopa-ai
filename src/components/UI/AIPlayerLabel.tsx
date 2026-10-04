@@ -43,15 +43,15 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
     case 'openrouter-singleturn':
       return <OpenRouterIcon size="1em" className={className} />;
     case 'random':
-      return <span style={{ fontSize: '1em' }}>🐒</span>;
+      return <span className={className} style={{ fontSize: '1em' }}>🐒</span>;
     case 'heuristic':
-      return <span style={{ fontSize: '1em' }}>🦊</span>;
+      return <span className={className} style={{ fontSize: '1em' }}>🦊</span>;
     case 'expert':
-      return <span style={{ fontSize: '1em' }}>🐍</span>;
+      return <span className={className} style={{ fontSize: '1em' }}>🐍</span>;
     case 'apple':
       return <AppleIntelligenceIcon size="1em" className={className} />;
     case 'multiplayer':
-      return <span style={{ fontSize: '1em' }}>👤</span>;
+      return <span className={className} style={{ fontSize: '1em' }}>👤</span>;
     default:
       return null;
   }
@@ -62,7 +62,7 @@ function AIIcon({ aiType, className }: { aiType: ExtendedAIType; className?: str
  */
 function formatModelName(aiType: ExtendedAIType, model?: string): string {
   if (aiType === 'gemini' || aiType === 'gemini-singleturn') {
-    const modelId = model || 'gemini-3.5-flash';
+    const modelId = model || 'gemini-3.8-flash';
     return modelId
       .replace('gemini-', 'Gemini ')
       .split('-')
@@ -71,7 +71,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
   }
 
   if (aiType === 'openai' || aiType === 'openai-singleturn') {
-    const modelId = model || 'gpt-5-mini';
+    const modelId = model || 'gpt-5.6-luna';
     return modelId
       .replace(/^gpt-/i, 'GPT-')
       .replace(/^o(\d)/, 'O$1')
@@ -106,7 +106,7 @@ function formatModelName(aiType: ExtendedAIType, model?: string): string {
   }
 
   if (aiType === 'openrouter' || aiType === 'openrouter-singleturn') {
-    return openRouterModelDisplayName(model || 'openai/gpt-5-mini');
+    return openRouterModelDisplayName(model || 'openai/gpt-5.6-luna');
   }
 
   if (aiType === 'gemini-free') return 'Gemini 3 Flash Preview';
@@ -135,22 +135,48 @@ function getModeIndicator(aiType: ExtendedAIType): string | null {
 }
 
 /**
+ * The short form of a model name for a narrow column on a phone: the
+ * provider or family word alone ("Gemini 3 Flash Preview" → "Gemini",
+ * "GPT-5 Mini" → "GPT-5", "Claude Sonnet 4.5" → "Claude"), "Apple AI" for
+ * the on-device model. Null when the full name is already one word (the
+ * CPU bots) so nothing is duplicated. The full name stays in the pile
+ * label, the token badge and the start screen.
+ */
+export function shortModelName(aiType: ExtendedAIType, model?: string): string | null {
+  if (aiType === 'apple') return 'Apple AI';
+  if (aiType === 'multiplayer') return null;
+  const full = formatModelName(aiType, model);
+  const first = full.split(' ')[0];
+  return first && first.length < full.length ? first : null;
+}
+
+/**
  * Component that renders an AI player label with proper icon
  */
 export function AIPlayerLabel({ aiType, model, className, showModeIndicator = true, compact = false }: AIPlayerLabelProps) {
-  const icon = <AIIcon aiType={aiType} />;
-  // "Apple Intelligence" is the one long name; a compact column shows
-  // "Apple AI" on phones (CSS picks one of the two, so only one is read).
-  const name = aiType === 'apple' && compact
-    ? <><span className={styles.full}>Apple Intelligence</span><span className={styles.short}>Apple AI</span></>
-    : formatModelName(aiType, model);
+  // In a compact column the icon is dropped on phones too (CSS hides the
+  // wrapper; the icons carry an inline display of their own), so the short
+  // name gets the whole width: with the icon, "Gemini" still broke into
+  // "Gemin-i" at some widths. The pile label keeps the icon.
+  const icon = compact
+    ? <span className={styles.icon}><AIIcon aiType={aiType} /></span>
+    : <AIIcon aiType={aiType} />;
+  // A compact column (the scoreboard) shows the short form of a long name
+  // on phones, where the column is a few characters wide and the full
+  // name used to wrap into hyphenated fragments ("Gem-ini 3 Flash
+  // Pre-view"); CSS picks one of the two spans, so only one is read.
+  const full = formatModelName(aiType, model);
+  const short = compact ? shortModelName(aiType, model) : null;
+  const name = short
+    ? <><span className={styles.full}>{full}</span><span className={styles.short}>{short}</span></>
+    : full;
   const modeIndicator = showModeIndicator ? getModeIndicator(aiType) : null;
 
   return (
-    <span className={className} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
+    <span className={`${className ?? ''} ${compact ? styles.compact : ''}`.trim() || undefined} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3em' }}>
       {icon}
       <span>{name}</span>
-      {modeIndicator && <span>{modeIndicator}</span>}
+      {modeIndicator && <span className={styles.mode}>{modeIndicator}</span>}
     </span>
   );
 }

@@ -23,6 +23,27 @@ export const PUBLIC_ORIGINS: Record<GameId, string> = {
 /** Custom URL scheme registered by the iOS app (Info.plist CFBundleURLSchemes). */
 export const APP_URL_SCHEME = 'playscopa';
 
+/** The website behind this build (VITE_SITE_URL, else the build-time game's
+ *  domain): where the privacy policy and the "main site" links point. */
+export const MAIN_SITE_URL: string = import.meta.env.VITE_SITE_URL || PUBLIC_ORIGINS[DEFAULT_GAME];
+
+/** The iPhone and iPad app's page on the App Store (the id is its Apple ID). */
+export const APP_STORE_ID = '6812582287';
+export const APP_STORE_URL = `https://apps.apple.com/app/id${APP_STORE_ID}`;
+
+/**
+ * Whether this copy of the site advertises the iPhone and iPad app: not
+ * inside the app itself, and not on Android, where the badge leads nowhere
+ * useful (that includes the Play Store app, which is this site in a Trusted
+ * Web Activity).
+ */
+export function showsAppStoreBadge(
+  native: boolean = IS_NATIVE_BUILD,
+  userAgent: string = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+): boolean {
+  return !native && !/android/i.test(userAgent);
+}
+
 export function inviteUrl(roomCode: string, options: { native?: boolean; origin?: string } = {}): string {
   const native = options.native ?? IS_NATIVE_BUILD;
   if (!native) {

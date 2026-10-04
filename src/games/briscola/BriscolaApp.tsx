@@ -138,6 +138,7 @@ import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
 import { useSound } from '../../hooks/useSound';
 import type { Card as BriscolaCard, GameState, GameStatus, Move, PlayerId } from './types';
 import { storage } from '../../platform/storage';
+import { noteGameFinished } from '../../platform/review';
 
 // ---------------------------------------------------------------------------
 // Timing — matches Scopa's CpuCardAnimation phases
@@ -1297,6 +1298,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       state.game.roundHistory
     );
     trackGameCompleted({ game: 'briscola', mode: 'solo', opponent: opponentName === 'apple' || modelFor(opponentName) ? 'ai' : 'cpu' });
+    noteGameFinished(state.game.scores.human > state.game.scores.cpu);
   }, [state, opponentName, bestOf, stats, gameMode, modelFor]);
 
   // Clear the dedup id whenever a new match starts.
@@ -1328,11 +1330,12 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
     if (multiplayer.gameEndData && !multiplayerCompletedTracked.current) {
       multiplayerCompletedTracked.current = true;
       trackGameCompleted({ game: 'briscola', mode: 'multiplayer', opponent: 'human' });
+      noteGameFinished(multiplayer.gameEndData.winner === multiplayer.playerId);
     }
     if (!multiplayer.gameEndData) {
       multiplayerCompletedTracked.current = false;
     }
-  }, [multiplayer.gameEndData]);
+  }, [multiplayer.gameEndData, multiplayer.playerId]);
 
   // Reset the per-round last-move pointers + reset the LLM conversation
   // history at the start of every round (dealing → playing transition).
@@ -1516,7 +1519,7 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
         if (cancelled) return;
         const msg =
           e instanceof RateLimitError
-            ? t.briscola.rateLimit(e.gamesUsed, e.gamesLimit)
+            ? (e.scope === 'global' ? t.briscola.sharedRateLimit : t.briscola.rateLimit(e.gamesUsed, e.gamesLimit))
             : e instanceof Error
               ? e.message
               : String(e);
@@ -2018,12 +2021,12 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
       <>
         <div style={overlay}>
           <div style={overlayCard}>
-            <h2 style={{ marginTop: 0 }}>Reconnecting…</h2>
+            <h2 style={{ marginTop: 0 }}>{t.game.reconnecting}</h2>
             <p style={{ opacity: 0.75, margin: '0.5rem 0 1.25rem' }}>
-              Restoring your game{multiplayer.roomCode ? ` (${multiplayer.roomCode})` : ''}.
+              {t.game.restoringGame(multiplayer.roomCode)}
             </p>
             <button style={primaryButton} onClick={exitMultiplayer}>
-              Leave Game
+              {t.multiplayer.leaveGame}
             </button>
           </div>
         </div>
@@ -3159,7 +3162,7 @@ function BriscolaCapturedModal({
           </div>
 
           <button className={modalStyles.closeButton} onClick={onClose}>
-            Close
+            {t.common.close}
           </button>
         </motion.div>
       </motion.div>
@@ -3226,7 +3229,7 @@ function CapturedSummaryRow({
       >
         {sorted.length === 0 ? (
           <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>
-            No cards captured
+            {t.captured.none}
           </span>
         ) : (
           sorted.map((c) => {
@@ -3342,7 +3345,7 @@ function RoundHistoryTable({
           textAlign: 'center',
         }}
       >
-        Round History
+        {t.gameEnd.roundHistory}
       </h3>
       <div
         style={{

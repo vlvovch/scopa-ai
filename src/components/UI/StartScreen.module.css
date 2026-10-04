@@ -309,12 +309,17 @@
   display: flex;
   gap: var(--space-2);
   justify-content: center;
-  flex-wrap: nowrap;
+  /* Wraps at every width: the card is ~430px wide on every screen, and a
+     non-wrapping row squeezed the category and model selects down to their
+     90px minimum on desktops and iPads ("AI (you", "GPT-5"), while phones
+     (which already wrapped) put the model select on its own line. */
+  flex-wrap: wrap;
 }
 
 .dropdown {
   padding: var(--space-2) var(--space-3);
-  padding-right: var(--space-6);
+  /* room for the arrow (10px wide, 10px from the right) so it never overlaps the text */
+  padding-right: 26px;
   font-size: 0.85rem;
   background: rgba(255, 255, 255, 0.05);
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -702,8 +707,7 @@
 
   .dropdown {
     font-size: 0.75rem;
-    padding: 6px 8px;
-    padding-right: var(--space-5);
+    padding: 6px 26px 6px 8px;
     min-width: 70px;
   }
 
@@ -799,18 +803,10 @@
   }
 }
 
-/* Briscola's bullets are about twice as long as Scopa's and wrap to ~8
-   lines on a phone, so on phone-height screens drop them earlier; the
-   "View Full Rules" link keeps the full rules one tap away. */
-@media (max-height: 900px) {
-  .rulesHintLong ul {
-    display: none;
-  }
-
-  .rulesHintLong .fullRulesLink {
-    margin-top: 0;
-  }
-}
+/* Briscola's bullets are longer than Scopa's, but they follow the same
+   rule: shown unless the screen is short (the 760px breakpoint above).
+   Hiding them below 900px left every phone without Briscola's quick
+   rules, which testers read as missing (TestFlight, 2026-09-18). */
 
 /* Phones: the fixed ⚙️ / language buttons sit in the top corners, and a
    card taller than the viewport is top-aligned, so keep its first row

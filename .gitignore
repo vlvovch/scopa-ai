@@ -61,3 +61,5 @@ ios/DerivedData
 
 # Your Apple team id for device builds (see ios/Signing.xcconfig)
 ios/Signing.local.xcconfig
+# App Store Connect API key settings for ios/release.sh (never commit the .p8 either)
+ios/AppStoreConnect.local.env

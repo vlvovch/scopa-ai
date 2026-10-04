@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { Card as CardType } from '../../games/scopa/types';
 import { Card } from '../Card/Card';
 import { DealerDeck } from './DealerDeck';
+import { useT } from '../../i18n/LanguageContext';
 import styles from './TableCards.module.css';
 
 interface TableCardsProps {
@@ -42,6 +43,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
   deckCount,
   dealer = 'cpu',
 }, ref) {
+  const t = useT();
   const highlightedSet = new Set(highlightedCardIds);
   const selectedSet = new Set(selectedCardIds);
   const capturingSet = new Set(capturingCardIds);
@@ -74,7 +76,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              Table is empty
+              {t.table.tableEmpty}
             </motion.span>
           ) : (
             cards.map((card) => {

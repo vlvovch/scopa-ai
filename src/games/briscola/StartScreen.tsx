@@ -13,8 +13,12 @@ import type { Translation } from '../../i18n/en';
 import { LanguageToggle } from '../../components/UI/LanguageToggle';
 import { GameSwitcher } from '../../components/UI/GameSwitcher';
 import { OtherGameAnnouncement } from '../../components/UI/OtherGameAnnouncement';
+import { AIConsentModal } from '../../components/UI/AIConsentModal';
+import { AppStoreBadge, AppStoreCredit } from '../../components/UI/AppStoreBadge';
+import { aiDataDestinations, hasAIDataConsent, grantAIDataConsent, type AIDataDestination } from '../../ai/consent';
 import switcherStyles from '../../components/UI/GameSwitcher.module.css';
 import type { GameId } from '../gameSelection';
+import { MAIN_SITE_URL } from '../../platform/links';
 import styles from '../../components/UI/StartScreen.module.css';
 import { CustomDropdown } from '../../components/UI/CustomDropdown';
 import { GeminiIcon } from '../../components/UI/GeminiIcon';
@@ -63,7 +67,6 @@ export type BriscolaOpponentName =
   | 'apple';
 
 const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
-const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playbriscola.com';
 
 export type BriscolaGameMode = 'play' | 'watch' | 'multiplayer';
 
@@ -89,7 +92,7 @@ function getOpponentCategory(name: BriscolaOpponentName, openrouterModel: string
   if (name === 'random' || name === 'heuristic' || name === 'expert') return 'cpu';
   if (name === 'gemini-free') return 'free-ai';
   if (name === 'apple') return 'device-ai';
-  // OpenRouter's free models live under "Free AI", its paid ones under BYOK
+  // The categories are about cost: OpenRouter's free models sit with the proxy Gemini
   if (name === 'openrouter' && isFreeOpenRouterModel(openrouterModel)) return 'free-ai';
   return 'ai';
 }
@@ -226,7 +229,7 @@ export function StartScreen({
     opponentName === 'claude' ||
     watchOpponents.player1 === 'claude' ||
     watchOpponents.player2 === 'claude';
-  // Both the BYOK picker and the Free AI category read the catalogue, so it
+  // Both the BYOK picker and the free category read the catalogue, so it
   // is fetched (once, public) as soon as an OpenRouter key is in place.
   const needOpenRouter = openrouterOk;
   const freeOpenRouter = freeOpenRouterModels(openrouterModels);
@@ -536,7 +539,7 @@ export function StartScreen({
           const remaining = info
             ? Math.max(0, info.gamesLimit - info.gamesUsed)
             : null;
-          const exhausted = remaining === 0;
+          const exhausted = remaining === 0 || !!info?.globalExhausted;
           return (
             <>
               <p
@@ -553,7 +556,7 @@ export function StartScreen({
                   className={styles.aiDescription}
                   style={{ color: '#e57373', fontSize: '0.85em' }}
                 >
-                  {t.start.dailyLimitReached}
+                  {info?.globalExhausted ? t.start.sharedLimitReached : t.start.dailyLimitReached}
                 </p>
               )}
             </>
@@ -564,6 +567,40 @@ export function StartScreen({
   };
 
   // -------- render -------------------------------------------------------
+
+  // The data notice before the first game against an AI service
+  // (src/ai/consent.ts): asked once for the seats about to play, remembered
+  // through the storage seam; "Not now" seats a CPU opponent instead.
+  const [consentRequest, setConsentRequest] = useState<AIDataDestination[] | null>(null);
+  const startWithSelection = () => onStartGame(bestOf, gameMode);
+  const handleStartGame = () => {
+    if (gameMode === 'multiplayer') {
+      onStartMultiplayer();
+      return;
+    }
+    const seats = gameMode === 'watch' ? [watchOpponents.player1, watchOpponents.player2] : [opponentName];
+    const destinations = aiDataDestinations(seats);
+    if (destinations.length > 0 && !hasAIDataConsent()) {
+      setConsentRequest(destinations);
+      return;
+    }
+    startWithSelection();
+  };
+  const handleConsentAllow = () => {
+    grantAIDataConsent();
+    setConsentRequest(null);
+    startWithSelection();
+  };
+  const handleConsentDecline = () => {
+    setConsentRequest(null);
+    if (gameMode === 'watch') {
+      for (const player of ['player1', 'player2'] as const) {
+        if (aiDataDestinations([watchOpponents[player]]).length > 0) onSetWatchOpponent(player, 'heuristic');
+      }
+    } else if (aiDataDestinations([opponentName]).length > 0) {
+      onSetOpponentName('heuristic');
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -738,13 +775,7 @@ export function StartScreen({
         ) : (
           <button
             className={styles.startButton}
-            onClick={() => {
-              if (gameMode === 'multiplayer') {
-                onStartMultiplayer();
-              } else {
-                onStartGame(bestOf, gameMode);
-              }
-            }}
+            onClick={handleStartGame}
           >
             {gameMode === 'multiplayer'
               ? t.start.openLobby
@@ -754,7 +785,7 @@ export function StartScreen({
           </button>
         )}
 
-        <div className={`${styles.rulesHint} ${styles.rulesHintLong}`}>
+        <div className={styles.rulesHint}>
           <h3>{t.start.quickRules}</h3>
           <ul>
             <li>{t.start.briscolaRule1}</li>
@@ -769,10 +800,19 @@ export function StartScreen({
           )}
         </div>
 
+        <AppStoreBadge />
+
         <footer className={styles.footer}>
-          © 2026 <a href="https://github.com/vlvovch" target="_blank" rel="noopener noreferrer">Volodymyr Vovchenko</a> | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. {t.start.builtWithPrefix}<a href="https://claude.ai/code" target="_blank" rel="noopener noreferrer">Claude Code</a>. <span title={__APP_BUILD_INFO__} style={{ opacity: 0.55, fontSize: '0.75em', whiteSpace: 'nowrap' }}>· v{__APP_VERSION__}</span>
+          © 2026 VV Labs | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. <span title={__APP_BUILD_INFO__} style={{ opacity: 0.55, fontSize: '0.75em', whiteSpace: 'nowrap' }}>· v{__APP_VERSION__}</span>
+          <AppStoreCredit />
         </footer>
       </div>
+      <AIConsentModal
+        isOpen={consentRequest !== null}
+        destinations={consentRequest ?? []}
+        onAllow={handleConsentAllow}
+        onDecline={handleConsentDecline}
+      />
     </div>
   );
 }

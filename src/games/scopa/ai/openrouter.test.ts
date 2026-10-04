@@ -76,7 +76,7 @@ describe('OpenRouterScopaAI multi-turn', () => {
     const first = mocks.chat.mock.calls[0][1];
     expect(first.model).toBe('openai/gpt-5-mini');
     expect(first.schema.name).toBe('move_selection');
-    expect(first.thinkingLevel).toBe('high');
+    expect(first.thinkingLevel).toBe('medium'); // the knob's default
     expect(sentMessages(0).map((m) => m.role)).toEqual(['system', 'user']);
     expect(sentMessages(0)[0].content).toContain('Multi-turn');
     expect(sentMessages(0)[1].content).toContain('[0]');

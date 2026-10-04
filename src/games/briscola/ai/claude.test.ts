@@ -112,11 +112,17 @@ describe('ClaudeBriscolaAI', () => {
     mocks.messagesCreate.mockResolvedValueOnce(
       fakeClaudeResponse({ moveIndex: 0, reasoning: 'x' })
     );
+    const { setAiThinkingLevel } = await import('../../../ai/effort');
     const { getClaudeBriscolaAI, clearClaudeCache } = await import('./claude');
     clearClaudeCache();
-    const ai = getClaudeBriscolaAI('claude-opus-4-7-20251015', true, 'multiturn');
-    ai!.startRound();
-    await ai!.selectMove(ctx());
+    setAiThinkingLevel('high'); // the knob's default is 'medium'
+    try {
+      const ai = getClaudeBriscolaAI('claude-opus-4-7-20251015', true, 'multiturn');
+      ai!.startRound();
+      await ai!.selectMove(ctx());
+    } finally {
+      setAiThinkingLevel('medium');
+    }
 
     const params = mocks.messagesCreate.mock.calls[0][0];
     expect(params.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
@@ -212,7 +218,7 @@ describe('ClaudeBriscolaAI', () => {
       await ai!.selectMove(ctx());
       expect(mocks.messagesCreate.mock.calls[0][0].output_config.effort).toBe('medium');
     } finally {
-      setAiThinkingLevel('high');
+      setAiThinkingLevel('medium');
     }
   });
 

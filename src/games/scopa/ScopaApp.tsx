@@ -17,7 +17,7 @@ import { SetteBelloCelebration } from '../../components/UI/SetteBelloCelebration
 import { SettingsModal } from '../../components/UI/SettingsModal';
 import { useOpenRouterLogin } from '../../hooks/useOpenRouterLogin';
 import { StatsModal, type StatsModalOpponent, type StatsModalGame } from '../../components/UI/StatsModal';
-import { AIPlayerLabel } from '../../components/UI/AIPlayerLabel';
+import { AIPlayerLabel, getAIDisplayNameText } from '../../components/UI/AIPlayerLabel';
 import { ConfirmDialog } from '../../components/UI/ConfirmDialog';
 import { RulesModal } from '../../components/UI/RulesModal';
 import { GameControls } from '../../components/UI/GameControls';
@@ -39,7 +39,7 @@ import type { GameAppProps } from '../gameLoaders';
 import { getValidMoves } from './rules';
 import { getAppleAI, isAppleAvailable, isOnDeviceAIType, cancelOnDeviceRequests, prewarmAppleAI } from './ai';
 import { useKeepAwake } from '../../hooks/useKeepAwake';
-import { AI_PLAYERS, AI_INFO, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, isOpenRouterAIType, getOpenRouterAI, getOpenRouterTokenStats, getOpenRouterTokenDelta, resetOpenRouterTokenStats, startOpenRouterRound, endOpenRouterRound, cancelOpenRouterRequests, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
+import { AI_PLAYERS, getGeminiAI, getGeminiSingleTurnAI, isAsyncAI, isGeminiAIType, isGeminiFreeAIType, isOpenAIAIType, isClaudeAIType, getGeminiTokenStats, getGeminiTokenDelta, resetGeminiTokenStats, startGeminiRound, endGeminiRound, getGeminiSingleTurnTokenStats, getGeminiSingleTurnTokenDelta, resetGeminiSingleTurnTokenStats, startGeminiSingleTurnRound, endGeminiSingleTurnRound, getOpenAI, getOpenAITokenStats, getOpenAITokenDelta, resetOpenAITokenStats, startOpenAIRound, endOpenAIRound, getOpenAISingleTurnAI, getOpenAISingleTurnTokenStats, getOpenAISingleTurnTokenDelta, resetOpenAISingleTurnTokenStats, startOpenAISingleTurnRound, endOpenAISingleTurnRound, getClaudeAI, getClaudeTokenStats, getClaudeTokenDelta, resetClaudeTokenStats, startClaudeRound, endClaudeRound, getClaudeSingleTurnAI, getClaudeSingleTurnTokenStats, getClaudeSingleTurnTokenDelta, resetClaudeSingleTurnTokenStats, startClaudeSingleTurnRound, endClaudeSingleTurnRound, isOpenRouterAIType, getOpenRouterAI, getOpenRouterTokenStats, getOpenRouterTokenDelta, resetOpenRouterTokenStats, startOpenRouterRound, endOpenRouterRound, cancelOpenRouterRequests, getGeminiFreeAI, getGeminiFreeTokenStats, getGeminiFreeTokenDelta, resetGeminiFreeTokenStats, startGeminiFreeRound, endGeminiFreeRound, newGeminiFreeGame, RateLimitError } from './ai';
 import type { ExtendedAIType, LLMAIContext, AnyAIPlayer, GeminiTokenStats, GeminiTokenDelta, OpenAITokenStats, OpenAITokenDelta, ClaudeTokenStats, ClaudeTokenDelta } from './ai';
 import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
 import { TokenStatsDisplay } from '../../components/UI/TokenStatsDisplay';
@@ -55,6 +55,7 @@ import type { ScopaWinOddsView, WinOdds } from './ai/winOdds';
 import { WinOddsPanel } from '../../components/Analysis/WinOddsPanel';
 import type { ReactNode } from 'react';
 import { storage } from '../../platform/storage';
+import { noteGameFinished } from '../../platform/review';
 
 // Storage keys for persistence
 const SPECTATOR_AIS_KEY = 'scopa-spectator-ais';
@@ -93,7 +94,7 @@ function loadSpectatorModels(): { player1: string; player2: string } {
   } catch (e) {
     console.warn('Failed to load spectator model settings:', e);
   }
-  return { player1: 'gemini-3.5-flash', player2: 'gemini-3.5-flash' };
+  return { player1: 'gemini-3.8-flash', player2: 'gemini-3.8-flash' };
 }
 
 // Session storage key (must match useMultiplayer.ts)
@@ -425,6 +426,14 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (isOpenRouterAI(aiType)) return settings.openrouterModel;
     return settings.geminiModel;
   }, [settings.openaiModel, settings.claudeModel, settings.openrouterModel, settings.geminiModel]);
+
+  // The name shown for an AI seat in the status line, the celebrations and
+  // the reasoning modal: the model ("GPT-5.6 Luna"), not the provider, as
+  // the scoreboard already does (and as Briscola formats it).
+  const aiLabel = useCallback(
+    (aiType: ExtendedAIType, model?: string): string => getAIDisplayNameText(aiType, model ?? getModelForAI(aiType), false),
+    [getModelForAI]
+  );
 
   // Helper to get delta for a specific AI type and model
   // Returns a unified delta type (Gemini, OpenAI, and Claude deltas are structurally compatible)
@@ -1460,7 +1469,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           if (err instanceof RateLimitError) {
             // Rate limit hit — stop the game and return to start screen
             console.warn('Free AI rate limit reached:', err.message);
-            setPlayer2ApiError(err.message);
+            setPlayer2ApiError(err.scope === 'global' ? t.start.sharedLimitReached : t.start.dailyLimitReached);
             aiRequestInFlight.current = null;
             resetGame();
             return;
@@ -1512,7 +1521,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             fallback,
             servedModel,
             player: 'cpu',
-            aiName: isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name,
+            aiName: isSpectatorMode ? aiLabel(spectatorAIs.player2, spectatorModels.player2) : aiLabel(settings.cpuAI),
             opponentHandCount: state.players.human.hand.length,
             otherHandCards: cpuHand.filter(c => c.id !== moveToExecute.cardPlayed.id),
           },
@@ -1608,8 +1617,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     if (setteBelloOnTable && lastCapturePlayer && prevSetteBelloOwner.current === null && !isInstantMode && !setteBelloCelebration.show) {
       // Sette Bello will be awarded in final hand - trigger celebration
       const playerName = lastCapturePlayer === 'human'
-        ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
-        : (isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name);
+        ? (isSpectatorMode ? aiLabel(spectatorAIs.player1, spectatorModels.player1) : undefined)
+        : (isSpectatorMode ? aiLabel(spectatorAIs.player2, spectatorModels.player2) : aiLabel(settings.cpuAI));
 
       // Mark as captured to prevent re-triggering
       prevSetteBelloOwner.current = lastCapturePlayer;
@@ -1660,7 +1669,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     }
 
     if (currentHumanScopas > prevScopaCounts.current.human) {
-      const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined;
+      const playerName = isSpectatorMode ? aiLabel(spectatorAIs.player1, spectatorModels.player1) : undefined;
       setCelebrationActive(true); // Block input until exit animation completes
       setScopaCelebration({ show: true, player: 'human', playerName });
       playSound('scopa'); // Play scopa celebration sound
@@ -1669,7 +1678,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       // Fallback: ensure celebrationActive is reset even if onExitComplete doesn't fire
       setTimeout(() => setCelebrationActive(false), 2000);
     } else if (currentCpuScopas > prevScopaCounts.current.cpu) {
-      const playerName = isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name;
+      const playerName = isSpectatorMode ? aiLabel(spectatorAIs.player2, spectatorModels.player2) : aiLabel(settings.cpuAI);
       setCelebrationActive(true); // Block input until exit animation completes
       setScopaCelebration({ show: true, player: 'cpu', playerName });
       playSound('scopa'); // Play scopa celebration sound
@@ -1703,8 +1712,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     // Also check celebration isn't already showing to prevent double-trigger
     if (prevSetteBelloOwner.current === null && currentOwner !== null && !setteBelloCelebration.show) {
       const playerName = currentOwner === 'human'
-        ? (isSpectatorMode ? AI_INFO[spectatorAIs.player1].name : undefined)
-        : (isSpectatorMode ? AI_INFO[spectatorAIs.player2].name : AI_INFO[settings.cpuAI].name);
+        ? (isSpectatorMode ? aiLabel(spectatorAIs.player1, spectatorModels.player1) : undefined)
+        : (isSpectatorMode ? aiLabel(spectatorAIs.player2, spectatorModels.player2) : aiLabel(settings.cpuAI));
 
       // Mark as captured immediately to prevent re-triggering from other effect
       prevSetteBelloOwner.current = currentOwner;
@@ -2377,9 +2386,11 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       trackGameCompleted({ game: 'scopa', mode: 'multiplayer', opponent: 'human' });
 
       // Play victory sound (only if we won)
-      if (multiplayer.gameEndData.finalScores[myId] > multiplayer.gameEndData.finalScores[oppId]) {
+      const won = multiplayer.gameEndData.finalScores[myId] > multiplayer.gameEndData.finalScores[oppId];
+      if (won) {
         playSound('victory');
       }
+      noteGameFinished(won);
     }
 
     // Reset flag when gameEndData is cleared (new game started)
@@ -2742,6 +2753,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       );
       gameRecorded.current = true;
       trackGameCompleted({ game: 'scopa', mode: 'solo', opponent: isLLMOpponent ? 'ai' : 'cpu' });
+      noteGameFinished(activeState.scores.human > activeState.scores.cpu);
 
       // Play victory celebration sound
       playSound('victory');
@@ -2857,7 +2869,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             fallback,
             servedModel,
             player: 'human',
-            aiName: AI_INFO[spectatorAIs.player1].name,
+            aiName: aiLabel(spectatorAIs.player1, spectatorModels.player1),
             opponentHandCount: state.players.cpu.hand.length,
             otherHandCards: humanHand.filter(c => c.id !== moveToExecute.cardPlayed.id),
           },
@@ -3194,7 +3206,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
                 {isMyTurn && selectedTableCards.length > 1 && (
                   <>
                     <span style={{ fontSize: 'calc(13px * var(--font-scale, 1))', color: 'var(--color-text-secondary)' }}>
-                      Sum: {selectedSum}/{selectedCard?.value}
+                      {t.scopa.sum}: {selectedSum}/{selectedCard?.value}
                     </span>
                     {multiplayerIsValidCapture && (
                       <button
@@ -3209,7 +3221,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
                           cursor: 'pointer',
                         }}
                       >
-                        Capture
+                        {t.scopa.captureButton}
                       </button>
                     )}
                   </>
@@ -3857,8 +3869,8 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
             <span style={{ fontSize: 'calc(14px * var(--font-scale, 1))', color: 'var(--color-text-primary)' }}>
               {isSpectatorMode
-                ? `${t.game.turnOf(AI_INFO[getAIForPlayer(activeState.round.currentPlayer)].name)}${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? t.game.pausedSuffix : ''}`
-                : isHumanTurn ? t.game.yourTurn : t.game.thinking(AI_INFO[settings.cpuAI].name)}
+                ? `${t.game.turnOf(aiLabel(getAIForPlayer(activeState.round.currentPlayer), activeState.round.currentPlayer === 'human' ? spectatorModels.player1 : spectatorModels.player2))}${(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? t.game.pausedSuffix : ''}`
+                : isHumanTurn ? t.game.yourTurn : t.game.thinking(aiLabel(settings.cpuAI))}
             </span>
 
             {/* Action buttons container */}
@@ -3888,7 +3900,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
                     cursor: 'pointer',
                   }}
                 >
-                  {(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? '▶ Resume' : '⏸ Pause'}
+                  {(useWorkerMode ? workerIsPaused : isSpectatorPaused) ? `▶ ${t.game.resume}` : `⏸ ${t.game.pause}`}
                 </button>
               )}
 
@@ -3906,7 +3918,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
                     cursor: 'pointer',
                   }}
                 >
-                  Place Card
+                  {t.game.placeCard}
                 </button>
               )}
 
@@ -3914,7 +3926,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
               {!isSpectatorMode && isHumanTurn && selectedTableCards.length > 1 && (
                 <>
                   <span style={{ fontSize: 'calc(13px * var(--font-scale, 1))', color: 'var(--color-text-secondary)' }}>
-                    Sum: {selectedSum}/{selectedCard?.value}
+                    {t.scopa.sum}: {selectedSum}/{selectedCard?.value}
                   </span>
                   {isValidCapture && (
                     <button
@@ -3929,7 +3941,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
                         cursor: 'pointer',
                       }}
                     >
-                      Capture
+                      {t.scopa.captureButton}
                     </button>
                   )}
                 </>

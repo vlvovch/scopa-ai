@@ -1,6 +1,7 @@
 // Node.js HTTP server: Gemini API proxy with rate limiting for free AI games
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { GameQuota } from './limits.js';
 
 // Configuration
 const PORT = parseInt(process.env.PORT || '3101', 10);
@@ -11,29 +12,22 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || '*')
   .filter(Boolean);
 
 const GAMES_PER_DAY = 3;
+// Shared cap on everyone's games per UTC day: the Gemini bill has a ceiling
+// no matter how many players show up (each game is a few tens of cents).
+// (a malformed value falls back to 60: NaN would never trip the cap)
+const GLOBAL_GAMES_PER_DAY = parseInt(process.env.GLOBAL_GAMES_PER_DAY || '60', 10) || 60;
 const MODEL = 'gemini-3-flash-preview';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
 
-// In-memory rate limit storage (replaces Cloudflare KV)
-interface RateLimitEntry {
-  gameIds: string[];
-  expires: number; // timestamp in ms
-}
-const rateLimits = new Map<string, RateLimitEntry>();
+// In-memory quotas (per player and shared), see limits.ts
+const quota = new GameQuota(GAMES_PER_DAY, GLOBAL_GAMES_PER_DAY);
 
 // Periodic cleanup of expired entries
 setInterval(() => {
-  const now = Date.now();
-  let cleaned = 0;
-  for (const [key, entry] of rateLimits) {
-    if (entry.expires <= now) {
-      rateLimits.delete(key);
-      cleaned++;
-    }
-  }
+  const cleaned = quota.cleanup();
   if (cleaned > 0) {
-    console.log(`[cleanup] Removed ${cleaned} expired rate limit entries. Active: ${rateLimits.size}`);
+    console.log(`[cleanup] Removed ${cleaned} expired rate limit entries. Active: ${quota.activePlayers}`);
   }
 }, CLEANUP_INTERVAL_MS);
 
@@ -137,32 +131,22 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Rate limiting (in-memory)
-    const fingerprint = getFingerprint(req);
-    const dateKey = getDateKey();
-    const rlKey = `${fingerprint}:${dateKey}`;
-
-    const existing = rateLimits.get(rlKey);
-    const gameIds: string[] = existing ? existing.gameIds : [];
-    const isNewGame = !gameIds.includes(gameId);
-
-    if (isNewGame && gameIds.length >= GAMES_PER_DAY) {
+    // Quotas: the player's daily allowance, then the shared daily cap. The
+    // client tells them apart by `scope` and shows the matching message.
+    const decision = quota.admit(getFingerprint(req), gameId, getDateKey());
+    if (!decision.ok) {
+      if (decision.scope === 'global') {
+        console.warn(`[quota] shared daily cap reached (${decision.globalUsed}/${decision.globalLimit} games)`);
+      }
       sendJson(res, 429, {
         error: 'rate_limit',
-        gamesUsed: gameIds.length,
-        gamesLimit: GAMES_PER_DAY,
+        scope: decision.scope,
+        gamesUsed: decision.gamesUsed,
+        gamesLimit: decision.gamesLimit,
+        globalGamesUsed: decision.globalUsed,
+        globalGamesLimit: decision.globalLimit,
       }, cors);
       return;
-    }
-
-    // Register new game
-    if (isNewGame) {
-      gameIds.push(gameId);
-      // Expire at end of current UTC day + 1 hour buffer
-      const tomorrow = new Date(dateKey + 'T00:00:00Z');
-      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-      tomorrow.setUTCHours(1, 0, 0, 0);
-      rateLimits.set(rlKey, { gameIds, expires: tomorrow.getTime() });
     }
 
     // Call Gemini API
@@ -203,8 +187,8 @@ const server = createServer(async (req, res) => {
     sendJson(res, 200, {
       text,
       usageMetadata,
-      gamesUsed: gameIds.length,
-      gamesLimit: GAMES_PER_DAY,
+      gamesUsed: decision.gamesUsed,
+      gamesLimit: decision.gamesLimit,
     }, cors);
 
   } catch (error) {
@@ -222,7 +206,7 @@ if (!GEMINI_API_KEY) {
 
 server.listen(PORT, () => {
   console.log(`Scopa AI Proxy running on port ${PORT}`);
-  console.log(`Rate limit: ${GAMES_PER_DAY} games/day per user`);
+  console.log(`Rate limit: ${GAMES_PER_DAY} games/day per user, ${GLOBAL_GAMES_PER_DAY} games/day shared`);
   console.log(`CORS origins: ${ALLOWED_ORIGINS.join(', ')}`);
 });
 

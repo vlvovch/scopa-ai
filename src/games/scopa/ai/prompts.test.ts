@@ -1,6 +1,6 @@
-// The on-device prompt: the round memory a good player keeps (Denari race,
-// Sette Bello, primiera, scope, values still out) computed from the cards
-// seen, placed before the position, and absent when nothing is known.
+// The on-device prompt: the short round memory (the coins race, where the
+// 7 of coins is, the scope) computed from the cards seen, placed before the
+// position, and absent when nothing is known; the instructions kept small.
 import { describe, it, expect } from 'vitest';
 import { createDeck } from '../deck';
 import { getValidMoves } from '../rules';
@@ -28,29 +28,30 @@ function context(overrides: Partial<LLMAIContext> = {}): LLMAIContext {
 }
 
 describe('buildRoundMemory (Scopa)', () => {
-  it('summarises Denari, the Sette Bello, both primiere, scope and the values still out', () => {
+  it('summarises the coins race, the 7 of coins and the scope, and nothing the small model misreads', () => {
     const memory = buildRoundMemory(context());
-    expect(memory).toContain('Denari captured: you 2, opponent 1 (7 still in play; 6 win the Denari point)');
-    expect(memory).toContain('Sette Bello (7 of coins): in your hand');
-    // you: coins Ace (16, beats the 2) + cups 6 (18) + swords 5 (15) + clubs 3 (13) = 62; opponent: coins 3 (13) + cups 7 (21) = 34, two suits missing
-    expect(memory).toContain('Primiera: you 62 (coins 1, cups 6, swords 5, clubs 3) vs opponent 34 so far (coins 3, cups 7; missing swords, clubs)');
+    expect(memory).toContain('Coins captured: you 2, opponent 1 (6 win the coins point)');
+    expect(memory).toContain('7 of coins: in your hand');
     expect(memory).toContain('Scope this round: you 1, opponent 0');
-    // 11 cards seen (2 hand + 2 table + 5 + 2), 29 still out
-    expect(memory).toContain("Not seen yet (in the deck or the opponent's hand): 29 cards, by value: 1×3, 2×2, 3×1, 4×3, 5×3, 6×3, 7×2, 8×4, 9×4, 10×4");
+    // the primiera breakdown and the unseen values by count were read as the opponent's hand
+    expect(memory).not.toContain('Primiera');
+    expect(memory).not.toContain('Not seen yet');
+    expect(memory.split('\n')).toHaveLength(4);
   });
 
-  it('tracks where the Sette Bello is', () => {
-    expect(buildRoundMemory(context({ hand: cards('cups-3'), selfCaptured: cards('coins-7') }))).toContain('Sette Bello (7 of coins): you have captured it');
-    expect(buildRoundMemory(context({ hand: cards('cups-3'), opponentCaptured: cards('coins-7') }))).toContain('Sette Bello (7 of coins): the opponent has captured it');
-    expect(buildRoundMemory(context({ hand: cards('cups-3'), table: cards('coins-7') }))).toContain('Sette Bello (7 of coins): on the table');
-    expect(buildRoundMemory(context({ hand: cards('cups-3') }))).toContain("Sette Bello (7 of coins): not seen yet (in the deck or the opponent's hand)");
+  it('tracks where the 7 of coins is', () => {
+    expect(buildRoundMemory(context({ hand: cards('cups-3'), selfCaptured: cards('coins-7') }))).toContain('7 of coins: in your pile');
+    expect(buildRoundMemory(context({ hand: cards('cups-3'), opponentCaptured: cards('coins-7') }))).toContain("7 of coins: in the opponent's pile");
+    expect(buildRoundMemory(context({ hand: cards('cups-3'), table: cards('coins-7') }))).toContain('7 of coins: on the table');
+    expect(buildRoundMemory(context({ hand: cards('cups-3') }))).toContain('7 of coins: not seen yet');
   });
 
   it('is empty without the captured piles, and so is the on-device prompt\'s memory', () => {
     const bare = context({ selfCaptured: undefined, opponentCaptured: undefined });
     expect(buildRoundMemory(bare)).toBe('');
-    expect(buildOnDeviceTurnPrompt(bare)).toBe(buildTurnPrompt(bare));
     expect(buildOnDeviceTurnPrompt(bare)).not.toContain('ROUND MEMORY');
+    // only the spelled-out moves differ from the plain prompt
+    expect(buildOnDeviceTurnPrompt(bare).split('Valid moves:')[0]).toBe(buildTurnPrompt(bare).split('Valid moves:')[0]);
   });
 });
 
@@ -63,11 +64,28 @@ describe('buildOnDeviceTurnPrompt (Scopa)', () => {
     expect(memoryAt).toBeLessThan(prompt.indexOf('Table:'));
     expect(prompt.endsWith(`Choose best move (0-${ctx.validMoves.length - 1}):`)).toBe(true);
     expect(buildTurnPrompt(ctx)).not.toContain('ROUND MEMORY');
-    expect(prompt.length).toBeLessThan(1500);
+    expect(prompt.length).toBeLessThan(1000);
   });
 
-  it('the on-device instructions ask for the reasoning before the move index', () => {
+  it('spells the legal moves out: captures, a scopa, or a card that stays on the table', () => {
+    // the default position: neither the 7 nor the 3 captures anything
+    const placing = buildOnDeviceTurnPrompt(context());
+    expect(placing).toContain('[0] Play 7 of coins: no capture, it stays on the table');
+    expect(placing).toContain('[1] Play 3 of cups: no capture, it stays on the table');
+    expect(placing).not.toContain('(place on table)');
+    expect(buildTurnPrompt(context())).toContain('[1] Play 3 of cups (place on table)');
+    // with a 3 on the table the 7 takes the 4 and the 3 and empties it, the 3 of cups takes the 3
+    const hand = cards('coins-7', 'cups-3');
+    const table = cards('coins-4', 'swords-3');
+    const capturing = buildOnDeviceTurnPrompt(context({ hand, table, validMoves: hand.flatMap((c) => getValidMoves(c, table, 'cpu')) }));
+    expect(capturing).toContain('[0] Play 7 of coins: captures 4 of coins, 3 of swords and empties the table: a SCOPA');
+    expect(capturing).toContain('[1] Play 3 of cups: captures 3 of swords');
+  });
+
+  it('the on-device instructions stay short, forbid guessing the hidden cards and ask for the reasoning before the move index', () => {
     expect(SYSTEM_INSTRUCTION_ON_DEVICE).toContain('ROUND MEMORY');
+    expect(SYSTEM_INSTRUCTION_ON_DEVICE).toContain("You cannot see the opponent's cards or the deck");
+    expect(SYSTEM_INSTRUCTION_ON_DEVICE.split(/\s+/).length).toBeLessThan(260);
     expect(SYSTEM_INSTRUCTION_ON_DEVICE.indexOf('reasoning')).toBeLessThan(SYSTEM_INSTRUCTION_ON_DEVICE.indexOf('moveIndex'));
   });
 });

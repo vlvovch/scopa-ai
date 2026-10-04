@@ -11,9 +11,10 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { initNativeStorage, storage } from './storage';
 import { parseIncomingLink, pathForIncomingLink } from './links';
-import { readNativeBuildInfo } from './buildInfo';
+import { readAppLanguage, readNativeBuildInfo } from './buildInfo';
 import { probeAppleIntelligence } from './appleIntelligence';
 import { setOnDeviceModel } from '../ai/onDeviceModel';
+import { setSystemLanguage } from '../i18n/systemLanguage';
 import type { NativeBuildInfo } from '../analytics/gate';
 
 /** Window event carrying an invitation received while the app is running. */
@@ -33,6 +34,34 @@ function applyFontScale(): void {
   } catch {
     // keep the default seeded by index.html
   }
+}
+
+/**
+ * Links meant for a new tab (target="_blank": the privacy policy, GitHub,
+ * the provider sites) open in an in-app browser sheet with a Done button
+ * instead of switching to Safari, from which a "back" link on the page
+ * lands on the website rather than in the app (TestFlight feedback,
+ * 2026-09-18). Only http(s) links; anything else keeps the web view's
+ * default handling. The plugin is loaded on the first such tap.
+ *
+ * Listens in the capture phase: React 18 delegates events to its root
+ * element and its stopPropagation() stops the native event too, so a
+ * bubble-phase document listener never sees a click inside a dialog that
+ * stops propagation to keep the overlay from closing (the privacy link of
+ * the AI data notice, the one link testers actually tapped).
+ */
+function installExternalLinkSheet(): void {
+  document.addEventListener('click', (event) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey) return;
+    const anchor = (event.target as Element | null)?.closest?.('a[target="_blank"]') as HTMLAnchorElement | null;
+    if (!anchor) return;
+    const url = anchor.href;
+    if (!/^https?:/i.test(url)) return;
+    event.preventDefault();
+    void import('@capacitor/browser')
+      .then(({ Browser }) => Browser.open({ url, presentationStyle: 'popover' }))
+      .catch(() => { window.open(url, '_blank', 'noopener'); });
+  }, { capture: true });
 }
 
 /** Blur a focused input when the user taps anywhere that is not a control. */
@@ -63,11 +92,16 @@ export interface NativeBootstrap {
 export async function bootstrapNative(): Promise<NativeBootstrap> {
   document.documentElement.classList.add('native');
   installViewportVars();
-  const [, nativeBuild, onDevice] = await Promise.all([
+  const [, nativeBuild, onDevice, appLanguage] = await Promise.all([
     initNativeStorage(),
     readNativeBuildInfo(),
     probeAppleIntelligence(),
+    readAppLanguage(),
   ]);
+  // The language iOS chose for the app; the first render reads it when the
+  // player has not picked one (src/i18n/LanguageContext.tsx).
+  setSystemLanguage(appLanguage);
+  console.info(`[native] app language: ${appLanguage ?? 'unknown'}`);
   // One line of evidence for the analytics gate in the device console.
   console.info(`[native] build info: ${nativeBuild ? JSON.stringify(nativeBuild) : 'unavailable'}`);
   // The on-device opponent (Apple Intelligence) exists only where the
@@ -106,6 +140,7 @@ export async function bootstrapNative(): Promise<NativeBootstrap> {
   }).catch(() => {});
 
   installKeyboardDismissal();
+  installExternalLinkSheet();
   StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
   return { nativeBuild };
 }

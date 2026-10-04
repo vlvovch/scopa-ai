@@ -109,6 +109,7 @@ export async function fetchGeminiModels(): Promise<GeminiModelInfo[]> {
       console.error('Failed to fetch Gemini models:', error);
       // Return fallback models on error (use raw IDs as display names)
       return [
+        { id: 'gemini-3.8-flash', displayName: 'gemini-3.8-flash' },
         { id: 'gemini-3.7-flash', displayName: 'gemini-3.7-flash' },
         { id: 'gemini-3.5-flash', displayName: 'gemini-3.5-flash' },
         { id: 'gemini-3.1-flash-lite', displayName: 'gemini-3.1-flash-lite' },

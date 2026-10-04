@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('@capacitor/core', () => ({ registerPlugin: () => ({ get: async () => { throw new Error('UNIMPLEMENTED'); } }) }));
 
-import { readNativeBuildInfo } from './buildInfo';
+import { readAppLanguage, readNativeBuildInfo } from './buildInfo';
 
 describe('readNativeBuildInfo', () => {
   it('returns the report when every field has the right type', async () => {
@@ -18,5 +18,18 @@ describe('readNativeBuildInfo', () => {
     expect(await readNativeBuildInfo({ get: async () => ({ configuration: 'Release', debug: 'no', simulator: false }) })).toBeNull();
     expect(await readNativeBuildInfo({ get: async () => ({ configuration: 'Release', debug: false }) })).toBeNull();
     expect(await readNativeBuildInfo({ get: async () => null as never })).toBeNull();
+  });
+});
+
+describe('readAppLanguage', () => {
+  it('returns the localization the shell names', async () => {
+    expect(await readAppLanguage({ language: async () => ({ language: 'it' }) })).toBe('it');
+  });
+  it('returns null for a missing method, a rejection, or an answer that is not a name', async () => {
+    expect(await readAppLanguage()).toBeNull(); // the mocked default plugin has no such method
+    expect(await readAppLanguage({ language: async () => { throw new Error('boom'); } })).toBeNull();
+    expect(await readAppLanguage({ language: async () => ({}) })).toBeNull();
+    expect(await readAppLanguage({ language: async () => ({ language: '' }) })).toBeNull();
+    expect(await readAppLanguage({ language: async () => ({ language: 3 }) })).toBeNull();
   });
 });

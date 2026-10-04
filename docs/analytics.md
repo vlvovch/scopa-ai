@@ -10,7 +10,7 @@ only analytics provider; the older Umami and Plausible tags are gone.
 | Setting | Website | Native app (`.env.ios`) |
 |---|---|---|
 | `VITE_SWETRIX_SCRIPT_URL` | `.env.local` / `.env.production` on the build machine (not committed) | `https://swetrix.org/swetrix.js` |
-| `VITE_SWETRIX_API_URL` | same | the website's API URL |
+| `VITE_SWETRIX_API_URL` | same | the website's API URL: `https://swetrix-api.vvlabs.net/log` since 2026-09-19 (was `swetrix-api.vovchenko.net`; the dashboard is `swetrix.vvlabs.net`, which is not the API) |
 | `VITE_SWETRIX_PROJECT_ID` | Scopa and Briscola sites each have their own project (`.env.local`, `.env.briscola.local`) | the Scopa project; every gameplay event carries `game` |
 
 Vite loads `.env.local` for every mode, the dev server included, so the

@@ -26,17 +26,47 @@ export function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+/** The first `max` sentences of `text` (sentence ends: . ! ? followed by a space or the end). */
+export function firstSentences(text: string, max: number): string {
+  const ends = /[.!?]+(?=\s|$)/g;
+  let count = 0;
+  let match: RegExpExecArray | null;
+  while ((match = ends.exec(text)) !== null) {
+    count += 1;
+    if (count === max) return text.slice(0, match.index + match[0].length).trim();
+  }
+  return text.trim();
+}
+
+/** A note without the move it belongs to repeated at its start, tags included
+ *  ("Play 7 of cups: takes..." → "takes...", "Plays 2 of Coins (trump): wins..." → "wins..."). */
+function trimEchoedMove(note: string, move: string): string {
+  const escaped = move.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return note.replace(new RegExp(`^(?:play(?:s|ing)?\\s+)?${escaped}(?:\\s*\\([^)]*\\))*\\s*(?:[:,;–—-]\\s*)?`, 'i'), '').trim();
+}
+
 /**
- * The reasoning to show: each weighed move named by its card (the model
- * only knows indexes) with its note, then the verdict. Candidates with a
- * bad index or an empty note are dropped; without any, just the verdict.
+ * The reasoning to show: one line per weighed move, named by its card (the
+ * model only knows indexes) with its note, the chosen one ticked, then the
+ * verdict as its own paragraph, capped at two sentences because the small
+ * model tends to keep going and invent from there. Candidates with a bad
+ * index, an empty note or a repeated index are dropped; without any, just
+ * the verdict.
  */
 export function composeReasoning(response: OnDeviceMoveResponse, moveCount: number, describeMove: (index: number) => string): string {
-  const notes = (Array.isArray(response.candidates) ? response.candidates : [])
-    .filter((c) => Number.isInteger(c?.moveIndex) && c.moveIndex >= 0 && c.moveIndex < moveCount && typeof c.note === 'string' && c.note.trim() !== '')
-    .map((c) => `${describeMove(c.moveIndex)}: ${c.note.trim()}`);
-  const verdict = typeof response.reasoning === 'string' ? response.reasoning.trim() : '';
-  return [...notes, verdict].filter(Boolean).join(' ');
+  const chosen = Number(response.moveIndex);
+  const seen = new Set<number>();
+  const lines: string[] = [];
+  for (const c of Array.isArray(response.candidates) ? response.candidates : []) {
+    if (!Number.isInteger(c?.moveIndex) || c.moveIndex < 0 || c.moveIndex >= moveCount) continue;
+    if (typeof c.note !== 'string' || c.note.trim() === '' || seen.has(c.moveIndex)) continue;
+    seen.add(c.moveIndex);
+    const move = describeMove(c.moveIndex);
+    const note = trimEchoedMove(c.note, move);
+    lines.push(`${c.moveIndex === chosen ? '✓' : '•'} ${move}${note ? `: ${note}` : ''}`);
+  }
+  const verdict = firstSentences(typeof response.reasoning === 'string' ? response.reasoning : '', 2);
+  return [lines.join('\n'), verdict].filter(Boolean).join('\n\n');
 }
 
 function errorMessage(error: unknown): string {

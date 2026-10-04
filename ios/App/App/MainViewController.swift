@@ -10,5 +10,6 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(BuildInfoPlugin())
         bridge?.registerPluginInstance(AppleIntelligencePlugin())
         bridge?.registerPluginInstance(KeepAwakePlugin())
+        bridge?.registerPluginInstance(ReviewPlugin())
     }
 }

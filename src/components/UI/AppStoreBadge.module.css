@@ -1,0 +1,33 @@
+/* Apple's "Download on the App Store" badge on the website's start screens.
+   Apple's marketing guidelines: its own artwork, unmodified, at least 40px
+   tall on screen, clear space of a quarter of the badge's height around it,
+   one badge per layout, subordinate to the main content. */
+.wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+  padding: 10px; /* the clear space: a quarter of the 40px badge */
+}
+
+.link {
+  display: block;
+  line-height: 0;
+  border-radius: 7px;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.badge {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+/* The trademark credit line, in the start screen's footer */
+.credit {
+  display: block;
+  margin-top: 4px;
+}

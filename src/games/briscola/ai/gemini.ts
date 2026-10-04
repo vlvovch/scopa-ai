@@ -13,8 +13,7 @@ import { getAiThinkingLevel } from '../../../ai/effort';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
-  SYSTEM_INSTRUCTION_MULTITURN,
-  SYSTEM_INSTRUCTION_SINGLETURN,
+  systemInstruction,
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
@@ -32,7 +31,7 @@ import { TokenTracker } from '../../../ai/tokenTracker';
 import { MOVE_JSON_SCHEMA } from '../../../ai/moveSchema';
 import type { Seat } from '../../../ai/seat';
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.8-flash';
 
 /** Pro models can't fully disable thinking — they need a minimum budget. */
 function isProModel(modelId: string): boolean {
@@ -106,7 +105,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
       this.chat = this.ai.chats.create({
         model: this.model,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION_MULTITURN,
+          systemInstruction: systemInstruction('multiturn'),
           responseMimeType: 'application/json',
           responseJsonSchema: MOVE_JSON_SCHEMA,
         },
@@ -156,7 +155,7 @@ class GeminiBriscolaAI implements AsyncAIPlayer {
               model: this.model,
               contents: prompt,
               config: {
-                systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
+                systemInstruction: systemInstruction('singleturn'),
                 responseMimeType: 'application/json',
                 responseJsonSchema: MOVE_JSON_SCHEMA,
                 thinkingConfig: thinkingConfigFor(

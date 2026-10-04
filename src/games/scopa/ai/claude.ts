@@ -6,7 +6,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { systemInstruction, buildTurnPrompt } from './prompts';
 import { heuristicAI } from './heuristic';
 import { getAiThinkingLevel } from '../../../ai/effort';
 import {
@@ -335,7 +335,7 @@ class ClaudeAI implements AsyncAIPlayer {
       const requestParams: any = {
         model: this.model,
         max_tokens: shouldThink ? 16000 : 1024, // Higher limit for thinking
-        system: SYSTEM_INSTRUCTION_MULTITURN,
+        system: systemInstruction('multiturn'),
         output_config: { format: MOVE_OUTPUT_SCHEMA },
         messages: this.messages,
         // Incremental prompt caching: auto-places a breakpoint at the last

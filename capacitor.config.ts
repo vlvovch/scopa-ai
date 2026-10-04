@@ -12,7 +12,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * docs/ios.md).
  */
 const config: CapacitorConfig = {
-  appId: process.env.CAP_APP_ID ?? 'net.vovchenko.scopaai',
+  appId: process.env.CAP_APP_ID ?? 'net.vvlabs.scopa',
   appName: 'Scopa AI',
   webDir: 'dist-ios',
   ios: {

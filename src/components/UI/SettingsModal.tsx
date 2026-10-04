@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
-import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, validateOpenRouterKey, type ValidationStatus } from '../../games/scopa/ai/validateApiKey';
+import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, validateOpenRouterKey, type ValidationStatus } from '../../ai/validateApiKey';
 import { assetUrl } from '../../assetUrl';
 import { clearApiKeyCaches } from '../../ai/apiKeyCaches';
+import { MAIN_SITE_URL } from '../../platform/links';
+import { aiDataConsentDate, revokeAIDataConsent } from '../../ai/consent';
 import type { OpenRouterLogin } from '../../hooks/useOpenRouterLogin';
 import { useLanguage } from '../../i18n/LanguageContext';
 import type { Language } from '../../i18n/LanguageContext';
@@ -106,7 +108,6 @@ const API_KEY_WARNING_KEY = 'scopa-api-key-warning-shown';
 
 // Check if running in itch.io mode (API keys disabled)
 const ITCH_MODE = import.meta.env.VITE_ITCH_MODE === 'true';
-const MAIN_SITE_URL = import.meta.env.VITE_SITE_URL || 'https://playscopa.net';
 
 export function SettingsModal({
   isOpen,
@@ -119,6 +120,10 @@ export function SettingsModal({
   openrouterLogin,
 }: SettingsModalProps) {
   const { language, setLanguage, t } = useLanguage();
+  // The AI data notice's remembered answer, read on every render (one storage
+  // read); a reset bumps the counter only to render again.
+  const [, bumpConsentVersion] = useState(0);
+  const consentDate = aiDataConsentDate();
   // Track if warning popup should be shown
   const [showApiKeyWarning, setShowApiKeyWarning] = useState(false);
   // Track if deck selector modal should be shown
@@ -774,6 +779,21 @@ export function SettingsModal({
                   {t.settings.apiKeyHint}
                 </p>
               </>
+            )}
+
+            {/* The AI data notice (src/ai/consent.ts): its state, and a way to see it again */}
+            <h3 className={styles.sectionTitle}>{t.settings.aiConsentTitle}</h3>
+            <p className={styles.settingHint}>
+              {consentDate ? t.settings.aiConsentGranted(consentDate.getTime() > 0 ? consentDate.toLocaleDateString(language === 'it' ? 'it-IT' : 'en-US') : '?') : t.settings.aiConsentNotGranted}
+            </p>
+            {consentDate && (
+              <button
+                type="button"
+                className={styles.resetButton}
+                onClick={() => { revokeAIDataConsent(); bumpConsentVersion((v) => v + 1); }}
+              >
+                {t.settings.aiConsentReset}
+              </button>
             )}
 
             <div className={styles.actions}>

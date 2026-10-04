@@ -8,7 +8,7 @@ const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
 
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
-import { SYSTEM_INSTRUCTION_MULTITURN, buildTurnPrompt } from './prompts';
+import { systemInstruction, buildTurnPrompt } from './prompts';
 import { getOpenAIApiKey, isOpenAIAvailable, clearOpenAIModelCache } from '../../../ai/openaiProvider';
 
 // Provider plumbing (key availability, model list) lives in
@@ -60,7 +60,7 @@ export interface OpenAITokenDelta {
 }
 
 // Default model to use
-const DEFAULT_MODEL = 'gpt-5-mini';
+const DEFAULT_MODEL = 'gpt-5.6-luna';
 
 /**
  * Format model ID into display name
@@ -286,7 +286,7 @@ class OpenAIAI implements AsyncAIPlayer {
         reasoning: OPENAI_REASONING_MODELS.test(this.model) && thinkingKnob !== 'off'
           ? { effort: thinkingKnob }
           : undefined,
-        instructions: SYSTEM_INSTRUCTION_MULTITURN,
+        instructions: systemInstruction('multiturn'),
         input: prompt,
         // If we have a conversation ID, continue it; otherwise create new
         conversation: this.conversationId

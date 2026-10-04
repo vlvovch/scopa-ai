@@ -75,10 +75,12 @@
 /* Mobile responsive styles */
 @media (max-width: 600px) {
   .scoreBoard {
-    min-width: 0;
     /* Phones: the four control buttons and the opponent's pile share the
        row with this board; it yields whatever width the row lacks (the
-       layout lets it shrink) and long names wrap inside it. */
+       layout lets it shrink) and long names wrap inside it — but never
+       below this floor, which kept collapsing it to a one-character-wide
+       column with a cloud model's token badge on the row. */
+    min-width: 4rem;
     flex: 0 1 auto;
     padding: var(--space-2);
     background: var(--control-bg-light, rgba(0, 0, 0, 0.3));
@@ -188,5 +190,19 @@
   .targetScore {
     margin-top: var(--space-1);
     font-size: calc(9px * var(--font-scale, 1));
+  }
+}
+
+/* Small phones: a little less padding, and a lower floor at the very
+   narrowest widths so the row still closes. */
+@media (max-width: 400px) {
+  .scoreBoard {
+    padding: 6px;
+  }
+}
+
+@media (max-width: 380px) {
+  .scoreBoard {
+    min-width: 3.75rem;
   }
 }

@@ -24,7 +24,7 @@ import type { AiThinkingLevel } from './effort';
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1';
 
 /** Cheap, structured-output capable, reasoning model — the picker default. */
-export const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-5-mini';
+export const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-5.6-luna';
 
 /** OpenRouter's router that picks an available free model per request. */
 export const OPENROUTER_FREE_ROUTER = 'openrouter/free';
@@ -240,6 +240,12 @@ let modelsFetchPromise: Promise<OpenRouterModelInfo[]> | null = null;
 
 // Used when the catalogue cannot be fetched: capabilities as of 2026-09.
 const FALLBACK_MODELS: OpenRouterModelInfo[] = [
+  {
+    id: 'openai/gpt-5.6-luna', displayName: 'GPT-5.6 Luna', group: 'OpenAI', created: 0,
+    pricing: { input: 0.2, output: 1.2 },
+    supportsStructuredOutputs: true, supportsJsonObject: true, supportsReasoning: true,
+    reasoning: { mandatory: true, defaultEnabled: true, supportedEfforts: ['high', 'medium', 'low', 'minimal'], defaultEffort: 'medium' },
+  },
   {
     id: 'openai/gpt-5-mini', displayName: 'GPT-5 Mini', group: 'OpenAI', created: 0,
     pricing: { input: 0.25, output: 2 },

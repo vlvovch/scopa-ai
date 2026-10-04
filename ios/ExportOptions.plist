@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!-- Export options for ios/release.sh: App Store Connect distribution with
+     Xcode's automatic signing. The script fills in teamID from
+     ios/Signing.local.xcconfig and switches destination to "upload" when it
+     runs with the upload flag; the build number stays the one from
+     ios/Signing.xcconfig. -->
+<dict>
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>destination</key>
+	<string>export</string>
+	<key>teamID</key>
+	<string></string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+	<key>manageAppVersionAndBuildNumber</key>
+	<false/>
+</dict>
+</plist>

@@ -92,6 +92,13 @@ describe('estimateCostUsd', () => {
     expect(cost).toBeCloseTo(3, 6);
   });
 
+  it('prices the newer Gemini Flash generations and keeps a Lite variant off the full model\'s price', () => {
+    const base = { promptTokens: 1_000_000, responseTokens: 0, thoughtTokens: 0, totalTokens: 1_000_000, cachedTokens: 0, requestCount: 1 };
+    expect(estimateCostUsd({ ...base, modelId: 'gemini-3.8-flash', modelDisplayName: 'Gemini 3.8 Flash' } as GeminiTokenStats)).toBeCloseTo(0.75, 6);
+    expect(estimateCostUsd({ ...base, modelId: 'gemini-3.5-flash-lite', modelDisplayName: 'Gemini 3.5 Flash Lite' } as GeminiTokenStats)).toBeCloseTo(0.3, 6);
+    expect(estimateCostUsd({ ...base, modelId: 'gemini-3.5-flash', modelDisplayName: 'Gemini 3.5 Flash' } as GeminiTokenStats)).toBeCloseTo(1.5, 6);
+  });
+
   it('returns null for unknown models (incl. the free tier, hidden in the UI)', () => {
     expect(estimateCostUsd(stats({ modelId: 'gemini-3-flash-preview' }))).toBeNull();
     expect(estimateCostUsd(stats({ modelId: '' }))).toBeNull();

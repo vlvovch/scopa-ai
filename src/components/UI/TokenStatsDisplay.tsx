@@ -1,5 +1,6 @@
 // Token Stats Display Component for LLM AIs (Gemini, OpenAI, Claude, OpenRouter)
 
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../games/scopa/ai';
 import { estimateCostUsd, formatCostUsd, isExactCost } from '../../ai/pricing';
 import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
@@ -33,8 +34,30 @@ export function TokenStatsDisplay({
   onDismissError,
 }: TokenStatsDisplayProps) {
   const t = useT();
+  // The popup grows from the badge's left edge; when the badge sits near the
+  // right edge of the screen (the opponent's corner in a game) that runs off
+  // screen, so open it towards whichever side has more room. Measured when
+  // the badge appears (it renders nothing until the first request), on
+  // resize and as the pointer arrives.
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [opensLeft, setOpensLeft] = useState(false);
+  const measure = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth * 0.9);
+    const roomRight = window.innerWidth - rect.left;
+    setOpensLeft(roomRight < width && rect.right > roomRight);
+  }, []);
   // Show if explicitly requested, if there are stats, or if there's an error
-  if (!show && (!stats || stats.requestCount === 0) && !error) {
+  const visible = show || (!!stats && stats.requestCount > 0) || !!error;
+  useLayoutEffect(() => {
+    if (!visible) return;
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, visible]);
+  if (!visible) {
     return null;
   }
 
@@ -126,7 +149,7 @@ export function TokenStatsDisplay({
   const positionClass = position === 'bottom' ? styles.popupBottom : styles.popupTop;
 
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} ref={wrapperRef} onMouseEnter={measure} onTouchStart={measure}>
       {/* Compact icon showing total tokens */}
       <div className={styles.icon} title={t.tokenStats.tokenUsage}>
         <svg className={styles.tokenIcon} viewBox="0 0 24 24" fill="currentColor">
@@ -153,7 +176,7 @@ export function TokenStatsDisplay({
       )}
 
       {/* Popup table on hover */}
-      <div className={`${styles.popup} ${positionClass}`}>
+      <div className={`${styles.popup} ${positionClass} ${opensLeft ? styles.popupLeft : ''}`}>
         <div className={styles.header}>
           {displayModelName}
           <span className={styles.modeLabel}>

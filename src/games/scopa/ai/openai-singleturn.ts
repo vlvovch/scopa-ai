@@ -12,10 +12,10 @@ import type { Card, Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import type { OpenAITokenStats, OpenAITokenDelta } from './openai';
 import { getOpenAIApiKey, isOpenAIAvailable } from '../../../ai/openaiProvider';
-import { SYSTEM_INSTRUCTION_SINGLETURN, buildSingleTurnPrompt } from './prompts';
+import { systemInstruction, buildSingleTurnPrompt } from './prompts';
 
 // Default model to use
-const DEFAULT_MODEL = 'gpt-5-mini';
+const DEFAULT_MODEL = 'gpt-5.6-luna';
 
 /**
  * Format model ID into display name
@@ -299,7 +299,7 @@ class OpenAISingleTurnAI implements AsyncAIPlayer {
         reasoning: OPENAI_REASONING_MODELS.test(this.model) && thinkingKnob !== 'off'
           ? { effort: thinkingKnob }
           : undefined,
-        instructions: SYSTEM_INSTRUCTION_SINGLETURN,
+        instructions: systemInstruction('singleturn'),
         input: prompt,
         // No conversation parameter - each request is independent
         text: {

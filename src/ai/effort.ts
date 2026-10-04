@@ -20,7 +20,7 @@
 // cost, acceptable for an explicit user action.
 export type AiThinkingLevel = 'off' | 'medium' | 'high';
 
-let current: AiThinkingLevel = 'high';
+let current: AiThinkingLevel = 'medium';
 
 export function setAiThinkingLevel(level: AiThinkingLevel): void {
   current = level;

@@ -89,9 +89,16 @@ export interface GameSettings {
    *  mid-round (~3-5× slower per ply, materially stronger). The
    *  perfect-information endgame is always exact regardless. */
   winOddsDeep: boolean;
+  /** The shape these settings were saved with; loadSettings brings older
+   *  ones up to date once (migrateStoredSettings). */
+  settingsVersion: number;
 }
 
 const STORAGE_KEY = 'scopa-settings';
+
+/** Bumped when stored settings need a one-off migration on load:
+ *  1 (implicit) up to 2026-09-19, 2 moves the former default models. */
+const SETTINGS_VERSION = 2;
 
 const DEFAULT_SETTINGS: GameSettings = {
   defaultTargetScore: 11,
@@ -102,12 +109,17 @@ const DEFAULT_SETTINGS: GameSettings = {
   briscolaCpuBot: 'heuristic',
   deck: 'napoletane',
   tableStyle: 'green',
-  geminiModel: 'gemini-3.5-flash',
-  openaiModel: 'gpt-5-mini',
+  // Balanced defaults (2026-09): the newest Flash, OpenAI's small 5.6 model,
+  // Sonnet 5, and the same OpenAI model through OpenRouter. Cheap and quick
+  // enough for a whole game; the pickers offer the stronger ones.
+  geminiModel: 'gemini-3.8-flash',
+  openaiModel: 'gpt-5.6-luna',
   claudeModel: 'claude-sonnet-5',
-  openrouterModel: 'openai/gpt-5-mini',
+  openrouterModel: 'openai/gpt-5.6-luna',
   useThinking: true,
-  thinkingLevel: 'high',
+  // Balanced by default (2026-09): deep thinking doubled the wait per move
+  // and the cost without changing the moves in the benchmark positions.
+  thinkingLevel: 'medium',
   autoAdvanceSpectator: true,
   soundEnabled: true,
   geminiApiKey: '',
@@ -124,19 +136,43 @@ const DEFAULT_SETTINGS: GameSettings = {
   showWinOddsPerCard: true,
   winOddsSamples: 300,
   winOddsDeep: false,
+  settingsVersion: SETTINGS_VERSION,
 };
+
+/** Former default models, mapped to the current default of the same
+ *  provider: an install still on one of them was never a deliberate
+ *  choice for most players, so it follows the default; any other saved
+ *  model is left alone. Applied once (settings version 2), so one of
+ *  these picked deliberately afterwards stays. */
+const FORMER_DEFAULT_MODELS: Record<'geminiModel' | 'openaiModel' | 'openrouterModel', Record<string, string>> = {
+  geminiModel: { 'gemini-3.5-flash': DEFAULT_SETTINGS.geminiModel },
+  openaiModel: { 'gpt-5-mini': DEFAULT_SETTINGS.openaiModel },
+  openrouterModel: { 'openai/gpt-5-mini': DEFAULT_SETTINGS.openrouterModel },
+};
+
+/** Stored settings (any age) brought up to the current shape. Exported for tests. */
+export function migrateStoredSettings(parsed: Record<string, unknown>): GameSettings {
+  const merged: GameSettings = { ...DEFAULT_SETTINGS, ...(parsed as Partial<GameSettings>) };
+  const savedVersion = typeof parsed.settingsVersion === 'number' ? parsed.settingsVersion : 1;
+  // Migrate pre-knob installs: the boolean was the only control.
+  if (!('thinkingLevel' in parsed)) {
+    merged.thinkingLevel = merged.useThinking ? 'high' : 'off';
+  }
+  if (savedVersion < 2) {
+    for (const key of Object.keys(FORMER_DEFAULT_MODELS) as Array<keyof typeof FORMER_DEFAULT_MODELS>) {
+      const saved = parsed[key];
+      if (typeof saved === 'string' && FORMER_DEFAULT_MODELS[key][saved]) merged[key] = FORMER_DEFAULT_MODELS[key][saved];
+    }
+  }
+  merged.settingsVersion = SETTINGS_VERSION;
+  return merged;
+}
 
 function loadSettings(): GameSettings {
   try {
     const stored = storage.get(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
-      const merged = { ...DEFAULT_SETTINGS, ...parsed };
-      // Migrate pre-knob installs: the boolean was the only control.
-      if (!('thinkingLevel' in parsed)) {
-        merged.thinkingLevel = merged.useThinking ? 'high' : 'off';
-      }
-      return merged;
+      return migrateStoredSettings(JSON.parse(stored) as Record<string, unknown>);
     }
   } catch (e) {
     console.warn('Failed to load settings from localStorage:', e);

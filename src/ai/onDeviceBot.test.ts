@@ -1,7 +1,7 @@
 // The request lifecycle the on-device bots share: one request per seat,
 // a deadline, cancellation of abandoned requests, stale replies ignored.
 import { describe, it, expect, vi } from 'vitest';
-import { OnDeviceRequester, withDeadline, DeadlineError, composeReasoning } from './onDeviceBot';
+import { OnDeviceRequester, withDeadline, DeadlineError, composeReasoning, firstSentences } from './onDeviceBot';
 import type { OnDeviceModel, OnDeviceMoveRequest, OnDeviceMoveResponse } from './onDeviceModel';
 
 type Pending = { resolve: (r: OnDeviceMoveResponse) => void; reject: (e: unknown) => void; request: OnDeviceMoveRequest };
@@ -29,18 +29,31 @@ describe('withDeadline', () => {
 
 describe('composeReasoning', () => {
   const name = (i: number) => ['7 of cups', '9 of clubs', '2 of coins'][i];
-  it('names each weighed move by its card, then the verdict', () => {
+  it('lists each weighed move by its card, ticks the chosen one, then the verdict as its own paragraph', () => {
     const text = composeReasoning({ moveIndex: 0, reasoning: 'The 7 is best: it captures.', candidates: [
       { moveIndex: 0, note: 'captures the 4 and the 3.' }, { moveIndex: 1, note: 'only places a card.' },
     ] }, 3, name);
-    expect(text).toBe('7 of cups: captures the 4 and the 3. 9 of clubs: only places a card. The 7 is best: it captures.');
+    expect(text).toBe('✓ 7 of cups: captures the 4 and the 3.\n• 9 of clubs: only places a card.\n\nThe 7 is best: it captures.');
   });
-  it('drops candidates with a bad index or an empty note, and copes without any', () => {
+  it('drops candidates with a bad index, an empty note or a repeated index, and copes without any', () => {
     expect(composeReasoning({ moveIndex: 0, reasoning: 'Verdict.', candidates: [
-      { moveIndex: 7, note: 'nope' }, { moveIndex: 1, note: '   ' }, { moveIndex: 2, note: ' fine ' },
-    ] }, 3, name)).toBe('2 of coins: fine Verdict.');
+      { moveIndex: 7, note: 'nope' }, { moveIndex: 1, note: '   ' }, { moveIndex: 2, note: ' fine ' }, { moveIndex: 2, note: 'again' },
+    ] }, 3, name)).toBe('• 2 of coins: fine\n\nVerdict.');
     expect(composeReasoning({ moveIndex: 0, reasoning: 'Verdict.' }, 3, name)).toBe('Verdict.');
     expect(composeReasoning({ moveIndex: 0, reasoning: '' }, 3, name)).toBe('');
+  });
+  it('strips the move echoed at the start of a note', () => {
+    expect(composeReasoning({ moveIndex: 1, reasoning: 'V.', candidates: [
+      { moveIndex: 0, note: 'Play 7 of cups: takes the 4.' }, { moveIndex: 1, note: '9 of clubs - safe.' }, { moveIndex: 2, note: 'Playing 2 of coins' },
+    ] }, 3, name)).toBe('• 7 of cups: takes the 4.\n✓ 9 of clubs: safe.\n• 2 of coins\n\nV.');
+    expect(composeReasoning({ moveIndex: 2, reasoning: 'V.', candidates: [
+      { moveIndex: 2, note: 'Plays 2 of Coins (trump): wins the trick, takes 11 points' }, { moveIndex: 0, note: '7 of cups (10pt) loses the trick' },
+    ] }, 3, name)).toBe('✓ 2 of coins: wins the trick, takes 11 points\n• 7 of cups: loses the trick\n\nV.');
+  });
+  it('keeps at most two sentences of the verdict', () => {
+    expect(composeReasoning({ moveIndex: 0, reasoning: 'One. Two! Three? Four.' }, 3, name)).toBe('One. Two!');
+    expect(firstSentences('Only 0.5 points here', 2)).toBe('Only 0.5 points here');
+    expect(firstSentences('  First.  Second.  ', 1)).toBe('First.');
   });
 });
 

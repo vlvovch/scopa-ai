@@ -7,8 +7,9 @@ Scopa and Briscola play offline from the first launch, including switching
 between them. Nothing is loaded from the website at runtime; the packaged
 bundle is the `vite build --mode ios` output (`dist-ios/`).
 
-Status: **Simulator prototype**. Builds and runs in the iOS Simulator with
-ad-hoc signing; App Store distribution needs the account steps at the end.
+Status: **release candidate**. Runs in the iOS Simulator with ad-hoc
+signing; `npm run ios:release` produces the App Store build signed by the
+paid team (verified 2026-09-15); submission follows `docs/app-store.md`.
 
 ## Prerequisites
 
@@ -49,6 +50,7 @@ Inspector to the running web view.
 | Start-up | `src/main.tsx` → `src/platform/bootstrap.ts` (hydrate storage, cold-launch link, listeners, status bar, splash) |
 | Storage | `src/platform/storage.ts` (facade) + `src/platform/nativeStores.ts` (Preferences, Filesystem, Keychain) |
 | Keychain plugin | `ios/App/App/SecureStoragePlugin.swift`, registered by `ios/App/App/MainViewController.swift` (created in `SceneDelegate.swift`) |
+| Other local plugins | `BuildInfoPlugin.swift` (build facts for the analytics gate, the app's language), `AppleIntelligencePlugin.swift`, `KeepAwakePlugin.swift`, `ReviewPlugin.swift` (rating prompt), all registered in `MainViewController.swift` and listed in `project.pbxproj` |
 | Invitation links | `src/platform/links.ts` (public game domains, incoming URL parsing) |
 | Website-only HTML | `<!-- @web-only:start/end -->` blocks in `index.html`, stripped by `vite.config.ts` for the native build |
 | Safe areas | `--safe-top` / `--safe-bottom` on `html.native` (`src/index.css`) |
@@ -87,7 +89,7 @@ them natively (web storage inside the web view is not used for app data):
 
 | Data | Keys | Native store |
 |---|---|---|
-| Settings (without API keys), language, remembered game, chooser/notice markers, multiplayer sessions, nickname, spectator picks | `scopa-settings`, `scopa-language`, `selected-game`, `other-game-announced`, `scopa-mp-session`, `briscola-mp-session`, `mp-nickname`, `scopa-spectator-*` | **Preferences** (UserDefaults, group `ScopaAI`) |
+| Settings (without API keys), language, remembered game, chooser/notice markers, multiplayer sessions, nickname, spectator picks | `scopa-settings`, `scopa-language`, `selected-game`, `other-game-announced`, `scopa-mp-session`, `briscola-mp-session`, `mp-nickname`, `scopa-spectator-*`, `review-prompt` | **Preferences** (UserDefaults, group `ScopaAI`) |
 | Game history / stats and the saved solo game | `scopa-game-stats`, `briscola-game-stats`, `scopa-game-state` | **Filesystem**, `Library/scopa-data/<key>.json` (backed up, not user-visible) |
 | User-supplied LLM API keys | fields of `scopa-settings` | **Keychain** (`SecureStorage` plugin), split out on write and merged back on read |
 
@@ -132,9 +134,9 @@ VITE_PROXY_URL=https://playscopa.net
   origin check, so no backend change is needed.
 - **Free AI (proxy).** Requests come from the app's origin
   `capacitor://localhost`. The proxy's CORS allow-list (`ALLOWED_ORIGIN` in
-  the `scopa-proxy` systemd unit) must include `capacitor://localhost` for
-  the free Gemini opponent to work in the app; until then it reports an
-  error and the CPU bots remain available. BYOK providers (Gemini, OpenAI, OpenRouter,
+  the `scopa-proxy` systemd unit, **comma-separated** — the proxy splits on
+  commas) includes `capacitor://localhost` since 2026-09-15, next to the
+  four public domains, so the free Gemini opponent works in the app. BYOK providers (Gemini, OpenAI, OpenRouter,
   Claude) are called directly and already accept browser origins.
 - **Offline.** CPU play needs no network; LLM opponents and multiplayer do.
 - Nothing from a developer's `.env.local` reaches the bundle: `.env.ios`
@@ -161,17 +163,28 @@ VITE_PROXY_URL=https://playscopa.net
 
   iOS shows "Open in Scopa AI?" for scheme links from another app; tap Open.
 
-Remaining for Universal Links (`https://playscopa.net/join/…` opening the app):
+Universal Links (`https://playscopa.net/join/…` opening the app):
 
-1. Apple Developer Team ID + the app's bundle id → `applinks:playscopa.net`
-   and `applinks:playbriscola.com` in the app's **Associated Domains**
-   entitlement (Xcode → Signing & Capabilities).
-2. Serve `https://<domain>/.well-known/apple-app-site-association` on both
-   domains (JSON, `Content-Type: application/json`, no redirect):
+1. Done: `ios/App/App/App.entitlements` declares `applinks:playscopa.net`
+   and `applinks:playbriscola.com` (wired through `CODE_SIGN_ENTITLEMENTS`).
+   The capability needs the paid Apple Developer team; with the free
+   Personal Team the device build fails to sign, so set the paid team in
+   `ios/Signing.local.xcconfig` first. Automatic signing registers the
+   capability on the App ID.
+2. Done (2026-09-15): both domains serve
+   `https://<domain>/.well-known/apple-app-site-association` (JSON,
+   `Content-Type: application/json`, no redirect) naming the paid team's
+   app. The file lives in `public/.well-known/` (shared by both builds);
+   `local/Caddyfile` has the `@aasa` header rule that gives the
+   extension-less file its type (copied to the VPS Caddyfile). Apple's CDN
+   mirror, `https://app-site-association.cdn-apple.com/a/v1/playscopa.net`,
+   shows what devices will see:
    ```json
-   {"applinks":{"apps":[],"details":[{"appID":"TEAMID.net.vovchenko.scopaai","paths":["/join/*"]}]}}
+   {"applinks":{"apps":[],"details":[{"appID":"62L74J562X.net.vvlabs.scopa","paths":["/join/*"],"components":[{"/":"/join/*"}]}]}}
    ```
-3. Reinstall the app; iOS fetches the AASA at install.
+3. Reinstall the app; iOS fetches the AASA at install (Apple's CDN may
+   take a while to pick up a new file). Test from Notes: a
+   `https://playscopa.net/join/SCOPA-AB12` link should open the app.
 
 ## Layout after multitasking resizes
 
@@ -200,6 +213,64 @@ timer through `ios/App/App/KeepAwakePlugin.swift`; on the website it is
 the Screen Wake Lock API where the browser offers it (re-requested when
 the page comes back to the foreground, since browsers drop it when
 hidden). Normal play is untouched: every turn is a touch.
+
+## Language
+
+The interface is English or Italian. The first launch picks one in this
+order: the player's saved choice (`scopa-language`), the language iOS chose
+for the app, English. The web view reports only the FIRST device language
+(`navigator.languages` has one entry on iOS), so a phone set to German,
+then Italian, used to start in English. The app now asks iOS instead:
+`Info.plist` declares both languages (`CFBundleLocalizations`: en, it), iOS
+matches the device's ordered language list against them, and the
+`BuildInfo` plugin's `language` method returns the result
+(`Bundle.main.preferredLocalizations.first`). `bootstrapNative()` hands it
+to `src/i18n/systemLanguage.ts` before the first render, and
+`detectLanguage()` (`src/i18n/LanguageContext.tsx`) reads it. The App Store
+country plays no role anywhere. The declaration also makes the store page
+list "English, Italian", and iOS uses it for the texts it draws inside the
+app's own process (edit menus, alerts): with English alone declared those
+stay English on an Italian device (standard iOS behaviour, not tested
+separately here; the rating prompt comes from a system process and follows
+the device language either way).
+
+Verified in the Simulator (iPhone 17, iOS 26.5, 2026-10-01), fresh install
+each time: device language Italian → Italian (also with the 1.0 bundle,
+which declared English only); Ukrainian, Italian, English → Italian
+(`[native] app language: it` in the console; English before the change);
+English first → English.
+
+With an Italian interface the cloud models also write their reasoning in
+Italian: the system instruction gets one closing line
+(`src/ai/reasoningLanguage.ts` reads the interface language from `src/i18n/currentLanguage.ts`; the line is appended by `systemInstruction()` in each
+game's `ai/prompts.ts`). The on-device model keeps its English instruction;
+it was tuned on that text.
+
+## Rating prompt
+
+Apple allows one way to ask for a rating: StoreKit's review request. The
+system decides whether the prompt really appears (at most three times in
+365 days per user, never in a TestFlight build, always in a development
+build), and it must not be the answer to a tap. `src/platform/review.ts`
+decides when to ask: after a finished game the player WON (solo or online,
+either game, never a watched game), once three games have been finished on
+the device, and not again for 120 days. The count lives in the storage
+seam under `review-prompt`. The request goes through the app's own
+`Review` plugin (`ios/App/App/ReviewPlugin.swift`:
+`AppStore.requestReview(in:)`, `SKStoreReviewController` before iOS 16),
+loaded on demand two seconds after the end-of-game screen appears. The
+website has no equivalent and does nothing.
+
+Verified in the Simulator (2026-10-01) with a Debug build: the plugin
+answers `{"requested":true}` and the system prompt appears, in the device's
+language. The bundle's own end-of-game hook was called three times in a
+test copy of the app (won, lost, won): the third call asked for the prompt
+two seconds later, the state landed in Preferences
+(`ScopaAI.review-prompt`), and the same three calls after a relaunch asked
+for nothing. Not played through: a real game ending in the app (the four
+call sites in `ScopaApp.tsx` and `BriscolaApp.tsx`). To see it on a
+device, run a Debug build from Xcode and win the third finished game; a
+TestFlight build never shows the prompt.
 
 ## Sounds
 
@@ -248,10 +319,12 @@ category is simply absent and a remembered choice falls back to the CPU.
   which a compile-time `@Generable` type could not express. The answer
   is generated in this order: `candidates`, a counted array (two or
   three, at most the number of moves) of the strongest legal moves with
-  a note of at most twelve words each, then `reasoning`, the
-  one-sentence verdict, then `moveIndex`, so the choice is conditioned
-  on the comparison the model wrote first (Apple's prompting guidance),
-  with `maximumResponseTokens` 384 and temperature 0.5. The comparison
+  a note of at most twelve words each on why the move is good or risky,
+  then `reasoning`, the one-sentence verdict naming the best move
+  (its description asks for cards from the request only), then
+  `moveIndex`, so the choice is conditioned on the comparison the model
+  wrote first (Apple's prompting guidance), with `maximumResponseTokens`
+  384 and temperature 0.3 (0.5 until 2026-09-15). The comparison
   is a counted array rather than free text: as free text the small
   model sometimes kept listing moves until the token budget ran out and
   the answer failed to decode (2 of 10 moves in a Simulator run), and on
@@ -266,10 +339,16 @@ category is simply absent and a remembered choice falls back to the CPU.
   `.pattern` regex guide to cap the text: with `.{20,400}` every request
   ran past the 20-second deadline and the Mac's on-device inference
   provider (`TGOnDeviceInferenceProviderService`) was left spinning at
-  full CPU until killed with sudo. The bots render the candidates with their card names before
-  the verdict (`composeReasoning` in `src/ai/onDeviceBot.ts`), so the
-  thinking bubble reads "7 of cups: takes the 4 and the 3. 9 of clubs:
-  only places a card. The 7 is best because ...". The framework is weak-linked (`OTHER_LDFLAGS`) so the binary still
+  full CPU until killed with sudo. The bots render the answer
+  (`composeReasoning` in `src/ai/onDeviceBot.ts`) as one line per
+  weighed move, named by its card since the model only knows indexes,
+  with "✓" as the bullet of the move it chose, then the verdict as its
+  own paragraph capped at two sentences (the model tends to keep going
+  and invent from the second sentence on); a note that starts by
+  repeating its move ("Play 7 of cups: takes...") loses that prefix, and
+  the reasoning modal keeps the line breaks (`white-space: pre-line`).
+  Until 2026-09-15 the notes and the verdict were joined into one line
+  with spaces, which read as gibberish with extra moves. The framework is weak-linked (`OTHER_LDFLAGS`) so the binary still
   launches on iOS 15 to 18, where every method reports "unavailable".
 - **Web side:** `src/platform/appleIntelligence.ts` probes the plugin
   during `bootstrapNative()` and fills the registry in
@@ -282,17 +361,40 @@ category is simply absent and a remembered choice falls back to the CPU.
   otherwise play the heuristic bot's move with the reason shown like any
   other bot's. Each move logs `[apple] Scopa move in N s (answer, W
   words)` (or `[briscola apple] move in ...`) to the console.
-- **Round memory:** the model gets no history, so `buildRoundMemory` in
-  each game's `ai/prompts.ts` works out what a good player would
-  remember from the cards seen (captures are public as they are taken)
-  and `buildOnDeviceTurnPrompt` places it before the position. Scopa:
-  Denari captured by each side, where the Sette Bello is, both primiera
-  hands with the missing suits, scope this round, and the values still
-  out by count. Briscola: points each side holds and what is still to be
-  decided, the trumps and the Aces and 3s already played or still out,
-  and once the deck is empty the opponent's exact hand. The cloud bots'
-  prompts are unchanged (they carry history). Covered by the
-  `prompts.test.ts` files of both games.
+- **Prompt for a small model (rewritten 2026-09-15):**
+  `SYSTEM_INSTRUCTION_ON_DEVICE` in each game's `ai/prompts.ts` is its
+  own short text (about 250 words, not the cloud bots' rules block):
+  what matters in the game in a few lines, an explicit "you cannot see
+  the opponent's cards or the deck, never describe or guess them", and
+  the answer shape. The model gets no history, so `buildRoundMemory`
+  adds a three-line round memory before the position: Scopa, the coins
+  captured by each side, where the 7 of coins is, the scope this round;
+  Briscola, the points each side holds, the trump count (played, in
+  hand, still out), how many Aces and 3s are still out, and once the
+  deck is empty the opponent's exact hand. The legal moves are spelled
+  out by `formatOnDeviceMove`: Scopa, what each captures, a SCOPA named
+  as such, or "no capture, it stays on the table"; Briscola, a "(trump)"
+  tag, and when following whether the card wins the trick and the
+  points that change hands, when leading the points it puts at risk.
+  The first version carried the cloud rules block plus a dense memory
+  (both primiera hands by suit, the unseen values by count, the trumps
+  and high cards played and still out): a TestFlight game on 2026-09-15
+  showed the model reading the opponent's primiera list as the
+  opponent's hand ("leaves the opponent with 10 coins, 7 swords, and 2
+  clubs") and a host-model harness reproduced invented captures, a
+  non-trump called a trump and aces led into a trump, so the prompt was
+  cut to what a three-billion-parameter model can use and the facts the
+  rules already know were written into the move lines. Measured with
+  that harness (the plugin's schema against the Mac's own model, seven
+  positions, three runs each): cards named that were not in the
+  position went from 13 to 0 in 21 answers, the verdict from 32 words
+  and 1.8 sentences to 13 words and one sentence, the answer from 3.6
+  to 2.6 seconds, and the right move on the three Briscola positions
+  from 3 of 9 to 8 of 9 (the safe lead needed the words "safe lead" in
+  its move line); the Scopa 7-of-coins capture went from 0 of 3 to 3 of
+  3. One answer in 21 still failed to decode in both versions (played
+  by the heuristic). The cloud bots' prompts are unchanged (they carry
+  history). Covered by the `prompts.test.ts` files of both games.
 - **Prewarming:** the shell's `prewarm` loads the model and prepares a
   session with the instructions ahead of the request
   (`LanguageModelSession.prewarm`), keeping at most one prepared session
@@ -345,9 +447,24 @@ category is simply absent and a remembered choice falls back to the CPU.
   team, so a personal identity never reaches the repository. `CAP_APP_ID` only affects a
   fresh `cap add`. Simulator builds use ad-hoc "Sign to Run Locally"
   signing, which is also what makes the Keychain reachable in the Simulator.
+- **App Store build:** `npm run ios:release` (`ios/release.sh`, options in
+  `ios/ExportOptions.plist`): web bundle, unsigned Release archive, the
+  app's entitlements stamped in with the team's development certificate
+  (ad-hoc when the keychain has none: the command-line export still works,
+  Xcode's Organizer then refuses the archive), then the export
+  (or the upload, with `-- --upload`) through Xcode's automatic
+  distribution signing, which uses the team's cloud-managed distribution
+  certificate and its Xcode-managed store profile. Product → Archive in
+  Xcode needs a registered device in the team (archives are
+  development-signed and re-signed at export); the script does not. The
+  team id comes from `ios/Signing.local.xcconfig`. Runbook:
+  `docs/app-store.md`.
 - **Icons / splash:** `ios/App/App/Assets.xcassets` (1024² app icon and a
   2732² splash rendered from the existing PWA icon on the green felt; the
-  splash hides once the first frame is on screen).
+  splash hides once the first frame is on screen). The icon's card fan was
+  enlarged 1.35× on 2026-09-19 (it covered 63% of the width and read as a
+  blob at list sizes); the felt and the three cards are unchanged, and the
+  file has no alpha channel (App Store Connect rejects transparent icons).
 - **Version:** `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in
   `ios/Signing.xcconfig`; the in-app footer shows the git-derived build
   version like the website.
@@ -371,8 +488,15 @@ category is simply absent and a remembered choice falls back to the CPU.
   compiled without `DEBUG` on a real device load the tag, using the
   BuildInfo plugin's report. Debug builds and the Simulator log
   `[analytics] off: …` and send nothing (verified, `docs/analytics.md`).
-- Not done here: Apple Developer account setup, Associated Domains + AASA
-  (above), App Store Connect listing, privacy nutrition labels, TestFlight.
+- **External links:** in the app, links that target a new tab (the privacy
+  policy, GitHub, the provider sites) open in an in-app browser sheet
+  (`@capacitor/browser`, SFSafariViewController with a Done button) through
+  a document-level click handler in `src/platform/bootstrap.ts`; the web
+  view's default sent them to Safari, from which the page's "back" link
+  landed on the website instead of the app (TestFlight feedback,
+  2026-09-18). The plugin is imported on the first such tap, native only.
+- **Release checklist:** `docs/app-store.md` (what is done in the repo,
+  the account-side steps, the listing copy, privacy answers, review notes).
 
 ## Verification record (2026-09-13)
 

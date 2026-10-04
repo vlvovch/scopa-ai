@@ -14,8 +14,7 @@ const OPENAI_REASONING_MODELS = /^(gpt-5|o\d)/;
 import type { Move } from '../types';
 import type { AsyncAIPlayer, LLMAIContext } from './types';
 import {
-  SYSTEM_INSTRUCTION_MULTITURN,
-  SYSTEM_INSTRUCTION_SINGLETURN,
+  systemInstruction,
   buildTurnPrompt,
   buildSingleTurnPrompt,
 } from './prompts';
@@ -31,7 +30,7 @@ import {
 import type { GeminiTokenStats, GeminiTokenDelta } from '../../../ai/tokenStats';
 import { TokenTracker } from '../../../ai/tokenTracker';
 
-export const DEFAULT_OPENAI_MODEL = 'gpt-5-mini';
+export const DEFAULT_OPENAI_MODEL = 'gpt-5.6-luna';
 
 const MOVE_SCHEMA = {
   type: 'object' as const,
@@ -121,8 +120,8 @@ class OpenAIBriscolaAI implements AsyncAIPlayer {
           : undefined,
         instructions:
           this.mode === 'singleturn'
-            ? SYSTEM_INSTRUCTION_SINGLETURN
-            : SYSTEM_INSTRUCTION_MULTITURN,
+            ? systemInstruction('singleturn')
+            : systemInstruction('multiturn'),
         input: prompt,
         conversation:
           this.mode === 'multiturn' && this.conversationId
