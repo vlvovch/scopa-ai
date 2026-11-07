@@ -836,7 +836,9 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
           style={{
             color: best ? 'var(--color-accent)' : 'var(--color-text-primary)',
             fontWeight: best ? 700 : 500,
-            opacity: best ? 1 : 0.75,
+            // Dimmed next to the best card's number, except on the
+            // tablecloth, where the numbers sit on a dark pill (index.css)
+            opacity: best ? 1 : 'var(--card-note-dim, 0.75)',
           }}
         >
           {Math.round(o.winPct)}%
@@ -2213,6 +2215,13 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
         showPileStats={settings.showPileStats}
         onCardClick={onPlayerCardClick}
         handAnnotations={winOddsHandAnnotations}
+        belowHand={settings.showWinOdds && !inMultiplayer && (
+          <WinOddsPanel
+            odds={winOdds}
+            computing={winOddsComputing}
+            caption={t.winOddsPanel.expertCaption('Esperto')}
+          />
+        )}
         onOpenReasoning={(p) => setReasoningModal({ isOpen: true, player: p })}
         lastMoveData={lastMoveData}
         tokenStatsBySeat={tokenStatsBySeat}
@@ -2292,13 +2301,6 @@ function BriscolaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppPr
         }
         onClose={() => setReasoningModal({ isOpen: false, player: null })}
       />
-      {settings.showWinOdds && !inMultiplayer && (
-        <WinOddsPanel
-          odds={winOdds}
-          computing={winOddsComputing}
-          caption={t.winOddsPanel.expertCaption('Esperto')}
-        />
-      )}
     </DeckProvider>
   );
 }
@@ -2342,6 +2344,7 @@ function BriscolaBoard({
   mpRematch,
   mpControls,
   handAnnotations,
+  belowHand,
 }: {
   state: Exclude<AppState, { status: 'idle' }>;
   /** Plain-text fallback (used by ReasoningModal title etc.). */
@@ -2418,6 +2421,8 @@ function BriscolaBoard({
   /** Per-card win-odds captions rendered under each human hand card
    *  (single-player win-odds analysis). Omitted otherwise. */
   handAnnotations?: Record<string, React.ReactNode>;
+  /** The win-odds panel, for the layout's slot under the human hand. */
+  belowHand?: React.ReactNode;
 }) {
   const t = useT();
   // While drawing, render the pre-draw view (hands/deck haven't grown yet).
@@ -2641,6 +2646,7 @@ function BriscolaBoard({
             cardAnnotations={handAnnotations}
           />
         }
+        belowHand={belowHand}
         humanPile={
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: humanHasTokens ? 12 : 0 }}>
             <BriscolaPile

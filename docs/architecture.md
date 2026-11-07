@@ -845,6 +845,7 @@ const response = await client.beta.messages.create({
 | `Table/TableCards.tsx` | Displays cards on table with valid target highlighting, drop target for drag, dealer deck |
 | `Table/CapturedPile.tsx` | Shows captured cards stack with denari count, scopa markers, sette bello indicator |
 | `Table/DealerDeck.tsx` | Shows remaining deck with visual stack effect, card count badge |
+| `Table/deckSide.ts` | Which side of the table the deck sits on: the dealer's (left when the opponent deals), or the right in landscape windows whose left column has no room for it between the scoreboard and the pile (the height limit grows with the text size). The phone landscape layout has no such column and keeps the dealer's side. Used by the table and by the dealing animation |
 
 ### UI Components
 
@@ -867,7 +868,9 @@ const response = await client.beta.messages.create({
 
 | File | Purpose |
 |------|---------|
-| `Layout/GameLayout.tsx` | CSS Grid layout: CPU top, table center, human bottom, piles on sides |
+| `Layout/GameLayout.tsx` | CSS Grid layout: CPU top, table center, human bottom, piles on sides; `belowHand` slot for the analysis panel |
+| `Layout/useFitBelowHand.ts` | Fits the content of that slot into the room under the hand (see "Analysis panel placement") |
+| `Layout/placeBelowHand.ts` | The geometry of that fit on phones held upright: which form of the content goes where between the pile and the controls (no DOM, unit-tested) |
 
 ---
 
@@ -900,6 +903,12 @@ const response = await client.beta.messages.create({
 |      Score Board          |
 +---------------------------+
 ```
+
+**Phone landscape layout** (a phone held sideways):
+- **Which windows**: a landscape window up to 500px tall that is either up to 960px wide (every iPhone, the widest being 956px, and the short desktop windows that narrow) or driven by touch (the Android phones wider than that). Wider desktop windows of that height keep the desktop layout. CSS cannot share a media query, so every stylesheet with rules for the layout repeats the condition; scripts (`Table/deckSide.ts`, the card animation) take it from `components/Layout/phoneLandscape.ts`, and its test checks that the stylesheets agree with it. `index.css` has a second step for screens up to 400px tall.
+- **Sizes**: `index.css` sets the cards (from the window height), the spacing, the root font size and the playing area. The area spans the screen between its safe-area insets, which puts the scoreboard and the piles beside the table and the deck: three rows of cards leave no height for the deck between the scoreboard and the pile.
+- **Deck**: its badge and count are out of the table row's flow (`DealerDeck.module.css`), so the row is as tall as the table and the hands sit next to it. That leaves the room under the human hand that the analysis numbers and panel need. The badge sits on the stack, since a scoreboard with a long name reaches over the deck's column.
+- **App**: the home indicator's inset is part of the layout's bottom padding and lifts the bottom row; the centre column moves back down by half of it (`GameLayout.module.css`), so the cards stand where they do on the website.
 
 ---
 
@@ -1353,5 +1362,23 @@ Added copyright footer to both StartScreen and in-game layout:
 - Links highlight gold on hover
 
 **GameLayout footer** is `position: fixed` at viewport bottom to remain visible at any zoom level.
+
+### Analysis panel placement
+
+The win-odds panel (`Analysis/WinOddsPanel.tsx`) is passed to `GameLayout` as `belowHand` and rendered in a slot inside the human hand's area. The slot is out of flow, so the panel never moves the cards.
+
+- **Where**: right under the per-card numbers that hang below the hand, in every layout.
+- **The per-card numbers** themselves (`PlayerHand`'s card captions) are plain text on the green table. On the tablecloth, too light and too busy for light text, each sits on a dark pill and none is dimmed: `--card-note-bg`, `--card-note-pad` and `--card-note-dim` among the tablecloth's variables in `index.css`. The pill is never wider than its card, and the slot's offset includes its padding.
+- **How big**: the room between the hand and the bottom of the window depends on the window, the text size, the language and the number of rows on the table, so `useFitBelowHand` measures it. It sets `data-fit` on the slot to the first form that fits, and the panel's styles define the forms. It runs after every render and from a `ResizeObserver` on the layout's rows and areas.
+- **Wide layouts** (landscape windows, tablets): `0`, `1`, `2` until the panel ends above the credits line: `0` title, figures and fine print on three lines, `1` title and figures on one line with the fine print below, `2` that one line alone. Last resort: if the smallest form still reaches past the bottom of the window (the home indicator inset in the app), the slot is lifted by the excess (`--lift`) over the numbers.
+- **Narrow layouts** (portrait windows under 700px wide, which is phones held upright, and the desktop-site rescue; `data-narrow` on the slot): the pile (bottom left) and the controls (bottom right) reach into the room under the hand, so each form is also checked against them. The rules are in `placeBelowHand.ts` (geometry only, with tests):
+  - Forms `0` to `7` get narrower as well as shorter: as designed, compact (title above the figures), the figures on two or three lines, the same three without the title, the first figure alone.
+  - The slot may move sideways past the pile (`--shift`): up to 24px, beyond that a narrower form is preferred if it shows the same figures.
+  - The forms without the title may cover the credits line before the first figure alone is taken.
+  - The pile and the buttons are never covered. The turn label is kept clear too (its box if a form allows it, else its text). A label too long to avoid (the opponent thinking, on a short screen) is drawn under the panel, which then takes the form and the place that cover the least of it.
+  - If no form fits (three or four rows on the table on a short screen), the panel is hidden (`data-fit="none"`) rather than laid over the numbers under the cards, and returns when there is room.
+  - While the analysis runs, the title and the figures pulse instead of showing the word "computing", which would make the panel wider at every turn.
+
+The panel's styles hold only its look. Its position is `.belowHand` in `GameLayout.module.css`.
 
 ---

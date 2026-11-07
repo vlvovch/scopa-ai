@@ -67,3 +67,35 @@
     transform-origin: center;
   }
 }
+
+/* Phone landscape layout (index.css): height is what the screen is short
+   of. In the flow, the badge above the stack and the count below it made
+   the table's row taller than the table by half a card, which pushed the
+   hands away from it and left no room under the human hand for the
+   analysis numbers and panel. Out of the flow, the row is as tall as the
+   table.
+   The count hangs under the stack as before: nothing else is there, since
+   the hands are centred and the scoreboard and the piles stand beside the
+   deck in this layout. The badge sits on the stack's top edge, not above
+   it: a scoreboard with a long name on it, or the pile of an AI opponent
+   with its badges, is wider than the room beside the deck and reaches
+   over the deck's column, and only the stack itself ends below them. */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  .dealerBadge,
+  .cardCount {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .dealerBadge {
+    top: 3px;
+    margin-bottom: 0;
+    z-index: 6;
+  }
+
+  .cardCount {
+    top: calc(100% + 8px);
+  }
+}

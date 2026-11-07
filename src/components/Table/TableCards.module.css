@@ -128,8 +128,9 @@
   max-width: calc(4 * var(--card-width) + 3 * var(--space-2) + 2 * var(--space-3));
 }
 
-/* Landscape mobile (phones only - requires small width too) */
-@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
+/* Phone landscape layout (index.css) */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
   .tableContainer {
     gap: var(--space-4);
     width: 100%;

@@ -113,6 +113,40 @@
 }
 
 /* ============================================
+   BELOW THE HAND - slot for the analysis panel
+   Out of flow in every layout, so its content never moves the cards
+   ============================================ */
+.belowHand {
+  /* Right under the per-card numbers that hang below the hand (one line
+     of 12px text at line-height 1.1, PlayerHand's card annotations, plus
+     the padding of the pill they get on the tablecloth).
+     How much room is left from there to the bottom of the window varies
+     with the window, the text size and the number of rows on the table,
+     and on phones held upright the pile and the controls reach into it
+     from the sides: useFitBelowHand shrinks the content to the room
+     (data-fit) and moves the slot sideways past the pile (--shift); in
+     wide layouts it lifts the slot as a last resort (--lift) so that it
+     stays on the screen. */
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 13.2px * var(--font-scale, 1) + 2 * var(--card-note-pad, 0px) + 6px);
+  transform: translate(calc(-50% + var(--shift, 0px)), calc(-1 * var(--lift, 0px)));
+  /* left: 50% caps a shrink-to-fit box at half its container, which wraps
+     the content early: size to the content instead. */
+  width: max-content;
+  max-width: calc(100vw - 0.8rem);
+  z-index: 90;
+  pointer-events: none;
+}
+
+/* Phones held upright with no room for any form of the content (a table
+   of three or four rows on a short screen): the content steps aside
+   instead of covering the numbers under the cards. */
+.belowHand[data-fit='none'] {
+  visibility: hidden;
+}
+
+/* ============================================
    BOTTOM ROW - Human Pile (left) & Controls (right)
    Always visible at bottom
    ============================================ */
@@ -185,6 +219,21 @@
 
 .footer a:hover {
   color: var(--color-accent);
+}
+
+/* ============================================
+   RESPONSIVE: Phone landscape layout (index.css)
+   ============================================ */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  /* The centre column is centred between the top and the bottom row. In
+     the app the home indicator's inset lifts the bottom row, which took
+     the cards up by half of it, toward the scoreboard and the opponent's
+     pile. That half goes back, so the cards stand where they do on the
+     website; only the bottom row keeps clear of the inset. */
+  .centerColumn {
+    top: calc(var(--safe-bottom, 0px) / 2);
+  }
 }
 
 /* ============================================

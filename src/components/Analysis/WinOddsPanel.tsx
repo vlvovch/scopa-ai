@@ -1,8 +1,9 @@
 // Shared win-odds panel (analysis mode) — used by both Scopa and
-// Briscola. Unobtrusive bottom-center readout of the round
-// win/tie/loss estimate. Only mounted in single-player Play mode with
-// the setting on. Shows a faint shimmer + the settling number while the
-// worker streams, and a ± CI once it stabilises. Honest caption: it's a
+// Briscola. Unobtrusive readout of the round win/tie/loss estimate under
+// the hand (GameLayout's belowHand slot). Only mounted in single-player
+// Play mode with the setting on. Shows the settling number while the
+// worker streams (marked "computing"; on phones by a pulse instead of
+// the word), and a ± CI once it stabilises. Honest caption: it's a
 // self-play estimate, not ground truth.
 
 import { useT } from '../../i18n/LanguageContext';
@@ -49,7 +50,7 @@ export function WinOddsPanel({
     title ?? (metric === 'diff' ? t.winOddsPanel.expectedMargin : t.winOddsPanel.winOdds);
 
   return (
-    <div className={styles.panel} aria-live="polite">
+    <div className={computing ? `${styles.panel} ${styles.computing}` : styles.panel} aria-live="polite">
       <div className={styles.title}>
         {heading}{' '}
         {computing && <span className={styles.spinner}>·{t.winOddsPanel.computing}·</span>}
@@ -94,7 +95,7 @@ export function WinOddsPanel({
           </>
         )
       ) : (
-        <div className={styles.foot}>{t.winOddsPanel.simulating}</div>
+        <div className={`${styles.foot} ${styles.wait}`}>{t.winOddsPanel.simulating}</div>
       )}
     </div>
   );

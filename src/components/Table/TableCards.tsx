@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { Card as CardType } from '../../games/scopa/types';
 import { Card } from '../Card/Card';
 import { DealerDeck } from './DealerDeck';
+import type { DeckSide } from './deckSide';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './TableCards.module.css';
 
@@ -27,8 +28,8 @@ interface TableCardsProps {
   isDragOver?: boolean;
   /** Number of cards remaining in the deck */
   deckCount?: number;
-  /** Current dealer ('human' = deck on right, 'cpu' = deck on left) */
-  dealer?: 'human' | 'cpu';
+  /** Side of the table the deck sits on: the dealer's, unless the left has no room (deckSide.ts) */
+  deckSide?: DeckSide;
 }
 
 export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function TableCards({
@@ -41,7 +42,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
   selectable = false,
   isDragOver = false,
   deckCount,
-  dealer = 'cpu',
+  deckSide = 'left',
 }, ref) {
   const t = useT();
   const highlightedSet = new Set(highlightedCardIds);
@@ -53,12 +54,11 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
     isDragOver && styles.dropTarget,
   ].filter(Boolean).join(' ');
 
-  // Position deck based on dealer: cpu dealer = left side, human dealer = right side
-  const deckOnRight = dealer === 'human';
+  const deckOnRight = deckSide === 'right';
 
   return (
     <div className={styles.tableContainer}>
-      {/* Dealer deck on left (cpu is dealer) */}
+      {/* Dealer deck on the left */}
       {deckCount !== undefined && !deckOnRight && (
         <div className={styles.deckArea}>
           <DealerDeck cardsRemaining={deckCount} />
@@ -134,7 +134,7 @@ export const TableCards = forwardRef<HTMLDivElement, TableCardsProps>(function T
         </AnimatePresence>
       </div>
 
-      {/* Dealer deck on right (human is dealer) */}
+      {/* Dealer deck on the right */}
       {deckCount !== undefined && deckOnRight && (
         <div className={styles.deckArea}>
           <DealerDeck cardsRemaining={deckCount} />

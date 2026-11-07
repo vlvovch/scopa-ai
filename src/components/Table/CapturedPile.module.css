@@ -249,8 +249,9 @@
   }
 }
 
-/* Landscape mobile - vertical pile layout (phones only - requires small width too) */
-@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
+/* Phone landscape layout (index.css) - vertical pile layout */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
   .pile {
     padding: 2px;
     gap: 2px;

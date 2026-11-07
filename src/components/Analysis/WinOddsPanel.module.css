@@ -1,12 +1,10 @@
-/* Win-odds panel (analysis mode) — fixed, unobtrusive bottom-center pill. */
+/* Win-odds panel (analysis mode): an unobtrusive pill. Where it sits is the
+   layout's business (GameLayout's slot under the hand, right under the
+   per-card numbers). This file is how it looks, in each of the forms the
+   layout can ask for when the room is short or narrow (data-fit on the
+   slot, set by useFitBelowHand). */
 
 .panel {
-  position: fixed;
-  left: 50%;
-  /* Sit just above the fixed page footer (footer is at var(--space-1)
-     with a ~0.7rem line) so the two don't overlap. */
-  bottom: calc(var(--space-1) + 1.9rem);
-  transform: translateX(-50%);
   text-align: center;
   background: rgba(0, 0, 0, 0.62);
   color: var(--color-text-primary);
@@ -14,8 +12,6 @@
   border-radius: 10px;
   font-size: calc(13px * var(--font-scale, 1));
   line-height: 1.35;
-  z-index: 90;
-  pointer-events: none;
   max-width: 20rem;
   backdrop-filter: blur(2px);
 }
@@ -47,22 +43,171 @@
   margin-top: 3px;
 }
 
-/* Compact mode for phones (short or narrow viewports): the full panel
-   is tall enough there to cover the per-card odds rendered under the
-   hand cards. Keep the stacked title + headline but drop the fine print
-   (±CI / sims / caption) and sit just above the footer credits line. */
-@media (max-height: 760px), (max-width: 480px) {
+/* Compact form by design on phones held upright and in other small
+   portrait windows (and in the desktop-site rescue, which is a phone
+   whatever its locked viewport says): the stacked title + headline
+   without the fine print (±CI / sims / caption). The line that stands in
+   for the figures before the first estimate (.wait) stays. */
+@media (orientation: portrait) and (max-width: 699px) and (max-height: 760px), (orientation: portrait) and (max-width: 480px) {
   .panel {
     padding: 0.35rem 0.8rem;
-    bottom: calc(var(--space-1) + 1.4rem);
-    /* left:50% caps an abspos box's shrink-to-fit width at half the
-       viewport, which needlessly wraps the title into extra lines;
-       max-content sizes to the text (still centered by the transform). */
-    width: max-content;
-    max-width: calc(100vw - 0.8rem);
+    max-width: none;
   }
 
-  .foot {
+  .foot:not(.wait) {
     display: none;
   }
+}
+
+:global(html.dmode) .panel {
+  padding: 0.35rem 0.8rem;
+  max-width: none;
+}
+
+:global(html.dmode) .foot:not(.wait) {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------
+   Wide layouts (landscape windows, tablets). Under the hand the room can
+   be short, and the layout asks for a smaller form whenever the one above
+   does not fit, one step at a time.
+   Step 1: the title moves onto the line of the figures; the fine print
+   keeps its own line below.
+   --------------------------------------------------------------------- */
+[data-fit='1']:not([data-narrow]) .panel,
+[data-fit='2']:not([data-narrow]) .panel {
+  padding: 0.3rem 0.8rem;
+  line-height: 1.25;
+  max-width: none;
+}
+
+[data-fit='1']:not([data-narrow]) .title,
+[data-fit='2']:not([data-narrow]) .title {
+  display: inline-block;
+  margin: 0 0.6rem 0 0;
+  white-space: nowrap;
+}
+
+[data-fit='1']:not([data-narrow]) .row,
+[data-fit='2']:not([data-narrow]) .row {
+  display: inline-flex;
+}
+
+[data-fit='1']:not([data-narrow]) .foot {
+  margin-top: 0;
+}
+
+/* Step 2: that one line alone. */
+[data-fit='2']:not([data-narrow]) .panel {
+  padding: 0.15rem 0.8rem;
+  line-height: 1.2;
+}
+
+[data-fit='2']:not([data-narrow]) .foot {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------
+   Narrow layouts (phones held upright, narrow portrait windows: the slot
+   carries data-narrow). The pile and the controls flank the room under
+   the hand there, so the forms get narrower as well as shorter:
+     0  as designed above
+     1  compact: the title above the figures, no fine print
+     2  the same with the first figure on a line of its own
+     3  the same with every figure on a line of its own
+     4  the figures alone, on one line
+     5  the figures alone, the first on a line of its own
+     6  the figures alone, each on a line of its own
+     7  the first figure alone
+   The figures are win, tie and loss (Briscola), or the expected margin
+   and its unit (Scopa), where 3 and 6 look like 2 and 5.
+   --------------------------------------------------------------------- */
+
+/* That the analysis is still running shows as a slow pulse of the title
+   and, fainter, of the figures, rather than as a word after the title:
+   the word made the panel wider for a moment at every turn. (The rules
+   do not depend on data-fit: the layout goes through the forms to
+   measure them, and that would start the pulse over each time.) */
+[data-narrow] .spinner {
+  display: none;
+}
+
+[data-narrow] .computing .title {
+  animation: titlePulse 1.4s ease-in-out infinite;
+}
+
+[data-narrow] .computing .row {
+  animation: figuresPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes figuresPulse {
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-narrow] .computing .title,
+  [data-narrow] .computing .row {
+    animation: none;
+  }
+}
+
+/* 1 and up: compact. */
+[data-narrow]:not([data-fit='0']) .panel {
+  padding: 0.35rem 0.8rem;
+  max-width: none;
+}
+
+[data-narrow]:not([data-fit='0']) .foot:not(.wait) {
+  display: none;
+}
+
+/* 2, 3, 5, 6: figures on lines of their own, each in one piece. */
+[data-narrow]:is([data-fit='2'], [data-fit='3'], [data-fit='5'], [data-fit='6']) .row {
+  display: block;
+}
+
+[data-narrow]:is([data-fit='2'], [data-fit='3'], [data-fit='5'], [data-fit='6']) .row > * {
+  white-space: nowrap;
+}
+
+/* 2 and 5: the first figure, the rest side by side below it. */
+[data-narrow]:is([data-fit='2'], [data-fit='5']) .row > :first-child {
+  display: block;
+}
+
+[data-narrow]:is([data-fit='2'], [data-fit='5']) .row > :not(:first-child) {
+  margin: 0 0.3rem;
+}
+
+/* 3 and 6: one figure per line. */
+[data-narrow]:is([data-fit='3'], [data-fit='6']) .row > * {
+  display: block;
+}
+
+/* 4 and up: no title, and a thinner pill. */
+[data-narrow]:is([data-fit='4'], [data-fit='5'], [data-fit='6'], [data-fit='7']) .panel {
+  padding: 0.15rem 0.7rem;
+  line-height: 1.2;
+}
+
+[data-narrow]:is([data-fit='4'], [data-fit='5'], [data-fit='6'], [data-fit='7']) .title {
+  display: none;
+}
+
+[data-narrow]:is([data-fit='4'], [data-fit='5'], [data-fit='6'], [data-fit='7']) .wait {
+  margin-top: 0;
+}
+
+/* 7: the first figure alone. */
+[data-narrow][data-fit='7'] .row > :not(:first-child) {
+  display: none;
 }

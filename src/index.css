@@ -134,6 +134,14 @@ body.table-tablecloth {
   --card-outline: 1px solid rgba(0, 0, 0, 0.2);
   /* Dark text for empty labels on light backgrounds */
   --empty-label-color: rgba(0, 0, 0, 0.5);
+  /* The analysis numbers under the hand cards (PlayerHand) are light text
+     drawn straight on the table: on the cloth each gets a dark pill behind
+     it, and the numbers other than the best card's are not dimmed. The
+     pill's vertical padding makes that line taller, and the slot under
+     the hand (GameLayout's .belowHand) starts lower by as much. */
+  --card-note-bg: var(--control-bg);
+  --card-note-pad: 1px;
+  --card-note-dim: 1;
 }
 
 /* Tablecloth pattern layer with blur - only affects the pattern, not content */
@@ -171,15 +179,23 @@ body.table-tablecloth::before {
   border-radius: 8px;
 }
 
-/* Phones (matches the win-odds panel's compact breakpoints): the panel
-   is centered in the same bottom strip as the turn label, so right-align
-   the controls column. Short labels ("Your turn") sit fully beside the
-   panel; long ones ("Esperto is thinking...") tuck BEHIND it (z below
-   the panel's 90) rather than rendering on top of its text. */
+/* Phones and short windows: the win-odds panel can reach down beside the
+   turn label there, so right-align the controls column. On phones held
+   upright the panel keeps clear of the label and the buttons by
+   measurement (useFitBelowHand). Where that cannot be done (a long
+   "Esperto is thinking..." on a short screen, short landscape windows)
+   the label tucks BEHIND the panel rather than rendering on top of its
+   text: the label is in normal flow, and the panel lives in the centre
+   column (GameLayout's slot under the hand), which is stacked above this
+   row. The buttons and the turn timer are lifted above the centre column
+   instead, so the hand's row never covers them where it reaches down. */
 @media (max-height: 760px), (max-width: 480px) {
   .control-panel {
     align-items: flex-end;
     text-align: right;
+  }
+
+  .control-panel > :not(span) {
     position: relative;
     z-index: 89;
   }
@@ -297,8 +313,16 @@ a,
  * down to ~320px instead. If iPhone SE (320 px) ever needs a tighter
  * layout, prefer scaling spacing rather than shrinking the cards. */
 
-/* Mobile landscape - only for actual phones (small viewport height AND width) */
-@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
+/* Phone landscape layout: a phone held sideways. A landscape window up to
+   500px tall that is either up to 960px wide (every iPhone, the widest
+   being 956px, and the short desktop windows narrow enough to need the
+   compact layout) or driven by touch (the Android phones wider than that).
+   Wider desktop windows of that height keep the desktop layout.
+   The components' stylesheets repeat this condition, and so does
+   src/components/Layout/phoneLandscape.ts for the scripts; its test checks
+   that they all agree. */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
   :root {
     /* In mobile landscape, height is the constraint - use smaller cards */
     --card-width: clamp(36px, calc(var(--viewport-height, 100vh) * 0.12), 52px);
@@ -314,17 +338,36 @@ a,
 
     --card-border-radius: 4px;
 
-    /* Narrower playing area in landscape */
-    --playing-area-width: min(calc(var(--viewport-width, 100vw) * 0.7), 600px);
+    /* The playing area spans the screen between its safe-area insets (the
+       notch side of a phone held sideways; 16px where there is none), up
+       to the desktop layout's width. The table is ten cards wide at most
+       (TableCards.module.css), so that leaves room on both sides of it and
+       of the deck: the scoreboard and the piles stand beside them. Three
+       rows of cards leave no height for the deck between the scoreboard
+       and the pile, which is where a narrower area put it. */
+    --playing-area-width: min(
+      calc(var(--viewport-width, 100vw) - 2 * max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))),
+      1000px
+    );
   }
 
   html {
     font-size: calc(13px * var(--font-scale, 1));
   }
+
+  /* In a watch game the bottom seat's token badge and reasoning bubble
+     stand on the outer side of its pile (ScopaApp), which moves the pile
+     inward by their width: under the deck when that is on the left, and
+     against the table's corner. Here the pile keeps the corner and they
+     stand on its inner side, where the row is free up to the hand. */
+  .bottom-seat-pile {
+    flex-direction: row-reverse;
+  }
 }
 
-/* Very short landscape (e.g., phones with notch) */
-@media (max-height: 400px) and (max-width: 900px) and (orientation: landscape) {
+/* The same layout on its shortest screens (up to 400px tall) */
+@media (max-height: 400px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 400px) and (pointer: coarse) and (orientation: landscape) {
   :root {
     --card-width: clamp(28px, calc(var(--viewport-height, 100vh) * 0.10), 40px);
     --card-height: clamp(46px, calc(var(--viewport-height, 100vh) * 0.164), 66px);

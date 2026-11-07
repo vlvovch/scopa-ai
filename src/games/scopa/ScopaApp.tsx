@@ -7,6 +7,7 @@ import { useMultiplayer } from '../../hooks/useMultiplayer';
 import { GameLayout } from '../../components/Layout/GameLayout';
 import { PlayerHand } from '../../components/Table/PlayerHand';
 import { TableCards } from '../../components/Table/TableCards';
+import { deckSide, useTightLeftColumn } from '../../components/Table/deckSide';
 import { CapturedPile } from '../../components/Table/CapturedPile';
 import { ScoreBoard } from '../../components/UI/ScoreBoard';
 import { StartScreen } from '../../components/UI/StartScreen';
@@ -162,6 +163,9 @@ function dropPoint(info: { point: { x: number; y: number } }): { x: number; y: n
 function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps) {
   const { state, startGame, playCard, endRound, nextRound, showGameEnd, resetGame } = useGame();
   const { settings, updateSetting, resetSettings } = useSettings();
+  // The deck sits on the dealer's side of the table, except in windows
+  // whose left column has no room for it (deckSide.ts)
+  const tightLeftColumn = useTightLeftColumn(settings.fontScale);
   const t = useT();
 
   // Publish the thinking depth to the module-level registry the LLM bots read
@@ -835,13 +839,19 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
     setSelectedTableCards([]);
   }, [state.round.currentPlayer, state.status]);
 
-  // Control body scroll: allow on start screen, hide during game to prevent flickering
+  // Control body scroll: allow on start screen, hide during game to prevent flickering.
+  // Released when this game is left (the runtime switch to Briscola from a
+  // game in progress): Briscola has no such rule, and on a short screen (a
+  // phone held sideways) its start screen has to scroll to reach Start Game.
   useEffect(() => {
     if (state.status === 'idle') {
       document.body.style.overflowY = 'auto';
     } else {
       document.body.style.overflowY = 'hidden';
     }
+    return () => {
+      document.body.style.overflowY = '';
+    };
   }, [state.status]);
 
   // Persist spectator AI settings to localStorage
@@ -1357,7 +1367,9 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
                 ? 'var(--color-text-primary)'
                 : '#e57373',
             fontWeight: isBest ? 700 : 500,
-            opacity: isBest ? 1 : 0.75,
+            // Dimmed next to the best card's number, except on the
+            // tablecloth, where the numbers sit on a dark pill (index.css)
+            opacity: isBest ? 1 : 'var(--card-note-dim, 0.75)',
           }}
         >
           {d >= 0 ? '+' : ''}
@@ -3125,7 +3137,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
               selectable={isMyTurn && selectedCard !== null && !multiplayerRoundEndAnimation}
               isDragOver={isDragging}
               deckCount={mpState.round.deckCount}
-              dealer={mpState.round.dealer === multiplayer.playerId ? 'human' : 'cpu'}
+              deckSide={deckSide(mpState.round.dealer === multiplayer.playerId, tightLeftColumn)}
             />
           }
           humanPile={
@@ -3282,7 +3294,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
         <DealingAnimation
           isDealing={multiplayerIsDealing}
           startPlayer={mpState.round.dealer === multiplayer.playerId ? 'cpu' : 'human'}
-          deckPosition={mpState.round.dealer === multiplayer.playerId ? 'right' : 'left'}
+          deckPosition={deckSide(mpState.round.dealer === multiplayer.playerId, tightLeftColumn)}
           dealMode={multiplayerDealMode}
           onComplete={() => {
             if (multiplayerDealMode === 'table' && multiplayerIsRoundStartDeal) {
@@ -3610,7 +3622,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       <DealingAnimation
         isDealing={isDealing}
         startPlayer={state.round.dealer === 'cpu' ? 'human' : 'cpu'}
-        deckPosition={state.round.dealer === 'cpu' ? 'left' : 'right'}
+        deckPosition={deckSide(state.round.dealer === 'human', tightLeftColumn)}
         dealMode={dealMode}
         instant={isInstantMode}
         onComplete={() => {
@@ -3788,11 +3800,11 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             selectable={isHumanTurn && selectedCard !== null}
             isDragOver={isDragging}
             deckCount={activeState.round.deck.length}
-            dealer={activeState.round.dealer}
+            deckSide={deckSide(activeState.round.dealer === 'human', tightLeftColumn)}
           />
         }
         humanPile={
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: hasTokenAccounting(spectatorAIs.player1) ? '12px' : 0 }}>
+          <div className="bottom-seat-pile" style={{ display: 'flex', alignItems: 'flex-end', gap: hasTokenAccounting(spectatorAIs.player1) ? '12px' : 0 }}>
             {isSpectatorMode && isLLMAI(spectatorAIs.player1) && (
               <div style={{ position: 'relative' }}>
                 {hasTokenAccounting(spectatorAIs.player1) && (
@@ -3865,6 +3877,20 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             cardAnnotations={winOddsHandAnnotations}
           />
         }
+        belowHand={winOddsActive && (
+          <WinOddsPanel
+            // Last computed odds, retained while the opponent is thinking
+            // or their card is animating — so the panel doesn't blink off
+            // between turns.
+            odds={displayedWinOdds}
+            // Surface a 'simulating…' state when we have nothing to show
+            // yet (very first deal, before the first estimate arrives) so
+            // the panel is visible from the start.
+            computing={winOddsComputing || (!displayedWinOdds && !!winOddsView)}
+            metric="diff"
+            caption={t.winOddsPanel.expertCaption('Expert')}
+          />
+        )}
         controls={
           <div className="control-panel" style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px', marginLeft: '16px' }}>
             <span style={{ fontSize: 'calc(14px * var(--font-scale, 1))', color: 'var(--color-text-primary)' }}>
@@ -3950,20 +3976,6 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           </div>
         }
       />
-      {winOddsActive && (
-        <WinOddsPanel
-          // Last computed odds, retained while the opponent is thinking
-          // or their card is animating — so the panel doesn't blink off
-          // between turns.
-          odds={displayedWinOdds}
-          // Surface a 'simulating…' state when we have nothing to show
-          // yet (very first deal, before the first estimate arrives) so
-          // the panel is visible from the start.
-          computing={winOddsComputing || (!displayedWinOdds && !!winOddsView)}
-          metric="diff"
-          caption={t.winOddsPanel.expertCaption('Expert')}
-        />
-      )}
     </DeckProvider>
   );
 }

@@ -104,6 +104,9 @@ export function PlayerHand({
                 style={{
                   // Out of flow → appearing/updating never resizes the
                   // hand. Sits just below the card, centered on it.
+                  // GameLayout's slot under the hand (.belowHand) starts
+                  // below this line: its offset follows the size here
+                  // (and the padding of .cardNote on the tablecloth).
                   position: 'absolute',
                   top: '100%',
                   left: 0,
@@ -116,7 +119,7 @@ export function PlayerHand({
                   pointerEvents: 'none',
                 }}
               >
-                {cardAnnotations[card.id]}
+                <span className={styles.cardNote}>{cardAnnotations[card.id]}</span>
               </div>
             )}
           </motion.div>

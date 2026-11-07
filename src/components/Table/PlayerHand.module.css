@@ -52,6 +52,23 @@
   z-index: 30;
 }
 
+/* The caption under a hand card (the per-card analysis number). Plain
+   text on the green table. On the tablecloth, which is too light and too
+   busy for its light text, a dark pill behind it (--card-note-bg and
+   --card-note-pad, set with the tablecloth's other colours in index.css).
+   Never wider than the card, so the pills of neighbouring cards cannot
+   touch; a caption wider than that stays centred. */
+.cardNote {
+  display: inline-flex;
+  justify-content: center;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--card-note-pad, 0px) 0.4em;
+  border-radius: 999px;
+  background: var(--card-note-bg, transparent);
+  white-space: nowrap;
+}
+
 /* Mobile: tighter layout */
 @media (max-width: 600px) {
   .hand {
@@ -84,8 +101,9 @@
   }
 }
 
-/* Landscape mobile - compact horizontal hand (phones only - requires small width too) */
-@media (max-height: 500px) and (max-width: 900px) and (orientation: landscape) {
+/* Phone landscape layout (index.css) - compact horizontal hand */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
   .hand {
     gap: var(--space-1);
     padding: var(--space-1);

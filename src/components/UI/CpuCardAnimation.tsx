@@ -6,6 +6,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Card as CardType, PlayerId } from '../../games/scopa/types';
 import { CardImage, CardBack } from '../Card/CardImage';
+import { SHORT_LANDSCAPE_QUERY } from '../Layout/phoneLandscape';
 import styles from './CpuCardAnimation.module.css';
 
 interface CpuCardAnimationProps {
@@ -23,8 +24,9 @@ export function CpuCardAnimation({ card, phase, capturedCardIds, player = 'cpu',
     return null;
   }
 
-  // Check for landscape orientation
-  const isLandscape = typeof window !== 'undefined' && window.matchMedia('(orientation: landscape) and (max-height: 500px)').matches;
+  // Short landscape windows: the phone landscape layout, and the desktop
+  // layout in a window of that height
+  const isLandscape = typeof window !== 'undefined' && window.matchMedia(SHORT_LANDSCAPE_QUERY).matches;
 
   // Position offsets based on player and orientation
   const isHumanPlayer = player === 'human';

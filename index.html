@@ -29,7 +29,9 @@
          - UA has no "Mobile"        -> desktop UA (desktop-site or PC)
          - primary pointer is coarse -> touch is the main input
          - NO fine pointer anywhere  -> excludes touch laptops/desktops
-         - viewport > 900px          -> implausibly wide for a real phone
+         - viewport > 960px          -> implausibly wide for a real phone
+                                        (the widest iPhone held sideways is
+                                        956px; desktop mode locks ~980px)
          - viewport >> physical screen (innerWidth > screen.width*1.4)
            -> the layout viewport is INFLATED vs the device. A real
               touch tablet (Surface Pro, iPad) has innerWidth ~=
@@ -46,7 +48,7 @@
           !/Mobile/i.test(navigator.userAgent) &&
           window.matchMedia('(pointer: coarse)').matches &&
           !window.matchMedia('(any-pointer: fine)').matches &&
-          raw > 900 &&
+          raw > 960 &&
           raw > scr * 1.4; // viewport much wider than the physical screen
         if (forced) {
           // Render the mobile column at the device's REAL physical

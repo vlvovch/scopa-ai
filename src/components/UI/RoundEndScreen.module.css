@@ -270,8 +270,12 @@
   50% { opacity: 0.8; }
 }
 
-/* Responsive: hide card columns on small screens */
-@media (max-width: 900px) {
+/* Responsive: hide card columns on small screens. The two columns and the
+   score window take about 990px side by side at the default text size (in
+   the desktop and the phone landscape layout alike); in a narrower window
+   the columns ran off both sides of the screen, as on a phone 932px or
+   956px wide held sideways. */
+@media (max-width: 1000px) {
   .cardColumn {
     display: none;
   }
@@ -355,5 +359,43 @@
 
   .scoreValue {
     font-size: 1.25rem;
+  }
+}
+
+/* Phone landscape layout (index.css): at its usual spacing the window is
+   taller than a screen of 400 to 430px, and it is centred with no way to
+   scroll, so its frame, then its title and its button ended beyond the
+   top and bottom edges. Tighter spacing lets it fit at the default text
+   size; at larger ones it scrolls. */
+@media (max-height: 500px) and (max-width: 960px) and (orientation: landscape),
+  (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  .modal {
+    padding: var(--space-4);
+    max-height: calc(100vh - 2 * var(--space-2));
+    max-height: calc(100dvh - 2 * var(--space-2));
+    overflow-y: auto;
+  }
+
+  .title {
+    font-size: 1.25rem;
+    margin-bottom: var(--space-2);
+  }
+
+  .categoryIcon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .emojiIcon {
+    font-size: 1rem;
+  }
+
+  .cumulativeScores {
+    margin: var(--space-3) 0;
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .scoreValue {
+    font-size: 1.5rem;
   }
 }
