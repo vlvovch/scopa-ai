@@ -1,0 +1,6 @@
+/* Valori localizzati di Info.plist. L'App Store ricava la riga "Lingue"
+   della pagina del prodotto dalle cartelle di lingua (*.lproj) dentro
+   l'app, non da CFBundleLocalizations: questo file serve soprattutto a far
+   esistere la cartella (docs/ios.md, "Language"). L'interfaccia è
+   localizzata nel bundle web (src/i18n). */
+"CFBundleDisplayName" = "Scopa AI";

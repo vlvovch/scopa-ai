@@ -1,0 +1,6 @@
+/* Localized Info.plist values. The App Store derives the product page's
+   "Languages" line from the language folders (*.lproj) inside the app, not
+   from CFBundleLocalizations, so this file exists mainly to make the folder
+   exist (docs/ios.md, "Language"). The interface itself is localized in
+   the web bundle (src/i18n). */
+"CFBundleDisplayName" = "Scopa AI";

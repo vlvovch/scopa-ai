@@ -227,12 +227,22 @@ matches the device's ordered language list against them, and the
 (`Bundle.main.preferredLocalizations.first`). `bootstrapNative()` hands it
 to `src/i18n/systemLanguage.ts` before the first render, and
 `detectLanguage()` (`src/i18n/LanguageContext.tsx`) reads it. The App Store
-country plays no role anywhere. The declaration also makes the store page
-list "English, Italian", and iOS uses it for the texts it draws inside the
-app's own process (edit menus, alerts): with English alone declared those
-stay English on an Italian device (standard iOS behaviour, not tested
-separately here; the rating prompt comes from a system process and follows
-the device language either way).
+country plays no role anywhere. iOS also uses the declaration for the texts
+it draws inside the app's own process (edit menus, alerts): with English
+alone declared those stay English on an Italian device (standard iOS
+behaviour, not tested separately here; the rating prompt comes from a
+system process and follows the device language either way).
+
+The store page's "Languages" line is a different matter. The App Store
+derives it from the language folders (`*.lproj`) inside the bundle and
+ignores `CFBundleLocalizations`: 1.0.1, which declared both languages, was
+listed as "English" in every storefront (checked 2026-10-26). Since build 8
+(1.0.2) the bundle has `en.lproj/InfoPlist.strings` and
+`it.lproj/InfoPlist.strings` (the display name, identical in both; the
+folders are the point), registered in the Xcode project as the variant
+group `InfoPlist.strings`, with `it` in `knownRegions`. Keep
+`CFBundleLocalizations` all the same, it is what the start language uses
+(`docs/app-store.md`, "Version 1.0.2").
 
 Verified in the Simulator (iPhone 17, iOS 26.5, 2026-10-01), fresh install
 each time: device language Italian → Italian (also with the 1.0 bundle,

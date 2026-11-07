@@ -23,6 +23,7 @@
 		C7E1A4D29B3F5086E2D17A41 /* ReviewPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B9F60A1D4C8E7251F0A6B93 /* ReviewPlugin.swift */; };
 		F49C6F5906AB6DE119D05CB7 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FF5071B6E60DB723EF45C7 /* MainViewController.swift */; };
 		F82CA23108981E4674DA50B8 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DDAD987566DD03FA1BB1CB57 /* PrivacyInfo.xcprivacy */; };
+		F72ED35D4935EA538851237E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = C5D5AC939D785A2E3C213D99 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +36,8 @@
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		CB6CC2D39C51CBB84ECCC56C /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0F7F2D6A2DE08CD4D010257A /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		656D2744315770DA80CD4609 /* BuildInfoPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildInfoPlugin.swift; sourceTree = "<group>"; };
 		71FF5071B6E60DB723EF45C7 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
@@ -93,6 +96,7 @@
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
 				504EC3131FED79650016851F /* Info.plist */,
+				C5D5AC939D785A2E3C213D99 /* InfoPlist.strings */,
 				DDAD987566DD03FA1BB1CB57 /* PrivacyInfo.xcprivacy */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
@@ -145,6 +149,7 @@
 			knownRegions = (
 				en,
 				Base,
+				it,
 			);
 			mainGroup = 504EC2FB1FED79650016851F;
 			packageReferences = (
@@ -171,6 +176,7 @@
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
 				F82CA23108981E4674DA50B8 /* PrivacyInfo.xcprivacy in Resources */,
+				F72ED35D4935EA538851237E /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -209,6 +215,15 @@
 				504EC3111FED79650016851F /* Base */,
 			);
 			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
+		C5D5AC939D785A2E3C213D99 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				CB6CC2D39C51CBB84ECCC56C /* en */,
+				0F7F2D6A2DE08CD4D010257A /* it */,
+			);
+			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

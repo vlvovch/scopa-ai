@@ -1,14 +1,14 @@
 # App Store release checklist (iOS app)
 
-**Status: version 1.0 (build 6) approved and released on 2026-09-29**
+**Status: version 1.0.2 (build 8) released on 2026-10-27** (uploaded and
+submitted 2026-10-26, approved overnight). The product page's "Languages"
+line now reads "English and Italian" in every storefront checked (IT, US,
+GB, DE; lookup API `languageCodesISO2A: ["EN","IT"]`), after 1.0 and
+1.0.1 had read "English" only (see "Version 1.0.2" below). Version 1.0.1
+(build 7) was released on 2026-10-06; version 1.0 (build 6) on 2026-09-29
 (submitted 2026-09-19, one rejection on 2026-09-24 for OpenAI/GPT metadata
-references on the China storefront, resolved by deselecting China mainland,
-resubmitted the same day). Store page: https://apps.apple.com/app/id6812582287
-
-**Next: version 1.0.1 (build 7), prepared in the repository on 2026-10-01,
-not yet built for the store or uploaded.** It carries the Italian product
-page (see "Version 1.0.1" below), Italian reasoning from the AI opponents,
-the rating prompt and the bundle's language declaration.
+references on the China storefront, resolved by deselecting China
+mainland). Store page: https://apps.apple.com/app/id6812582287
 
 The packaged app is `ios/App` (Capacitor), bundle id `net.vvlabs.scopa`
 (the company's id; not the prototype's `net.vovchenko.scopaai`, which the
@@ -320,12 +320,13 @@ build 7):
 - The remaining English texts of the Italian interface are translated
   (the capture row, watch-mode Pause/Resume, the multiplayer turn timer,
   Briscola's reconnect screen and round history, the empty table).
-- The bundle declares English and Italian (`CFBundleLocalizations`), so
-  the store page lists both, and the app starts in the language iOS picks
-  from the device's language list (`docs/ios.md`, "Language"). Version 1.0
-  already started in Italian on a phone whose FIRST language is Italian;
-  the change covers phones with another first language and Italian ahead
-  of English.
+- The bundle declares English and Italian (`CFBundleLocalizations`), and
+  the app starts in the language iOS picks from the device's language list
+  (`docs/ios.md`, "Language"). Version 1.0 already started in Italian on a
+  phone whose FIRST language is Italian; the change covers phones with
+  another first language and Italian ahead of English. (The declaration was
+  expected to make the store page list both languages as well. It did not:
+  the store reads the `*.lproj` folders, see "Version 1.0.2".)
 - The rating prompt after a won game (`docs/ios.md`, "Rating prompt").
 
 Steps in App Store Connect:
@@ -380,9 +381,10 @@ promotional text stays editable), so Italian ships with the next version
 (English (U.S.)) → add Italian, and fill the fields below; name and
 subtitle are per language under App Information. Screenshots are optional
 per language (the English set is used when a language has none). The
-store's "Languages" line comes from the bundle: build 7 declares English
-and Italian (`CFBundleLocalizations` in `ios/App/App/Info.plist`); version
-1.0 declared English only.
+store's "Languages" line comes from the language folders (`*.lproj`) in
+the bundle, not from `CFBundleLocalizations`: build 7 declared English and
+Italian there and the store kept saying "English" in every storefront
+(fixed in build 8, see "Version 1.0.2").
 
 - **Name (30)**: `Scopa & Briscola AI` (19)
 - **Subtitle (30)**: `Giochi di carte italiani` (24)
@@ -444,3 +446,129 @@ Scopa e Briscola si giocano in Italia da secoli. Ora puoi vivere questi classici
 
 Perfetto per una partita veloce fuori casa o per sessioni più lunghe sul divano. Che tu stia imparando o sia un giocatore esperto, Scopa & Briscola AI offre l'autentica esperienza dei giochi di carte italiani.
 ```
+
+## Version 1.0.2 (prepared 2026-10-26)
+
+Why: on 2026-10-26, three weeks after 1.0.1 went live, the product page's
+"Languages" line still read "English" in every storefront checked (Italy,
+US, UK, Germany; the lookup API agreed, `languageCodesISO2A: ["EN"]`),
+although build 7 declares English and Italian in `CFBundleLocalizations`.
+The store derives that line from the language folders (`*.lproj`) inside
+the app bundle, and the bundle had only `Base.lproj` (the two storyboards):
+the interface is localized in the web bundle, so Xcode never had a reason
+to create language folders. `CFBundleLocalizations` is for "the
+localizations handled manually by your app" (all Apple's documentation
+says about it) and does what `docs/ios.md`, "Language" describes: iOS
+picks the app's language from the device's list. The store ignores it. An
+Italian player who reads "Lingue: Inglese" skips the app, hence a version
+for this alone. (Sources: Apple Developer Forums threads 836440 and
+811804; mixable.blog, "Why does the iOS App Store show more languages than
+my app supports?")
+
+What build 8 changes (`ios/Signing.xcconfig`: version 1.0.2, build 8):
+
+- `ios/App/App/en.lproj/InfoPlist.strings` and `it.lproj/InfoPlist.strings`
+  (each sets `CFBundleDisplayName` to the same "Scopa AI"; the folders are
+  the point), registered in the Xcode project as the variant group
+  `InfoPlist.strings` in the Resources phase, and `it` added to the
+  project's `knownRegions`. `CFBundleLocalizations` stays: it drives the
+  start language.
+- Web bundle: the working tree of 2026-10-26, which is the committed code
+  (`6e51dc3`) plus the layout work of 2026-10-04: the analysis panel in a
+  `GameLayout` slot under the hand with a measured fit, the deck side chosen
+  by room, and the two patches from `local/layout-fix/patches/` applied on
+  2026-10-26 (`tablecloth-numbers.patch`: the per-card numbers on dark pills
+  on the tablecloth; `phone-landscape.patch`: the phone landscape layout for
+  every iPhone held sideways, up to 960px wide). `docs/architecture.md`
+  describes them ("Analysis panel placement", "Phone landscape layout"). The
+  preview videos were filmed with this layout. A first build 8 without the
+  layout work was made earlier the same day and discarded.
+
+Build: archived and exported on 2026-10-26 (14:05) with
+`npm run ios:release` (no upload): `ios/build-release/App.xcarchive` and
+`ios/build-release/export/App.ipa` (10.6 MB, signed "Apple Distribution:
+VV Labs LLC"), build log without warnings. Verified: the archive's
+`App.app` and the `.ipa`'s `Payload/App.app` both contain
+`en.lproj/InfoPlist.strings` and `it.lproj/InfoPlist.strings` next to
+`Base.lproj` (the compiled strings hold the display name);
+`CFBundleShortVersionString` 1.0.2, `CFBundleVersion` 8,
+`CFBundleLocalizations` en + it. The bundled web code carries the layout
+work: the stylesheet has the tablecloth pill variable (`--card-note-bg`),
+the phone landscape query (`max-width:960px`, 10 rules) and the panel's
+`data-fit` selectors (39), and `index.html` has the 960px desktop-site
+limit. Checks before the build: 561 tests pass (59 files), ESLint 0 errors
+in the sources (its one error is in `local/apppreview/App.app`, a copy of
+the built app that `eslint .` walks into because `local/` is not in the
+ignore list; 22 old warnings).
+
+What's New (EN, 4000; kept short on purpose, the languages fix is a
+store matter players never see):
+
+```text
+Better layout on phones held sideways, clearer analysis numbers, small fixes.
+```
+
+What's New (IT):
+
+```text
+Layout migliore sui telefoni in orizzontale, numeri dell'analisi più leggibili, piccole correzioni.
+```
+
+App Store Connect steps:
+
+1. Upload build 8: Xcode → Window → Organizer → the archive
+   `ios/build-release/App.xcarchive` → Distribute App → App Store Connect
+   (or `npm run ios:release -- --upload --no-sync` with an API key in
+   `ios/AppStoreConnect.local.env`, see `ios/release.sh`).
+2. BEFORE submitting, check the languages the store will show: App Store
+   Connect → TestFlight → iOS Builds → the processed build → "Store
+   Information" → Localizations. Done 2026-10-26 for build 8: "English,
+   Italian" (uploaded from the Organizer the same afternoon). Build 7
+   would have shown "English" there; this is where to look for every
+   future build.
+3. App Store → iOS App → "+" → 1.0.2, select build 8, paste What's New in
+   English and Italian. The description, keywords and URLs carry over;
+   the PROMOTIONAL TEXT does not: App Store Connect leaves it empty on
+   every new version (seen on 1.0.2), so paste it again in both languages
+   (English under "Listing copy", Italian under "Italian localization")
+   or the store shows none once the version is live. It stays editable
+   after release without a new submission.
+4. Add the preview videos to the iPhone 6.9" media of each language:
+   `local/apppreview/out/app-preview-iphone-6.9.mp4` (English) and
+   `app-preview-iphone-6.9-it.mp4` (Italian); the README there has the
+   specifications and what is on screen. NOT DONE for 1.0.2: the live
+   product pages of 2026-10-27 (US and IT) show screenshots only, no
+   video. Media of a released version are locked, so the previews need
+   either the next version (1.0.3, any build) or a Product Page
+   Optimization treatment carrying them, applied to the default page:
+   sidebar → Growth & Marketing → Product Page Optimization → new test
+   with one treatment, localizations English (U.S.) + Italian → in the
+   treatment, device tab "iPhone with Dynamic Island (medium display)"
+   (the slot that takes 886 x 1920; the other sizes scale from it), drag
+   the English preview in front of the screenshots, switch the language
+   menu to Italian and add the Italian one → Start Test (App Review
+   approves the treatment) → once running, "Apply Treatment to Current
+   Product Page": permanent, stops the test, no new version needed (Apple's
+   help, "Apply a test treatment to your product page").
+5. App Review Information: the Notes carry over from the previous
+   version with their dated lines on top. Replace those lines (Sept 24,
+   Oct 2) with one for this version:
+
+   ```text
+   Oct 26 (1.0.2): layout improvements (phones held sideways, the analysis panel) and the app bundle now carries English and Italian localization folders so the store lists both languages. No new features, permissions or data use.
+   ```
+
+   Then check the four test API keys in the notes: they are deleted after
+   each review ("Review notes" above), so the carried-over notes may list
+   dead keys, and a reviewer who tries one gets an error (guideline 2.1
+   rejection risk). Either paste freshly issued capped keys or remove the
+   key lines and keep the sentence that the "AI (free)" category needs no
+   key.
+6. Version release: "Automatically release this version". Submit for
+   review (1.0.1 took two days).
+7. After release, check the product page's "Languages" line, or
+   `curl -s 'https://itunes.apple.com/lookup?id=6812582287&country=it'`
+   for `languageCodesISO2A`. Done 2026-10-27, a few hours after the
+   release at 01:31 UTC: `["EN","IT"]` in IT, US, GB and DE; the pages
+   read "Italiano e Inglese" / "English and Italian"; promotional text and
+   What's New present in both languages.
