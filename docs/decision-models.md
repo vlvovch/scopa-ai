@@ -14,10 +14,15 @@ fixed set of answers and returns one of them, with a probability for each.
   (one of up to 255 options), `score` (a rubric of 2 to 10 levels), `noul`
   (a yes/no probability). Text input only. $0.042 per million input
   tokens, output free. Answers in roughly 0.2 to 0.7 s.
-- **OpenAI Decisions API** (announced at DevDay, 2026-09-29): GPT-6 Luna
-  held to predefined answers, about 150 ms, text and images. Limited
-  preview. No public request format or price was found on 2026-10-03, so
-  there is nothing to build against yet.
+- **OpenAI Decisions API** (announced at DevDay 2026-09-29, public beta
+  since 2026-10-06): GPT-6 Luna held to predefined answers, "10x faster
+  than the Responses API", text and images (inline only). Question types
+  `predicate` (a probability), `choice` (one of the supplied values, with
+  a probability per value and a confidence) and `score` (ordered levels).
+  `POST https://api.openai.com/v1/decisions` with `{model, input,
+  questions: [{type: 'choice', name, instructions, choices: [{value,
+  description}]}]}`, the answers in `answers[]`. $0.10 per million input
+  tokens, nothing for output. `gpt-6-luna` is the only model so far.
 
 Choosing one of the legal moves the engine computed is exactly a `choice`
 question, so a turn is one request.
@@ -83,7 +88,9 @@ for the options.
 - `--mock` runs the whole harness without requests. `--baselines-only`
   plays the reference pairings below.
 - The key comes from `OPENROUTER_API_KEY` or from `local/openrouter.env`
-  (git-ignored). Results go to `local/bench/`.
+  (git-ignored). `--api openai` plays OpenAI's Decisions API instead
+  (`gpt-6-luna`), with `OPENAI_API_KEY` or `local/openai.env`. Results go
+  to `local/bench/`.
 
 Default run: 40 deals (80 rounds) per pairing, about 5,000 requests,
 $0.12 to $0.15, about four minutes.
@@ -228,8 +235,9 @@ rounds against Esperto only. All with the app's single-turn prompt.
   answers, $1.20.
 - Gemini 3 Flash Preview at high used about 3,000 thinking tokens a move
   and hit the run's $4 cost limit after 30 of 40 rounds ($4.29). The
-  free AI itself lets the model choose (`thinkingBudget: -1` in
-  `scopa-proxy`) and used 450 and 1,500 thinking tokens in two real
+  free AI itself asks for the high level (`thinkingLevel: HIGH` in
+  `scopa-proxy`, the model's default, formerly `thinkingBudget: -1`) and
+  used 450 and 1,500 thinking tokens in two real
   requests, so this run overstates its thinking and its cost. The rounds
   of this run were not saved (the script keeps them now when a run stops
   early).
@@ -259,14 +267,160 @@ Not tested: Claude models, GPT-6 Sol or bigger with thinking, Gemini 3.8
 Flash, Briscola with a chat model, prompts that hand the model what
 Esperto works out (the cards not yet seen).
 
+### OpenAI's Decisions API (2026-10-07, `gpt-6-luna`, 80 rounds per pairing)
+
+The same test as Jev's, `spelled` prompt, through `--api openai` (the
+moves as `choices`, the position as `input`). About 6,900 requests in
+all, $0.36, none failed. Two of the four runs stopped on a 504 HTML page
+from OpenAI's edge two minutes in (the script now retries gateway
+errors) and were run again on fresh deals.
+
+Margin per round against Furbo, on the scale above:
+
+| Player | Scopa (round points) | Briscola (card points) |
+|---|---|---|
+| Scimmietta (random) | −1.49 ± 0.10 | −38.5 ± 1.4 |
+| Jev, `spelled` prompt | −0.20 ± 0.27 | −14.3 ± 3.1 |
+| GPT-6 Luna, Decisions API | −0.19 ± 0.29 | −17.0 ± 3.7 |
+| Furbo | 0 | 0 |
+| Esperto | +0.60 ± 0.09 | +8.9 ± 1.1 |
+
+(The cut-off first Briscola run, 74 rounds on other deals, had −8.3 ± 3.7:
+the two together make about −12.8 ± 2.6.)
+
+Against Esperto directly (Furbo's own margin there is −0.60 and −8.9):
+
+| Model | Scopa: won / drawn / lost, margin | Briscola: won / drawn / lost, margin |
+|---|---|---|
+| GPT-6 Luna, Decisions API | 19 / 10 / 51, −1.38 ± 0.28 | 16 / 4 / 60, −20.9 ± 3.1 |
+| Jev, `spelled` | 27 / 4 / 49, −1.16 ± 0.26 | 11 / 1 / 68, −25.6 ± 3.4 |
+
+Same move as Esperto at the model's decisions (Furbo at the same
+positions in brackets): Scopa 58 to 60% (61%), Briscola 53 to 54% (61 to
+63%). Jev had 58% and 54%.
+
+- **Scopa:** Jev's level exactly: around Furbo, below it against Esperto,
+  with the same position bias (the first listed move chosen in 64 to 66%
+  of the decisions, Esperto's move in 45%).
+- **Briscola:** better than Jev, still far below Furbo. It plays Furbo's
+  move in 77% of its decisions and loses 13 to 17 card points a round to
+  it anyway.
+- **Fast and cheap:** median 155 ms, 90% under 340 ms, slowest 5 s. 460 to
+  560 input tokens a move, $0.00005 a move, about a tenth of a cent per
+  game. Its answers carry no cost figure: the script prices input tokens
+  at $0.10 per million.
+- Confidence averaged 0.5 to 0.6, and the chosen move was the most
+  probable one every time.
+
+**With the whole round's moves in the input** (`--prompt history`: the
+`spelled` prompt plus the round's history as the app's single-turn prompt
+lists it, "Opponent played 8 of coins and captured: 1 of clubs, 7 of
+coins"), Scopa, 80 rounds per pairing, 2026-10-07: vs Furbo 28 / 11 / 41,
+−0.41 ± 0.22, vs Esperto 20 / 14 / 46, −0.89 ± 0.21, agreement with
+Esperto 57% (Furbo 60%), first listed move 65%. Within noise of the
+`spelled` run (−0.19 and −1.38): the history is not used. 697 input
+tokens a move instead of 459, median 147 ms, $0.13 for 1,927 requests.
+
+**With the engine's facts about each move** (`--prompt consequences`:
+`spelled` plus, for every move, what it takes (cards, coins, the 7 of
+coins, sevens and sixes, scopa), what it leaves on the table, and the
+opponent's most dangerous answer to that table with the chance that they
+hold the card for it, worked out from the cards not seen yet; the state
+also counts the unseen sevens, sixes and coins), Scopa, 80 rounds per
+pairing, 2026-10-07: vs Furbo 42 / 7 / 31, **+0.25 ± 0.26**, vs Esperto
+31 / 8 / 41, **−0.53 ± 0.29**, agreement with Esperto 61% (Furbo 61%),
+first listed move 48% (the position bias is gone). That is Furbo's
+level, the same as Luna with thinking through chat (+0.07 / −0.81, 60%)
+at 143 ms a move instead of 7 s, and still below Esperto. 687 input
+tokens a move, $0.13 for 1,925 requests. Eight answers (0.4%) were
+refusals (`{type: 'refusal'}`), the first seen: the script retries and
+then plays Furbo's move, which happened twice.
+
+| Prompt (Decisions API, Scopa) | vs Furbo | vs Esperto | Same move as Esperto |
+|---|---|---|---|
+| `spelled` | −0.19 ± 0.29 | −1.38 ± 0.28 | 58–60% |
+| `history` | −0.41 ± 0.22 | −0.89 ± 0.21 | 57% |
+| `consequences` | +0.25 ± 0.26 | −0.53 ± 0.29 | 61% |
+| Furbo itself | 0 | −0.60 ± 0.09 | 61% |
+
+**Larger samples** (280 deals = 560 rounds per pairing, Scopa, 2026-10-07,
+27,000 requests, $1.55). The 80-round figures above were rough, and the
+`spelled` one against Furbo was lucky:
+
+| Prompt (Decisions API, Scopa) | vs Furbo (won / drawn / lost, margin) | vs Esperto | Same move as Esperto | First listed move |
+|---|---|---|---|---|
+| `spelled` | 215 / 58 / 287, −0.50 ± 0.12 | 172 / 63 / 325, −1.01 ± 0.10 | 58% | 64% |
+| `consequences` | 255 / 72 / 233, **+0.24 ± 0.10** | 209 / 63 / 288, **−0.52 ± 0.09** | 61–62% | 46% |
+| Furbo itself | 0 | −0.60 ± 0.09 | 61% | — |
+| Esperto itself | +0.60 ± 0.09 | 0 | 100% | — |
+
+- The engine's facts are worth 0.5 to 0.75 round points a round (4 to 5
+  standard errors). With them the model sits a little above Furbo and
+  well below Esperto. Without them it is between Scimmietta and Furbo.
+- **Where the points come from** (per round, model vs opponent). Against
+  Furbo with `consequences`: cards 0.51 vs 0.39, coins 0.40 vs 0.38, 7 of
+  coins 0.50 vs 0.50, primiera 0.45 vs 0.52, scopas 0.64 vs 0.47: it wins
+  on cards and scopas, gives a little back on the primiera. Against
+  Esperto it trails in every category (cards 0.38 vs 0.53, primiera 0.41
+  vs 0.56, scopas 0.45 vs 0.54). With `spelled` the scopa column is the
+  worst (0.48 vs 0.81 against Esperto, 0.58 vs 0.71 against Furbo): being
+  told which moves make a scopa and which tables the opponent can clear,
+  with the odds, is what the facts fix.
+- **The probabilities mean something.** Split by the probability the
+  model gave the move it chose, its agreement with Esperto is 36–37%
+  under 0.5, 53–54% between 0.5 and 0.75, 71–74% at 0.75 and above, with
+  either prompt. A probability bar in a reasoning view would be honest.
+- Refusals (`{type: 'refusal'}`): 28 of 13,500 `consequences` requests
+  (0.2%), none of 13,500 `spelled` ones, so something in the facts'
+  wording ("most dangerous answer", "a scopa for them") trips a filter
+  now and then. Retried, 7 moves fell to Furbo's choice.
+- 686 input tokens a move with the facts, 459 without; median 155 ms,
+  90% under 380 ms with four runs in parallel.
+
+**Briscola with the facts** (`--prompt consequences` there: who takes
+the trick and who leads next, trumps spent, who gets the face-up trump
+when two cards are left; for a lead, the cards still out that beat it,
+the chance that the opponent holds one, the costliest answer and what
+the lead wins otherwise; a state line with the unseen cards, the points
+still out and the highest trump still out), 200 deals = 400 rounds per
+pairing, 2026-10-07, 15,200 requests, $1.20:
+
+| Player (Briscola, card points per round) | vs Furbo | vs Esperto | Same move as Esperto |
+|---|---|---|---|
+| Scimmietta (random) | −38.5 ± 1.4 | — | — |
+| Jev, `spelled` | −14.3 ± 3.1 | −25.6 ± 3.4 | 54% |
+| GPT-6 Luna, `spelled` | −12.8 ± 2.6 (two runs pooled) | −20.9 ± 3.1 | 53–54% |
+| GPT-6 Luna, `consequences` | 160 / 7 / 233, **−6.9 ± 1.5** | 105 / 7 / 288, **−15.3 ± 1.3** | 56–57% |
+| Furbo itself | 0 | −8.9 ± 1.1 | 61–63% |
+
+The facts help here too, by about six card points a round, but they
+leave it clearly under Furbo (four standard errors) and far under
+Esperto. The lead facts are one trick deep; what Briscola rewards beyond
+that, keeping trumps and high cards for the right moment and counting
+the deal, is not in them. The probabilities are less telling than in
+Scopa: agreement with Esperto 46% under 0.5, 60% between 0.5 and 0.75,
+58–62% above. 790 input tokens a move, 4 refusals in 15,200 requests.
+
+Files: `local/bench/openai-decisions-spelled-{scopa,scopa-esperto,briscola,briscola-b}-40deals.json`,
+`local/bench/openai-decisions-{history,consequences}-scopa-40deals.json`,
+`local/bench/openai-decisions-{spelled,consequences}-scopa-{furbo,esperto}-280deals.json`,
+`local/bench/openai-decisions-consequences-briscola-{furbo,esperto}-200deals.json`.
+
 ### Conclusion
 
 Not worth adding as an opponent now: the players would get an "AI" that
 loses to the free built-in bots. The chat models are in the same place:
 with some thinking, or with a bigger model, they reach Furbo's level in
-Scopa and stop there. Worth a second look when OpenAI's
-Decisions API opens, since it sits on a full model: the benchmark then
-needs an adapter for its request format and can be run again as is.
+Scopa and stop there. OpenAI's Decisions API (2026-10-07) lands where
+Jev did with the same prompt, and the whole round's moves in the input
+changed nothing. With the engine's own facts about each move (what it
+takes, what it leaves, the opponent's best answer and its odds) it plays
+Scopa a little above Furbo (+0.24 ± 0.10) and well below Esperto (−0.52
+± 0.09), like Luna with thinking, at a tenth of a second and a tenth of
+a cent a game, with probabilities that track move quality; in Briscola
+the same kind of facts leave it under Furbo (−6.9 ± 1.5 card points).
+Still not above the free bots: a case for adding it would rest on feel
+(a fast opponent with move probabilities to show), not on strength.
 
 ## If a decision model turns out strong enough later
 

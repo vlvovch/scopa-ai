@@ -45,7 +45,7 @@ function loadEnvFile() {
 }
 loadEnvFile();
 
-import { GoogleGenAI, Chat } from '@google/genai';
+import { GoogleGenAI, Chat, ThinkingLevel, type ThinkingConfig } from '@google/genai';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -144,10 +144,18 @@ function isGeminiProModel(modelId: string): boolean {
   return modelId.toLowerCase().includes('-pro');
 }
 
-/** Get thinking budget for Gemini models */
-function getGeminiThinkingBudget(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): number {
-  if (useThinking && hasMultipleMoves) return -1; // Dynamic budget
-  return isGeminiProModel(modelId) ? 128 : 0; // Pro models need minimum 128
+/**
+ * Thinking config for Gemini models, as in the app (src/games/scopa/ai/gemini.ts):
+ * Gemini 3+ takes a thinking level (HIGH on, LOW off: the 3.x family cannot
+ * disable thinking and MINIMAL is rejected by some models), Gemini 2.5 the
+ * budget (-1 dynamic, 0 off, 128 minimum for Pro).
+ */
+function getGeminiThinkingConfig(modelId: string, useThinking: boolean, hasMultipleMoves: boolean): ThinkingConfig {
+  const think = useThinking && hasMultipleMoves;
+  const m = modelId.match(/gemini-(\d+)/);
+  const major = m ? parseInt(m[1], 10) : 3;
+  if (major >= 3) return { thinkingLevel: think ? ThinkingLevel.HIGH : ThinkingLevel.LOW };
+  return { thinkingBudget: think ? -1 : isGeminiProModel(modelId) ? 128 : 0 };
 }
 
 /** Extended thinking budget for Claude */
@@ -212,14 +220,14 @@ class GeminiAI implements AsyncAIPlayer {
       const prompt = buildTurnPrompt(context);
       const startTime = performance.now();
 
-      const thinkingBudget = getGeminiThinkingBudget(this.model, this.useThinking, validMoves.length > 1);
+      const thinkingConfig = getGeminiThinkingConfig(this.model, this.useThinking, validMoves.length > 1);
 
       const response = await this.chat!.sendMessage({
         message: prompt,
         config: {
           responseMimeType: 'application/json',
           responseJsonSchema: MOVE_JSON_SCHEMA,
-          thinkingConfig: { thinkingBudget },
+          thinkingConfig,
         },
       });
 
@@ -494,7 +502,7 @@ class GeminiSingleTurnAI extends SingleTurnAIBase {
     try {
       const prompt = buildSingleTurnPrompt(context, this.roundMoveHistory, this.initialTable);
       const startTime = performance.now();
-      const thinkingBudget = getGeminiThinkingBudget(this.model, this.useThinking, validMoves.length > 1);
+      const thinkingConfig = getGeminiThinkingConfig(this.model, this.useThinking, validMoves.length > 1);
 
       const response = await this.ai.models.generateContent({
         model: this.model,
@@ -503,7 +511,7 @@ class GeminiSingleTurnAI extends SingleTurnAIBase {
           systemInstruction: SYSTEM_INSTRUCTION_SINGLETURN,
           responseMimeType: 'application/json',
           responseJsonSchema: MOVE_JSON_SCHEMA,
-          thinkingConfig: { thinkingBudget },
+          thinkingConfig,
         },
       });
 

@@ -5,13 +5,16 @@
 // Decisions endpoint) writes no text: it picks one of the options it is
 // given and returns a probability for each. A turn therefore becomes one
 // "choice" question whose options are the legal moves the game engine
-// computed, with the position as the state.
+// computed, with the position as the state. OpenAI's Decisions API
+// (--api openai, gpt-6-luna, public beta since 2026-10-06) is the same idea
+// in another request shape, with its own key.
 //
 //   npx tsx scripts/decision-bench.ts --mock        # no network: checks the harness
 //   npx tsx scripts/decision-bench.ts               # both games, both opponents, 40 deals each
 //   npx tsx scripts/decision-bench.ts --baselines-only --deals 300   # the scale: Esperto and Scimmietta vs Furbo
 //   npx tsx scripts/decision-bench.ts --game briscola --opponent furbo --deals 50
 //   npx tsx scripts/decision-bench.ts --api chat --model openai/gpt-6-luna --game scopa   # a chat model, thinking off
+//   npx tsx scripts/decision-bench.ts --api openai --game scopa      # OpenAI's Decisions API (gpt-6-luna)
 //   npx tsx scripts/decision-bench.ts --help
 //
 // With --api chat an ordinary chat model plays instead, through OpenRouter's
@@ -35,7 +38,7 @@ import * as path from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 import { gameReducer, createInitialState } from '../src/games/scopa/reducer';
-import { getValidMoves } from '../src/games/scopa/rules';
+import { getValidMoves, findSingleCaptures, findSumCaptures } from '../src/games/scopa/rules';
 import { heuristicAI as scopaFurbo } from '../src/games/scopa/ai/heuristic';
 import { randomAI as scopaRandom } from '../src/games/scopa/ai/random';
 import { selectExpertMoveWithState } from '../src/games/scopa/ai/expert';
@@ -48,11 +51,14 @@ import {
   formatMove as scopaPlainMove,
   formatOnDeviceMove as scopaSpelledMove,
   buildRoundMemory as scopaMemory,
+  formatMoveHistory as scopaHistory,
 } from '../src/games/scopa/ai/prompts';
-import type { Card, GameState as ScopaState, Move as ScopaMove, PlayerId } from '../src/games/scopa/types';
+import type { Card, CardValue, GameState as ScopaState, Move as ScopaMove, PlayerId } from '../src/games/scopa/types';
 import type { LLMAIContext as ScopaContext } from '../src/games/scopa/ai/types';
 
-import { applyMove } from '../src/games/briscola/rules';
+import { applyMove, trickWinner } from '../src/games/briscola/rules';
+import { POINT_VALUES as BRISCOLA_POINTS } from '../src/games/briscola/constants';
+import { SUITS, CARD_VALUES } from '../src/games/scopa/constants';
 import { createDeck, shuffleDeck, dealInitialHands } from '../src/games/briscola/deck';
 import { calculateRoundScore } from '../src/games/briscola/scoring';
 import { heuristicAI as briscolaFurbo } from '../src/games/briscola/ai/heuristic';
@@ -77,8 +83,8 @@ import type { LLMAIContext as BriscolaContext } from '../src/games/briscola/ai/t
 
 type Game = 'scopa' | 'briscola';
 type BotName = 'model' | 'furbo' | 'esperto' | 'scimmietta';
-type PromptStyle = 'spelled' | 'plain' | 'app';
-type Api = 'decisions' | 'chat';
+type PromptStyle = 'spelled' | 'plain' | 'app' | 'history' | 'consequences';
+type Api = 'decisions' | 'openai' | 'chat';
 type Thinking = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 interface Options {
@@ -107,13 +113,15 @@ const HELP = `Decision-model benchmark (Scopa and Briscola)
   --opponent furbo|esperto|both   default both
   --deals N                       deals per pairing, each played twice with seats swapped (default 40)
   --concurrency K                 rounds in flight (default 4)
-  --api decisions|chat            decisions: a decision model (default); chat: a chat model answering in JSON
+  --api decisions|openai|chat     decisions: Jev through OpenRouter (default); openai: OpenAI's Decisions API; chat: a chat model answering in JSON
   --thinking off|low|medium|high|xhigh|max   chat only (default off); the model must list the level
-  --prompt spelled|plain|app      spelled: what matters + round memory + each move's outcome (default for decisions)
+  --prompt spelled|plain|app|history   spelled: what matters + round memory + each move's outcome (default for decisions)
+                                  history: spelled plus the complete round history, as the app's single-turn prompt lists it (Scopa only)
+                                  consequences: spelled plus the engine's facts about each move (Scopa: what it takes and leaves, the opponent's best answer and its odds; Briscola: the trick, the cards that beat a lead and the odds)
                                   plain: bare rules, position and moves
                                   app: the app's own single-turn prompt with the round's history (chat only, its default)
-  --model ID                      default typesafe/jev-1.13
-  --base-url URL                  default https://openrouter.ai/api/alpha, or https://openrouter.ai/api/v1 for chat
+  --model ID                      default typesafe/jev-1.13, or gpt-6-luna with --api openai
+  --base-url URL                  default https://openrouter.ai/api/alpha (chat: https://openrouter.ai/api/v1, openai: https://api.openai.com/v1)
   --baselines                     also play Esperto and Scimmietta against Furbo (no requests) for scale
   --baselines-only                play only those reference pairings: no key needed
   --no-agreement                  skip asking Furbo and Esperto at the model's decisions
@@ -122,13 +130,14 @@ const HELP = `Decision-model benchmark (Scopa and Briscola)
   --out FILE                      results JSON (default local/bench/decision-bench-<time>.json)
   --mock                          no network: the model answers at random
 
-Key: OPENROUTER_API_KEY in the environment, or a line OPENROUTER_API_KEY=... in local/openrouter.env`;
+Key: OPENROUTER_API_KEY in the environment, or a line OPENROUTER_API_KEY=... in local/openrouter.env
+     (--api openai: OPENAI_API_KEY in the environment, or in local/openai.env)`;
 
 function parseOptions(argv: string[]): Options {
   const o: Options = {
     games: ['scopa', 'briscola'], opponents: ['furbo', 'esperto'], deals: 40, concurrency: 4,
     api: 'decisions', thinking: 'off',
-    prompt: 'spelled', model: 'typesafe/jev-1.13', baseUrl: '',
+    prompt: 'spelled', model: '', baseUrl: '',
     mock: false, baselines: false, baselinesOnly: false, agreement: true, maxCost: 1, show: 1, out: null,
   };
   const fail = (message: string): never => { console.error(`${message}\n\n${HELP}`); process.exit(2); };
@@ -143,9 +152,9 @@ function parseOptions(argv: string[]): Options {
       case '--opponent': { const v = value(); o.opponents = v === 'both' ? ['furbo', 'esperto'] : v === 'furbo' || v === 'esperto' ? [v] : fail(`unknown opponent ${v}`); break; }
       case '--deals': o.deals = Math.floor(positive()); break;
       case '--concurrency': o.concurrency = Math.floor(positive()); break;
-      case '--api': { const v = value(); o.api = v === 'decisions' || v === 'chat' ? v : fail(`unknown api ${v}`); break; }
+      case '--api': { const v = value(); o.api = v === 'decisions' || v === 'openai' || v === 'chat' ? v : fail(`unknown api ${v}`); break; }
       case '--thinking': { const v = value(); o.thinking = v === 'off' || v === 'low' || v === 'medium' || v === 'high' || v === 'xhigh' || v === 'max' ? v : fail(`unknown thinking level ${v}`); break; }
-      case '--prompt': { const v = value(); o.prompt = v === 'spelled' || v === 'plain' || v === 'app' ? v : fail(`unknown prompt style ${v}`); promptGiven = true; break; }
+      case '--prompt': { const v = value(); o.prompt = v === 'spelled' || v === 'plain' || v === 'app' || v === 'history' || v === 'consequences' ? v : fail(`unknown prompt style ${v}`); promptGiven = true; break; }
       case '--model': o.model = value(); break;
       case '--base-url': o.baseUrl = value().replace(/\/+$/, ''); break;
       case '--baselines': o.baselines = true; break;
@@ -159,21 +168,25 @@ function parseOptions(argv: string[]): Options {
     }
   }
   if (o.api === 'chat' && !promptGiven) o.prompt = 'app';
-  if (o.api === 'decisions' && o.prompt === 'app') fail('--prompt app needs --api chat');
-  if (!o.baseUrl) o.baseUrl = o.api === 'chat' ? 'https://openrouter.ai/api/v1' : 'https://openrouter.ai/api/alpha';
+  if (o.api !== 'chat' && o.prompt === 'app') fail('--prompt app needs --api chat');
+  if (o.prompt === 'history' && o.games.includes('briscola')) fail('--prompt history is Scopa only: add --game scopa');
+  if (!o.model) o.model = o.api === 'openai' ? 'gpt-6-luna' : 'typesafe/jev-1.13';
+  if (!o.baseUrl) o.baseUrl = o.api === 'chat' ? 'https://openrouter.ai/api/v1' : o.api === 'openai' ? 'https://api.openai.com/v1' : 'https://openrouter.ai/api/alpha';
   return o;
 }
 
 const OPTIONS = parseOptions(process.argv.slice(2));
 
-/** The key from the environment or local/openrouter.env. Never logged. */
+/** The key (OPENROUTER_API_KEY, or OPENAI_API_KEY with --api openai) from the environment or local/<provider>.env. Never logged. */
 function loadKey(): string | null {
-  const fromEnv = process.env.OPENROUTER_API_KEY?.trim();
+  const name = OPTIONS.api === 'openai' ? 'OPENAI_API_KEY' : 'OPENROUTER_API_KEY';
+  const fromEnv = process.env[name]?.trim();
   if (fromEnv) return fromEnv;
-  const file = path.resolve(process.cwd(), 'local', 'openrouter.env');
+  const file = path.resolve(process.cwd(), 'local', OPTIONS.api === 'openai' ? 'openai.env' : 'openrouter.env');
   if (!fs.existsSync(file)) return null;
+  const pattern = new RegExp(`^\\s*(?:export\\s+)?${name}\\s*=\\s*(.+?)\\s*$`);
   for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
-    const match = line.match(/^\s*(?:export\s+)?OPENROUTER_API_KEY\s*=\s*(.+?)\s*$/);
+    const match = line.match(pattern);
     if (match) return match[1].replace(/^['"]|['"]$/g, '') || null;
   }
   return null;
@@ -183,11 +196,12 @@ function loadKey(): string | null {
 // The decision request
 // ---------------------------------------------------------------------------
 
-/** USD per input token on OpenRouter (output is free); used only when a response carries no cost. */
-const PRICE_PER_INPUT_TOKEN = 0.042 / 1_000_000;
+/** USD per input token, output free: Jev on OpenRouter, or OpenAI's Decisions API; used when a response carries no cost. */
+const PRICE_PER_INPUT_TOKEN = (OPTIONS.api === 'openai' ? 0.10 : 0.042) / 1_000_000;
 // A chat model that thinks hard can take minutes over one move.
 const REQUEST_TIMEOUT_MS = OPTIONS.api !== 'chat' ? 20_000 : ['high', 'xhigh', 'max'].includes(OPTIONS.thinking) ? 300_000 : 90_000;
-const RETRY_STATUSES = new Set([408, 429, 500, 502, 503, 524, 529]);
+// Gateway errors included: OpenAI's edge answered a few requests with a 504 HTML page mid-run.
+const RETRY_STATUSES = new Set([408, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 529]);
 const RETRY_DELAYS_MS = [500, 1500, 4000];
 
 /** Stops the whole run: the key is missing, wrong or out of credit, or the request itself is malformed. */
@@ -298,6 +312,10 @@ async function decide(game: Game, question: Question, instructions: string): Pro
       body.response_format = { type: 'json_object' };
     }
     if (chatModel?.reasoning) body.reasoning = chatModel.reasoning;
+  } else if (OPTIONS.api === 'openai') {
+    // One choice question over the legal moves, the position as the shared input.
+    const choices = options.map((text, i) => ({ value: `m${i}`, description: text }));
+    body = { model: OPTIONS.model, input: question.state, questions: [{ type: 'choice', name: 'move', instructions, choices }] };
   } else {
     const criteria: Record<string, string> = {};
     options.forEach((text, i) => { criteria[`m${i}`] = text; });
@@ -336,8 +354,8 @@ async function decide(game: Game, question: Question, instructions: string): Pro
         headers: {
           Authorization: `Bearer ${KEY}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://playscopa.net',
-          'X-Title': 'Scopa AI benchmark',
+          // OpenRouter's app attribution
+          ...(OPTIONS.api === 'openai' ? {} : { 'HTTP-Referer': 'https://playscopa.net', 'X-Title': 'Scopa AI benchmark' }),
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -380,6 +398,33 @@ async function decide(game: Game, question: Question, instructions: string): Pro
           reasoningTokens,
           cost: costReported ? (usage.cost as number) : inputTokens * (chatModel?.inputPrice ?? 0) + outputTokens * (chatModel?.outputPrice ?? 0),
           costReported,
+        };
+      } else if (OPTIONS.api === 'openai') {
+        const answers = Array.isArray(json.answers) ? (json.answers as Array<Record<string, unknown>>) : [];
+        const answer = answers.find((a) => a.name === 'move') ?? answers[0];
+        const choice = typeof answer?.choice === 'string' ? answer.choice : '';
+        const index = /^m\d+$/.test(choice) ? Number(choice.slice(1)) : -1;
+        if (index < 0 || index >= options.length) {
+          lastError = `answer names no option: ${text.slice(0, 300)}`;
+          noteRetry('answer names no option');
+          continue;
+        }
+        const list = Array.isArray(answer?.probabilities) ? (answer.probabilities as Array<{ value?: unknown; probability?: unknown }>) : null;
+        const probabilities = list
+          ? options.map((_, i) => { const entry = list.find((p) => p.value === `m${i}`); return typeof entry?.probability === 'number' ? entry.probability : 0; })
+          : null;
+        // The answer carries no cost: estimated from its input tokens (or the request's size, should usage be missing).
+        const inputTokens = number(usage.input_tokens) || Math.round(JSON.stringify(body).length / 4);
+        decision = {
+          index,
+          confidence: typeof answer?.confidence === 'number' ? answer.confidence : null,
+          probabilities,
+          latencyMs,
+          inputTokens,
+          outputTokens: number(usage.output_tokens),
+          reasoningTokens: 0,
+          cost: inputTokens * PRICE_PER_INPUT_TOKEN,
+          costReported: false,
         };
       } else {
         const answer = (json.answers as Record<string, Record<string, unknown>> | undefined)?.move;
@@ -461,11 +506,14 @@ interface ModelStats {
   /** Furbo's agreement with Esperto at the same positions, for scale. */
   furboAgreesEsperto: number;
   compared: number;
+  /** Agreement with Esperto split by the probability the model gave the move it chose: is it right more often when sure? */
+  byProbability: Record<string, { compared: number; agreeEsperto: number }>;
 }
 
 const newModelStats = (): ModelStats => ({
   forced: 0, decisions: 0, fallbacks: 0, invalid: 0, optionsTotal: 0, confidenceTotal: 0, confidenceCount: 0,
   topChosen: 0, withProbabilities: 0, choseFirst: 0, espertoFirst: 0, agreeFurbo: 0, agreeEsperto: 0, furboAgreesEsperto: 0, compared: 0,
+  byProbability: { 'under 0.5': { compared: 0, agreeEsperto: 0 }, '0.5 to 0.75': { compared: 0, agreeEsperto: 0 }, '0.75 and up': { compared: 0, agreeEsperto: 0 } },
 });
 const modelStats: Record<Game, ModelStats> = { scopa: newModelStats(), briscola: newModelStats() };
 /** Requests that failed one after the other: past the limit the endpoint is taken to be down. */
@@ -490,6 +538,7 @@ async function modelChoice(
   const stats = modelStats[game];
   const { options } = question;
   let index: number;
+  let chosenProbability: number | null = null;
   try {
     const decision = await decide(game, question, INSTRUCTIONS);
     index = decision.index;
@@ -504,6 +553,7 @@ async function modelChoice(
     if (decision.probabilities) {
       stats.withProbabilities++;
       if (decision.probabilities[index] >= Math.max(...decision.probabilities)) stats.topChosen++;
+      chosenProbability = decision.probabilities[index];
     }
   } catch (err) {
     if (err instanceof FatalError) throw err;
@@ -521,6 +571,11 @@ async function modelChoice(
     if (index === furbo) stats.agreeFurbo++;
     if (index === esperto) stats.agreeEsperto++;
     if (furbo === esperto) stats.furboAgreesEsperto++;
+    if (chosenProbability !== null) {
+      const bucket = stats.byProbability[chosenProbability < 0.5 ? 'under 0.5' : chosenProbability < 0.75 ? '0.5 to 0.75' : '0.75 and up'];
+      bucket.compared++;
+      if (index === esperto) bucket.agreeEsperto++;
+    }
   }
   return index;
 }
@@ -573,6 +628,84 @@ const numbered = (options: string[]) => `Valid moves:\n${options.map((text, i) =
 
 interface ScopaRound { history: ScopaMove[]; initialTable: Card[] }
 
+// ---- The consequences prompt: facts about each move, computed by the engine ----
+const CONSEQUENCES_NOTE = `
+
+Each move below also says what it takes, what it leaves on the table, and the opponent's most dangerous answer to that table, with the chance that they hold the card for it (worked out from the cards not seen yet).`;
+
+const choose = (n: number, k: number): number => {
+  if (k < 0 || k > n) return 0;
+  let r = 1;
+  for (let i = 1; i <= k; i++) r = (r * (n - k + i)) / i;
+  return r;
+};
+const isSetteBello = (c: Card) => c.suit === 'coins' && c.value === 7;
+
+/** How much a capture is worth to the one making it, for ranking replies: a scopa above all, then the 7 of coins, coins, 7s, 6s, cards. */
+function captureWorth(captured: Card[], clears: boolean): number {
+  let worth = captured.length * 2 + (clears && captured.length ? 100 : 0);
+  for (const c of captured) worth += (c.suit === 'coins' ? 6 : 0) + (c.value === 7 ? 4 : 0) + (c.value === 6 ? 3 : 0) + (isSetteBello(c) ? 30 : 0);
+  return worth;
+}
+
+/** The best capture a card of `value` makes on `table` (single matches first, as the rules demand), or null. */
+function bestCapture(value: number, table: Card[]): Card[] | null {
+  const card: Card = { suit: 'cups', value: value as CardValue, id: `x-${value}` };
+  const singles = findSingleCaptures(card, table);
+  const options = singles.length ? singles.map((c) => [c]) : findSumCaptures(card, table);
+  if (!options.length) return null;
+  return options.reduce((best, o) => (captureWorth(o, o.length === table.length) > captureWorth(best, best.length === table.length) ? o : best));
+}
+
+interface Unseen { total: number; byValue: Map<number, number>; coins: number; opponentCards: number }
+
+/** What is still unknown: the opponent's hand and the deck, by value; and how many cards the opponent answers with. */
+function scopaUnseen(context: ScopaContext): Unseen {
+  const seen = [...context.hand, ...context.table, ...context.selfCaptured, ...context.opponentCaptured];
+  const byValue = new Map<number, number>();
+  for (let v = 1; v <= 10; v++) byValue.set(v, 4 - seen.filter((c) => c.value === v).length);
+  const coins = 10 - seen.filter((c) => c.suit === 'coins').length;
+  // The opponent answers with the hand they hold; with empty hands the next deal gives them three.
+  const opponentCards = context.opponentHandCount > 0 ? context.opponentHandCount : context.deckCount > 0 ? 3 : 0;
+  return { total: 40 - seen.length, byValue, coins, opponentCards };
+}
+
+function scopaConsequences(context: ScopaContext, move: ScopaMove, unseen: Unseen): string {
+  const after = move.capturedCards.length ? context.table.filter((c) => !move.capturedCards.includes(c)) : [...context.table, move.cardPlayed];
+  const parts: string[] = [];
+  if (move.capturedCards.length) {
+    const taken = [move.cardPlayed, ...move.capturedCards];
+    const count = (test: (c: Card) => boolean) => taken.filter(test).length;
+    const coins = count((c) => c.suit === 'coins'); const sevens = count((c) => c.value === 7); const sixes = count((c) => c.value === 6);
+    const bits = [`${taken.length} cards to your pile`];
+    if (coins) bits.push(`${coins} coin${coins > 1 ? 's' : ''}`);
+    if (taken.some(isSetteBello)) bits.push('the 7 of coins');
+    if (sevens) bits.push(`${sevens} seven${sevens > 1 ? 's' : ''}`);
+    if (sixes) bits.push(`${sixes} six${sixes > 1 ? 'es' : ''}`);
+    parts.push(bits.join(', ') + (move.isScopa ? '. SCOPA: the table is emptied, one point' : ''));
+  } else {
+    parts.push('nothing to your pile');
+  }
+  parts.push(after.length ? `Leaves on the table: ${scopaCards(after)}${after.some(isSetteBello) ? ' (the 7 of coins among them)' : ''}` : 'Leaves the table empty');
+  if (after.length && unseen.opponentCards > 0 && unseen.total > 0) {
+    let best: { value: number; captured: Card[]; clears: boolean; worth: number; chance: number } | null = null;
+    for (let v = 1; v <= 10; v++) {
+      const n = unseen.byValue.get(v) ?? 0;
+      if (!n) continue;
+      const captured = bestCapture(v, after);
+      if (!captured) continue;
+      const clears = captured.length === after.length;
+      const chance = 1 - choose(unseen.total - n, unseen.opponentCards) / choose(unseen.total, unseen.opponentCards);
+      const worth = captureWorth(captured, clears);
+      if (!best || worth * chance > best.worth * best.chance) best = { value: v, captured, clears, worth, chance };
+    }
+    parts.push(best
+      ? `Opponent's most dangerous answer: a ${best.value} takes ${scopaCards(best.captured)}${best.clears ? ' and empties the table (a scopa for them)' : ''}, chance they hold a ${best.value}: ${Math.round(best.chance * 100)}%`
+      : 'The opponent can capture nothing on that table');
+  }
+  return parts.join('. ');
+}
+
 function scopaQuestion(context: ScopaContext, round: ScopaRound): Question {
   if (OPTIONS.prompt === 'app') {
     return {
@@ -580,18 +713,26 @@ function scopaQuestion(context: ScopaContext, round: ScopaRound): Question {
       system: SCOPA_SINGLETURN, user: scopaSingleTurnPrompt(context, round.history, round.initialTable),
     };
   }
-  const spelled = OPTIONS.prompt === 'spelled';
+  const history = OPTIONS.prompt === 'history';
+  const consequences = OPTIONS.prompt === 'consequences';
+  const spelled = OPTIONS.prompt === 'spelled' || history || consequences;
+  const unseen = scopaUnseen(context);
   const lines = [
-    spelled ? brief(SCOPA_ON_DEVICE) : SCOPA_PLAIN_RULES,
+    spelled ? brief(SCOPA_ON_DEVICE) + (consequences ? CONSEQUENCES_NOTE : '') : SCOPA_PLAIN_RULES,
     '',
     '--- POSITION ---',
     `Deck: ${context.deckCount} cards left${context.deckCount === 0 ? ' (last hand of the round: whoever captures last takes the cards left on the table)' : ''}`,
     `Your pile: ${context.selfCapturedCount} cards | Opponent pile: ${context.opponentCapturedCount} cards | Opponent hand: ${context.opponentHandCount} cards`,
   ];
   if (spelled) lines.push(scopaMemory(context));
+  // The whole round so far, as the app's single-turn prompt lists it: the model gets no memory between requests.
+  if (history) lines.push('--- ROUND HISTORY (every move so far, oldest first) ---', scopaHistory(round.history, context.player, round.initialTable));
+  if (consequences) {
+    lines.push(`Cards not seen yet: ${unseen.total} (the opponent's ${context.opponentHandCount} in hand, ${context.deckCount} in the deck), among them ${unseen.byValue.get(7)} sevens, ${unseen.byValue.get(6)} sixes, ${unseen.coins} coins`);
+  }
   lines.push(`Table: ${context.table.length ? scopaCards(context.table) : 'empty'}`, `Your hand: ${scopaCards(context.hand)}`);
   const describe = spelled ? scopaSpelledMove : scopaPlainMove;
-  const options = context.validMoves.map((move, i) => stripIndex(describe(move, i)));
+  const options = context.validMoves.map((move, i) => stripIndex(describe(move, i)) + (consequences ? `. ${scopaConsequences(context, move, unseen)}` : ''));
   const [rules, ...position] = lines;
   return { state: lines.join('\n'), options, system: `${rules}\n\n${JSON_ANSWER}`, user: `${position.join('\n').trim()}\n\n${numbered(options)}` };
 }
@@ -617,7 +758,7 @@ function dealScopa(): ScopaState {
   return gameReducer(createInitialState(11), { type: 'START_GAME', payload: { targetScore: 11, gameMode: 'cpuVsCPU' } });
 }
 
-async function playScopaRound(initial: ScopaState, seats: Record<PlayerId, BotName>): Promise<Record<PlayerId, number>> {
+async function playScopaRound(initial: ScopaState, seats: Record<PlayerId, BotName>): Promise<Record<PlayerId, number> & { detail: Record<PlayerId, ScopaCategories> }> {
   let state = initial;
   const round: ScopaRound = { history: [], initialTable: initial.round.table };
   for (let plies = 0; state.status === 'playing'; plies++) {
@@ -631,7 +772,8 @@ async function playScopaRound(initial: ScopaState, seats: Record<PlayerId, BotNa
   if (state.status !== 'roundEnd') throw new Error(`scopa: unexpected status ${state.status}`);
   state = gameReducer(state, { type: 'END_ROUND' });
   const scores = state.lastRoundScores!;
-  return { human: scores.human.total, cpu: scores.cpu.total };
+  const categories = (r: typeof scores.human): ScopaCategories => ({ cards: r.cards, coins: r.coins, setteBello: r.setteBello, prime: r.prime, scopas: r.scopas, cardsCaptured: r.counts.cards, coinsCaptured: r.counts.coins });
+  return { human: scores.human.total, cpu: scores.cpu.total, detail: { human: categories(scores.human), cpu: categories(scores.cpu) } };
 }
 
 // ---------------------------------------------------------------------------
@@ -663,6 +805,59 @@ function briscolaContext(state: BriscolaState, history: BriscolaMove[]): Briscol
 
 const BRISCOLA_PLAIN_RULES = `You play Briscola, the Italian trick-taking card game, against one opponent. Cards are named "rank of suit" with their points in brackets: Ace 11, 3 10, King 4, Knight 3, Knave 2, the other ranks 0. One suit is the trump. A trump beats any non-trump; between two trumps, or two cards of the suit led, the higher rank wins (Ace, 3, King, Knight, Knave, 7, 6, 5, 4, 2); a non-trump of another suit never wins. The winner of a trick takes both cards. 61 of the 120 points win the round.`;
 
+// ---- The consequences prompt for Briscola: the engine's facts about each move ----
+const BRISCOLA_CONSEQUENCES_NOTE = `
+
+Each move below also says who takes the trick and what it is worth. For a lead it names the cards still out that beat it and the chance that the opponent holds one (worked out from the cards not seen yet).`;
+
+interface BriscolaUnseen { cards: Card[]; opponentCards: number }
+
+/** The cards still unknown: the opponent's hand and the deck (the face-up trump is known while the deck lasts). */
+function briscolaUnseen(context: BriscolaContext): BriscolaUnseen {
+  const known = [...context.hand, ...(context.myCaptured ?? []), ...(context.oppCaptured ?? []), ...(context.leadCard ? [context.leadCard] : []), ...(context.deckCount > 0 ? [context.trump] : [])];
+  const cards: Card[] = [];
+  for (const suit of SUITS) for (const value of CARD_VALUES) if (!known.some((c) => c.suit === suit && c.value === value)) cards.push({ suit, value, id: `${suit}-${value}` });
+  return { cards, opponentCards: context.opponentHandCount };
+}
+
+/** The strongest of `cards` in a trick (the one no other beats), or null. */
+function strongest(cards: Card[], player: PlayerId, trumpSuit: Card['suit']): Card | null {
+  if (!cards.length) return null;
+  const opponent = other(player);
+  return cards.reduce((best, c) => (trickWinner(best, player, c, opponent, trumpSuit) === opponent ? c : best));
+}
+
+function briscolaConsequences(context: BriscolaContext, move: BriscolaMove, unseen: BriscolaUnseen): string {
+  const { leadCard, trumpSuit, player } = context;
+  const opponent = other(player);
+  const card = move.cardPlayed;
+  const own = BRISCOLA_POINTS[card.value];
+  const trumpsLeft = context.hand.filter((c) => c.suit === trumpSuit && c.id !== card.id).length;
+  const spend = card.suit === trumpSuit ? `. Spends a trump, ${trumpsLeft} left in your hand` : '';
+  // The deck's last two cards: the trick's winner draws the hidden one, the loser gets the face-up trump.
+  const lastDraw = context.deckCount === 2 ? `. Last two cards of the deck next: the trick's winner draws the hidden one, the loser gets ${briscolaCard(context.trump)}` : '';
+  if (leadCard) {
+    const wins = trickWinner(leadCard, opponent, card, player, trumpSuit) === player;
+    return `${wins ? 'You lead the next trick' : 'The opponent leads the next trick'}${spend}${lastDraw}`;
+  }
+  const beaters = unseen.cards.filter((u) => trickWinner(card, player, u, opponent, trumpSuit) === opponent);
+  const parts = [own ? `Puts its ${own} points at stake` : 'Puts no points at stake'];
+  if (!beaters.length) {
+    parts.push('nothing still out beats it: you take the trick whatever they answer');
+  } else {
+    const chance = unseen.opponentCards > 0 ? 1 - choose(unseen.cards.length - beaters.length, unseen.opponentCards) / choose(unseen.cards.length, unseen.opponentCards) : 0;
+    const trumps = beaters.filter((u) => u.suit === trumpSuit);
+    const others = beaters.filter((u) => u.suit !== trumpSuit);
+    const named = beaters.length <= 5
+      ? beaters.map(briscolaCard).join(', ')
+      : `${others.length ? `${others.map(briscolaCard).join(', ')} and ` : ''}${trumps.length} trumps`;
+    const costliest = beaters.reduce((best, u) => (BRISCOLA_POINTS[u.value] > BRISCOLA_POINTS[best.value] ? u : best));
+    parts.push(`beaten by ${beaters.length} of the ${unseen.cards.length} cards still out (${named}), chance the opponent holds one: ${Math.round(chance * 100)}%; the costliest answer, ${briscolaCard(costliest)}, would give them ${own + BRISCOLA_POINTS[costliest.value]} points`);
+    parts.push(`if they cannot or do not beat it, you take ${own ? `its ${own} points` : 'the trick'} plus whatever they throw`);
+  }
+  return parts.join('; ') + spend + lastDraw;
+}
+
 function briscolaQuestion(context: BriscolaContext): Question {
   if (OPTIONS.prompt === 'app') {
     return {
@@ -670,21 +865,28 @@ function briscolaQuestion(context: BriscolaContext): Question {
       system: BRISCOLA_SINGLETURN, user: briscolaSingleTurnPrompt(context),
     };
   }
-  const spelled = OPTIONS.prompt === 'spelled';
+  const consequences = OPTIONS.prompt === 'consequences';
+  const spelled = OPTIONS.prompt === 'spelled' || consequences;
+  const unseen = briscolaUnseen(context);
   const lines = [
-    spelled ? brief(BRISCOLA_ON_DEVICE) : BRISCOLA_PLAIN_RULES,
+    spelled ? brief(BRISCOLA_ON_DEVICE) + (consequences ? BRISCOLA_CONSEQUENCES_NOTE : '') : BRISCOLA_PLAIN_RULES,
     '',
     '--- POSITION ---',
     `Trump: ${briscolaCard(context.trump)} (suit: ${context.trumpSuit})`,
     `Deck: ${context.deckCount} cards left | Opponent hand: ${context.opponentHandCount} cards`,
   ];
   if (spelled) lines.push(briscolaMemory(context));
+  if (consequences) {
+    const top = strongest(unseen.cards.filter((c) => c.suit === context.trumpSuit), context.player, context.trumpSuit);
+    const pointsOut = unseen.cards.reduce((sum, c) => sum + BRISCOLA_POINTS[c.value], 0);
+    lines.push(`Cards not seen yet: ${unseen.cards.length} (the opponent's ${context.opponentHandCount} in hand, ${context.deckCount} in the deck), worth ${pointsOut} points; the highest trump still out: ${top ? briscolaCard(top) : 'none'}`);
+  }
   lines.push(
     context.leadCard ? `The opponent led ${briscolaCard(context.leadCard)}. You are following.` : 'You are leading the trick: the opponent answers after you.',
     `Your hand: ${briscolaCards(context.hand)}`
   );
   const describe = (move: BriscolaMove, i: number) => (spelled ? briscolaSpelledMove(move, i, context) : briscolaPlainMove(move, i));
-  const options = context.validMoves.map((move, i) => stripIndex(describe(move, i)));
+  const options = context.validMoves.map((move, i) => stripIndex(describe(move, i)) + (consequences ? `. ${briscolaConsequences(context, move, unseen)}` : ''));
   const [rules, ...position] = lines;
   return { state: lines.join('\n'), options, system: `${rules}\n\n${JSON_ANSWER}`, user: `${position.join('\n').trim()}\n\n${numbered(options)}` };
 }
@@ -748,7 +950,9 @@ async function playBriscolaRound(initial: BriscolaState, seats: Record<PlayerId,
 // Pairings: every deal twice, seats swapped
 // ---------------------------------------------------------------------------
 
-interface RoundResult { deal: number; aSeat: PlayerId; a: number; b: number }
+/** Where a Scopa round's points came from (points per category, and the raw captures). */
+interface ScopaCategories { cards: number; coins: number; setteBello: number; prime: number; scopas: number; cardsCaptured: number; coinsCaptured: number }
+interface RoundResult { deal: number; aSeat: PlayerId; a: number; b: number; detail?: { a: ScopaCategories; b: ScopaCategories } }
 
 interface PairingResult {
   game: Game;
@@ -772,7 +976,8 @@ async function runPairing(game: Game, a: BotName, b: BotName, deals: number): Pr
         const points = game === 'scopa'
           ? await playScopaRound(initial as ScopaState, seats)
           : await playBriscolaRound(initial as BriscolaState, seats);
-        return { deal, aSeat, a: points[aSeat], b: points[other(aSeat)] };
+        const detail = 'detail' in points ? { a: points.detail[aSeat], b: points.detail[other(aSeat)] } : undefined;
+        return { deal, aSeat, a: points[aSeat], b: points[other(aSeat)], ...(detail ? { detail } : {}) };
       });
     }
   }
@@ -835,7 +1040,7 @@ function summarize(result: PairingResult): Summary {
 }
 
 const NAMES: Record<BotName, string> = { model: OPTIONS.mock ? 'Mock model' : OPTIONS.model, furbo: 'Furbo', esperto: 'Esperto', scimmietta: 'Scimmietta' };
-const KIND = OPTIONS.api === 'chat' ? `chat model, thinking ${OPTIONS.thinking}` : 'decision model';
+const KIND = OPTIONS.api === 'chat' ? `chat model, thinking ${OPTIONS.thinking}` : OPTIONS.api === 'openai' ? 'OpenAI Decisions API' : 'decision model';
 const percent = (part: number, whole: number) => (whole ? `${((100 * part) / whole).toFixed(0)}%` : 'n/a');
 const signed = (x: number, digits = 2) => `${x >= 0 ? '+' : ''}${x.toFixed(digits)}`;
 
@@ -847,6 +1052,13 @@ function printPairing(result: PairingResult): void {
   console.log(`  rounds won ${s.wins}, drawn ${s.draws}, lost ${s.losses}  (${percent(s.wins, s.rounds)} won)`);
   console.log(`  average ${unit}: ${s.meanA.toFixed(2)} vs ${s.meanB.toFixed(2)}`);
   console.log(`  margin per round: ${signed(s.margin)} ± ${s.marginError.toFixed(2)}  (same deals, seats swapped)`);
+  const detailed = result.rounds.filter((r) => r.detail);
+  if (detailed.length) {
+    const mean = (side: 'a' | 'b', key: keyof ScopaCategories) => detailed.reduce((sum, r) => sum + r.detail![side][key], 0) / detailed.length;
+    const pair = (key: keyof ScopaCategories, digits = 2) => `${mean('a', key).toFixed(digits)} vs ${mean('b', key).toFixed(digits)}`;
+    console.log(`  points per round by category: cards ${pair('cards')}, coins ${pair('coins')}, 7 of coins ${pair('setteBello')}, primiera ${pair('prime')}, scopas ${pair('scopas')}`);
+    console.log(`  captured per round: ${pair('cardsCaptured', 1)} cards, ${pair('coinsCaptured', 1)} coins`);
+  }
 }
 
 function quantile(sorted: number[], q: number): number {
@@ -864,12 +1076,15 @@ function printModelStats(game: Game): void {
     console.log(`  same move as Esperto: ${percent(s.agreeEsperto, s.compared)}   same move as Furbo: ${percent(s.agreeFurbo, s.compared)}`);
     console.log(`  for scale, Furbo plays Esperto's move in ${percent(s.furboAgreesEsperto, s.compared)} of these positions`);
     console.log(`  first listed option chosen in ${percent(s.choseFirst, s.compared)} (it is Esperto's move in ${percent(s.espertoFirst, s.compared)})`);
+    const buckets = Object.entries(s.byProbability).filter(([, b]) => b.compared);
+    if (buckets.length) console.log(`  same move as Esperto by the probability the model gave its move: ${buckets.map(([name, b]) => `${name}: ${percent(b.agreeEsperto, b.compared)} (${b.compared})`).join(', ')}`);
   }
 }
 
 async function main(): Promise<void> {
   if (!KEY) {
-    console.error(`No OpenRouter key found.\nPut it in the environment as OPENROUTER_API_KEY, or in local/openrouter.env (git-ignored) as one line:\n  OPENROUTER_API_KEY=...\nOr run with --mock to check the harness without requests.`);
+    const [provider, name, file] = OPTIONS.api === 'openai' ? ['OpenAI', 'OPENAI_API_KEY', 'local/openai.env'] : ['OpenRouter', 'OPENROUTER_API_KEY', 'local/openrouter.env'];
+    console.error(`No ${provider} key found.\nPut it in the environment as ${name}, or in ${file} (git-ignored) as one line:\n  ${name}=...`);
     process.exit(2);
   }
   const pairings: Array<[Game, BotName, BotName]> = [];
@@ -895,7 +1110,7 @@ async function main(): Promise<void> {
       const perRequest = 1000 * chatModel.inputPrice + 80 * chatModel.outputPrice;
       console.log(`About ${requests} requests, roughly $${(requests * perRequest).toFixed(2)} without thinking (more with it); reasoning parameter ${JSON.stringify(chatModel.reasoning)}; stops at $${OPTIONS.maxCost} (--max-cost).`);
     } else {
-      console.log(`About ${requests} requests, roughly $${(requests * 0.00003).toFixed(2)} at $0.042 per million input tokens; stops at $${OPTIONS.maxCost} (--max-cost).`);
+      console.log(`About ${requests} requests, roughly $${(requests * 0.00003).toFixed(2)} at $${(PRICE_PER_INPUT_TOKEN * 1_000_000).toFixed(3)} per million input tokens; stops at $${OPTIONS.maxCost} (--max-cost).`);
     }
   }
 
