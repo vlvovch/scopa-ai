@@ -2,6 +2,7 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { GameQuota } from './limits.js';
+import { GEMINI_URL, geminiRequestBody, type MoveRequest } from './gemini.js';
 
 // Configuration
 const PORT = parseInt(process.env.PORT || '3101', 10);
@@ -16,8 +17,6 @@ const GAMES_PER_DAY = 3;
 // no matter how many players show up (each game is a few tens of cents).
 // (a malformed value falls back to 60: NaN would never trip the cap)
 const GLOBAL_GAMES_PER_DAY = parseInt(process.env.GLOBAL_GAMES_PER_DAY || '60', 10) || 60;
-const MODEL = 'gemini-3-flash-preview';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 const CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
 
 // In-memory quotas (per player and shared), see limits.ts
@@ -30,23 +29,6 @@ setInterval(() => {
     console.log(`[cleanup] Removed ${cleaned} expired rate limit entries. Active: ${quota.activePlayers}`);
   }
 }, CLEANUP_INTERVAL_MS);
-
-interface ContentPart {
-  text: string;
-}
-
-interface Content {
-  role: 'user' | 'model';
-  parts: ContentPart[];
-}
-
-interface MoveRequest {
-  systemInstruction: string;
-  contents: Content[];
-  responseJsonSchema: Record<string, unknown>;
-  gameId: string;
-  useThinking?: boolean;
-}
 
 function corsHeaders(origin: string | undefined): Record<string, string> {
   const allowAnyOrigin = ALLOWED_ORIGINS.includes('*');
@@ -123,8 +105,8 @@ const server = createServer(async (req, res) => {
 
   try {
     const rawBody = await readBody(req);
-    const body: MoveRequest = JSON.parse(rawBody);
-    const { systemInstruction, contents, responseJsonSchema, gameId, useThinking } = body;
+    const request: MoveRequest = JSON.parse(rawBody);
+    const { systemInstruction, contents, responseJsonSchema, gameId } = request;
 
     if (!systemInstruction || !contents || !responseJsonSchema || !gameId) {
       sendJson(res, 400, { error: 'bad_request', message: 'Missing required fields' }, cors);
@@ -150,20 +132,10 @@ const server = createServer(async (req, res) => {
     }
 
     // Call Gemini API
-    const thinkingBudget = useThinking ? -1 : 0;
-
     const geminiResponse = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents,
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: responseJsonSchema,
-          thinkingConfig: { thinkingBudget },
-        },
-      }),
+      body: JSON.stringify(geminiRequestBody(request)),
     });
 
     if (!geminiResponse.ok) {
