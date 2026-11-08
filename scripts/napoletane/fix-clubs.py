@@ -33,7 +33,7 @@ SRC = HERE / 'sources'
 OUT = HERE.parents[1] / 'public' / 'cards' / 'napoletane'
 ARGS = sys.argv[1:]
 CARDS = [int(a) for a in ARGS if a in ('5', '6', '7')] or [5, 7]   # the 6 matches the real card as the sprite drew it; `6` rebuilds it anyway
-PREVIEW = pathlib.Path(ARGS[ARGS.index('--preview') + 1]) if '--preview' in ARGS else None
+PREVIEW = pathlib.Path(ARGS[ARGS.index('--preview') + 1]).resolve() if '--preview' in ARGS else None   # absolute: as_uri() needs it
 # Per card, the top row left to right as (drawing, mirrored, turned) plus whether the horizontal baton is flipped
 # top-to-bottom. The drawings are the sprite's own: 'A' = its top-left baton (green cut end up, red bulb; its cut-end
 # tip and its yellow leaf are on the SAME side), 'B' = its second top baton (green bulb up, red cut end down; tip and

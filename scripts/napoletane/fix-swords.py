@@ -31,7 +31,7 @@ SRC = HERE / 'sources'
 OUT = HERE.parents[1] / 'public' / 'cards' / 'napoletane'
 ARGS = sys.argv[1:]
 CARDS = [int(a) for a in ARGS if a in ('3', '5', '7')] or [3, 5, 7]
-PREVIEW = pathlib.Path(ARGS[ARGS.index('--preview') + 1]) if '--preview' in ARGS else None
+PREVIEW = pathlib.Path(ARGS[ARGS.index('--preview') + 1]).resolve() if '--preview' in ARGS else None   # absolute: as_uri() needs it
 MIDDLE = {5: 'turn', 7: 'mirror'}   # how the middle sword changes hands: both end up hatched like the real cards
 
 PATH_RE = re.compile(r'<path\b[^>]*?/>', re.S)
