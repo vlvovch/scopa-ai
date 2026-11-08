@@ -97,7 +97,7 @@ interface RoundEndScreenProps {
   cpuScopaCaptures: Card[][];
   isGameOver?: boolean;
   /** The target score when the game goes on only because the scores are tied at or above it (Scopa has no drawn games). */
-  tieBreakAt?: number;
+  tiedScore?: number;
   onNextRound: () => void;
   onShowGameEnd?: () => void;
   /** Player 1 name (defaults to "You", fallback if AI type not provided) */
@@ -176,7 +176,7 @@ export function RoundEndScreen({
   humanScopaCaptures,
   cpuScopaCaptures,
   isGameOver,
-  tieBreakAt,
+  tiedScore,
   onNextRound,
   onShowGameEnd,
   player1Name,
@@ -422,8 +422,8 @@ export function RoundEndScreen({
           </div>
         </div>
 
-        {tieBreakAt !== undefined && !isGameOver && (
-          <p className={styles.waitingMessage}>{t.roundEnd.tieBreak(tieBreakAt)}</p>
+        {tiedScore !== undefined && !isGameOver && (
+          <p className={styles.waitingMessage}>{t.roundEnd.tieBreak(tiedScore)}</p>
         )}
 
         {/* Multiplayer waiting message */}

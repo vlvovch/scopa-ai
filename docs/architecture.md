@@ -827,21 +827,32 @@ const response = await client.beta.messages.create({
 - The sprite's suit ids are swapped: its `N_spade` groups hold the clubs and
   its `N_club` groups the swords, so `local/napoletane/individual-noborders/
   swords-N.svg` is the source of `public/cards/napoletane/clubs-N.webp` (the
-  WebP files were swapped in January 2026; the sources were not renamed)
+  WebP files were swapped in January 2026; the sources were not renamed).
+  The six cards corrected below have their sprite groups under
+  `scripts/napoletane/sources/` with the true suit names, so the two fix
+  scripts beside them reproduce the committed WebP files byte for byte
 - 5 and 7 of clubs corrected 2026-11-08 (GitHub issue #2). The real cards are
   point-symmetric (the bottom row is the top row turned 180° about the card
   centre) and mix handle-up and handle-down batons within a row, some of
-  them mirrored. The sprite's 5 had straight outer batons (the real ones lean,
-  cut ends towards the centre line, their tips hooking outward) and its right
-  column standing the wrong way up; its 7 had the middle column the wrong way
-  up, the right column hooking outward instead of inward and the horizontal
-  baton upside down; its 6 matched. `local/napoletane/fix-clubs.py`
-  rebuilds the SVGs from `swords-N.original.svg` (the untouched sprite
-  extraction) against a per-card spec read off photos of the real cards,
-  baton by baton (which of the sprite's two drawings, mirrored or not; the
-  bottom row is the top row turned 180°), and renders the WebP files the way
-  the originals were made: the 70 × 115 CSS px card at 3× in headless
-  Chromium, 210 × 345 RGBA
+  them mirrored; on every cut-end-up baton of the real 5 and 7 the hooked
+  tip and the yellow leaf are on opposite sides of the baton. The sprite's 5
+  had straight outer batons (the real ones lean, cut ends towards the centre
+  line, their tips hooking outward) and its right column standing the wrong
+  way up; its 7 had the middle column the wrong way up, the right column
+  hooking outward instead of inward and the horizontal baton upside down;
+  its 6 matched. Of the sprite's two baton drawings only the handle-up one
+  has tip and leaf on opposite sides, so the cut-end-up batons of the 5 and 7
+  are that drawing turned upright with its red and green layers swapped (the
+  real cards colour whatever is up green). `scripts/napoletane/fix-clubs.py`
+  rebuilds the SVGs from `scripts/napoletane/sources/clubs-N.svg` (the
+  card's group as extracted from the sprite) against a per-card spec read
+  off photos of the real cards, baton by baton (which drawing, mirrored,
+  turned; the bottom row is the top row turned 180°), and renders the WebP
+  files the way the originals were made: the 70 × 115 CSS px card at 3× in
+  headless Chromium, 210 × 345 RGBA. Checked with two measurable features
+  per baton, the side of the tip and the side of the leaf relative to the
+  baton's axis, against two photographed decks (Dal Negro, and the Commons
+  sheet "Carte da gioco napoletane bastoni")
 - 3, 5 and 7 of swords corrected 2026-11-08 (same issue, follow-up). The
   sprite's 3 was the real card turned 180° (on the real card the outer hilts
   are at the top, the middle hilt at the bottom and the ribbon a V with its
@@ -852,7 +863,7 @@ const response = await client.beta.messages.create({
   turns (5) or mirrors (7) them about their own centre: both give the same
   silhouette, and the choice makes the grip's hatching run the way it does on
   the real cards (the sprite drew the two swords with opposite hatching).
-  Sources `clubs-N.original.svg` (the swapped ids again), same render recipe.
+  Sources `scripts/napoletane/sources/swords-N.svg`, same render recipe.
   Checked sword by sword with a measurable feature, the side of the hilt
   (yellow) relative to the blade (blue) along the sword's axis, which agrees
   with the photos on the untouched 2, 4 and 6

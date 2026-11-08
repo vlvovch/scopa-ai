@@ -2972,9 +2972,9 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       // Check if this is the final round (game is over after this round)
       const isFinalRound = !!multiplayer.gameEndData;
       const cumulative = multiplayer.roundEndData.cumulativeScores;
-      const tieBreakAt =
+      const tiedScore =
         !isFinalRound && multiplayer.targetScore && cumulative[myId] === cumulative[oppId] && cumulative[myId] >= multiplayer.targetScore
-          ? multiplayer.targetScore
+          ? cumulative[myId]
           : undefined;
 
       return (
@@ -2996,7 +2996,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             opponentRequestedNextRound={multiplayer.nextRoundRequests.has(oppId)}
             opponentName={multiplayer.opponentNickname || t.common.opponent}
             isGameOver={isFinalRound}
-            tieBreakAt={tieBreakAt}
+            tiedScore={tiedScore}
             onShowGameEnd={multiplayer.clearRoundEnd}
           />
         </DeckProvider>
@@ -3553,9 +3553,9 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           humanScopaCaptures={activeState.players.human.scopaCaptures}
           cpuScopaCaptures={activeState.players.cpu.scopaCaptures}
           isGameOver={activeState.isGameOver}
-          tieBreakAt={
+          tiedScore={
             !activeState.isGameOver && activeState.scores.human === activeState.scores.cpu && activeState.scores.human >= activeState.targetScore
-              ? activeState.targetScore
+              ? activeState.scores.human
               : undefined
           }
           onNextRound={handleNextRound}
