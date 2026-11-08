@@ -321,6 +321,8 @@ export const it: Translation = {
     viewFullRules: 'Vedi le regole complete',
     appStoreBadgeAlt: 'Scarica su App Store',
     appStoreCredit: 'App Store è un marchio di Apple Inc., registrato negli Stati Uniti e in altri paesi.',
+    googlePlayBadgeAlt: 'Disponibile su Google Play',
+    googlePlayCredit: 'Google Play e il logo di Google Play sono marchi di Google LLC.',
     // Briscola start screen
     briscolaSubtitle: 'Il classico gioco di carte italiano a prese',
     playDescBriscola: 'Gioca contro la CPU o un’IA.',

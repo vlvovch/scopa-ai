@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { APP_STORE_URL, inviteUrl, parseIncomingLink, pathForIncomingLink, showsAppStoreBadge } from './links';
+import { APP_STORE_URL, GOOGLE_PLAY_URL, inviteUrl, parseIncomingLink, pathForIncomingLink, showsAppStoreBadge, showsGooglePlayBadge } from './links';
 
 describe('inviteUrl', () => {
   it('uses the page origin on the website', () => {
@@ -59,5 +59,29 @@ describe('the App Store badge', () => {
   it('is hidden inside the app itself and on Android (the Play Store app included)', () => {
     expect(showsAppStoreBadge(true, IPHONE)).toBe(false);
     expect(showsAppStoreBadge(false, ANDROID)).toBe(false);
+  });
+});
+
+describe('the Google Play badge', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+  const IPAD = 'Mozilla/5.0 (iPad; CPU OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Mobile/15E148 Safari/604.1';
+  const MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15';
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
+
+  it('links to the Android app by its package name', () => {
+    expect(GOOGLE_PLAY_URL).toBe('https://play.google.com/store/apps/details?id=net.vovchenko.scopaai');
+  });
+
+  it('shows on the website for Android and desktop visitors', () => {
+    expect(showsGooglePlayBadge(false, ANDROID, false)).toBe(true);
+    expect(showsGooglePlayBadge(false, MAC, false)).toBe(true);
+    expect(showsGooglePlayBadge(false, '', false)).toBe(true);
+  });
+
+  it('is hidden for iPhone and iPad visitors, inside the iOS app, and when the page runs as an installed app', () => {
+    expect(showsGooglePlayBadge(false, IPHONE, false)).toBe(false);
+    expect(showsGooglePlayBadge(false, IPAD, false)).toBe(false);
+    expect(showsGooglePlayBadge(true, ANDROID, false)).toBe(false);
+    expect(showsGooglePlayBadge(false, ANDROID, true)).toBe(false);
   });
 });

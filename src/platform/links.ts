@@ -44,6 +44,27 @@ export function showsAppStoreBadge(
   return !native && !/android/i.test(userAgent);
 }
 
+/** The Android app (this site in a Trusted Web Activity) on Google Play. */
+export const GOOGLE_PLAY_ID = 'net.vovchenko.scopaai';
+export const GOOGLE_PLAY_URL = `https://play.google.com/store/apps/details?id=${GOOGLE_PLAY_ID}`;
+
+/**
+ * Whether this copy of the site advertises the Android app: not inside the
+ * iPhone and iPad app, not to iPhone and iPad visitors (the App Store badge
+ * is theirs), and not when the page already runs as an installed app, which
+ * is what the Play Store app and a home-screen PWA look like (display-mode
+ * standalone).
+ */
+export function showsGooglePlayBadge(
+  native: boolean = IS_NATIVE_BUILD,
+  userAgent: string = typeof navigator !== 'undefined' ? navigator.userAgent : '',
+  standalone: boolean = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(display-mode: standalone)').matches
+    : false
+): boolean {
+  return !native && !standalone && !/iphone|ipad|ipod/i.test(userAgent);
+}
+
 export function inviteUrl(roomCode: string, options: { native?: boolean; origin?: string } = {}): string {
   const native = options.native ?? IS_NATIVE_BUILD;
   if (!native) {

@@ -1,0 +1,45 @@
+/* The store badges on the website's start screens. Apple's marketing
+   guidelines: its own artwork, unmodified, at least 40px tall on screen,
+   clear space of a quarter of the badge's height around it, subordinate to
+   the main content. Google's badge guidelines: the same, and when shown
+   next to other store badges all badges are the same visual height; the
+   Play badge's PNG carries its clear space inside the file, so it is drawn
+   taller than the App Store badge for the two to match. */
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: var(--space-4);
+  padding: 10px; /* the clear space: a quarter of the 40px badge */
+}
+
+.link {
+  display: block;
+  line-height: 0;
+  border-radius: 7px;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.appStore {
+  display: block;
+  height: 40px;
+  width: auto;
+}
+
+.googlePlay {
+  display: block;
+  height: 44px; /* the badge itself is 40px: the file keeps 2px of margin top and bottom at this size */
+  width: auto;
+}
+
+/* The trademark credit lines, in the start screen's footer */
+.credit {
+  display: block;
+  margin-top: 4px;
+}

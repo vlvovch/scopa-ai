@@ -322,6 +322,8 @@ export const en = {
     viewFullRules: 'View Full Rules',
     appStoreBadgeAlt: 'Download on the App Store',
     appStoreCredit: 'App Store is a trademark of Apple Inc., registered in the U.S. and other countries.',
+    googlePlayBadgeAlt: 'Get it on Google Play',
+    googlePlayCredit: 'Google Play and the Google Play logo are trademarks of Google LLC.',
     // Briscola start screen
     briscolaSubtitle: 'The Classic Italian Trick-Taking Card Game',
     playDescBriscola: 'Play against the CPU or an AI.',

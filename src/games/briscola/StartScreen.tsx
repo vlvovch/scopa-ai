@@ -14,7 +14,7 @@ import { LanguageToggle } from '../../components/UI/LanguageToggle';
 import { GameSwitcher } from '../../components/UI/GameSwitcher';
 import { OtherGameAnnouncement } from '../../components/UI/OtherGameAnnouncement';
 import { AIConsentModal } from '../../components/UI/AIConsentModal';
-import { AppStoreBadge, AppStoreCredit } from '../../components/UI/AppStoreBadge';
+import { StoreBadges, StoreCredits } from '../../components/UI/StoreBadges';
 import { aiDataDestinations, hasAIDataConsent, grantAIDataConsent, type AIDataDestination } from '../../ai/consent';
 import switcherStyles from '../../components/UI/GameSwitcher.module.css';
 import type { GameId } from '../gameSelection';
@@ -800,11 +800,11 @@ export function StartScreen({
           )}
         </div>
 
-        <AppStoreBadge />
+        <StoreBadges />
 
         <footer className={styles.footer}>
           © 2026 VV Labs | <a href="https://github.com/vlvovch/scopa-ai" target="_blank" rel="noopener noreferrer">GitHub</a>. <span title={__APP_BUILD_INFO__} style={{ opacity: 0.55, fontSize: '0.75em', whiteSpace: 'nowrap' }}>· v{__APP_VERSION__}</span>
-          <AppStoreCredit />
+          <StoreCredits />
         </footer>
       </div>
       <AIConsentModal
