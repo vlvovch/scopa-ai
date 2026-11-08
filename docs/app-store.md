@@ -1,9 +1,9 @@
 # App Store release checklist (iOS app)
 
 **Status: version 1.0.2 (build 8) released on 2026-10-27** (uploaded and
-submitted 2026-10-26, approved overnight). **Version 1.0.3 is prepared; build 9 is
-archived, its export blocked until the new Apple agreement is accepted**
-(2026-11-07, see "Version 1.0.3" below): the Italian name,
+submitted 2026-10-26, approved overnight). **Version 1.0.3 is prepared and build 9 is uploaded
+(2026-11-07 20:23, processing); the version itself is not yet created in App
+Store Connect** (see "Version 1.0.3" below): the Italian name,
 subtitle and keywords, captioned screenshots in both languages, the
 preview videos, and a lead on "no ads". The product page's "Languages"
 line now reads "English and Italian" in every storefront checked (IT, US,
@@ -669,24 +669,23 @@ and `app-preview-iphone-6.9-it.mp4` (IT), 886×1920, 29 s; upload each under
 its language with the device "iPhone with Dynamic Island (medium display)"
 (that size covers every Dynamic Island model).
 
-**Build 9** (archived 2026-11-07, export blocked by Apple's agreement
-update): `ios/Signing.xcconfig` is at `MARKETING_VERSION = 1.0.3`,
-`CURRENT_PROJECT_VERSION = 9`; `npm run ios:release` produced
-`ios/build-release/App.xcarchive` = 1.0.3 (9), `net.vvlabs.scopa`, en.lproj +
-it.lproj, the current web bundle (the app's only change since build 8 is the
-store-badge code, hidden in the app, so What's New stays generic). The export
-then failed three times with `exportArchive Unable to process request - PLA
-Update available` followed by `No signing certificate "iOS Distribution"
-found`: Apple published a new Program License Agreement, and the developer
-portal refuses the cloud-signing requests until the Account Holder accepts
-it. Fix (user): sign in at https://developer.apple.com/account and accept
-the agreement in the banner (also check App Store Connect → Business →
-Agreements), then either `npm run ios:release -- --no-sync` (re-archives,
-exports `ios/build-release/export/App.ipa`; `-- --upload` uploads straight to
-App Store Connect) or `open ios/build-release/App.xcarchive` → Organizer →
-Distribute App (the archive carries the team's development signature, so
-the Organizer accepts it). A version with new metadata needs a build even
-without code changes.
+**Build 9** (uploaded 2026-11-07 20:23): `ios/Signing.xcconfig` at
+`MARKETING_VERSION = 1.0.3`, `CURRENT_PROJECT_VERSION = 9` (ed1c10c);
+`npm run ios:release` archived `ios/build-release/App.xcarchive` = 1.0.3 (9),
+`net.vvlabs.scopa`, en.lproj + it.lproj, the current web bundle (the app's
+only change since build 8 is the store-badge code, hidden in the app, so
+What's New stays generic). The first export failed with `exportArchive
+Unable to process request - PLA Update available` / `No signing certificate
+"iOS Distribution" found`: Apple's Program License Agreement of 2026-10-29
+(LYL262) was pending, and the developer portal refuses cloud-signing requests
+until the Account Holder accepts it at https://developer.apple.com/account.
+Accepted the same evening (its one substantive change: the prohibited-conduct
+list of Section 3.2(e) grew from two to seven items, all consistent with the
+app's disclosures); `npm run ios:release -- --no-sync --upload` then went
+through ("Upload succeeded", processing). Pre-submission check once
+processed: TestFlight → iOS Builds → 1.0.3 (9) → Store Information →
+Localizations must read "English, Italian". A version with new metadata
+needs a build even without code changes.
 
 **Website (committed 013e41f and deployed to both sites 2026-11-07).** Google's
 "Get it on Google Play" badge next to the App Store badge on both start
