@@ -842,6 +842,20 @@ const response = await client.beta.messages.create({
   bottom row is the top row turned 180°), and renders the WebP files the way
   the originals were made: the 70 × 115 CSS px card at 3× in headless
   Chromium, 210 × 345 RGBA
+- 3, 5 and 7 of swords corrected 2026-11-08 (same issue, follow-up). The
+  sprite's 3 was the real card turned 180° (on the real card the outer hilts
+  are at the top, the middle hilt at the bottom and the ribbon a V with its
+  vertex at the bottom); on its 5 and 7 the horizontal middle sword had its
+  hilt on the left, on the real cards it is on the right. The 2, 4 and 6
+  match. `local/napoletane/fix-swords.py` turns the 3's whole group about the
+  artwork centre and wraps the middle sword's three paths in a group that
+  turns (5) or mirrors (7) them about their own centre: both give the same
+  silhouette, and the choice makes the grip's hatching run the way it does on
+  the real cards (the sprite drew the two swords with opposite hatching).
+  Sources `clubs-N.original.svg` (the swapped ids again), same render recipe.
+  Checked sword by sword with a measurable feature, the side of the hilt
+  (yellow) relative to the blade (blue) along the sword's axis, which agrees
+  with the photos on the untouched 2, 4 and 6
 
 **Siciliane Deck (Phase 19):**
 - Suit SVGs from Wikimedia Commons (Tarocco Siciliano) in `public/cards/siciliane/suits/`
