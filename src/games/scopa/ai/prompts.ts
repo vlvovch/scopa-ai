@@ -26,7 +26,7 @@ SCORING (calculated at end of each round):
   Prime values: 7=21, 6=18, Asso=16, 5=15, 4=14, 3=13, 2=12, face cards=10
 - Scopa: 1 point EACH TIME you clear all cards from the table EXCEPT for the last hand of the round
 
-First to reach target score wins.`;
+First to reach the target score with the higher total wins; equal scores at the target are settled by another hand.`;
 
 /**
  * System instruction for multi-turn chat sessions (Gemini, OpenAI)

@@ -222,10 +222,13 @@ function handleEndRound(state: GameState): GameState {
   const newHumanScore = finalState.scores.human + roundScores.human.total;
   const newCpuScore = finalState.scores.cpu + roundScores.cpu.total;
 
-  // Check if game should end
+  // The game ends when a player reaches the target with the higher score.
+  // Scopa has no drawn games: with equal scores at or above the target,
+  // another hand is played to break the tie (the multiplayer server applies
+  // the same rule in scopa-server/src/room.ts).
   const humanReachedTarget = newHumanScore >= finalState.targetScore;
   const cpuReachedTarget = newCpuScore >= finalState.targetScore;
-  const isGameOver = humanReachedTarget || cpuReachedTarget;
+  const isGameOver = (humanReachedTarget || cpuReachedTarget) && newHumanScore !== newCpuScore;
 
   // Add to round history
   const historyEntry = {

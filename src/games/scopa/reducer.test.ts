@@ -444,6 +444,34 @@ describe('Game State Management', () => {
       expect(newState.status).toBe('roundEnd');
       expect(newState.isGameOver).toBe(true);
     });
+
+    // Scopa has no drawn games: equal scores at or above the target mean
+    // another hand (issue #2). Empty piles score 0-0, so the cumulative
+    // scores below are the final ones.
+    const tiedRoundEnd = (scores: { human: number; cpu: number }): GameState => ({
+      status: 'roundEnd',
+      round: { deck: [], table: [], currentPlayer: 'human', dealer: 'cpu', lastCapture: null },
+      players: {
+        human: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+        cpu: { hand: [], captured: [], scopaCount: 0, scopaCaptures: [] },
+      },
+      scores,
+      roundNumber: 4,
+      roundHistory: [],
+      targetScore: 11,
+    });
+
+    it('should not end the game when both players are tied at or above the target', () => {
+      const newState = gameReducer(tiedRoundEnd({ human: 11, cpu: 11 }), { type: 'END_ROUND' });
+      expect(newState.scores).toEqual({ human: 11, cpu: 11 });
+      expect(newState.status).toBe('roundEnd');
+      expect(newState.isGameOver).toBe(false);
+    });
+
+    it('should end the game when both players pass the target with different scores', () => {
+      const newState = gameReducer(tiedRoundEnd({ human: 12, cpu: 11 }), { type: 'END_ROUND' });
+      expect(newState.isGameOver).toBe(true);
+    });
   });
 
   describe('NEXT_ROUND action', () => {

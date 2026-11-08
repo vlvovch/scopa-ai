@@ -824,6 +824,24 @@ const response = await client.beta.messages.create({
 - Card back uses `--card-back-scale` and `--card-back-offset` CSS variables for sizing
 - Card face scaling uses `--card-img-scale` and `--card-img-offset` CSS variables
 - Suit SVGs from Wikimedia Commons in `public/cards/napoletane/suits/` for score icons
+- The sprite's suit ids are swapped: its `N_spade` groups hold the clubs and
+  its `N_club` groups the swords, so `local/napoletane/individual-noborders/
+  swords-N.svg` is the source of `public/cards/napoletane/clubs-N.webp` (the
+  WebP files were swapped in January 2026; the sources were not renamed)
+- 5 and 7 of clubs corrected 2026-11-08 (GitHub issue #2). The real cards are
+  point-symmetric (the bottom row is the top row turned 180° about the card
+  centre) and mix handle-up and handle-down batons within a row, some of
+  them mirrored. The sprite's 5 had straight outer batons (the real ones lean,
+  cut ends towards the centre line, their tips hooking outward) and its right
+  column standing the wrong way up; its 7 had the middle column the wrong way
+  up, the right column hooking outward instead of inward and the horizontal
+  baton upside down; its 6 matched. `local/napoletane/fix-clubs.py`
+  rebuilds the SVGs from `swords-N.original.svg` (the untouched sprite
+  extraction) against a per-card spec read off photos of the real cards,
+  baton by baton (which of the sprite's two drawings, mirrored or not; the
+  bottom row is the top row turned 180°), and renders the WebP files the way
+  the originals were made: the 70 × 115 CSS px card at 3× in headless
+  Chromium, 210 × 345 RGBA
 
 **Siciliane Deck (Phase 19):**
 - Suit SVGs from Wikimedia Commons (Tarocco Siciliano) in `public/cards/siciliane/suits/`

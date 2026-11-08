@@ -354,15 +354,11 @@ export function endRound(room: RoomState): {
   let gameOver = false;
   let winner: MultiplayerPlayerId | 'tie' | undefined;
 
-  if (p1Score >= targetScore || p2Score >= targetScore) {
+  // No drawn games in Scopa: with equal scores at or above the target another
+  // hand is played to break the tie (the client reducer applies the same rule).
+  if ((p1Score >= targetScore || p2Score >= targetScore) && p1Score !== p2Score) {
     gameOver = true;
-    if (p1Score > p2Score) {
-      winner = 'player1';
-    } else if (p2Score > p1Score) {
-      winner = 'player2';
-    } else {
-      winner = 'tie';
-    }
+    winner = p1Score > p2Score ? 'player1' : 'player2';
     state.status = 'gameEnd';
     state.winner = winner;
   }

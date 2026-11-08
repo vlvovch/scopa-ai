@@ -258,6 +258,7 @@ export const it: Translation = {
     nextRound: 'Prossima mano',
     seeResults: 'Vedi risultati',
     waiting: 'In attesa…',
+    tieBreak: (n: number) => `Pareggio a ${n}: un'altra mano decide la partita`,
   },
 
   rules: {

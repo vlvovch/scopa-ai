@@ -259,6 +259,7 @@ export const en = {
     nextRound: 'Next Round',
     seeResults: 'See Results',
     waiting: 'Waiting...',
+    tieBreak: (n: number) => `Tied at ${n}: one more hand decides the game`,
   },
 
   rules: {
