@@ -1,7 +1,10 @@
 # App Store release checklist (iOS app)
 
 **Status: version 1.0.2 (build 8) released on 2026-10-27** (uploaded and
-submitted 2026-10-26, approved overnight). The product page's "Languages"
+submitted 2026-10-26, approved overnight). **Version 1.0.3 is being
+prepared** (2026-11-07, see "Version 1.0.3" below): the Italian name,
+subtitle and keywords, captioned screenshots in both languages, the
+preview videos, and a lead on "no ads". The product page's "Languages"
 line now reads "English and Italian" in every storefront checked (IT, US,
 GB, DE; lookup API `languageCodesISO2A: ["EN","IT"]`), after 1.0 and
 1.0.1 had read "English" only (see "Version 1.0.2" below). Version 1.0.1
@@ -289,11 +292,17 @@ Source: https://developer.apple.com/app-store/marketing/guidelines/ (read
   2026-10-01 from Apple's marketing toolbox
   (`toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/<locale>`)
   and are self-hosted so the page makes no request to Apple.
-- **On the site**: `AppStoreBadge` (`src/components/UI/AppStoreBadge.tsx`)
-  under the quick rules of both start screens, linking to `APP_STORE_URL`
-  (`src/platform/links.ts`), with the credit line in the footer
-  (`AppStoreCredit`). `showsAppStoreBadge()` hides both inside the app and
-  on Android. `index.html` carries the Smart App Banner tag
+- **On the site**: `StoreBadges` (`src/components/UI/StoreBadges.tsx`,
+  until 2026-11-07 `AppStoreBadge`) under the quick rules of both start
+  screens: Apple's badge linking to `APP_STORE_URL` and, since 2026-11-07,
+  Google's "Get it on Google Play" badge (`public/badges/google-play-badge-
+  {en,it}.png`, from Google's badge generator, unmodified) linking to
+  `GOOGLE_PLAY_URL` (`src/platform/links.ts`, package `net.vovchenko.scopaai`),
+  with each store's credit line in the footer (`StoreCredits`).
+  `showsAppStoreBadge()` hides Apple's badge inside the app and on Android;
+  `showsGooglePlayBadge()` hides Google's inside the app, for iPhone and
+  iPad visitors, and when the page runs as an installed app (display-mode
+  standalone: the Play Store app itself, a home-screen PWA). `index.html` carries the Smart App Banner tag
   (`apple-itunes-app`, app id 6812582287), which Safari on iPhone and iPad
   turns into Apple's own banner. The support page links the store too.
 - **Wording**: "available on the App Store", "Scopa & Briscola AI for
@@ -387,7 +396,12 @@ Italian there and the store kept saying "English" in every storefront
 (fixed in build 8, see "Version 1.0.2").
 
 - **Name (30)**: `Scopa & Briscola AI` (19)
-- **Subtitle (30)**: `Giochi di carte italiani` (24)
+- **Subtitle (30)**: `Giochi di carte italiani` (24) — **never reached the
+  store**: on 2026-11-07 the Italian product page still showed the English
+  subtitle "Classic Italian card games" (the page shows Italian subtitles
+  where they exist: WhatsApp's and Scopa Più's do), so the Italian subtitle
+  under App Information is empty; the Italian keywords probably are too
+  (see "Version 1.0.3").
 - **Promotional text (170)**: `Gioca a Scopa e Briscola contro la CPU, i tuoi modelli IA (GPT, Claude, Gemini, OpenRouter) o gli amici online. Offline, senza pubblicità, con sei mazzi tradizionali.` (166)
 - **Keywords (100)**: `napoletane,siciliane,piacentine,sarde,gratis,online,multigiocatore,offline,settebello,primiera,gpt` (98; no words from the name or the subtitle)
 - **What's New (4000)**: the 1.0.1 text above
@@ -572,3 +586,120 @@ App Store Connect steps:
    release at 01:31 UTC: `["EN","IT"]` in IT, US, GB and DE; the pages
    read "Italiano e Inglese" / "English and Italian"; promotional text and
    What's New present in both languages.
+
+## Version 1.0.3 (prepared 2026-11-07)
+
+**Why.** Three things the 1.0.2 page still gets wrong in Italy, found on
+2026-11-07 while checking a visibility review:
+
+1. The Italian subtitle is not set: the Italian page shows the English
+   "Classic Italian card games" (localized subtitles do show on that page,
+   WhatsApp's and Scopa Più's among them). The Italian keywords look unset
+   too: in Apple's search API no word that is only on the Italian list
+   (`primiera`, 8 results; `piacentine`, 15; `multigiocatore`; `sarde`, 0)
+   ever returns the app, while words only on the English list do
+   ("scopa claude" 1st of 2, "scopa trick" 5th of 13). Both fields change
+   only with a new version.
+2. The first three screenshots are dark, carry no caption, and open with the
+   opponent picker (token prices included) and two reasoning pop-ups over a
+   dimmed board. The three top rivals open with a bright table, big cards
+   and a slogan.
+3. The preview videos never shipped (`local/apppreview/out/`), and "no
+   ads" — the top complaint about rivals: 129 of 396 recent Italian reviews
+   at three stars or below across 11 Scopa apps mention ads — appears only
+   in the promotional text and the description, which search ignores.
+
+**Check first in App Store Connect (five minutes).** App Information →
+Localizable Information → Italian: Name and Subtitle (expected: Subtitle
+empty). App Store → 1.0.2 → Italian → Keywords (expected: empty, or not
+the drafted list). The promotional text is editable without a version:
+paste the two texts below right away.
+
+**Metadata, Italian** (Name and Subtitle under App Information, the rest on
+the version page):
+
+- **Name (30)**: `Scopa e Briscola: Carte Online` (30; the name is the
+  strongest search field — "carte online" and "scopa online" are what
+  people type, "AI" only helps for "scopa ai", which already ranks 2nd)
+- **Subtitle (30)**: `Offline e senza pubblicità` (26; alternative, as a
+  sentence: `Gioca a carte senza pubblicità`, 30, but it repeats "carte")
+- **Keywords (100)**: `napoletane,siciliane,piacentine,sarde,gratis,multigiocatore,settebello,primiera,giochi,italiane` (95; "online" and "carte" moved into
+  the name, "offline" into the subtitle, "gpt" dropped since the English
+  list is indexed in Italy too; "gratis" stays in the keywords only — a price
+  word in a name, subtitle or screenshot is a 2.3.7 rejection)
+- **Promotional text (170)**: `Senza pubblicità e senza account. Gioca a Scopa e Briscola contro la CPU, i tuoi modelli IA (GPT, Claude, Gemini, OpenRouter) o gli amici online, anche offline.` (160)
+- **What's New**: `Piccole correzioni.` (replace with the real changes if
+  build 9 carries any)
+
+**Metadata, English:**
+
+- **Name**: unchanged, `Scopa & Briscola AI`
+- **Subtitle (30)**: `Italian card games, no ads` (26; was `Classic Italian
+  card games`)
+- **Keywords**: unchanged
+- **Promotional text (170)**: `No ads, no account. Play Scopa and Briscola against smart CPU bots, your own AI models (GPT, Claude, Gemini, OpenRouter) or friends online. Works offline too.` (158)
+- **What's New**: `Small fixes.`
+
+The home-screen name stays "Scopa AI" (`CFBundleDisplayName`); the Italian
+name shows wherever the device language is Italian, in every storefront.
+
+**Screenshots (both languages; iPhone 6.9" and iPad 13" rendered, 6.5" and
+12.9" derived).** `local/appstore/shots.py <en|it>` captures the raw views
+from the dev server (`npm run dev`, localhost:5173) at the device viewports
+with OpenRouter mocked (the mock writes its reasoning in the interface
+language); `local/appstore/compose.py <en|it>` sets each view on a felt
+background under a caption (San Francisco, drawn by a headless browser) and
+writes `local/appstore/screenshots-1.0.3/<lang>/<device>/`, with a contact
+sheet per device. Eight per device, upload in file order:
+
+| File | View | Caption EN | Caption IT |
+|---|---|---|---|
+| 01-no-ads | Scopa board mid-game | No ads. No account. / Just open and play | Senza pubblicità. Senza account. / Apri e gioca |
+| 02-decks | the six decks (king of coins + knight of cups of each, from `public/cards/`) | Six regional decks | Sei mazzi regionali |
+| 03-opponents | Scopa start screen, opponent picker | CPU bots or AI models / GPT, Claude, Gemini, Apple Intelligence | CPU o modelli IA / GPT, Claude, Gemini, Apple Intelligence |
+| 04-ai-reasoning | Scopa reasoning pop-up | The AI explains its move / After every play | L'IA spiega la sua mossa / Dopo ogni giocata |
+| 05-analysis | Scopa board with the win-odds panel and per-card numbers | Live odds for every card / Learn as you play | Le probabilità di ogni carta / Impara giocando |
+| 06-briscola | Briscola board | Play Briscola too / Single round or best-of match | Gioca anche a Briscola / Mano secca o al meglio di tre |
+| 07-briscola-reasoning | Briscola reasoning pop-up | Learn from every move / Reasoning in plain words | Impara da ogni mossa / Il ragionamento in parole semplici |
+| 08-offline | Choose-a-game screen | Works offline / Online with friends too | Funziona anche offline / E online con gli amici |
+
+**Preview videos**: `local/apppreview/out/app-preview-iphone-6.9.mp4` (EN)
+and `app-preview-iphone-6.9-it.mp4` (IT), 886×1920, 29 s; upload each under
+its language with the device "iPhone with Dynamic Island (medium display)"
+(that size covers every Dynamic Island model).
+
+**Build 9** (not built yet): `ios/Signing.xcconfig` → `MARKETING_VERSION =
+1.0.3`, `CURRENT_PROJECT_VERSION = 9`; `npm run ios:release`; upload from
+the Organizer (`open ios/build-release/App.xcarchive`). A version with new
+metadata needs a build even without code changes.
+
+**Website (done 2026-11-07 in the repository, not deployed).** Google's
+"Get it on Google Play" badge next to the App Store badge on both start
+screens (`src/components/UI/StoreBadges.tsx`, `public/badges/google-play-
+badge-{en,it}.png` from Google's badge generator, unmodified), linking to
+the Android app `net.vovchenko.scopaai` (500+ installs on Google Play as of
+2026-11-07; Android is 62% of Italian phones, StatCounter October 2026).
+Shown to Android and desktop visitors, hidden for iPhone and iPad visitors,
+inside the iOS app, and when the page runs as an installed app (the Play
+Store app itself, a home-screen PWA); Google's trademark line joins
+Apple's in the footer. Deploy with `sh local/contabo.sh`.
+
+**App Store Connect steps for 1.0.3:**
+
+1. Now: paste the two promotional texts (1.0.2, editable).
+2. Create version 1.0.3. English (U.S.): subtitle, What's New. Italian:
+   name and subtitle under App Information, keywords and What's New on the
+   version page (check the description and support/marketing URLs carried
+   over).
+3. Screenshots, per language: remove the 2026-10 sets, upload the eight
+   files of `iphone-6.9` and `ipad-13` (the 6.5" and 12.9" sets only if the
+   form still asks for them).
+4. App previews, per language (step above). Processing takes minutes;
+   choose the poster frame.
+5. Select build 9. Review notes: keep, after checking the keys in them are
+   live (see "Version 1.0.2", step 5).
+6. Submit for review ("Automatically release this version").
+7. After release: the Italian page's subtitle (`curl -sL -A Mozilla/5.0
+   https://apps.apple.com/it/app/id6812582287 | grep -o 'Offline e senza
+   pubblicità'`), the videos on both pages, and "scopa primiera" in the
+   Italian store (the app should appear among the handful of results).
