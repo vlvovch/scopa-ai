@@ -1,8 +1,9 @@
 # App Store release checklist (iOS app)
 
 **Status: version 1.0.2 (build 8) released on 2026-10-27** (uploaded and
-submitted 2026-10-26, approved overnight). **Version 1.0.3 is being
-prepared** (2026-11-07, see "Version 1.0.3" below): the Italian name,
+submitted 2026-10-26, approved overnight). **Version 1.0.3 is prepared; build 9 is
+archived, its export blocked until the new Apple agreement is accepted**
+(2026-11-07, see "Version 1.0.3" below): the Italian name,
 subtitle and keywords, captioned screenshots in both languages, the
 preview videos, and a lead on "no ads". The product page's "Languages"
 line now reads "English and Italian" in every storefront checked (IT, US,
@@ -668,12 +669,26 @@ and `app-preview-iphone-6.9-it.mp4` (IT), 886×1920, 29 s; upload each under
 its language with the device "iPhone with Dynamic Island (medium display)"
 (that size covers every Dynamic Island model).
 
-**Build 9** (not built yet): `ios/Signing.xcconfig` → `MARKETING_VERSION =
-1.0.3`, `CURRENT_PROJECT_VERSION = 9`; `npm run ios:release`; upload from
-the Organizer (`open ios/build-release/App.xcarchive`). A version with new
-metadata needs a build even without code changes.
+**Build 9** (archived 2026-11-07, export blocked by Apple's agreement
+update): `ios/Signing.xcconfig` is at `MARKETING_VERSION = 1.0.3`,
+`CURRENT_PROJECT_VERSION = 9`; `npm run ios:release` produced
+`ios/build-release/App.xcarchive` = 1.0.3 (9), `net.vvlabs.scopa`, en.lproj +
+it.lproj, the current web bundle (the app's only change since build 8 is the
+store-badge code, hidden in the app, so What's New stays generic). The export
+then failed three times with `exportArchive Unable to process request - PLA
+Update available` followed by `No signing certificate "iOS Distribution"
+found`: Apple published a new Program License Agreement, and the developer
+portal refuses the cloud-signing requests until the Account Holder accepts
+it. Fix (user): sign in at https://developer.apple.com/account and accept
+the agreement in the banner (also check App Store Connect → Business →
+Agreements), then either `npm run ios:release -- --no-sync` (re-archives,
+exports `ios/build-release/export/App.ipa`; `-- --upload` uploads straight to
+App Store Connect) or `open ios/build-release/App.xcarchive` → Organizer →
+Distribute App (the archive carries the team's development signature, so
+the Organizer accepts it). A version with new metadata needs a build even
+without code changes.
 
-**Website (done 2026-11-07 in the repository, not deployed).** Google's
+**Website (committed 013e41f and deployed to both sites 2026-11-07).** Google's
 "Get it on Google Play" badge next to the App Store badge on both start
 screens (`src/components/UI/StoreBadges.tsx`, `public/badges/google-play-
 badge-{en,it}.png` from Google's badge generator, unmodified), linking to
@@ -682,7 +697,7 @@ the Android app `net.vovchenko.scopaai` (500+ installs on Google Play as of
 Shown to Android and desktop visitors, hidden for iPhone and iPad visitors,
 inside the iOS app, and when the page runs as an installed app (the Play
 Store app itself, a home-screen PWA); Google's trademark line joins
-Apple's in the footer. Deploy with `sh local/contabo.sh`.
+Apple's in the footer. Redeploy with `sh local/contabo.sh`.
 
 **App Store Connect steps for 1.0.3:**
 
