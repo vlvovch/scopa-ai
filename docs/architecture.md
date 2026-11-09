@@ -858,7 +858,7 @@ const response = await client.beta.messages.create({
   are at the top, the middle hilt at the bottom and the ribbon a V with its
   vertex at the bottom); on its 5 and 7 the horizontal middle sword had its
   hilt on the left, on the real cards it is on the right. The 2, 4 and 6
-  match. `local/napoletane/fix-swords.py` turns the 3's whole group about the
+  match. `scripts/napoletane/fix-swords.py` turns the 3's whole group about the
   artwork centre and wraps the middle sword's three paths in a group that
   turns (5) or mirrors (7) them about their own centre: both give the same
   silhouette, and the choice makes the grip's hatching run the way it does on
