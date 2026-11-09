@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import { useLanguage, useT } from '../../i18n/LanguageContext';
 import styles from './StatsModal.module.css';
 
@@ -187,6 +188,7 @@ export function StatsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={handleClose}
         >
           <motion.div
@@ -194,6 +196,7 @@ export function StatsModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.header}>

@@ -2,6 +2,7 @@
 // Modal showing AI's last move with cards and reasoning
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import { CardImage, CardBack } from '../Card/CardImage';
 import { useT } from '../../i18n/LanguageContext';
 import { openRouterModelDisplayName } from '../../ai/openrouterProvider';
@@ -67,6 +68,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              onUpdate={keepOnMainThread}
               onClick={onClose}
             />
           )}
@@ -77,6 +79,7 @@ export function ReasoningModal({ isOpen, lastMove, onClose, locked = true, posit
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
+            onUpdate={keepOnMainThread}
             transition={{ duration: 0.2, ease: 'easeOut' }}
           >
             {/* Header */}

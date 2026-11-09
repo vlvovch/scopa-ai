@@ -8,6 +8,7 @@
 // Only the title and close button go through the shared dictionary.
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import { useLanguage } from '../../i18n/LanguageContext';
 import styles from './RulesModal.module.css';
 
@@ -28,6 +29,7 @@ export function RulesModal({ isOpen, onClose, game = 'scopa' }: RulesModalProps)
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={onClose}
         >
           <motion.div
@@ -35,6 +37,7 @@ export function RulesModal({ isOpen, onClose, game = 'scopa' }: RulesModalProps)
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className={styles.title}>

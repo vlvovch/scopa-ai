@@ -1,6 +1,7 @@
 // Sette Bello (7 of Coins) Celebration Animation
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './SetteBelloCelebration.module.css';
 
@@ -25,6 +26,7 @@ export function SetteBelloCelebration({ show, player, playerName, onComplete }: 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           transition={{ duration: 0.3 }}
         >
           <motion.div
@@ -35,6 +37,7 @@ export function SetteBelloCelebration({ show, player, playerName, onComplete }: 
               y: [20, -10, 0],
             }}
             exit={{ scale: 0, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             transition={{
               duration: 0.5,
               times: [0, 0.6, 1],

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import type { GameSettings, DeckType, TableStyle } from '../../hooks/useSettings';
 import { validateGeminiKey, validateOpenAIKey, validateClaudeKey, validateOpenRouterKey, type ValidationStatus } from '../../ai/validateApiKey';
 import { assetUrl } from '../../assetUrl';
@@ -288,6 +289,7 @@ export function SettingsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={onClose}
         >
           <motion.div
@@ -295,6 +297,7 @@ export function SettingsModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className={styles.title}>{t.settings.title}</h2>
@@ -816,6 +819,7 @@ export function SettingsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={handleWarningCancel}
         >
           <motion.div
@@ -823,6 +827,7 @@ export function SettingsModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className={styles.warningTitle}>{t.settings.warningTitle}</h3>
@@ -855,6 +860,7 @@ export function SettingsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={() => setShowDeckSelector(false)}
         >
           <motion.div
@@ -862,6 +868,7 @@ export function SettingsModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className={styles.deckSelectorTitle}>{t.settings.selectCardDeck}</h3>

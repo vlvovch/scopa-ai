@@ -1015,6 +1015,17 @@ const response = await client.beta.messages.create({
 - PlayerHand uses `AnimatePresence` with staggered delays for deal animation
 - TableCards uses `AnimatePresence` for smooth card entry/exit
 - Cards have `whileHover` and `whileTap` for interactive feedback
+- Dialogs and celebrations (the overlays in `UI/*Modal.tsx`, `ReasoningModal`,
+  `ScopaCelebration`, `SetteBelloCelebration`) pass
+  `onUpdate={keepOnMainThread}` (`UI/mainThreadMotion.ts`) so framer-motion
+  animates their fades and zooms on the main thread instead of handing them
+  to the compositor (Web Animations API). With the compositor fade, Chrome
+  156 (desktop and Android; Safari was fine) flickered once about a second
+  after a dialog opened or closed: the page had gone idle and Chrome repainted
+  on its own. Nothing on the page changes at that moment; the fix was found by
+  measuring (a frame loop kept the page busy and hid the flicker, a
+  compositor-only animation did not) and verified by the user on 2026-11-08.
+  Keep the prop on any new overlay with an opacity animation
 
 **Scopa Celebration:**
 - ScopaCelebration component triggers when table is cleared

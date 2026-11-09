@@ -1,6 +1,7 @@
 // CaptureChoiceModal - Shows capture options when multiple captures are possible
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import type { Card, Move } from '../../games/scopa/types';
 import { moveKey } from '../../games/scopa/ai/winOdds';
 import type { MoveOdds } from '../../games/scopa/ai/winOdds';
@@ -48,6 +49,7 @@ export function CaptureChoiceModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={onCancel}
         >
           <motion.div
@@ -55,6 +57,7 @@ export function CaptureChoiceModal({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className={styles.title}>{t.scopa.chooseCapture}</h2>

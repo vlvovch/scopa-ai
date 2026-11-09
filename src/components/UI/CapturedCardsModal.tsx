@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import type { Card } from '../../games/scopa/types';
 import { CardImage } from '../Card/CardImage';
 import { assetUrl } from '../../assetUrl';
@@ -47,6 +48,7 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           onClick={onClose}
         >
           <motion.div
@@ -54,6 +56,7 @@ export function CapturedCardsModal({ isOpen, onClose, cards, playerName }: Captu
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className={styles.title}>

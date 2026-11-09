@@ -1,6 +1,7 @@
 // Step 9.4: Scopa Celebration Animation
 
 import { motion, AnimatePresence } from 'framer-motion';
+import { keepOnMainThread } from './mainThreadMotion';
 import { useT } from '../../i18n/LanguageContext';
 import styles from './ScopaCelebration.module.css';
 
@@ -24,6 +25,7 @@ export function ScopaCelebration({ show, player, onComplete, playerName }: Scopa
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onUpdate={keepOnMainThread}
           transition={{ duration: 0.3 }}
         >
           <motion.div
@@ -34,6 +36,7 @@ export function ScopaCelebration({ show, player, onComplete, playerName }: Scopa
               rotate: [-10, 5, 0],
             }}
             exit={{ scale: 0, opacity: 0 }}
+            onUpdate={keepOnMainThread}
             transition={{
               duration: 0.5,
               times: [0, 0.6, 1],
