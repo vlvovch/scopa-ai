@@ -5,7 +5,8 @@
 // it leads nowhere useful (showsAppStoreBadge / showsGooglePlayBadge), and
 // both inside the packaged app. The artwork is the stores' own, one file per
 // language (public/badges/, from Apple's marketing toolbox and Google's badge
-// generator), used unmodified as their guidelines require; "App Store" and
+// generator), the artwork unmodified as their guidelines require (the Play
+// PNGs are only trimmed of the generator's transparent margin); "App Store" and
 // "Google Play" are never translated, only the words around them are, by the
 // stores themselves.
 
@@ -39,8 +40,8 @@ export function StoreBadges() {
             className={styles.googlePlay}
             src={assetUrl(`/badges/google-play-badge-${lang}.png`)}
             alt={t.start.googlePlayBadgeAlt}
-            width={646}
-            height={250}
+            width={564}
+            height={168}
           />
         </a>
       )}

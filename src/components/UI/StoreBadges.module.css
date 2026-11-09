@@ -2,9 +2,12 @@
    guidelines: its own artwork, unmodified, at least 40px tall on screen,
    clear space of a quarter of the badge's height around it, subordinate to
    the main content. Google's badge guidelines: the same, and when shown
-   next to other store badges all badges are the same visual height; the
-   Play badge's PNG carries its clear space inside the file, so it is drawn
-   taller than the App Store badge for the two to match. */
+   next to other store badges all badges are the same visual height. The
+   files from Google's badge generator carry a transparent margin of their
+   own (a different one per language), which made the badge come out small
+   next to Apple's; the PNGs are trimmed to the badge itself (artwork
+   untouched, one 564 x 168 size for both languages), so both badges are
+   simply 40px tall and the clear space is this wrapper's padding. */
 .wrap {
   display: flex;
   flex-wrap: wrap;
@@ -34,7 +37,7 @@
 
 .googlePlay {
   display: block;
-  height: 44px; /* the badge itself is 40px: the file keeps 2px of margin top and bottom at this size */
+  height: 40px;
   width: auto;
 }
 
