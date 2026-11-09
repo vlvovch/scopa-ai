@@ -1,9 +1,10 @@
 # App Store release checklist (iOS app)
 
-**Status: version 1.0.2 (build 8) released on 2026-10-27** (uploaded and
-submitted 2026-10-26, approved overnight). **Version 1.0.3 is prepared and build 9 is uploaded
-(2026-11-07 20:23, processing); the version itself is not yet created in App
-Store Connect** (see "Version 1.0.3" below): the Italian name,
+**Status: version 1.0.3 (build 9) submitted and approved (2026-11-08)**;
+1.0.2 (build 8) was released on 2026-10-27. **Version 1.0.4 (build 10) is
+uploaded (2026-11-08 19:38), to be created and submitted** (see "Version
+1.0.4" below).
+1.0.3 brought (see "Version 1.0.3" below): the Italian name,
 subtitle and keywords, captioned screenshots in both languages, the
 preview videos, and a lead on "no ads". The product page's "Languages"
 line now reads "English and Italian" in every storefront checked (IT, US,
@@ -764,3 +765,49 @@ version via Browse Assets → Next → Publish.
    https://apps.apple.com/it/app/id6812582287 | grep -o 'Offline e senza
    pubblicità'`), the videos on both pages, and "scopa primiera" in the
    Italian store (the app should appear among the handful of results).
+
+## Version 1.0.4 (prepared 2026-11-08)
+
+Bug-fix release carrying the fixes of GitHub issue #2 (merged into main as
+PR #3 and deployed to both websites and the Scopa multiplayer server on
+2026-11-08): Scopa games no longer end tied (another hand is dealt when both
+sides reach the target with equal scores; the server enforces it for every
+client, so only the app's single-player games still needed the update),
+tied games already in the statistics count as ties instead of losses, and
+the Napoletane 3, 5 and 7 of swords and 5 and 7 of clubs are corrected
+against photos of the real deck. No new permissions or data use and no
+store-listing changes: the 1.0.3 listing (texts, screenshots, previews)
+carries over.
+
+Build 10: `MARKETING_VERSION = 1.0.4`, `CURRENT_PROJECT_VERSION = 10` in
+`ios/Signing.xcconfig`; `npm run ios:release -- --upload` builds the web
+bundle, archives, signs and uploads. Uploaded 2026-11-08 19:38 (1.0.4 (10),
+the bundle checked to carry the corrected cards).
+
+What's New (EN):
+
+```text
+Scopa games no longer end in a tie: play continues until one side is ahead. Corrected Neapolitan 3, 5 and 7 of swords and 5 and 7 of clubs.
+```
+
+What's New (IT):
+
+```text
+Le partite di Scopa non finiscono più in pareggio: si continua finché uno dei due è in vantaggio. Corrette le carte napoletane 3, 5 e 7 di spade e 5 e 7 di bastoni.
+```
+
+App Store Connect steps:
+
+1. App Store → iOS App → "+" → 1.0.4. Texts, screenshots and previews
+   carry over from 1.0.3 (check they are still attached).
+2. English (U.S.) and Italian: paste What's New.
+3. Select build 10 (available a few minutes after the upload, once
+   processed).
+4. Review notes: replace the dated line on top with
+
+   ```text
+   Nov 8 (1.0.4): bug-fix update (Scopa tie-break rule, corrected card images). No new features, permissions or data use.
+   ```
+
+   and keep or refresh the test-key lines as for 1.0.3.
+5. Submit for review ("Automatically release this version").
