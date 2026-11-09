@@ -644,14 +644,20 @@ the version page):
 The home-screen name stays "Scopa AI" (`CFBundleDisplayName`); the Italian
 name shows wherever the device language is Italian, in every storefront.
 
-**Screenshots (both languages; iPhone 6.9" and iPad 13" rendered, 6.5" and
-12.9" derived).** `local/appstore/shots.py <en|it>` captures the raw views
+**Screenshots (both languages; iPhone 6.9" and iPad 13" rendered, the
+other sizes derived).** `local/appstore/shots.py <en|it>` captures the raw views
 from the dev server (`npm run dev`, localhost:5173) at the device viewports
 with OpenRouter mocked (the mock writes its reasoning in the interface
 language); `local/appstore/compose.py <en|it>` sets each view on a felt
 background under a caption (San Francisco, drawn by a headless browser) and
 writes `local/appstore/screenshots-1.0.3/<lang>/<device>/`, with a contact
-sheet per device. Eight per device, upload in file order:
+sheet per device. The iPhone slot of App Store Connect is now called
+"iPhone with Dynamic Island (medium display)" and takes only the 6.1"/6.3"
+sizes (1179 × 2556, 1206 × 2622; the 1320 × 2868 files of the former 6.9"
+slot fail with "File dimensions are invalid"), so compose.py derives
+`iphone-6.3` (1206 × 2622) from the 6.9" render by scaling, a 1 px crop
+(`compose.py <lang> derive` rebuilds the derived sizes without rendering).
+Eight per device, upload in file order:
 
 | File | View | Caption EN | Caption IT |
 |---|---|---|---|
@@ -698,6 +704,39 @@ inside the iOS app, and when the page runs as an installed app (the Play
 Store app itself, a home-screen PWA); Google's trademark line joins
 Apple's in the footer. Redeploy with `sh local/contabo.sh`.
 
+**Header and Search Results asset (prepared 2026-11-07, not submitted
+with 1.0.3).** App Store Connect's new optional creative assets (shown on
+iOS 27 / iPadOS 27 and later): a wide image at the top of the product page
+and the image on the app's card in search results. They are reviewed by
+Apple but can be submitted on their own through the Asset Library at any
+time, so they wait until after the 1.0.3 release rather than holding it up.
+`local/appstore/header.py <en|it|all>` renders one universal 16:9 PNG per
+language, `local/appstore/creative-1.0.3/<lang>/header-5244x2950.png`
+(RGB, no alpha, exactly 5244 × 2950; Apple crops it to the 21:9 header
+band and the 3:2 search card), in the look of the screenshot set: the
+"Scopa & Briscola" / "Scopa e Briscola" headline, the gold lines "No ads.
+No account. Just play." / "Senza pubblicità. Senza account. Apri e gioca."
+and a fan of three large cards on warm card paper (the siciliane king of
+coins from the scans in `local/siciliane/cards`, the napoletane 7 of coins
+and knight of cups from the vector sources in `local/napoletane/`), all
+inside the central 84% × 76% that both crops share; the two languages
+differ only in the text. Next to it, `header-21x9-preview.png` (3840 ×
+1646) and `search-3x2-preview.png` (3840 × 2560) show the crops at the
+dedicated header and search-results sizes, so they could be uploaded as
+separate assets instead, `safe-area-check.png` draws both crop frames and
+`thumb-*-400.png` check the phone-scale legibility. Rules applied (Apple's
+specifications and asset best practices): content suitable for 4+, no
+prices, discounts or "free"/"gratis" (guideline 2.3.7), no URLs, copyright
+symbols, other-platform logos or award claims, short localized text,
+nothing transparent; Apple publishes no safe-area numbers, so check both
+crops in the Preview tool after upload. Submit per language (English,
+Italian): with a version under Product Page Information → "Header and
+Search Results" → Header → drag the PNG in or Browse Assets → Save, ticking
+"Use header asset in search results"; or without a version through the
+Asset Library (upload as Creative Assets → standalone submission, reviewed
+against the latest version), then attach the approved asset to the live
+version via Browse Assets → Next → Publish.
+
 **App Store Connect steps for 1.0.3:**
 
 1. Now: paste the two promotional texts (1.0.2, editable).
@@ -705,13 +744,21 @@ Apple's in the footer. Redeploy with `sh local/contabo.sh`.
    name and subtitle under App Information, keywords and What's New on the
    version page (check the description and support/marketing URLs carried
    over).
-3. Screenshots, per language: remove the 2026-10 sets, upload the eight
-   files of `iphone-6.9` and `ipad-13` (the 6.5" and 12.9" sets only if the
-   form still asks for them).
+3. Screenshots, per language: "Remove All" on the 2026-10 sets, then
+   upload the eight files of `iphone-6.3` into "iPhone with Dynamic Island
+   (medium display)" and of `ipad-13` into "iPad 13" display" (the other
+   folders only if the form asks for their sizes).
 4. App previews, per language (step above). Processing takes minutes;
    choose the poster frame.
-5. Select build 9. Review notes: keep, after checking the keys in them are
-   live (see "Version 1.0.2", step 5).
+5. Select build 9. Review notes: replace the dated lines on top (Oct 26,
+   Oct 2) with
+
+   ```text
+   Nov 7 (1.0.3): store listing update (Italian name and subtitle, new screenshots and preview videos) with a rebuilt binary. No functional changes, no new features, permissions or data use.
+   ```
+
+   and check the four test-key lines below: paste freshly issued capped
+   keys or remove the lines (see "Version 1.0.2", step 5).
 6. Submit for review ("Automatically release this version").
 7. After release: the Italian page's subtitle (`curl -sL -A Mozilla/5.0
    https://apps.apple.com/it/app/id6812582287 | grep -o 'Offline e senza
