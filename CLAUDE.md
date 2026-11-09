@@ -24,6 +24,7 @@ scopa-ai/
 ├── scopa-server/           # WebSocket multiplayer server (Node.js)
 ├── public/                 # Static assets (cards, sounds, icons)
 ├── scripts/                # CLI sim tools (simulate.ts for Scopa, briscola-sim.ts, decision-bench.ts: docs/decision-models.md)
+│   └── napoletane/         # Card-artwork fix scripts + their SVG sources (docs/architecture.md, Neapolitan Card Design)
 └── docs/                   # Design documentation
 ```
 

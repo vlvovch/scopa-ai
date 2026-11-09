@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } fr
 import { useGame, clearPersistedGame } from './hooks/useGame';
 import { useSettings } from '../../hooks/useSettings';
 import { useSound } from '../../hooks/useSound';
-import { useStats } from '../../hooks/useStats';
+import { useStats, gameOutcome } from '../../hooks/useStats';
 import { useMultiplayer } from '../../hooks/useMultiplayer';
 import { GameLayout } from '../../components/Layout/GameLayout';
 import { PlayerHand } from '../../components/Table/PlayerHand';
@@ -214,6 +214,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           gamesPlayed: s.gamesPlayed,
           wins: s.wins,
           losses: s.losses,
+          ties: s.ties,
           winRate: s.winRate,
         },
       };
@@ -240,7 +241,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           timestamp: g.timestamp,
           playerScore: g.playerScore,
           opponentScore: g.opponentScore,
-          outcome: g.playerWon ? 'win' : 'loss',
+          outcome: gameOutcome(g),
           modeIndicator: indicator,
         };
       });
@@ -2970,6 +2971,11 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
       const oppId = myId === 'player1' ? 'player2' : 'player1';
       // Check if this is the final round (game is over after this round)
       const isFinalRound = !!multiplayer.gameEndData;
+      const cumulative = multiplayer.roundEndData.cumulativeScores;
+      const tiedScore =
+        !isFinalRound && multiplayer.targetScore && cumulative[myId] === cumulative[oppId] && cumulative[myId] >= multiplayer.targetScore
+          ? cumulative[myId]
+          : undefined;
 
       return (
         <DeckProvider deck={settings.deck}>
@@ -2990,6 +2996,7 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
             opponentRequestedNextRound={multiplayer.nextRoundRequests.has(oppId)}
             opponentName={multiplayer.opponentNickname || t.common.opponent}
             isGameOver={isFinalRound}
+            tiedScore={tiedScore}
             onShowGameEnd={multiplayer.clearRoundEnd}
           />
         </DeckProvider>
@@ -3546,6 +3553,11 @@ function ScopaApp({ onSwitchGame, pendingInvite, onInviteHandled }: GameAppProps
           humanScopaCaptures={activeState.players.human.scopaCaptures}
           cpuScopaCaptures={activeState.players.cpu.scopaCaptures}
           isGameOver={activeState.isGameOver}
+          tiedScore={
+            !activeState.isGameOver && activeState.scores.human === activeState.scores.cpu && activeState.scores.human >= activeState.targetScore
+              ? activeState.scores.human
+              : undefined
+          }
           onNextRound={handleNextRound}
           onShowGameEnd={showGameEnd}
           player1AIType={isSpectatorMode ? spectatorAIs.player1 : undefined}

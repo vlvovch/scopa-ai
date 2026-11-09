@@ -16,7 +16,7 @@ export interface GameRecord {
   playerScore: number;
   /** Opponent's final score */
   opponentScore: number;
-  /** Whether player won */
+  /** Whether the player won. False for a tie as well: `gameOutcome()` gives the three-way result */
   playerWon: boolean;
   /** Number of rounds played */
   roundsPlayed: number;
@@ -42,7 +42,9 @@ export interface OpponentStats {
   wins: number;
   /** Games lost by player */
   losses: number;
-  /** Win rate (0-1) */
+  /** Games tied (equal final scores) */
+  ties: number;
+  /** Win rate (0-1), ties count as games not won */
   winRate: number;
   /** Total points scored by player */
   totalPlayerScore: number;
@@ -102,6 +104,17 @@ export function isCpuAIType(aiType: ExtendedAIType): boolean {
 /** Check if an AI type is multiplayer */
 export function isMultiplayerType(aiType: ExtendedAIType): boolean {
   return aiType === 'multiplayer';
+}
+
+/**
+ * The outcome of a recorded game, derived from the stored scores. Records
+ * only carry `playerWon`, which is false for a tie as well, so a tie used to
+ * count as a loss in the summaries (GitHub issue #2).
+ */
+export function gameOutcome(game: Pick<GameRecord, 'playerScore' | 'opponentScore'>): 'win' | 'loss' | 'tie' {
+  if (game.playerScore > game.opponentScore) return 'win';
+  if (game.playerScore < game.opponentScore) return 'loss';
+  return 'tie';
 }
 
 /**
@@ -166,8 +179,9 @@ export function useStats() {
     opponentModel?: string
   ): OpponentStats => {
     const games = getGamesAgainst(opponentType, opponentModel);
-    const wins = games.filter(g => g.playerWon).length;
-    const losses = games.length - wins;
+    const wins = games.filter(g => gameOutcome(g) === 'win').length;
+    const ties = games.filter(g => gameOutcome(g) === 'tie').length;
+    const losses = games.length - wins - ties;
 
     return {
       opponentType,
@@ -175,6 +189,7 @@ export function useStats() {
       gamesPlayed: games.length,
       wins,
       losses,
+      ties,
       winRate: games.length > 0 ? wins / games.length : 0,
       totalPlayerScore: games.reduce((sum, g) => sum + g.playerScore, 0),
       totalOpponentScore: games.reduce((sum, g) => sum + g.opponentScore, 0),
