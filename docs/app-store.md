@@ -1,9 +1,9 @@
 # App Store release checklist (iOS app)
 
 **Status: version 1.0.3 (build 9) submitted and approved (2026-11-08)**;
-1.0.2 (build 8) was released on 2026-10-27. **Version 1.0.4 (build 10) is
-uploaded (2026-11-08 19:38), to be created and submitted** (see "Version
-1.0.4" below).
+1.0.2 (build 8) was released on 2026-10-27. **Version 1.0.4 (build 10) was
+submitted for review on 2026-11-08** (uploaded 19:38; see "Version 1.0.4"
+below).
 1.0.3 brought (see "Version 1.0.3" below): the Italian name,
 subtitle and keywords, captioned screenshots in both languages, the
 preview videos, and a lead on "no ads". The product page's "Languages"
@@ -811,3 +811,6 @@ App Store Connect steps:
 
    and keep or refresh the test-key lines as for 1.0.3.
 5. Submit for review ("Automatically release this version").
+
+Submitted 2026-11-08 with the header and search-results asset attached in
+both languages (Asset Library not needed).
