@@ -39,6 +39,7 @@ scopa-ai-claude/
 │   ├── manifest.json       # PWA manifest
 │   ├── sw.js               # Service worker for offline support
 │   ├── regole-scopa.html, primiera.html, regole-briscola.html   # Rules pages in Italian (see Rules pages)
+│   ├── scopa-rules.html, primiera-scoring.html, briscola-rules.html   # their English twins
 │   ├── pwa-192.png         # PWA icon 192x192
 │   ├── pwa-512.png         # PWA icon 512x512
 │   ├── cards/
@@ -274,36 +275,48 @@ example.com {
 chmod 644 sw.js manifest.json pwa-*.png
 ```
 
-### Rules pages (static, Italian)
+### Rules pages (static, Italian and English)
 
 `public/regole-scopa.html`, `public/primiera.html` and `public/regole-briscola.html`
 are landing pages for search: the rules of each game and the primiera count, in
-Italian, each with a play button and the store badges. They are plain files written
-by hand; no build step touches them (added 2026-11-11).
+Italian, each with a play button and the store badges. Each has an English twin:
+`scopa-rules.html`, `primiera-scoring.html`, `briscola-rules.html`. They are plain
+files written by hand; no build step touches them (added 2026-11-11).
 
 - **URLs end in `.html`.** The server sends every path that is not a file to the
   app (`try_files {path} /index.html`), directories included, so `/regole-scopa/`
   would show the app. A page that is renamed after it is indexed starts again from
   nothing: keep the names.
-- **Home site: playscopa.net for all three.** Every file in `public/` ships to
+- **Twins.** A page and its twin say the same things with the same examples and
+  numbers: a change to one is a change to both. They name each other with three
+  `hreflang` links in the head (`it`, `en`, and `x-default` pointing at the
+  English page), a small IT / EN link in the top bar and a link in the footer.
+  The English pages use the wording of the app's English rules dialog (Coins,
+  Cups, Swords, Clubs; Knave, Knight, King; round, trick, trump, capture) and
+  the English store badges. They add a few glosses for readers new to Italian
+  cards (what "scopa" means, the Italian names of the suits, face cards and
+  points) and two sentences checked against en.wikipedia on 2026-11-11: playing
+  Scopa with a standard deck without its eights, nines and tens, and primero as
+  the English name of the old game. Those are meant to differ from the Italian.
+- **Home site: playscopa.net for all six.** Every file in `public/` ships to
   both sites and their alias domains, so the canonical URL, `og:url` and the
   links between the pages are absolute, and only `public/sitemap.xml` lists the
   pages. The Briscola rules live on playscopa.net too: playbriscola.com is meant
   to redirect there one day (the owner's plan, stated 2026-11-11, no date), so
   nothing new should enter a search index under the host that goes away. The
   copy that playbriscola.com serves names playscopa.net as canonical. The
-  Briscola page takes its icons from `/variants/briscola/`, which both sites
+  Briscola pages take their icons from `/variants/briscola/`, which both sites
   serve; `/pwa-192.png` is the Scopa icon on playscopa.net.
 - **Self-contained.** The service worker serves every same-origin file that is
   not HTML cache-first and never revalidates it, so a shared stylesheet or script
   would go stale for returning players (the same trap as replacing a card image
   without raising `VITE_STATIC_CACHE_VER`). The style block is repeated in the
-  three files and must stay identical: edit all three. The card images come from
+  six files and must stay identical: edit all six. The card images come from
   `public/cards/napoletane/`; that artwork is transparent, the page draws the white
   card face.
 - **Play button.** `/scopa` or `/briscola`, never `/`: the explicit game path
   opens that game on either site and skips the first-visit chooser.
-- **Store badges.** The Italian artwork at 40px with both credit lines. A few
+- **Store badges.** The artwork of the page's language at 40px with both credit lines. A few
   inline lines mirror `showsAppStoreBadge` / `showsGooglePlayBadge`
   (`src/platform/links.ts`); without JavaScript both badges show.
 - **No analytics.** The tag loads only through `src/analytics/gate.ts`, inside
@@ -312,12 +325,16 @@ by hand; no build step touches them (added 2026-11-11).
   `scoring.ts`, `reducer.ts`) and the in-app rules (`RulesModal.tsx`), and the
   worked examples were run through the scoring functions. The sections on variants
   and on the origin of the names describe things the app does not have; they were
-  checked against it.wikipedia on 2026-11-11. A rule change in the app means
-  editing these pages too.
-- **Check.** `scripts/build/rulesPages.test.ts`: canonical host, sitemap
-  membership, icons, play button paths, store links, identical style blocks, and that
-  every local link and image resolves. A broken link answers 200 with the app on
-  these sites, so it has to be checked against the files.
+  checked against it.wikipedia on 2026-11-11 (the date of the old game Primiera,
+  first recorded in 1526, against en.wikipedia). A rule change in the app means
+  editing these pages too, in both languages.
+- **Check.** `scripts/build/rulesPages.test.ts`: canonical host, `hreflang` set,
+  sitemap membership, icons, play button paths, store links and wording, identical
+  style blocks, and that every local link and image resolves. For each pair it
+  also compares the outline (sections, headings, tables), the sequence of card
+  images and the numbers in the tables and on the felt, so a twin cannot drift
+  silently. A broken link answers 200 with the app on these sites, so it has to
+  be checked against the files.
 
 The app does not link to these pages yet; they are reachable through the sitemap
 and from each other.

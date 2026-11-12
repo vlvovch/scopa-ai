@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<!--
+  Rules page, one of six: three in Italian (regole-scopa.html, primiera.html, regole-briscola.html)
+  and their English twins (scopa-rules.html, primiera-scoring.html, briscola-rules.html).
+  Plain static files, written by hand; nothing generates them. See docs/architecture.md, Rules pages.
+
+  - Self-contained on purpose. The service worker (public/sw.js) serves every same-origin file
+    that is not HTML cache-first and never revalidates it, so a shared stylesheet or script
+    would go stale for returning players. The style block is therefore repeated in the six
+    files and must stay identical (scripts/build/rulesPages.test.ts checks it): edit all six.
+  - A page and its twin in the other language say the same things with the same examples and
+    numbers: a change to one is a change to both. They name each other with the hreflang links
+    in the head (x-default is the English page), the IT / EN link in the top bar and a link
+    in the footer.
+  - Each file ships to both sites and their alias domains, so the canonical URL, og:url and the
+    links between the pages are absolute, and all six pages are at home on playscopa.net, the
+    Briscola rules included: playbriscola.com is meant to redirect there one day, so nothing
+    new should enter a search index under that host. The Briscola pages take their icons from
+    /variants/briscola/, where both sites serve the Briscola artwork (/pwa-192.png is the
+    Scopa icon on playscopa.net). The play button uses the explicit game path (/scopa,
+    /briscola), which opens that game on either site without the first-visit chooser.
+  - No analytics tag: analytics load only through src/analytics/gate.ts, inside the app.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Primiera in Scopa: Card Values and How to Score It</title>
+<meta name="description" content="How the primiera is scored in Scopa: the value of every card, the count step by step, worked examples and what happens in a tie. Then play free online.">
+<link rel="canonical" href="https://playscopa.net/primiera-scoring.html">
+<link rel="alternate" hreflang="it" href="https://playscopa.net/primiera.html">
+<link rel="alternate" hreflang="en" href="https://playscopa.net/primiera-scoring.html">
+<link rel="alternate" hreflang="x-default" href="https://playscopa.net/primiera-scoring.html">
+<link rel="icon" type="image/png" sizes="192x192" href="/pwa-192.png">
+<link rel="apple-touch-icon" href="/pwa-192.png">
+<meta name="theme-color" content="#1B5E20">
+<meta name="apple-itunes-app" content="app-id=6812582287">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_US">
+<meta property="og:site_name" content="Scopa AI">
+<meta property="og:title" content="Primiera in Scopa: Card Values and How to Score It">
+<meta property="og:description" content="How the primiera is scored in Scopa: the value of every card, the count step by step, worked examples and what happens in a tie. Then play free online.">
+<meta property="og:url" content="https://playscopa.net/primiera-scoring.html">
+<meta property="og:image" content="https://playscopa.net/pwa-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<!-- Store badges: both show without JavaScript; this mirrors the app's rule
+     (src/platform/links.ts) and hides the badge that leads nowhere on this device. -->
+<script>(function(){var u=navigator.userAgent,c=document.documentElement.classList;if(/android/i.test(u))c.add('no-ios');if(/iphone|ipad|ipod/i.test(u)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))c.add('no-play');})();</script>
+<style>
+:root {
+  --felt: #1B5E20; --felt-dark: #145217; --felt-deep: #0d3a11;
+  --gold: #D4AF37; --gold-light: #e6c65a;
+  --paper: #faf6ec; --paper-2: #f1ead8; --ink: #22251e; --ink-soft: #5b5f54; --rule: #d8cdb2;
+  --link: #17551c;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --cw: 64px;
+}
+body.briscola { --felt: #1A237E; --felt-dark: #141b63; --felt-deep: #0c1145; --link: #2a3aa8; }
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #11150f; --paper-2: #1a2017; --ink: #ece6d6; --ink-soft: #b3ad9c; --rule: #343c2e; --link: #9fd4a3; }
+  body.briscola { --link: #aab4ff; }
+}
+@media (max-width: 380px) { :root { --cw: 52px; } }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 1.0625rem/1.65 var(--serif); }
+img { max-width: 100%; height: auto; }
+a { color: inherit; }
+a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--serif); text-wrap: balance; }
+p, li, dd, td, figcaption { text-wrap: pretty; }
+
+/* The card table: hero at the top, play band at the bottom, example boxes in between */
+.hero, .play, .felt {
+  background:
+    radial-gradient(rgba(255, 255, 255, .045) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    radial-gradient(120% 90% at 88% 0%, rgba(255, 255, 255, .10), transparent 60%),
+    radial-gradient(90% 120% at 0% 100%, rgba(0, 0, 0, .30), transparent 62%),
+    var(--felt);
+  color: #fff;
+}
+.hero { border-bottom: 4px double var(--gold); }
+.top { max-width: 66rem; margin: 0 auto; padding: .9rem 1.25rem 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.4rem; font: .85rem/1.4 var(--sans); }
+.top ul { flex: 1 0 100%; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; }
+.top a { text-decoration: none; opacity: .85; }
+.top a:hover, .top a[aria-current] { opacity: 1; text-decoration: underline; text-underline-offset: .25em; text-decoration-color: var(--gold); }
+.top .brand { opacity: 1; margin-right: auto; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+/* The link to the page's twin in the other language. On phones it sits beside the site name and the page links
+   take the row below; from 560px, where everything fits on one row, it follows the page links. */
+.top .lang { padding: .1em .65em; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; font-size: .72rem; font-weight: 600; letter-spacing: .08em; }
+.top .lang:hover { text-decoration: none; border-color: var(--gold-light); }
+@media (min-width: 560px) { .top ul { flex: 0 1 auto; } .top .lang { order: 1; } }
+.hero-in { max-width: 66rem; margin: 0 auto; padding: 2rem 1.25rem 2.8rem; display: grid; gap: 1.6rem; align-items: center; }
+.eyebrow { margin: 0 0 .7rem; font: 600 .75rem/1.2 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-light); }
+h1 { margin: 0 0 .9rem; font-size: clamp(2.3rem, 7vw, 3.7rem); line-height: 1.04; letter-spacing: -.012em; }
+.lead { margin: 0 0 1.5rem; max-width: 34rem; font-size: 1.15rem; line-height: 1.55; color: rgba(255, 255, 255, .9); }
+.cta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.1rem; }
+.cta-note { font: .85rem/1.35 var(--sans); color: rgba(255, 255, 255, .8); }
+.btn { display: inline-block; padding: .95em 1.55em; border-radius: 999px; background: var(--gold); color: #1c1a0c; font: 700 1.05rem/1 var(--sans); text-decoration: none; box-shadow: 0 2px 0 #9c7e1e, 0 10px 22px rgba(0, 0, 0, .28); transition: transform .15s ease, background-color .15s ease; }
+.btn:hover { background: var(--gold-light); transform: translateY(-1px); }
+.btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; border-radius: 999px; }
+
+/* A hand of cards, fanned */
+.fan { --fw: clamp(84px, 21vw, 112px); position: relative; width: calc(var(--fw) * 3.4); max-width: 100%; height: calc(var(--fw) * 2.15); margin: 0 auto; }
+.fan img { position: absolute; left: 50%; top: 6%; width: var(--fw); margin-left: calc(var(--fw) / -2); background: #fff; border-radius: calc(var(--fw) * .06); box-shadow: 0 10px 24px rgba(0, 0, 0, .45), 0 0 0 1px rgba(0, 0, 0, .25); transform-origin: 50% 181%; transform: rotate(var(--r)); animation: fan .9s cubic-bezier(.2, .9, .25, 1) both; }
+.fan img:nth-child(1) { --r: -24deg; }
+.fan img:nth-child(2) { --r: -8deg; animation-delay: .06s; }
+.fan img:nth-child(3) { --r: 8deg; animation-delay: .12s; }
+.fan img:nth-child(4) { --r: 24deg; animation-delay: .18s; }
+@keyframes fan { from { transform: rotate(calc(var(--r) * .3)); } }
+.fan-cap { margin: .2rem 0 0; text-align: center; font: 600 .8rem/1.3 var(--sans); letter-spacing: .08em; color: var(--gold-light); }
+@media (min-width: 800px) {
+  .hero-in { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 2rem; padding: 3.2rem 2rem 4.2rem; }
+  .top { padding: 1.1rem 2rem 0; }
+}
+@media (prefers-reduced-motion: reduce) { .fan img { animation: none; } html { scroll-behavior: auto; } .btn { transition: none; } }
+
+/* The leaflet */
+main { max-width: 46rem; margin: 0 auto; padding: 2.4rem 1.25rem 1rem; }
+main a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: .16em; }
+.toc { margin: 0 0 2.6rem; padding: 1rem 1.25rem 1.1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-2); }
+.toc-title { margin: 0 0 .4rem; font: 600 .72rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+.toc ol { margin: 0; padding-left: 1.3rem; font-size: 1rem; line-height: 1.5; }
+.toc li { margin: .15rem 0; break-inside: avoid; }
+@media (min-width: 560px) { .toc ol { columns: 2; column-gap: 2.5rem; } }
+section { margin: 0 0 2.9rem; scroll-margin-top: 1rem; }
+h2 { margin: 0 0 .7rem; font-size: clamp(1.55rem, 4.6vw, 1.9rem); line-height: 1.18; }
+section > h2::before { content: ""; display: block; width: 2.6rem; height: 3px; margin-bottom: .8rem; background: var(--gold); }
+h3 { margin: 1.7rem 0 .4rem; font-size: 1.22rem; line-height: 1.25; }
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.35rem; }
+li { margin: .35rem 0; }
+small { font-size: .8em; font-weight: 400; color: var(--ink-soft); }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin: 0 0 1.3rem; }
+.facts div { padding: .7rem .9rem .75rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-2); }
+.facts dt { font: 600 .7rem/1.2 var(--sans); letter-spacing: .13em; text-transform: uppercase; color: var(--ink-soft); }
+.facts dd { margin: .25rem 0 0; font-size: 1.12rem; font-weight: 700; line-height: 1.3; }
+@media (min-width: 640px) { .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tbl { width: 100%; margin: 1.1rem 0 1.2rem; border-collapse: collapse; font-size: 1rem; line-height: 1.45; }
+.tbl th { padding: .5rem .6rem; border-bottom: 2px solid var(--ink); text-align: left; font: 600 .7rem/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.tbl td { padding: .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tbl .num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl tfoot th, .tbl tfoot td { border-bottom: 0; border-top: 2px solid var(--ink); color: var(--ink); }
+.note { margin: 1.1rem 0; padding: .75rem 1rem; border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; background: var(--paper-2); font-size: .98rem; }
+.faq h3 { margin: 1.5rem 0 .25rem; font-size: 1.12rem; }
+.faq p { margin: 0; }
+
+/* Example boxes on the felt */
+figure { margin: 1.5rem 0; }
+figcaption { margin-top: .6rem; font-size: .95rem; line-height: 1.5; color: var(--ink-soft); }
+.felt { padding: 1rem 1rem 1.1rem; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 0 44px rgba(0, 0, 0, .28); }
+.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .55rem .7rem; }
+.row + .row { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed rgba(255, 255, 255, .28); }
+.tag { flex: 0 0 100%; font: 600 .7rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.tag b { margin-left: .5em; font-size: 1.25em; letter-spacing: 0; color: #fff; }
+.card { display: block; width: var(--cw); background: #fff; border-radius: calc(var(--cw) * .07); box-shadow: 0 2px 7px rgba(0, 0, 0, .42), 0 0 0 1px rgba(0, 0, 0, .2); }
+.strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .7rem; }
+.strip li { width: var(--cw); margin: 0; text-align: center; font: 600 .7rem/1.25 var(--sans); color: rgba(255, 255, 255, .88); }
+.strip .card { margin-bottom: .4rem; }
+.strip b { display: block; font: 700 1.2rem/1.15 var(--sans); color: var(--gold-light); }
+.out { flex: 1 1 12rem; align-self: center; margin: 0; font: .95rem/1.5 var(--sans); color: rgba(255, 255, 255, .92); }
+.out b { color: var(--gold-light); }
+
+/* Play band and footer */
+.play { margin-top: 1.5rem; padding: 3rem 1.25rem 3.2rem; border-top: 4px double var(--gold); text-align: center; }
+.play-in { max-width: 40rem; margin: 0 auto; }
+.play h2 { font-size: clamp(1.8rem, 5.5vw, 2.4rem); }
+.play p { color: rgba(255, 255, 255, .9); }
+.play .go { margin: 1.5rem 0 1.7rem; }
+.stores { margin: 0; font: 600 .72rem/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.badges { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; padding: 10px; }
+.badges a { display: block; line-height: 0; border-radius: 7px; }
+.badges img { display: block; width: auto; height: 40px; }
+.more { margin: .6rem 0 0; font-size: 1rem; }
+.more a { text-decoration-color: var(--gold); text-underline-offset: .2em; }
+.no-ios .b-ios, .no-ios .c-ios, .no-play .b-play, .no-play .c-play { display: none; }
+footer { max-width: 46rem; margin: 0 auto; padding: 1.8rem 1.25rem 3rem; font: .85rem/1.6 var(--sans); color: var(--ink-soft); }
+footer nav { display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; margin-bottom: .9rem; }
+footer a { color: var(--link); }
+footer p { margin: 0 0 .4rem; }
+.credits { font-size: .76rem; }
+</style>
+</head>
+<body class="scopa">
+
+<header class="hero">
+<nav class="top" aria-label="Guides">
+<a class="brand" href="/scopa">Scopa AI</a>
+<a href="https://playscopa.net/primiera.html" hreflang="it" lang="it" class="lang" aria-label="Versione italiana">IT</a>
+<ul>
+<li><a href="https://playscopa.net/scopa-rules.html">Scopa rules</a></li>
+<li><a href="https://playscopa.net/primiera-scoring.html" aria-current="page">Primiera</a></li>
+<li><a href="https://playscopa.net/briscola-rules.html">Briscola rules</a></li>
+</ul>
+</nav>
+<div class="hero-in">
+<div>
+<p class="eyebrow">Scopa · Scoring</p>
+<h1>Primiera in Scopa</h1>
+<p class="lead">Of all the points in Scopa, this is the one players argue about most. Here you will find the value of every card, the count step by step, and the examples that settle the doubtful cases.</p>
+<p class="cta"><a class="btn" href="/scopa">Play Scopa online</a> <span class="cta-note">In the game the primiera is counted for you.</span></p>
+</div>
+<div>
+<div class="fan">
+<img src="/cards/napoletane/coins-7.webp" alt="Seven of Coins" width="210" height="345">
+<img src="/cards/napoletane/cups-7.webp" alt="Seven of Cups" width="210" height="345">
+<img src="/cards/napoletane/swords-6.webp" alt="Six of Swords" width="210" height="345">
+<img src="/cards/napoletane/clubs-1.webp" alt="Ace of Clubs" width="210" height="345">
+</div>
+<p class="fan-cap">21 + 21 + 18 + 16 = 76</p>
+</div>
+</div>
+</header>
+
+<main>
+
+<nav class="toc" aria-label="Contents">
+<p class="toc-title">On this page</p>
+<ol>
+<li><a href="#what">What the primiera is</a></li>
+<li><a href="#values">The card values</a></li>
+<li><a href="#how">How to work it out</a></li>
+<li><a href="#examples">Worked examples</a></li>
+<li><a href="#special-cases">Special cases</a></li>
+<li><a href="#shortcuts">Four shortcuts</a></li>
+<li><a href="#name">Where the name comes from</a></li>
+<li><a href="#faq">Frequently asked questions</a></li>
+</ol>
+</nav>
+
+<section id="what">
+<h2>What the primiera is</h2>
+<p>The primiera, or prime, is one of the four fixed points in <a href="https://playscopa.net/scopa-rules.html">Scopa</a>, along with cards, Coins and the settebello. It goes to the player who, from the cards captured in the round, puts together the best combination of <strong>four cards, one of each suit</strong>.</p>
+<p>What decides it is not the number printed on the card, but a special value used only for this count.</p>
+</section>
+
+<section id="values">
+<h2>The card values</h2>
+<figure>
+<div class="felt">
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-7.webp" alt="Seven of Coins" width="210" height="345" loading="lazy" decoding="async">Seven <b>21</b></li>
+<li><img class="card" src="/cards/napoletane/coins-6.webp" alt="Six of Coins" width="210" height="345" loading="lazy" decoding="async">Six <b>18</b></li>
+<li><img class="card" src="/cards/napoletane/coins-1.webp" alt="Ace of Coins" width="210" height="345" loading="lazy" decoding="async">Ace <b>16</b></li>
+<li><img class="card" src="/cards/napoletane/coins-5.webp" alt="Five of Coins" width="210" height="345" loading="lazy" decoding="async">Five <b>15</b></li>
+<li><img class="card" src="/cards/napoletane/coins-4.webp" alt="Four of Coins" width="210" height="345" loading="lazy" decoding="async">Four <b>14</b></li>
+<li><img class="card" src="/cards/napoletane/coins-3.webp" alt="Three of Coins" width="210" height="345" loading="lazy" decoding="async">Three <b>13</b></li>
+<li><img class="card" src="/cards/napoletane/coins-2.webp" alt="Two of Coins" width="210" height="345" loading="lazy" decoding="async">Two <b>12</b></li>
+<li><img class="card" src="/cards/napoletane/coins-10.webp" alt="King of Coins" width="210" height="345" loading="lazy" decoding="async">Faces <b>10</b></li>
+</ul>
+</div>
+<figcaption>The primiera values, shown here on the Coins. They are the same in every suit; the Knave, the Knight and the King are worth 10 each.</figcaption>
+</figure>
+<p>In short: <strong>7 = 21, 6 = 18, Ace = 16, 5 = 15, 4 = 14, 3 = 13, 2 = 12, face cards = 10</strong>.</p>
+<p>The seven is worth the most, followed by the six and the Ace. The face cards are the weakest: in the primiera a two beats a King.</p>
+</section>
+
+<section id="how">
+<h2>How to work it out</h2>
+<ol>
+<li>Sort the cards you captured by suit.</li>
+<li>In each suit keep only the card with the highest primiera value.</li>
+<li>Add up the four values.</li>
+<li>Compare your total with the opponent's: the higher one takes the point.</li>
+</ol>
+<p>The maximum is <strong>84</strong>, with all four sevens. The minimum, with four face cards, is 40.</p>
+<p>An example with an ordinary pile:</p>
+<table class="tbl">
+<thead><tr><th>Suit</th><th>Cards captured</th><th>The best</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Coins</td><td>7, 6, Ace</td><td>7</td><td class="num">21</td></tr>
+<tr><td>Cups</td><td>King, Knight, 2</td><td>2</td><td class="num">12</td></tr>
+<tr><td>Swords</td><td>5, 4</td><td>5</td><td class="num">15</td></tr>
+<tr><td>Clubs</td><td>3</td><td>3</td><td class="num">13</td></tr>
+</tbody>
+<tfoot><tr><th>Primiera</th><td></td><td></td><td class="num">61</td></tr></tfoot>
+</table>
+<p>Look at the Cups: the two is worth 12 and beats the King and the Knight, which are worth 10. In the Coins the six and the Ace add nothing, because only one card counts in each suit.</p>
+</section>
+
+<section id="examples">
+<h2>Worked examples</h2>
+
+<h3>Two sevens each</h3>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">Giulia <b>76</b></span>
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-7.webp" alt="Seven of Coins" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+<li><img class="card" src="/cards/napoletane/cups-7.webp" alt="Seven of Cups" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+<li><img class="card" src="/cards/napoletane/swords-6.webp" alt="Six of Swords" width="210" height="345" loading="lazy" decoding="async"><b>18</b></li>
+<li><img class="card" src="/cards/napoletane/clubs-1.webp" alt="Ace of Clubs" width="210" height="345" loading="lazy" decoding="async"><b>16</b></li>
+</ul></div>
+<div class="row"><span class="tag">Marco <b>78</b></span>
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-6.webp" alt="Six of Coins" width="210" height="345" loading="lazy" decoding="async"><b>18</b></li>
+<li><img class="card" src="/cards/napoletane/cups-6.webp" alt="Six of Cups" width="210" height="345" loading="lazy" decoding="async"><b>18</b></li>
+<li><img class="card" src="/cards/napoletane/swords-7.webp" alt="Seven of Swords" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+<li><img class="card" src="/cards/napoletane/clubs-7.webp" alt="Seven of Clubs" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+</ul></div>
+</div>
+<figcaption>The primiera goes to Marco, 78 to 76, even though Giulia holds the settebello. With two sevens each, the other two suits decide: he has two sixes, she has a six and an Ace.</figcaption>
+</figure>
+
+<h3>Three sevens may not be enough</h3>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">Giulia <b>73</b></span>
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-7.webp" alt="Seven of Coins" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+<li><img class="card" src="/cards/napoletane/cups-7.webp" alt="Seven of Cups" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+<li><img class="card" src="/cards/napoletane/swords-7.webp" alt="Seven of Swords" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+<li><img class="card" src="/cards/napoletane/clubs-10.webp" alt="King of Clubs" width="210" height="345" loading="lazy" decoding="async"><b>10</b></li>
+</ul></div>
+<div class="row"><span class="tag">Marco <b>75</b></span>
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-6.webp" alt="Six of Coins" width="210" height="345" loading="lazy" decoding="async"><b>18</b></li>
+<li><img class="card" src="/cards/napoletane/cups-6.webp" alt="Six of Cups" width="210" height="345" loading="lazy" decoding="async"><b>18</b></li>
+<li><img class="card" src="/cards/napoletane/swords-6.webp" alt="Six of Swords" width="210" height="345" loading="lazy" decoding="async"><b>18</b></li>
+<li><img class="card" src="/cards/napoletane/clubs-7.webp" alt="Seven of Clubs" width="210" height="345" loading="lazy" decoding="async"><b>21</b></li>
+</ul></div>
+</div>
+<figcaption>Giulia has three sevens, but in Clubs she captured only the King, worth 10. Marco, with one seven and three sixes, beats her 75 to 73.</figcaption>
+</figure>
+
+<h3>A tie</h3>
+<p>If Giulia has two sevens and two sixes and Marco has the other two sevens and the other two sixes, it ends 78 all. The primiera point goes to nobody.</p>
+</section>
+
+<section id="special-cases">
+<h2>Special cases</h2>
+<h3>A missing suit</h3>
+<p>To compete you need at least one card of every suit. A player who captured no card of one suit has no primiera at all, whatever the other suits hold: the point goes to the opponent, provided the opponent has all four suits. If both players are missing a suit, nobody gets the point.</p>
+<h3>Equal totals</h3>
+<p>If the totals are equal, the point is not awarded.</p>
+<h3>The settebello</h3>
+<p>In the primiera the seven of Coins is worth 21, like the other sevens. The settebello point is a separate point, scored on top.</p>
+<p class="note">In <a href="/scopa">Scopa AI</a> the count follows these rules: at the end of the round you see both players' primiera, and the point is awarded for you.</p>
+</section>
+
+<section id="shortcuts">
+<h2>Four shortcuts</h2>
+<p>At the table you do not always need to do all the sums.</p>
+<ul>
+<li><strong>Four sevens.</strong> The primiera is yours: 84 cannot be beaten.</li>
+<li><strong>Three sevens.</strong> The opponent can beat you only if your fourth suit holds nothing but face cards, or no card at all.</li>
+<li><strong>Two sevens each.</strong> The sum in the other two suits decides, and the cards that weigh most there are the sixes (18) and the Aces (16).</li>
+<li><strong>No sevens.</strong> The primiera is lost: if you have none, the opponent has all four.</li>
+</ul>
+</section>
+
+<section id="name">
+<h2>Where the name comes from</h2>
+<p>The word comes from a much older card game, primiera, known in English as primero. It is recorded from 1526 and was played across Europe for centuries. In that game a “primiera” was a hand made of one card of each suit, and the cards had the same values still used in Scopa today: 21 for a seven, 18 for a six, 16 for an Ace.</p>
+</section>
+
+<section id="faq" class="faq">
+<h2>Frequently asked questions</h2>
+<h3>What is a seven worth in the primiera?</h3>
+<p>21, the highest value. That goes for all four sevens, the settebello included.</p>
+<h3>What are the Knave, Knight and King worth?</h3>
+<p>10 each: less than every other card, the two included.</p>
+<h3>How many cards count towards the primiera?</h3>
+<p>Four, the best one of each suit. The other cards you captured add nothing.</p>
+<h3>Who gets the point if the primiera is tied?</h3>
+<p>Nobody: the point is not awarded.</p>
+<h3>Can you win the primiera with a single seven?</h3>
+<p>Yes. One seven and three sixes make 75, more than three sevens and a face card, which stop at 73.</p>
+<h3>And with no sevens?</h3>
+<p>No. If you have no seven, the opponent has all four and scores 84, the maximum.</p>
+<h3>What happens if I have no card of one suit?</h3>
+<p>You have no primiera and the point goes to the opponent, if the opponent has all four suits.</p>
+</section>
+
+</main>
+
+<aside class="play" id="play">
+<div class="play-in">
+<h2>In the game the primiera is counted for you</h2>
+<p>At the end of each round Scopa AI works out both players' primiera and awards the point, along with cards, Coins, settebello and scopas. Free, no ads, no sign-up.</p>
+<p class="go"><a class="btn" href="/scopa">Play Scopa online</a></p>
+<p class="stores">Also as an app for iPhone, iPad and Android</p>
+<div class="badges">
+<a class="b-ios" href="https://apps.apple.com/app/id6812582287"><img src="/badges/app-store-badge-en.svg" alt="Download on the App Store" width="120" height="40"></a>
+<a class="b-play" href="https://play.google.com/store/apps/details?id=net.vovchenko.scopaai"><img src="/badges/google-play-badge-en.png" alt="Get it on Google Play" width="564" height="168"></a>
+</div>
+<p class="more">Want the whole picture? <a href="https://playscopa.net/scopa-rules.html">Read the rules of Scopa</a>.</p>
+</div>
+</aside>
+
+<footer>
+<nav aria-label="More pages">
+<a href="https://playscopa.net/scopa-rules.html">Scopa rules</a>
+<a href="https://playscopa.net/primiera-scoring.html">Primiera</a>
+<a href="https://playscopa.net/briscola-rules.html">Briscola rules</a>
+<a href="/privacy.html">Privacy</a>
+<a href="/support.html">Support</a>
+<a href="https://playscopa.net/primiera.html" hreflang="it" lang="it">Italiano</a>
+</nav>
+<p>Scopa AI and Briscola AI are developed by VV Labs LLC. The illustrations show the game's Neapolitan cards.</p>
+<p class="credits"><span class="c-ios">App Store is a trademark of Apple Inc., registered in the U.S. and other countries.</span> <span class="c-play">Google Play and the Google Play logo are trademarks of Google LLC.</span></p>
+</footer>
+
+</body>
+</html>

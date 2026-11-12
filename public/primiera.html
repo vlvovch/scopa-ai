@@ -1,16 +1,21 @@
 <!DOCTYPE html>
 <!--
-  Rules page in Italian, one of three: regole-scopa.html, primiera.html, regole-briscola.html.
+  Rules page, one of six: three in Italian (regole-scopa.html, primiera.html, regole-briscola.html)
+  and their English twins (scopa-rules.html, primiera-scoring.html, briscola-rules.html).
   Plain static files, written by hand; nothing generates them. See docs/architecture.md, Rules pages.
 
   - Self-contained on purpose. The service worker (public/sw.js) serves every same-origin file
     that is not HTML cache-first and never revalidates it, so a shared stylesheet or script
-    would go stale for returning players. The style block is therefore repeated in the three
-    files and must stay identical (scripts/build/rulesPages.test.ts checks it): edit all three.
+    would go stale for returning players. The style block is therefore repeated in the six
+    files and must stay identical (scripts/build/rulesPages.test.ts checks it): edit all six.
+  - A page and its twin in the other language say the same things with the same examples and
+    numbers: a change to one is a change to both. They name each other with the hreflang links
+    in the head (x-default is the English page), the IT / EN link in the top bar and a link
+    in the footer.
   - Each file ships to both sites and their alias domains, so the canonical URL, og:url and the
-    links between the pages are absolute, and all three pages are at home on playscopa.net, the
+    links between the pages are absolute, and all six pages are at home on playscopa.net, the
     Briscola rules included: playbriscola.com is meant to redirect there one day, so nothing
-    new should enter a search index under that host. The Briscola page takes its icons from
+    new should enter a search index under that host. The Briscola pages take their icons from
     /variants/briscola/, where both sites serve the Briscola artwork (/pwa-192.png is the
     Scopa icon on playscopa.net). The play button uses the explicit game path (/scopa,
     /briscola), which opens that game on either site without the first-visit chooser.
@@ -23,6 +28,9 @@
 <title>Primiera nella Scopa: valori delle carte e come si calcola</title>
 <meta name="description" content="Come si calcola la primiera a Scopa: il valore di ogni carta (7 = 21, 6 = 18, asso = 16), il calcolo passo per passo, esempi svolti e casi particolari.">
 <link rel="canonical" href="https://playscopa.net/primiera.html">
+<link rel="alternate" hreflang="it" href="https://playscopa.net/primiera.html">
+<link rel="alternate" hreflang="en" href="https://playscopa.net/primiera-scoring.html">
+<link rel="alternate" hreflang="x-default" href="https://playscopa.net/primiera-scoring.html">
 <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192.png">
 <link rel="apple-touch-icon" href="/pwa-192.png">
 <meta name="theme-color" content="#1B5E20">
@@ -77,10 +85,15 @@ p, li, dd, td, figcaption { text-wrap: pretty; }
 }
 .hero { border-bottom: 4px double var(--gold); }
 .top { max-width: 66rem; margin: 0 auto; padding: .9rem 1.25rem 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.4rem; font: .85rem/1.4 var(--sans); }
-.top ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; }
+.top ul { flex: 1 0 100%; list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; }
 .top a { text-decoration: none; opacity: .85; }
 .top a:hover, .top a[aria-current] { opacity: 1; text-decoration: underline; text-underline-offset: .25em; text-decoration-color: var(--gold); }
 .top .brand { opacity: 1; margin-right: auto; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+/* The link to the page's twin in the other language. On phones it sits beside the site name and the page links
+   take the row below; from 560px, where everything fits on one row, it follows the page links. */
+.top .lang { padding: .1em .65em; border: 1px solid rgba(255, 255, 255, .45); border-radius: 999px; font-size: .72rem; font-weight: 600; letter-spacing: .08em; }
+.top .lang:hover { text-decoration: none; border-color: var(--gold-light); }
+@media (min-width: 560px) { .top ul { flex: 0 1 auto; } .top .lang { order: 1; } }
 .hero-in { max-width: 66rem; margin: 0 auto; padding: 2rem 1.25rem 2.8rem; display: grid; gap: 1.6rem; align-items: center; }
 .eyebrow { margin: 0 0 .7rem; font: 600 .75rem/1.2 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-light); }
 h1 { margin: 0 0 .9rem; font-size: clamp(2.3rem, 7vw, 3.7rem); line-height: 1.04; letter-spacing: -.012em; }
@@ -177,6 +190,7 @@ footer p { margin: 0 0 .4rem; }
 <header class="hero">
 <nav class="top" aria-label="Guide">
 <a class="brand" href="/scopa">Scopa AI</a>
+<a href="https://playscopa.net/primiera-scoring.html" hreflang="en" lang="en" class="lang" aria-label="English version">EN</a>
 <ul>
 <li><a href="https://playscopa.net/regole-scopa.html">Regole Scopa</a></li>
 <li><a href="https://playscopa.net/primiera.html" aria-current="page">Primiera</a></li>
@@ -341,7 +355,7 @@ footer p { margin: 0 0 .4rem; }
 
 <section id="nome">
 <h2>Da dove viene il nome</h2>
-<p>La parola viene da un gioco di carte molto più antico, la Primiera, nato intorno alla fine del Quattrocento e giocato per secoli in tutta Europa. In quel gioco «primiera» era la combinazione formata da una carta per ogni seme, e le carte avevano gli stessi valori che usiamo ancora oggi nella Scopa: 21 il sette, 18 il sei, 16 l'asso.</p>
+<p>La parola viene da un gioco di carte molto più antico, la Primiera, di cui si ha notizia dal 1526 e che si è giocato per secoli in tutta Europa. In quel gioco «primiera» era la combinazione formata da una carta per ogni seme, e le carte avevano gli stessi valori che usiamo ancora oggi nella Scopa: 21 il sette, 18 il sei, 16 l'asso.</p>
 </section>
 
 <section id="domande" class="faq">
@@ -385,6 +399,7 @@ footer p { margin: 0 0 .4rem; }
 <a href="https://playscopa.net/regole-briscola.html">Regole della Briscola</a>
 <a href="/privacy.html" hreflang="en">Privacy</a>
 <a href="/support.html" hreflang="en">Assistenza</a>
+<a href="https://playscopa.net/primiera-scoring.html" hreflang="en" lang="en">English</a>
 </nav>
 <p>Scopa AI e Briscola AI sono sviluppati da VV Labs LLC. Le illustrazioni mostrano le carte napoletane del gioco.</p>
 <p class="credits"><span class="c-ios">App Store è un marchio di Apple Inc., registrato negli Stati Uniti e in altri paesi.</span> <span class="c-play">Google Play e il logo di Google Play sono marchi di Google LLC.</span></p>
