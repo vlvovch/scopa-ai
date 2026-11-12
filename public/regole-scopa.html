@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<!--
+  Rules page in Italian, one of three: regole-scopa.html, primiera.html, regole-briscola.html.
+  Plain static files, written by hand; nothing generates them. See docs/architecture.md, Rules pages.
+
+  - Self-contained on purpose. The service worker (public/sw.js) serves every same-origin file
+    that is not HTML cache-first and never revalidates it, so a shared stylesheet or script
+    would go stale for returning players. The style block is therefore repeated in the three
+    files and must stay identical (scripts/build/rulesPages.test.ts checks it): edit all three.
+  - Each file ships to both sites and their alias domains, so the canonical URL, og:url and the
+    links between the pages are absolute, and all three pages are at home on playscopa.net, the
+    Briscola rules included: playbriscola.com is meant to redirect there one day, so nothing
+    new should enter a search index under that host. The Briscola page takes its icons from
+    /variants/briscola/, where both sites serve the Briscola artwork (/pwa-192.png is the
+    Scopa icon on playscopa.net). The play button uses the explicit game path (/scopa,
+    /briscola), which opens that game on either site without the first-visit chooser.
+  - No analytics tag: analytics load only through src/analytics/gate.ts, inside the app.
+-->
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regole della Scopa: come si gioca e come si contano i punti</title>
+<meta name="description" content="Le regole della Scopa spiegate con esempi: mazzo, distribuzione, prese, scope e punteggio con carte, denari, settebello e primiera. Poi gioca online gratis.">
+<link rel="canonical" href="https://playscopa.net/regole-scopa.html">
+<link rel="icon" type="image/png" sizes="192x192" href="/pwa-192.png">
+<link rel="apple-touch-icon" href="/pwa-192.png">
+<meta name="theme-color" content="#1B5E20">
+<meta name="apple-itunes-app" content="app-id=6812582287">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="it_IT">
+<meta property="og:site_name" content="Scopa AI">
+<meta property="og:title" content="Regole della Scopa: come si gioca e come si contano i punti">
+<meta property="og:description" content="Le regole della Scopa spiegate con esempi: mazzo, distribuzione, prese, scope e punteggio con carte, denari, settebello e primiera. Poi gioca online gratis.">
+<meta property="og:url" content="https://playscopa.net/regole-scopa.html">
+<meta property="og:image" content="https://playscopa.net/pwa-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<!-- Store badges: both show without JavaScript; this mirrors the app's rule
+     (src/platform/links.ts) and hides the badge that leads nowhere on this device. -->
+<script>(function(){var u=navigator.userAgent,c=document.documentElement.classList;if(/android/i.test(u))c.add('no-ios');if(/iphone|ipad|ipod/i.test(u)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))c.add('no-play');})();</script>
+<style>
+:root {
+  --felt: #1B5E20; --felt-dark: #145217; --felt-deep: #0d3a11;
+  --gold: #D4AF37; --gold-light: #e6c65a;
+  --paper: #faf6ec; --paper-2: #f1ead8; --ink: #22251e; --ink-soft: #5b5f54; --rule: #d8cdb2;
+  --link: #17551c;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --cw: 64px;
+}
+body.briscola { --felt: #1A237E; --felt-dark: #141b63; --felt-deep: #0c1145; --link: #2a3aa8; }
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #11150f; --paper-2: #1a2017; --ink: #ece6d6; --ink-soft: #b3ad9c; --rule: #343c2e; --link: #9fd4a3; }
+  body.briscola { --link: #aab4ff; }
+}
+@media (max-width: 380px) { :root { --cw: 52px; } }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 1.0625rem/1.65 var(--serif); }
+img { max-width: 100%; height: auto; }
+a { color: inherit; }
+a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--serif); text-wrap: balance; }
+p, li, dd, td, figcaption { text-wrap: pretty; }
+
+/* The card table: hero at the top, play band at the bottom, example boxes in between */
+.hero, .play, .felt {
+  background:
+    radial-gradient(rgba(255, 255, 255, .045) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    radial-gradient(120% 90% at 88% 0%, rgba(255, 255, 255, .10), transparent 60%),
+    radial-gradient(90% 120% at 0% 100%, rgba(0, 0, 0, .30), transparent 62%),
+    var(--felt);
+  color: #fff;
+}
+.hero { border-bottom: 4px double var(--gold); }
+.top { max-width: 66rem; margin: 0 auto; padding: .9rem 1.25rem 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.4rem; font: .85rem/1.4 var(--sans); }
+.top ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; }
+.top a { text-decoration: none; opacity: .85; }
+.top a:hover, .top a[aria-current] { opacity: 1; text-decoration: underline; text-underline-offset: .25em; text-decoration-color: var(--gold); }
+.top .brand { opacity: 1; margin-right: auto; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.hero-in { max-width: 66rem; margin: 0 auto; padding: 2rem 1.25rem 2.8rem; display: grid; gap: 1.6rem; align-items: center; }
+.eyebrow { margin: 0 0 .7rem; font: 600 .75rem/1.2 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-light); }
+h1 { margin: 0 0 .9rem; font-size: clamp(2.3rem, 7vw, 3.7rem); line-height: 1.04; letter-spacing: -.012em; }
+.lead { margin: 0 0 1.5rem; max-width: 34rem; font-size: 1.15rem; line-height: 1.55; color: rgba(255, 255, 255, .9); }
+.cta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.1rem; }
+.cta-note { font: .85rem/1.35 var(--sans); color: rgba(255, 255, 255, .8); }
+.btn { display: inline-block; padding: .95em 1.55em; border-radius: 999px; background: var(--gold); color: #1c1a0c; font: 700 1.05rem/1 var(--sans); text-decoration: none; box-shadow: 0 2px 0 #9c7e1e, 0 10px 22px rgba(0, 0, 0, .28); transition: transform .15s ease, background-color .15s ease; }
+.btn:hover { background: var(--gold-light); transform: translateY(-1px); }
+.btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; border-radius: 999px; }
+
+/* A hand of cards, fanned */
+.fan { --fw: clamp(84px, 21vw, 112px); position: relative; width: calc(var(--fw) * 3.4); max-width: 100%; height: calc(var(--fw) * 2.15); margin: 0 auto; }
+.fan img { position: absolute; left: 50%; top: 6%; width: var(--fw); margin-left: calc(var(--fw) / -2); background: #fff; border-radius: calc(var(--fw) * .06); box-shadow: 0 10px 24px rgba(0, 0, 0, .45), 0 0 0 1px rgba(0, 0, 0, .25); transform-origin: 50% 181%; transform: rotate(var(--r)); animation: fan .9s cubic-bezier(.2, .9, .25, 1) both; }
+.fan img:nth-child(1) { --r: -24deg; }
+.fan img:nth-child(2) { --r: -8deg; animation-delay: .06s; }
+.fan img:nth-child(3) { --r: 8deg; animation-delay: .12s; }
+.fan img:nth-child(4) { --r: 24deg; animation-delay: .18s; }
+@keyframes fan { from { transform: rotate(calc(var(--r) * .3)); } }
+.fan-cap { margin: .2rem 0 0; text-align: center; font: 600 .8rem/1.3 var(--sans); letter-spacing: .08em; color: var(--gold-light); }
+@media (min-width: 800px) {
+  .hero-in { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 2rem; padding: 3.2rem 2rem 4.2rem; }
+  .top { padding: 1.1rem 2rem 0; }
+}
+@media (prefers-reduced-motion: reduce) { .fan img { animation: none; } html { scroll-behavior: auto; } .btn { transition: none; } }
+
+/* The leaflet */
+main { max-width: 46rem; margin: 0 auto; padding: 2.4rem 1.25rem 1rem; }
+main a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: .16em; }
+.toc { margin: 0 0 2.6rem; padding: 1rem 1.25rem 1.1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-2); }
+.toc-title { margin: 0 0 .4rem; font: 600 .72rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+.toc ol { margin: 0; padding-left: 1.3rem; font-size: 1rem; line-height: 1.5; }
+.toc li { margin: .15rem 0; break-inside: avoid; }
+@media (min-width: 560px) { .toc ol { columns: 2; column-gap: 2.5rem; } }
+section { margin: 0 0 2.9rem; scroll-margin-top: 1rem; }
+h2 { margin: 0 0 .7rem; font-size: clamp(1.55rem, 4.6vw, 1.9rem); line-height: 1.18; }
+section > h2::before { content: ""; display: block; width: 2.6rem; height: 3px; margin-bottom: .8rem; background: var(--gold); }
+h3 { margin: 1.7rem 0 .4rem; font-size: 1.22rem; line-height: 1.25; }
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.35rem; }
+li { margin: .35rem 0; }
+small { font-size: .8em; font-weight: 400; color: var(--ink-soft); }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin: 0 0 1.3rem; }
+.facts div { padding: .7rem .9rem .75rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-2); }
+.facts dt { font: 600 .7rem/1.2 var(--sans); letter-spacing: .13em; text-transform: uppercase; color: var(--ink-soft); }
+.facts dd { margin: .25rem 0 0; font-size: 1.12rem; font-weight: 700; line-height: 1.3; }
+@media (min-width: 640px) { .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tbl { width: 100%; margin: 1.1rem 0 1.2rem; border-collapse: collapse; font-size: 1rem; line-height: 1.45; }
+.tbl th { padding: .5rem .6rem; border-bottom: 2px solid var(--ink); text-align: left; font: 600 .7rem/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.tbl td { padding: .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tbl .num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl tfoot th, .tbl tfoot td { border-bottom: 0; border-top: 2px solid var(--ink); color: var(--ink); }
+.note { margin: 1.1rem 0; padding: .75rem 1rem; border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; background: var(--paper-2); font-size: .98rem; }
+.faq h3 { margin: 1.5rem 0 .25rem; font-size: 1.12rem; }
+.faq p { margin: 0; }
+
+/* Example boxes on the felt */
+figure { margin: 1.5rem 0; }
+figcaption { margin-top: .6rem; font-size: .95rem; line-height: 1.5; color: var(--ink-soft); }
+.felt { padding: 1rem 1rem 1.1rem; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 0 44px rgba(0, 0, 0, .28); }
+.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .55rem .7rem; }
+.row + .row { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed rgba(255, 255, 255, .28); }
+.tag { flex: 0 0 100%; font: 600 .7rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.tag b { margin-left: .5em; font-size: 1.25em; letter-spacing: 0; color: #fff; }
+.card { display: block; width: var(--cw); background: #fff; border-radius: calc(var(--cw) * .07); box-shadow: 0 2px 7px rgba(0, 0, 0, .42), 0 0 0 1px rgba(0, 0, 0, .2); }
+.strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .7rem; }
+.strip li { width: var(--cw); margin: 0; text-align: center; font: 600 .7rem/1.25 var(--sans); color: rgba(255, 255, 255, .88); }
+.strip .card { margin-bottom: .4rem; }
+.strip b { display: block; font: 700 1.2rem/1.15 var(--sans); color: var(--gold-light); }
+.out { flex: 1 1 12rem; align-self: center; margin: 0; font: .95rem/1.5 var(--sans); color: rgba(255, 255, 255, .92); }
+.out b { color: var(--gold-light); }
+
+/* Play band and footer */
+.play { margin-top: 1.5rem; padding: 3rem 1.25rem 3.2rem; border-top: 4px double var(--gold); text-align: center; }
+.play-in { max-width: 40rem; margin: 0 auto; }
+.play h2 { font-size: clamp(1.8rem, 5.5vw, 2.4rem); }
+.play p { color: rgba(255, 255, 255, .9); }
+.play .go { margin: 1.5rem 0 1.7rem; }
+.stores { margin: 0; font: 600 .72rem/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.badges { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; padding: 10px; }
+.badges a { display: block; line-height: 0; border-radius: 7px; }
+.badges img { display: block; width: auto; height: 40px; }
+.more { margin: .6rem 0 0; font-size: 1rem; }
+.more a { text-decoration-color: var(--gold); text-underline-offset: .2em; }
+.no-ios .b-ios, .no-ios .c-ios, .no-play .b-play, .no-play .c-play { display: none; }
+footer { max-width: 46rem; margin: 0 auto; padding: 1.8rem 1.25rem 3rem; font: .85rem/1.6 var(--sans); color: var(--ink-soft); }
+footer nav { display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; margin-bottom: .9rem; }
+footer a { color: var(--link); }
+footer p { margin: 0 0 .4rem; }
+.credits { font-size: .76rem; }
+</style>
+</head>
+<body class="scopa">
+
+<header class="hero">
+<nav class="top" aria-label="Guide">
+<a class="brand" href="/scopa">Scopa AI</a>
+<ul>
+<li><a href="https://playscopa.net/regole-scopa.html" aria-current="page">Regole Scopa</a></li>
+<li><a href="https://playscopa.net/primiera.html">Primiera</a></li>
+<li><a href="https://playscopa.net/regole-briscola.html">Regole Briscola</a></li>
+</ul>
+</nav>
+<div class="hero-in">
+<div>
+<p class="eyebrow">Giochi di carte italiani</p>
+<h1>Regole della Scopa</h1>
+<p class="lead">Come si gioca a Scopa in due: il mazzo, la distribuzione, le prese, le scope e il conteggio dei punti, con esempi illustrati.</p>
+<p class="cta"><a class="btn" href="/scopa">Gioca a Scopa online</a> <span class="cta-note">Gratis, senza pubblicità e senza registrazione.</span></p>
+</div>
+<div>
+<div class="fan">
+<img src="/cards/napoletane/swords-10.webp" alt="Re di spade" width="210" height="345">
+<img src="/cards/napoletane/clubs-1.webp" alt="Asso di bastoni" width="210" height="345">
+<img src="/cards/napoletane/cups-7.webp" alt="Sette di coppe" width="210" height="345">
+<img src="/cards/napoletane/coins-7.webp" alt="Sette di denari, il settebello" width="210" height="345">
+</div>
+</div>
+</div>
+</header>
+
+<main>
+
+<nav class="toc" aria-label="Indice">
+<p class="toc-title">In questa pagina</p>
+<ol>
+<li><a href="#in-breve">La Scopa in breve</a></li>
+<li><a href="#mazzo">Il mazzo</a></li>
+<li><a href="#distribuzione">La distribuzione</a></li>
+<li><a href="#turno">Il turno: prendere o scartare</a></li>
+<li><a href="#scopa">La scopa</a></li>
+<li><a href="#fine-mano">La fine della mano</a></li>
+<li><a href="#punteggio">Il punteggio</a></li>
+<li><a href="#vittoria">Chi vince la partita</a></li>
+<li><a href="#consigli">Consigli per chi inizia</a></li>
+<li><a href="#varianti">Le varianti</a></li>
+<li><a href="#domande">Domande frequenti</a></li>
+</ol>
+</nav>
+
+<section id="in-breve">
+<h2>La Scopa in breve</h2>
+<dl class="facts">
+<div><dt>Giocatori</dt><dd>2 <small>(anche 3, o 4 a coppie)</small></dd></div>
+<div><dt>Mazzo</dt><dd>40 carte italiane</dd></div>
+<div><dt>Carte</dt><dd>3 in mano, 4 sul tavolo</dd></div>
+<div><dt>Si vince a</dt><dd>11 punti</dd></div>
+</dl>
+<p>La Scopa è uno dei giochi di carte più popolari d'Italia, dove è diffusa almeno dal Settecento. L'idea è semplice: con la carta che giochi prendi dal tavolo una carta dello stesso valore, oppure più carte che sommate danno quel valore. Se porti via tutto hai fatto <strong>scopa</strong>, perché hai «spazzato» il tavolo. A fine mano si assegnano i punti: carte, denari, settebello, primiera e uno per ogni scopa.</p>
+<p>Questa pagina spiega la Scopa classica in due giocatori, con le stesse regole che trovi in <a href="/scopa">Scopa AI</a>.</p>
+</section>
+
+<section id="mazzo">
+<h2>Il mazzo</h2>
+<p>Si gioca con un mazzo italiano da <strong>40 carte</strong>, diviso in quattro semi: <strong>denari</strong>, <strong>coppe</strong>, <strong>spade</strong> e <strong>bastoni</strong>. Ogni seme ha dieci carte: dall'asso al sette, più tre figure.</p>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">I quattro semi</span>
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-1.webp" alt="Asso di denari" width="210" height="345" loading="lazy" decoding="async">Denari</li>
+<li><img class="card" src="/cards/napoletane/cups-1.webp" alt="Asso di coppe" width="210" height="345" loading="lazy" decoding="async">Coppe</li>
+<li><img class="card" src="/cards/napoletane/swords-1.webp" alt="Asso di spade" width="210" height="345" loading="lazy" decoding="async">Spade</li>
+<li><img class="card" src="/cards/napoletane/clubs-1.webp" alt="Asso di bastoni" width="210" height="345" loading="lazy" decoding="async">Bastoni</li>
+</ul></div>
+<div class="row"><span class="tag">Le tre figure</span>
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-8.webp" alt="Fante di denari" width="210" height="345" loading="lazy" decoding="async">Fante <b>8</b></li>
+<li><img class="card" src="/cards/napoletane/coins-9.webp" alt="Cavallo di denari" width="210" height="345" loading="lazy" decoding="async">Cavallo <b>9</b></li>
+<li><img class="card" src="/cards/napoletane/coins-10.webp" alt="Re di denari" width="210" height="345" loading="lazy" decoding="async">Re <b>10</b></li>
+</ul></div>
+</div>
+<figcaption>Gli assi dei quattro semi e le figure di denari, nel mazzo napoletano.</figcaption>
+</figure>
+<p>Per le prese conta solo il valore della carta, non il seme: l'asso vale 1, le carte dal due al sette valgono il loro numero, il fante 8, il cavallo 9 e il re 10.</p>
+<p>I mazzi regionali, come le carte napoletane, piacentine, siciliane o sarde, cambiano nel disegno ma non nelle regole.</p>
+</section>
+
+<section id="distribuzione">
+<h2>La distribuzione</h2>
+<p>Il mazziere mescola, dà <strong>tre carte</strong> a ciascun giocatore e ne scopre <strong>quattro</strong> al centro del tavolo. Gioca per primo l'avversario del mazziere, poi si prosegue una carta a testa.</p>
+<p>Quando i giocatori hanno finito le tre carte, il mazziere ne distribuisce altre tre a testa, senza aggiungerne al tavolo. In due le distribuzioni sono sei in tutto: dopo l'ultima il mazzo è esaurito e, giocate anche quelle carte, finisce la <strong>mano</strong>. Nella mano successiva è l'altro giocatore a fare il mazziere.</p>
+<p>Se tra le quattro carte scoperte all'inizio ci sono tre o quattro re, si rimescola e si ridistribuisce: quei re non potrebbero più essere presi tutti, e per l'intera mano nessuno riuscirebbe a fare scopa.</p>
+</section>
+
+<section id="turno">
+<h2>Il turno: prendere o scartare</h2>
+<p>Al tuo turno giochi <strong>una carta</strong> dalla mano. Può andare in due modi.</p>
+<ul>
+<li><strong>Prendi.</strong> Se sul tavolo c'è una carta dello stesso valore, la prendi. Se non c'è, puoi prendere più carte la cui somma è uguale al valore della tua: con un 7 prendi un 4 e un 3, con un re, che vale 10, un 6, un 3 e un asso. La carta giocata e quelle prese finiscono coperte nel tuo mazzetto.</li>
+<li><strong>Scarti.</strong> Se la tua carta non può prendere nulla, resta scoperta sul tavolo, a disposizione di tutti.</li>
+</ul>
+<p>Tre regole da tenere a mente:</p>
+<ol>
+<li><strong>La presa è obbligatoria.</strong> Se la carta che giochi può prendere, deve farlo: non puoi lasciarla sul tavolo. Resti però libero di scegliere quale carta giocare.</li>
+<li><strong>La carta uguale viene prima della somma.</strong> Se sul tavolo c'è una carta dello stesso valore della tua, devi prendere quella e non una combinazione.</li>
+<li><strong>Se le prese possibili sono più d'una, scegli tu.</strong> Con un 7, se sul tavolo ci sono 5, 2, 4 e 3, puoi prendere 5 + 2 oppure 4 + 3, non tutte e quattro. Lo stesso vale con due carte uguali alla tua: ne prendi una sola.</li>
+</ol>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">Sul tavolo</span>
+<img class="card" src="/cards/napoletane/cups-4.webp" alt="Quattro di coppe" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/clubs-3.webp" alt="Tre di bastoni" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/cups-7.webp" alt="Sette di coppe" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/swords-10.webp" alt="Re di spade" width="210" height="345" loading="lazy" decoding="async">
+</div>
+<div class="row"><span class="tag">Giochi</span>
+<img class="card" src="/cards/napoletane/coins-7.webp" alt="Sette di denari" width="210" height="345" loading="lazy" decoding="async">
+<p class="out">Devi prendere il <b>sette di coppe</b>. Anche 4 + 3 fa 7, ma la carta uguale ha la precedenza.</p>
+</div>
+</div>
+<figcaption>La carta uguale viene prima della somma. Se sul tavolo non ci fosse il sette di coppe, con lo stesso sette prenderesti il 4 e il 3.</figcaption>
+</figure>
+</section>
+
+<section id="scopa">
+<h2>La scopa</h2>
+<p>Fai <strong>scopa</strong> quando con una presa porti via <strong>tutte</strong> le carte dal tavolo. Vale un punto, che si aggiunge a quelli di fine mano. Per segnarla, di solito si mette di traverso nel proprio mazzetto una carta scoperta.</p>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">Sul tavolo</span>
+<img class="card" src="/cards/napoletane/cups-2.webp" alt="Due di coppe" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/clubs-6.webp" alt="Sei di bastoni" width="210" height="345" loading="lazy" decoding="async">
+</div>
+<div class="row"><span class="tag">Giochi</span>
+<img class="card" src="/cards/napoletane/coins-8.webp" alt="Fante di denari" width="210" height="345" loading="lazy" decoding="async">
+<p class="out">Il fante vale 8 e 2 + 6 fa 8: prendi tutte e due le carte e il tavolo resta vuoto. <b>Scopa!</b></p>
+</div>
+</div>
+</figure>
+<p>Dopo una scopa il tavolo è vuoto, quindi l'avversario può solo scartare.</p>
+<p>C'è un'eccezione: l'<strong>ultima giocata della mano</strong> non vale mai come scopa, anche se svuota il tavolo.</p>
+</section>
+
+<section id="fine-mano">
+<h2>La fine della mano</h2>
+<p>La mano finisce quando il mazzo è esaurito e sono state giocate tutte le carte. Quelle rimaste sul tavolo vanno a chi ha fatto l'<strong>ultima presa</strong>, e non contano come scopa. A questo punto ognuno guarda le carte del proprio mazzetto e si assegnano i punti.</p>
+</section>
+
+<section id="punteggio">
+<h2>Il punteggio</h2>
+<p>A ogni mano ci sono in palio quattro punti fissi, i «punti di mazzo», più uno per ogni scopa.</p>
+<table class="tbl">
+<thead><tr><th>Punto</th><th>Vale</th><th>A chi va</th></tr></thead>
+<tbody>
+<tr><td><strong>Carte</strong></td><td class="num">1</td><td>A chi ha preso più carte: ne servono almeno 21 su 40.</td></tr>
+<tr><td><strong>Denari</strong></td><td class="num">1</td><td>A chi ha preso più carte di denari: ne servono almeno 6 su 10.</td></tr>
+<tr><td><strong>Settebello</strong></td><td class="num">1</td><td>A chi ha preso il sette di denari.</td></tr>
+<tr><td><strong>Primiera</strong></td><td class="num">1</td><td>A chi ha la primiera migliore.</td></tr>
+<tr><td><strong>Scope</strong></td><td class="num">1 l'una</td><td>A chi le ha fatte.</td></tr>
+</tbody>
+</table>
+<p>In caso di parità, cioè 20 carte a testa, 5 denari a testa o la stessa primiera, quel punto non va a nessuno. Il settebello invece viene sempre assegnato.</p>
+
+<h3>La primiera in due righe</h3>
+<p>Per ogni seme si prende la carta migliore tra quelle catturate e si sommano i valori di primiera: il sette vale 21, il sei 18, l'asso 16, il cinque 15, il quattro 14, il tre 13, il due 12 e le figure 10. Chi ha il totale più alto prende il punto; per concorrere serve almeno una carta per seme. Valori, esempi svolti e casi particolari sono nella <a href="https://playscopa.net/primiera.html">guida alla primiera</a>.</p>
+
+<h3>Un esempio di conteggio</h3>
+<p>Giulia e Marco hanno appena finito una mano. Ecco che cosa c'è nei due mazzetti.</p>
+<table class="tbl">
+<thead><tr><th>Punto</th><th>Giulia</th><th>Marco</th><th>A chi va</th></tr></thead>
+<tbody>
+<tr><td>Carte</td><td class="num">22</td><td class="num">18</td><td>Giulia</td></tr>
+<tr><td>Denari</td><td class="num">4</td><td class="num">6</td><td>Marco</td></tr>
+<tr><td>Settebello</td><td class="num">sì</td><td class="num">no</td><td>Giulia</td></tr>
+<tr><td>Primiera</td><td class="num">76</td><td class="num">78</td><td>Marco</td></tr>
+<tr><td>Scope</td><td class="num">1</td><td class="num">0</td><td>Giulia</td></tr>
+</tbody>
+<tfoot><tr><th>Punti della mano</th><td class="num">3</td><td class="num">2</td><td></td></tr></tfoot>
+</table>
+<p>Giulia ha il settebello, ma la primiera va a Marco: lui ha due sette e due sei (21 + 21 + 18 + 18 = 78), lei due sette, un sei e un asso (21 + 21 + 18 + 16 = 76).</p>
+</section>
+
+<section id="vittoria">
+<h2>Chi vince la partita</h2>
+<p>I punti di ogni mano si sommano. Vince chi, a fine mano, ha raggiunto il traguardo: di solito <strong>11 punti</strong>, ma si gioca anche a 16 o a 21. Se nella stessa mano ci arrivano tutti e due, vince chi ha più punti.</p>
+<p>Se sono pari si gioca un'altra mano, finché uno dei due non passa avanti: una partita a Scopa non finisce in pareggio.</p>
+</section>
+
+<section id="consigli">
+<h2>Consigli per chi inizia</h2>
+<ul>
+<li><strong>Guarda che cosa lasci sul tavolo.</strong> Se resta una carta sola, o più carte che insieme non superano 10, all'avversario basta la carta giusta per fare scopa.</li>
+<li><strong>Tieni d'occhio i sette.</strong> Nella primiera pesano più di ogni altra carta, e quello di denari vale un punto da solo.</li>
+<li><strong>Conta i denari.</strong> Sono dieci: con sei il punto è tuo.</li>
+<li><strong>Ricorda le carte uscite.</strong> Ogni valore compare quattro volte nel mazzo: sapere quali carte sono già state prese aiuta a capire che cosa può ancora prendere l'avversario.</li>
+</ul>
+</section>
+
+<section id="varianti">
+<h2>Le varianti</h2>
+<p>In Italia la Scopa si gioca in molti modi. Queste sono le varianti più note; nessuna è nell'app, che segue le regole classiche descritte sopra.</p>
+<ul>
+<li><strong>In quattro.</strong> Si gioca a coppie contrapposte, di solito a 21 punti.</li>
+<li><strong>Scopone.</strong> In quattro a coppie: nove carte a testa e quattro in tavola, oppure dieci a testa e nessuna in tavola.</li>
+<li><strong>Asso pigliatutto.</strong> Giocando un asso si prendono tutte le carte in tavola.</li>
+<li><strong>Napola.</strong> Chi prende asso, due e tre di denari guadagna tre punti, più uno per ogni carta di denari che segue in fila.</li>
+<li><strong>Re bello.</strong> Anche il re di denari vale un punto.</li>
+<li><strong>Scopa a quindici.</strong> Si prende quando la carta giocata e quelle prese fanno 15 in tutto.</li>
+</ul>
+</section>
+
+<section id="domande" class="faq">
+<h2>Domande frequenti</h2>
+<h3>Quante carte si danno a Scopa?</h3>
+<p>Tre a testa, più quattro scoperte sul tavolo all'inizio della mano. Finite le tre carte se ne distribuiscono altre tre, fino a esaurire il mazzo.</p>
+<h3>Si è obbligati a prendere?</h3>
+<p>Sì, se la carta che giochi può prendere. Non sei invece obbligato a giocare proprio quella carta: puoi sceglierne un'altra dalla mano.</p>
+<h3>Quanto vale il settebello?</h3>
+<p>Un punto, per chi prende il sette di denari. La stessa carta conta anche tra le carte, tra i denari e nella primiera, dove vale 21 come gli altri sette.</p>
+<h3>Quanto valgono fante, cavallo e re?</h3>
+<p>Per le prese 8, 9 e 10. Nella primiera valgono 10 ciascuno.</p>
+<h3>L'ultima presa vale scopa?</h3>
+<p>No. L'ultima giocata della mano non conta mai come scopa, e le carte rimaste sul tavolo vanno a chi ha preso per ultimo.</p>
+<h3>A quanti punti si vince?</h3>
+<p>Di solito a 11. Si gioca anche a 16 o a 21: in Scopa AI il traguardo lo scegli tu.</p>
+<h3>Che cosa succede in caso di parità?</h3>
+<p>Se è pari un punto di mazzo, non lo prende nessuno. Se è pari il punteggio della partita, si gioca un'altra mano.</p>
+<h3>Si può giocare a Scopa online gratis?</h3>
+<p>Sì. Con <a href="/scopa">Scopa AI</a> giochi dal browser contro il computer, contro un'intelligenza artificiale o contro un amico, senza registrarti. C'è anche l'app per iPhone, iPad e Android.</p>
+</section>
+
+</main>
+
+<aside class="play" id="gioca">
+<div class="play-in">
+<h2>Ora tocca a te</h2>
+<p>Scopa AI è gratis, senza pubblicità e senza registrazione. Giochi contro la CPU, contro un'intelligenza artificiale oppure online contro un amico, con sei mazzi regionali tra cui scegliere.</p>
+<p class="go"><a class="btn" href="/scopa">Gioca a Scopa online</a></p>
+<p class="stores">Anche come app per iPhone, iPad e Android</p>
+<div class="badges">
+<a class="b-ios" href="https://apps.apple.com/app/id6812582287"><img src="/badges/app-store-badge-it.svg" alt="Scarica su App Store" width="120" height="40"></a>
+<a class="b-play" href="https://play.google.com/store/apps/details?id=net.vovchenko.scopaai"><img src="/badges/google-play-badge-it.png" alt="Disponibile su Google Play" width="564" height="168"></a>
+</div>
+<p class="more">Ti piace anche la Briscola? <a href="https://playscopa.net/regole-briscola.html">Leggi le regole della Briscola</a>.</p>
+</div>
+</aside>
+
+<footer>
+<nav aria-label="Altre pagine">
+<a href="https://playscopa.net/regole-scopa.html">Regole della Scopa</a>
+<a href="https://playscopa.net/primiera.html">La primiera</a>
+<a href="https://playscopa.net/regole-briscola.html">Regole della Briscola</a>
+<a href="/privacy.html" hreflang="en">Privacy</a>
+<a href="/support.html" hreflang="en">Assistenza</a>
+</nav>
+<p>Scopa AI e Briscola AI sono sviluppati da VV Labs LLC. Le illustrazioni mostrano le carte napoletane del gioco.</p>
+<p class="credits"><span class="c-ios">App Store è un marchio di Apple Inc., registrato negli Stati Uniti e in altri paesi.</span> <span class="c-play">Google Play e il logo di Google Play sono marchi di Google LLC.</span></p>
+</footer>
+
+</body>
+</html>

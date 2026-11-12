@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<!--
+  Rules page in Italian, one of three: regole-scopa.html, primiera.html, regole-briscola.html.
+  Plain static files, written by hand; nothing generates them. See docs/architecture.md, Rules pages.
+
+  - Self-contained on purpose. The service worker (public/sw.js) serves every same-origin file
+    that is not HTML cache-first and never revalidates it, so a shared stylesheet or script
+    would go stale for returning players. The style block is therefore repeated in the three
+    files and must stay identical (scripts/build/rulesPages.test.ts checks it): edit all three.
+  - Each file ships to both sites and their alias domains, so the canonical URL, og:url and the
+    links between the pages are absolute, and all three pages are at home on playscopa.net, the
+    Briscola rules included: playbriscola.com is meant to redirect there one day, so nothing
+    new should enter a search index under that host. The Briscola page takes its icons from
+    /variants/briscola/, where both sites serve the Briscola artwork (/pwa-192.png is the
+    Scopa icon on playscopa.net). The play button uses the explicit game path (/scopa,
+    /briscola), which opens that game on either site without the first-visit chooser.
+  - No analytics tag: analytics load only through src/analytics/gate.ts, inside the app.
+-->
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regole della Briscola: come si gioca, valore delle carte e punti</title>
+<meta name="description" content="Le regole della Briscola in due spiegate con esempi: valore delle carte, seme di briscola, prese, pesca e conteggio dei 120 punti. Poi gioca online gratis.">
+<link rel="canonical" href="https://playscopa.net/regole-briscola.html">
+<link rel="icon" type="image/png" sizes="192x192" href="/variants/briscola/pwa-192.png">
+<link rel="apple-touch-icon" href="/variants/briscola/pwa-192.png">
+<meta name="theme-color" content="#1A237E">
+<meta name="apple-itunes-app" content="app-id=6812582287">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="it_IT">
+<meta property="og:site_name" content="Briscola AI">
+<meta property="og:title" content="Regole della Briscola: come si gioca, valore delle carte e punti">
+<meta property="og:description" content="Le regole della Briscola in due spiegate con esempi: valore delle carte, seme di briscola, prese, pesca e conteggio dei 120 punti. Poi gioca online gratis.">
+<meta property="og:url" content="https://playscopa.net/regole-briscola.html">
+<meta property="og:image" content="https://playscopa.net/variants/briscola/pwa-512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta name="twitter:card" content="summary">
+<!-- Store badges: both show without JavaScript; this mirrors the app's rule
+     (src/platform/links.ts) and hides the badge that leads nowhere on this device. -->
+<script>(function(){var u=navigator.userAgent,c=document.documentElement.classList;if(/android/i.test(u))c.add('no-ios');if(/iphone|ipad|ipod/i.test(u)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches))c.add('no-play');})();</script>
+<style>
+:root {
+  --felt: #1B5E20; --felt-dark: #145217; --felt-deep: #0d3a11;
+  --gold: #D4AF37; --gold-light: #e6c65a;
+  --paper: #faf6ec; --paper-2: #f1ead8; --ink: #22251e; --ink-soft: #5b5f54; --rule: #d8cdb2;
+  --link: #17551c;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --cw: 64px;
+}
+body.briscola { --felt: #1A237E; --felt-dark: #141b63; --felt-deep: #0c1145; --link: #2a3aa8; }
+@media (prefers-color-scheme: dark) {
+  :root { --paper: #11150f; --paper-2: #1a2017; --ink: #ece6d6; --ink-soft: #b3ad9c; --rule: #343c2e; --link: #9fd4a3; }
+  body.briscola { --link: #aab4ff; }
+}
+@media (max-width: 380px) { :root { --cw: 52px; } }
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 1.0625rem/1.65 var(--serif); }
+img { max-width: 100%; height: auto; }
+a { color: inherit; }
+a:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+h1, h2, h3 { font-family: var(--serif); text-wrap: balance; }
+p, li, dd, td, figcaption { text-wrap: pretty; }
+
+/* The card table: hero at the top, play band at the bottom, example boxes in between */
+.hero, .play, .felt {
+  background:
+    radial-gradient(rgba(255, 255, 255, .045) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    radial-gradient(120% 90% at 88% 0%, rgba(255, 255, 255, .10), transparent 60%),
+    radial-gradient(90% 120% at 0% 100%, rgba(0, 0, 0, .30), transparent 62%),
+    var(--felt);
+  color: #fff;
+}
+.hero { border-bottom: 4px double var(--gold); }
+.top { max-width: 66rem; margin: 0 auto; padding: .9rem 1.25rem 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem 1.4rem; font: .85rem/1.4 var(--sans); }
+.top ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; }
+.top a { text-decoration: none; opacity: .85; }
+.top a:hover, .top a[aria-current] { opacity: 1; text-decoration: underline; text-underline-offset: .25em; text-decoration-color: var(--gold); }
+.top .brand { opacity: 1; margin-right: auto; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.hero-in { max-width: 66rem; margin: 0 auto; padding: 2rem 1.25rem 2.8rem; display: grid; gap: 1.6rem; align-items: center; }
+.eyebrow { margin: 0 0 .7rem; font: 600 .75rem/1.2 var(--sans); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-light); }
+h1 { margin: 0 0 .9rem; font-size: clamp(2.3rem, 7vw, 3.7rem); line-height: 1.04; letter-spacing: -.012em; }
+.lead { margin: 0 0 1.5rem; max-width: 34rem; font-size: 1.15rem; line-height: 1.55; color: rgba(255, 255, 255, .9); }
+.cta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1.1rem; }
+.cta-note { font: .85rem/1.35 var(--sans); color: rgba(255, 255, 255, .8); }
+.btn { display: inline-block; padding: .95em 1.55em; border-radius: 999px; background: var(--gold); color: #1c1a0c; font: 700 1.05rem/1 var(--sans); text-decoration: none; box-shadow: 0 2px 0 #9c7e1e, 0 10px 22px rgba(0, 0, 0, .28); transition: transform .15s ease, background-color .15s ease; }
+.btn:hover { background: var(--gold-light); transform: translateY(-1px); }
+.btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; border-radius: 999px; }
+
+/* A hand of cards, fanned */
+.fan { --fw: clamp(84px, 21vw, 112px); position: relative; width: calc(var(--fw) * 3.4); max-width: 100%; height: calc(var(--fw) * 2.15); margin: 0 auto; }
+.fan img { position: absolute; left: 50%; top: 6%; width: var(--fw); margin-left: calc(var(--fw) / -2); background: #fff; border-radius: calc(var(--fw) * .06); box-shadow: 0 10px 24px rgba(0, 0, 0, .45), 0 0 0 1px rgba(0, 0, 0, .25); transform-origin: 50% 181%; transform: rotate(var(--r)); animation: fan .9s cubic-bezier(.2, .9, .25, 1) both; }
+.fan img:nth-child(1) { --r: -24deg; }
+.fan img:nth-child(2) { --r: -8deg; animation-delay: .06s; }
+.fan img:nth-child(3) { --r: 8deg; animation-delay: .12s; }
+.fan img:nth-child(4) { --r: 24deg; animation-delay: .18s; }
+@keyframes fan { from { transform: rotate(calc(var(--r) * .3)); } }
+.fan-cap { margin: .2rem 0 0; text-align: center; font: 600 .8rem/1.3 var(--sans); letter-spacing: .08em; color: var(--gold-light); }
+@media (min-width: 800px) {
+  .hero-in { grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 2rem; padding: 3.2rem 2rem 4.2rem; }
+  .top { padding: 1.1rem 2rem 0; }
+}
+@media (prefers-reduced-motion: reduce) { .fan img { animation: none; } html { scroll-behavior: auto; } .btn { transition: none; } }
+
+/* The leaflet */
+main { max-width: 46rem; margin: 0 auto; padding: 2.4rem 1.25rem 1rem; }
+main a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: .16em; }
+.toc { margin: 0 0 2.6rem; padding: 1rem 1.25rem 1.1rem; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-2); }
+.toc-title { margin: 0 0 .4rem; font: 600 .72rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+.toc ol { margin: 0; padding-left: 1.3rem; font-size: 1rem; line-height: 1.5; }
+.toc li { margin: .15rem 0; break-inside: avoid; }
+@media (min-width: 560px) { .toc ol { columns: 2; column-gap: 2.5rem; } }
+section { margin: 0 0 2.9rem; scroll-margin-top: 1rem; }
+h2 { margin: 0 0 .7rem; font-size: clamp(1.55rem, 4.6vw, 1.9rem); line-height: 1.18; }
+section > h2::before { content: ""; display: block; width: 2.6rem; height: 3px; margin-bottom: .8rem; background: var(--gold); }
+h3 { margin: 1.7rem 0 .4rem; font-size: 1.22rem; line-height: 1.25; }
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0 0 1rem; padding-left: 1.35rem; }
+li { margin: .35rem 0; }
+small { font-size: .8em; font-weight: 400; color: var(--ink-soft); }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; margin: 0 0 1.3rem; }
+.facts div { padding: .7rem .9rem .75rem; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper-2); }
+.facts dt { font: 600 .7rem/1.2 var(--sans); letter-spacing: .13em; text-transform: uppercase; color: var(--ink-soft); }
+.facts dd { margin: .25rem 0 0; font-size: 1.12rem; font-weight: 700; line-height: 1.3; }
+@media (min-width: 640px) { .facts { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tbl { width: 100%; margin: 1.1rem 0 1.2rem; border-collapse: collapse; font-size: 1rem; line-height: 1.45; }
+.tbl th { padding: .5rem .6rem; border-bottom: 2px solid var(--ink); text-align: left; font: 600 .7rem/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+.tbl td { padding: .6rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.tbl .num { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl tfoot th, .tbl tfoot td { border-bottom: 0; border-top: 2px solid var(--ink); color: var(--ink); }
+.note { margin: 1.1rem 0; padding: .75rem 1rem; border-left: 3px solid var(--gold); border-radius: 0 8px 8px 0; background: var(--paper-2); font-size: .98rem; }
+.faq h3 { margin: 1.5rem 0 .25rem; font-size: 1.12rem; }
+.faq p { margin: 0; }
+
+/* Example boxes on the felt */
+figure { margin: 1.5rem 0; }
+figcaption { margin-top: .6rem; font-size: .95rem; line-height: 1.5; color: var(--ink-soft); }
+.felt { padding: 1rem 1rem 1.1rem; border-radius: 14px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 0 44px rgba(0, 0, 0, .28); }
+.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .55rem .7rem; }
+.row + .row { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed rgba(255, 255, 255, .28); }
+.tag { flex: 0 0 100%; font: 600 .7rem/1.2 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.tag b { margin-left: .5em; font-size: 1.25em; letter-spacing: 0; color: #fff; }
+.card { display: block; width: var(--cw); background: #fff; border-radius: calc(var(--cw) * .07); box-shadow: 0 2px 7px rgba(0, 0, 0, .42), 0 0 0 1px rgba(0, 0, 0, .2); }
+.strip { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .7rem; }
+.strip li { width: var(--cw); margin: 0; text-align: center; font: 600 .7rem/1.25 var(--sans); color: rgba(255, 255, 255, .88); }
+.strip .card { margin-bottom: .4rem; }
+.strip b { display: block; font: 700 1.2rem/1.15 var(--sans); color: var(--gold-light); }
+.out { flex: 1 1 12rem; align-self: center; margin: 0; font: .95rem/1.5 var(--sans); color: rgba(255, 255, 255, .92); }
+.out b { color: var(--gold-light); }
+
+/* Play band and footer */
+.play { margin-top: 1.5rem; padding: 3rem 1.25rem 3.2rem; border-top: 4px double var(--gold); text-align: center; }
+.play-in { max-width: 40rem; margin: 0 auto; }
+.play h2 { font-size: clamp(1.8rem, 5.5vw, 2.4rem); }
+.play p { color: rgba(255, 255, 255, .9); }
+.play .go { margin: 1.5rem 0 1.7rem; }
+.stores { margin: 0; font: 600 .72rem/1.3 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light); }
+.badges { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; padding: 10px; }
+.badges a { display: block; line-height: 0; border-radius: 7px; }
+.badges img { display: block; width: auto; height: 40px; }
+.more { margin: .6rem 0 0; font-size: 1rem; }
+.more a { text-decoration-color: var(--gold); text-underline-offset: .2em; }
+.no-ios .b-ios, .no-ios .c-ios, .no-play .b-play, .no-play .c-play { display: none; }
+footer { max-width: 46rem; margin: 0 auto; padding: 1.8rem 1.25rem 3rem; font: .85rem/1.6 var(--sans); color: var(--ink-soft); }
+footer nav { display: flex; flex-wrap: wrap; gap: .2rem 1.1rem; margin-bottom: .9rem; }
+footer a { color: var(--link); }
+footer p { margin: 0 0 .4rem; }
+.credits { font-size: .76rem; }
+</style>
+</head>
+<body class="briscola">
+
+<header class="hero">
+<nav class="top" aria-label="Guide">
+<a class="brand" href="/briscola">Briscola AI</a>
+<ul>
+<li><a href="https://playscopa.net/regole-scopa.html">Regole Scopa</a></li>
+<li><a href="https://playscopa.net/primiera.html">Primiera</a></li>
+<li><a href="https://playscopa.net/regole-briscola.html" aria-current="page">Regole Briscola</a></li>
+</ul>
+</nav>
+<div class="hero-in">
+<div>
+<p class="eyebrow">Giochi di carte italiani</p>
+<h1>Regole della Briscola</h1>
+<p class="lead">Come si gioca a Briscola in due: il valore delle carte, il seme di briscola, le prese, la pesca e il conteggio dei 120 punti, con esempi illustrati.</p>
+<p class="cta"><a class="btn" href="/briscola">Gioca a Briscola online</a> <span class="cta-note">Gratis, senza pubblicità e senza registrazione.</span></p>
+</div>
+<div>
+<div class="fan">
+<img src="/cards/napoletane/coins-1.webp" alt="Asso di denari" width="210" height="345">
+<img src="/cards/napoletane/cups-3.webp" alt="Tre di coppe" width="210" height="345">
+<img src="/cards/napoletane/swords-10.webp" alt="Re di spade" width="210" height="345">
+<img src="/cards/napoletane/clubs-2.webp" alt="Due di bastoni" width="210" height="345">
+</div>
+<p class="fan-cap">11 + 10 + 4 + 0 = 25 punti</p>
+</div>
+</div>
+</header>
+
+<main>
+
+<nav class="toc" aria-label="Indice">
+<p class="toc-title">In questa pagina</p>
+<ol>
+<li><a href="#in-breve">La Briscola in breve</a></li>
+<li><a href="#valori">Il valore delle carte</a></li>
+<li><a href="#distribuzione">La distribuzione e la briscola</a></li>
+<li><a href="#presa">Come si gioca una presa</a></li>
+<li><a href="#finale">Le ultime prese</a></li>
+<li><a href="#punteggio">Il punteggio</a></li>
+<li><a href="#partita">La partita</a></li>
+<li><a href="#consigli">Consigli per chi inizia</a></li>
+<li><a href="#varianti">Le varianti</a></li>
+<li><a href="#domande">Domande frequenti</a></li>
+</ol>
+</nav>
+
+<section id="in-breve">
+<h2>La Briscola in breve</h2>
+<dl class="facts">
+<div><dt>Giocatori</dt><dd>2 <small>(anche 4 a coppie)</small></dd></div>
+<div><dt>Mazzo</dt><dd>40 carte italiane</dd></div>
+<div><dt>Punti in palio</dt><dd>120</dd></div>
+<div><dt>Si vince con</dt><dd>almeno 61 punti</dd></div>
+</dl>
+<p>La Briscola è un gioco di prese: a ogni giro i giocatori calano una carta a testa, e la più forte si porta via tutte e due. Un seme, la <strong>briscola</strong>, batte tutti gli altri. Le origini del gioco non sono chiare; se ne ha notizia dalla prima metà dell'Ottocento.</p>
+<p>Questa pagina spiega la Briscola classica in due giocatori, con le stesse regole che trovi in <a href="/briscola">Briscola AI</a>.</p>
+</section>
+
+<section id="valori">
+<h2>Il valore delle carte</h2>
+<p>Si gioca con un mazzo italiano da 40 carte, in quattro semi: denari, coppe, spade e bastoni. Cinque carte per seme danno punti; le altre cinque non valgono nulla.</p>
+<figure>
+<div class="felt">
+<ul class="strip">
+<li><img class="card" src="/cards/napoletane/coins-1.webp" alt="Asso di denari" width="210" height="345" loading="lazy" decoding="async">Asso <b>11</b></li>
+<li><img class="card" src="/cards/napoletane/coins-3.webp" alt="Tre di denari" width="210" height="345" loading="lazy" decoding="async">Tre <b>10</b></li>
+<li><img class="card" src="/cards/napoletane/coins-10.webp" alt="Re di denari" width="210" height="345" loading="lazy" decoding="async">Re <b>4</b></li>
+<li><img class="card" src="/cards/napoletane/coins-9.webp" alt="Cavallo di denari" width="210" height="345" loading="lazy" decoding="async">Cavallo <b>3</b></li>
+<li><img class="card" src="/cards/napoletane/coins-8.webp" alt="Fante di denari" width="210" height="345" loading="lazy" decoding="async">Fante <b>2</b></li>
+</ul>
+</div>
+<figcaption>Le carte che danno punti, dalla più forte alla più debole, qui nel seme di denari.</figcaption>
+</figure>
+<table class="tbl">
+<thead><tr><th>Carta</th><th>Punti</th></tr></thead>
+<tbody>
+<tr><td>Asso</td><td class="num">11</td></tr>
+<tr><td>Tre</td><td class="num">10</td></tr>
+<tr><td>Re</td><td class="num">4</td></tr>
+<tr><td>Cavallo</td><td class="num">3</td></tr>
+<tr><td>Fante</td><td class="num">2</td></tr>
+<tr><td>Sette, sei, cinque, quattro e due</td><td class="num">0</td></tr>
+</tbody>
+</table>
+<p>L'ordine di forza nelle prese è lo stesso: <strong>asso, tre, re, cavallo, fante</strong>, poi 7, 6, 5, 4 e 2. Attenzione al tre: è la seconda carta più forte e batte il re.</p>
+<p>Asso e tre si chiamano <strong>carichi</strong>; le carte che non danno punti, <strong>lisci</strong>. Ogni seme vale 30 punti, tutto il mazzo 120.</p>
+</section>
+
+<section id="distribuzione">
+<h2>La distribuzione e la briscola</h2>
+<p>Il mazziere dà <strong>tre carte</strong> a testa. Poi scopre la carta successiva e la mette sul tavolo sotto il mazzo, in modo che resti visibile: il suo seme è la <strong>briscola</strong> per tutta la mano. Gioca per primo chi non ha dato le carte.</p>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">Il mazzo e la briscola</span>
+<img class="card" src="/cards/napoletane/back.webp" alt="Mazzo coperto" width="207" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/cups-5.webp" alt="Cinque di coppe" width="210" height="345" loading="lazy" decoding="async">
+<p class="out">La carta scoperta è il cinque di coppe: in questa mano la briscola è <b>coppe</b>.</p>
+</div>
+</div>
+</figure>
+</section>
+
+<section id="presa">
+<h2>Come si gioca una presa</h2>
+<p>Chi è di mano cala una carta, l'altro risponde con una carta qualsiasi: nella Briscola <strong>non c'è obbligo di rispondere al seme</strong>, né di giocare una briscola.</p>
+<p>Chi vince la presa?</p>
+<ul>
+<li>Se è stata giocata una briscola, vince la briscola. Con due briscole vince la più forte.</li>
+<li>Se le due carte sono dello stesso seme, vince la più forte.</li>
+<li>Se sono di semi diversi e nessuna è una briscola, vince la <strong>prima</strong> carta giocata.</li>
+</ul>
+<p>Chi vince prende le due carte e le mette coperte nel suo mazzetto. Poi pesca una carta dal mazzo, seguito dall'avversario, e apre la presa successiva.</p>
+<figure>
+<div class="felt">
+<div class="row"><span class="tag">Stesso seme</span>
+<img class="card" src="/cards/napoletane/coins-3.webp" alt="Tre di denari" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/coins-1.webp" alt="Asso di denari" width="210" height="345" loading="lazy" decoding="async">
+<p class="out">Tre di denari, poi asso di denari. Vince l'asso, la carta più forte del seme: <b>21 punti</b> in una presa sola.</p>
+</div>
+<div class="row"><span class="tag">Una briscola</span>
+<img class="card" src="/cards/napoletane/swords-1.webp" alt="Asso di spade" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/cups-2.webp" alt="Due di coppe" width="210" height="345" loading="lazy" decoding="async">
+<p class="out">Asso di spade, poi due di coppe. Vince il due, perché è una briscola: <b>11 punti</b>.</p>
+</div>
+<div class="row"><span class="tag">Semi diversi</span>
+<img class="card" src="/cards/napoletane/clubs-4.webp" alt="Quattro di bastoni" width="210" height="345" loading="lazy" decoding="async">
+<img class="card" src="/cards/napoletane/coins-10.webp" alt="Re di denari" width="210" height="345" loading="lazy" decoding="async">
+<p class="out">Quattro di bastoni, poi re di denari. Vince il quattro, giocato per primo: il re è di un altro seme e non è una briscola. <b>4 punti</b>.</p>
+</div>
+</div>
+<figcaption>Tre prese con la briscola a coppe. In ogni esempio la carta a sinistra è stata giocata per prima.</figcaption>
+</figure>
+</section>
+
+<section id="finale">
+<h2>Le ultime prese</h2>
+<p>Quando nel mazzo resta una sola carta coperta, chi vince la presa pesca quella e l'avversario prende la briscola scoperta. Da lì si giocano le ultime tre prese senza pescare.</p>
+<p>In tutto le prese sono venti.</p>
+</section>
+
+<section id="punteggio">
+<h2>Il punteggio</h2>
+<p>Finite le carte, ognuno somma i punti del proprio mazzetto. In palio ce ne sono 120: vince la mano chi ne fa <strong>almeno 61</strong>. Con 60 punti a testa la mano è pari.</p>
+<p>Per tradizione i punti si contano solo alla fine. Durante la mano i mazzetti restano coperti, e ricordare le carte uscite fa parte del gioco.</p>
+<p class="note">In <a href="/briscola">Briscola AI</a> una mano finita 60 a 60 non conta per nessuno dei due: se ne gioca un'altra.</p>
+</section>
+
+<section id="partita">
+<h2>La partita</h2>
+<p>Si può giocare una mano secca, oppure una partita su più mani: vince chi arriva per primo al numero di mani stabilito. A ogni mano il mazziere cambia.</p>
+</section>
+
+<section id="consigli">
+<h2>Consigli per chi inizia</h2>
+<ul>
+<li><strong>Giocare per secondi è un vantaggio.</strong> Vedi la carta dell'avversario prima di scegliere: è il momento per incassare un carico o spendere una briscola a colpo sicuro.</li>
+<li><strong>Di mano, rischia poco.</strong> Aprire con un liscio non regala punti. Un carico giocato per primo può essere preso con una briscola.</li>
+<li><strong>Conta le briscole.</strong> Sono dieci: sapere quali sono uscite, a partire da asso e tre, ti dice quanto valgono quelle che hai in mano.</li>
+<li><strong>Conta i punti.</strong> In tutto sono 120: arrivato a 61 la mano è tua.</li>
+</ul>
+</section>
+
+<section id="varianti">
+<h2>Le varianti</h2>
+<p>La Briscola si gioca anche in altri modi. Queste sono le varianti più note; nessuna è nell'app, che segue le regole classiche descritte sopra.</p>
+<ul>
+<li><strong>In quattro.</strong> Si gioca a coppie, e i compagni sommano i punti.</li>
+<li><strong>In tre.</strong> Si toglie un due dal mazzo, così le carte si dividono in parti uguali.</li>
+<li><strong>Briscola chiamata.</strong> Si gioca in cinque.</li>
+<li><strong>Briscola scoperta.</strong> In due, a carte scoperte.</li>
+</ul>
+</section>
+
+<section id="domande" class="faq">
+<h2>Domande frequenti</h2>
+<h3>Quanto vale il tre a Briscola?</h3>
+<p>10 punti. È la seconda carta più forte del seme, dopo l'asso, che ne vale 11.</p>
+<h3>Bisogna rispondere al seme?</h3>
+<p>No. A ogni presa puoi giocare qualsiasi carta della tua mano.</p>
+<h3>Quanti punti servono per vincere?</h3>
+<p>Almeno 61 dei 120 in palio.</p>
+<h3>Che cosa succede se finisce 60 a 60?</h3>
+<p>La mano è pari. In Briscola AI non conta per nessuno dei due e se ne gioca un'altra.</p>
+<h3>Quante carte si danno a Briscola?</h3>
+<p>Tre a testa. Dopo ogni presa si pesca una carta, finché il mazzo non finisce.</p>
+<h3>Chi pesca per primo?</h3>
+<p>Chi ha vinto la presa. È lui anche ad aprire la presa successiva.</p>
+<h3>Chi prende la briscola scoperta?</h3>
+<p>Chi perde la presa in cui si pesca per l'ultima volta: il vincitore prende l'ultima carta coperta, l'altro la briscola.</p>
+<h3>Che cosa sono i carichi e i lisci?</h3>
+<p>I carichi sono asso e tre, le carte che valgono di più. I lisci sono le carte da zero punti: sette, sei, cinque, quattro e due.</p>
+<h3>Si può giocare a Briscola online gratis?</h3>
+<p>Sì. Con <a href="/briscola">Briscola AI</a> giochi dal browser contro il computer, contro un'intelligenza artificiale o contro un amico, senza registrarti. C'è anche l'app per iPhone, iPad e Android.</p>
+</section>
+
+</main>
+
+<aside class="play" id="gioca">
+<div class="play-in">
+<h2>Ora tocca a te</h2>
+<p>Briscola AI è gratis, senza pubblicità e senza registrazione. Giochi contro la CPU, contro un'intelligenza artificiale oppure online contro un amico, con sei mazzi regionali tra cui scegliere.</p>
+<p class="go"><a class="btn" href="/briscola">Gioca a Briscola online</a></p>
+<p class="stores">Anche come app per iPhone, iPad e Android</p>
+<div class="badges">
+<a class="b-ios" href="https://apps.apple.com/app/id6812582287"><img src="/badges/app-store-badge-it.svg" alt="Scarica su App Store" width="120" height="40"></a>
+<a class="b-play" href="https://play.google.com/store/apps/details?id=net.vovchenko.scopaai"><img src="/badges/google-play-badge-it.png" alt="Disponibile su Google Play" width="564" height="168"></a>
+</div>
+<p class="more">Ti piace anche la Scopa? <a href="https://playscopa.net/regole-scopa.html">Leggi le regole della Scopa</a> o <a href="https://playscopa.net/primiera.html">come si calcola la primiera</a>.</p>
+</div>
+</aside>
+
+<footer>
+<nav aria-label="Altre pagine">
+<a href="https://playscopa.net/regole-scopa.html">Regole della Scopa</a>
+<a href="https://playscopa.net/primiera.html">La primiera</a>
+<a href="https://playscopa.net/regole-briscola.html">Regole della Briscola</a>
+<a href="/privacy.html" hreflang="en">Privacy</a>
+<a href="/support.html" hreflang="en">Assistenza</a>
+</nav>
+<p>Scopa AI e Briscola AI sono sviluppati da VV Labs LLC. Le illustrazioni mostrano le carte napoletane del gioco.</p>
+<p class="credits"><span class="c-ios">App Store è un marchio di Apple Inc., registrato negli Stati Uniti e in altri paesi.</span> <span class="c-play">Google Play e il logo di Google Play sono marchi di Google LLC.</span></p>
+</footer>
+
+</body>
+</html>

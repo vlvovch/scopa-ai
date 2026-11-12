@@ -38,6 +38,7 @@ scopa-ai-claude/
 ├── public/                 # Static assets (copied to dist/)
 │   ├── manifest.json       # PWA manifest
 │   ├── sw.js               # Service worker for offline support
+│   ├── regole-scopa.html, primiera.html, regole-briscola.html   # Rules pages in Italian (see Rules pages)
 │   ├── pwa-192.png         # PWA icon 192x192
 │   ├── pwa-512.png         # PWA icon 512x512
 │   ├── cards/
@@ -272,6 +273,54 @@ example.com {
 ```bash
 chmod 644 sw.js manifest.json pwa-*.png
 ```
+
+### Rules pages (static, Italian)
+
+`public/regole-scopa.html`, `public/primiera.html` and `public/regole-briscola.html`
+are landing pages for search: the rules of each game and the primiera count, in
+Italian, each with a play button and the store badges. They are plain files written
+by hand; no build step touches them (added 2026-11-11).
+
+- **URLs end in `.html`.** The server sends every path that is not a file to the
+  app (`try_files {path} /index.html`), directories included, so `/regole-scopa/`
+  would show the app. A page that is renamed after it is indexed starts again from
+  nothing: keep the names.
+- **Home site: playscopa.net for all three.** Every file in `public/` ships to
+  both sites and their alias domains, so the canonical URL, `og:url` and the
+  links between the pages are absolute, and only `public/sitemap.xml` lists the
+  pages. The Briscola rules live on playscopa.net too: playbriscola.com is meant
+  to redirect there one day (the owner's plan, stated 2026-11-11, no date), so
+  nothing new should enter a search index under the host that goes away. The
+  copy that playbriscola.com serves names playscopa.net as canonical. The
+  Briscola page takes its icons from `/variants/briscola/`, which both sites
+  serve; `/pwa-192.png` is the Scopa icon on playscopa.net.
+- **Self-contained.** The service worker serves every same-origin file that is
+  not HTML cache-first and never revalidates it, so a shared stylesheet or script
+  would go stale for returning players (the same trap as replacing a card image
+  without raising `VITE_STATIC_CACHE_VER`). The style block is repeated in the
+  three files and must stay identical: edit all three. The card images come from
+  `public/cards/napoletane/`; that artwork is transparent, the page draws the white
+  card face.
+- **Play button.** `/scopa` or `/briscola`, never `/`: the explicit game path
+  opens that game on either site and skips the first-visit chooser.
+- **Store badges.** The Italian artwork at 40px with both credit lines. A few
+  inline lines mirror `showsAppStoreBadge` / `showsGooglePlayBadge`
+  (`src/platform/links.ts`); without JavaScript both badges show.
+- **No analytics.** The tag loads only through `src/analytics/gate.ts`, inside
+  the app. What the pages earn shows in a search console, not in Swetrix.
+- **Content.** The texts follow the game code (`src/games/*/rules.ts`,
+  `scoring.ts`, `reducer.ts`) and the in-app rules (`RulesModal.tsx`), and the
+  worked examples were run through the scoring functions. The sections on variants
+  and on the origin of the names describe things the app does not have; they were
+  checked against it.wikipedia on 2026-11-11. A rule change in the app means
+  editing these pages too.
+- **Check.** `scripts/build/rulesPages.test.ts`: canonical host, sitemap
+  membership, icons, play button paths, store links, identical style blocks, and that
+  every local link and image resolves. A broken link answers 200 with the app on
+  these sites, so it has to be checked against the files.
+
+The app does not link to these pages yet; they are reachable through the sitemap
+and from each other.
 
 ---
 
