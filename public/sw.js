@@ -108,7 +108,15 @@ self.addEventListener('install', (event) => {
         for (const url of STATIC_ASSETS) {
           if (!(await cache.match(url))) missing.push(url);
         }
-        if (missing.length) await cache.addAll(missing);
+        // 'no-cache' asks the server about every file (it answers 304 when
+        // the browser's own copy is current). The server sends no
+        // Cache-Control, so a browser may consider its copy fresh for a
+        // while and hand it over without asking; right after a version bump
+        // that would put the old file into the new cache, where nothing
+        // revalidates it again.
+        if (missing.length) {
+          await cache.addAll(missing.map((url) => new Request(url, { cache: 'no-cache' })));
+        }
       }),
     ])
   );
