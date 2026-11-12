@@ -23,6 +23,7 @@
     "preview:itch": "vite preview --outDir dist-itch",
     "test": "vitest run",
     "test:watch": "vitest",
+    "cache:record": "tsx scripts/build/staticCache.ts --record",
     "simulate": "tsx scripts/simulate.ts",
     "bench:decisions": "tsx scripts/decision-bench.ts",
     "ios:install": "xcrun simctl install booted ios/build/Build/Products/Debug-iphonesimulator/App.app && xcrun simctl launch --console-pty booted net.vvlabs.scopa"

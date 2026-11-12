@@ -49,6 +49,7 @@ scopa-ai/
 | `src/i18n/` | Interface texts (`en.ts`, `it.ts`; visible texts go through `useT()` rather than English literals in components) and the language choice in `LanguageContext.tsx`: saved choice > the language iOS chose for the app (`systemLanguage.ts`, iOS app only) > browser list > English |
 | `src/hooks/useMultiplayer.ts` | WebSocket multiplayer hook (Scopa-only currently) |
 | `public/regole-scopa.html`, `public/primiera.html`, `public/regole-briscola.html` | Rules pages in Italian for search: static, written by hand, self-contained (inline CSS, because the service worker caches every other file forever; the style block is identical in the three), all three canonical on playscopa.net (the Briscola rules too: playbriscola.com is meant to redirect there one day), play button to `/scopa` / `/briscola`, listed in `public/sitemap.xml`; invariants in `scripts/build/rulesPages.test.ts`; `docs/architecture.md`, Rules pages |
+| `scripts/build/staticCache.ts`, `staticCache.lock.json`, `staticCache.test.ts` | Guard for the service worker's static cache: a card, sound, icon or badge replaced under its old URL reaches returning visitors only after `VITE_STATIC_CACHE_VER` is raised in `.env.scopa` and `.env.briscola`. The test fails, naming the files, until both are raised and `npm run cache:record` has rewritten the record (the recorder refuses before the bump); new or removed files need only the new record; `docs/architecture.md`, Static cache version guard |
 | `scopa-server/src/` | Multiplayer server code |
 
 ## Commands
@@ -72,6 +73,7 @@ npm run ios:release        # App Store build (.ipa) via ios/release.sh; `-- --up
 
 # Tests / lint (cover both games)
 npm test                   # Run all vitest tests
+npm run cache:record       # After adding or replacing a file in public/ (cards, sounds, icons, badges): update the static-cache record
 npm run lint               # ESLint
 
 # Multiplayer server

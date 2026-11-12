@@ -322,6 +322,26 @@ by hand; no build step touches them (added 2026-11-11).
 The app does not link to these pages yet; they are reachable through the sitemap
 and from each other.
 
+### Static cache version guard
+
+The service worker keeps cards, sounds, icons and badges in
+`<game>-static-<VITE_STATIC_CACHE_VER>` and never asks the server again
+(`public/sw.js`), so a file replaced under its old URL reaches returning visitors
+only when the version is raised, in `.env.scopa` and in `.env.briscola` (both
+sites serve the same files). The Napoletane cards redrawn on 2026-11-08 stayed
+old for returning visitors for three days because that step was missed.
+
+- `scripts/build/staticCache.lock.json` records a fingerprint of each file the
+  worker keeps (everything in `public/` except HTML, the manifests, `sw.js` and
+  files no page loads) and the two versions they were recorded under.
+- `scripts/build/staticCache.test.ts` fails, naming the files, while a recorded
+  file has changed and a version has not gone up.
+- `npm run cache:record` rewrites the record and refuses in that same state, so
+  the record cannot be brought up to date around the bump. New and removed files
+  need only the new record.
+
+The guard runs with `npm test`. The build and the deploy script do not run it.
+
 ---
 
 ## Architectural Decisions
