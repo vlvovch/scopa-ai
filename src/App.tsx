@@ -131,8 +131,11 @@ function App() {
   const onInviteHandled = useCallback(() => setPendingInvite(null), []);
 
   // The tab / window title names the game on screen; the deployment's own
-  // title (index.html, e.g. "Scopa AI") is restored for its default game.
-  const baseTitle = useMemo(() => document.title, []);
+  // name (e.g. "Scopa AI") is used for its default game. It comes from the
+  // build, not from the document: the page the server sends for the other
+  // game's path (/briscola, scripts/build/gamePageHead.ts) starts out with
+  // that game's title.
+  const baseTitle = useMemo(() => import.meta.env.VITE_APP_NAME || `${GAME_NAMES[DEFAULT_GAME]} AI`, []);
   useEffect(() => {
     document.title = game === DEFAULT_GAME ? baseTitle : `${GAME_NAMES[game]} AI`;
   }, [game, baseTitle]);

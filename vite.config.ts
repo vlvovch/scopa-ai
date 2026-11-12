@@ -7,6 +7,7 @@ import { execSync, execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { stripWebOnlyBlocks } from './scripts/build/webOnlyHtml'
+import { withGameHead } from './scripts/build/gamePageHead'
 
 /**
  * Vite plugin: after the build is written to disk, copy every file in
@@ -153,6 +154,49 @@ function injectSwPrecache(game: string | undefined, iconPath: string | undefined
   }
 }
 
+/**
+ * Vite plugin (the Scopa web build only): write the Briscola page,
+ * <outDir>/briscola/index.html, the app page with Briscola's title,
+ * description, share card and canonical address. playscopa.net is meant to
+ * be the home of both games, so only its build has one; the Briscola site,
+ * the itch.io uploads and the packaged app do not. See
+ * scripts/build/gamePageHead.ts.
+ */
+function otherGamePage(game: string | undefined, siteUrl: string | undefined, skip: boolean) {
+  const other = 'briscola'
+  let outDir = 'dist'
+  return {
+    name: 'briscola-scopa:other-game-page',
+    configResolved(config: { build: { outDir: string } }) {
+      outDir = config.build.outDir
+    },
+    closeBundle() {
+      if (skip || game !== 'scopa') return
+      if (!siteUrl) throw new Error('otherGamePage: VITE_SITE_URL is not set')
+      const env = loadEnv(other, process.cwd(), 'VITE_')
+      const { VITE_APP_NAME: name, VITE_APP_DESCRIPTION: description, VITE_THEME_COLOR: themeColor, VITE_ICON_PATH: iconPath } = env
+      if (!name || !description || !themeColor || !iconPath) {
+        throw new Error(`otherGamePage: .env.${other} must set VITE_APP_NAME, VITE_APP_DESCRIPTION, VITE_THEME_COLOR and VITE_ICON_PATH`)
+      }
+      // The other game's icons are served from public/variants/<game> on this site.
+      const icons = `/variants/${other}`
+      for (const file of ['pwa-192.png', 'pwa-512.png', path.basename(iconPath)]) {
+        if (!existsSync(path.join(outDir, icons, file))) throw new Error(`otherGamePage: ${icons}/${file} is not in the build`)
+      }
+      const page = withGameHead(readFileSync(path.join(outDir, 'index.html'), 'utf8'), {
+        name,
+        description,
+        themeColor,
+        url: `${siteUrl}/${other}`,
+        icons,
+        svgIcon: `${icons}/${path.basename(iconPath)}`,
+      })
+      mkdirSync(path.join(outDir, other), { recursive: true })
+      writeFileSync(path.join(outDir, other, 'index.html'), page)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
@@ -174,7 +218,7 @@ export default defineConfig(({ mode }) => {
     __APP_VERSION__: JSON.stringify(`1.${commitCount} (${buildDate})`),
     __APP_BUILD_INFO__: JSON.stringify(`built ${buildDate} ${buildTime} UTC · ${gitVersion}`),
   },
-  plugins: [react(), stripWebOnlyHtml(native), copyVariantAssets(env.VITE_GAME), nativeSounds(native, env.VITE_NATIVE_SOUND_FORMAT), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER, native)],
+  plugins: [react(), stripWebOnlyHtml(native), copyVariantAssets(env.VITE_GAME), nativeSounds(native, env.VITE_NATIVE_SOUND_FORMAT), injectSwPrecache(env.VITE_GAME, env.VITE_ICON_PATH, env.VITE_STATIC_CACHE_VER, native), otherGamePage(env.VITE_GAME, env.VITE_SITE_URL, native || env.VITE_ITCH_MODE === 'true')],
   base: '/',  // Use absolute paths for SPA routing with /join/CODE paths
   resolve: {
     alias: {

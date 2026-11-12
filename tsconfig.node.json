@@ -19,6 +19,7 @@
   },
   "include": [
     "vite.config.ts",
-    "scripts/build/webOnlyHtml.ts"
+    "scripts/build/webOnlyHtml.ts",
+    "scripts/build/gamePageHead.ts"
   ]
 }

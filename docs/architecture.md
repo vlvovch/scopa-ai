@@ -254,7 +254,9 @@ The PWA requires correct MIME types for Chrome to recognize it as installable:
 example.com {
     root * /var/www/scopa
     file_server
-    try_files {path} /index.html
+    # {path}/index.html serves the Briscola page the Scopa build writes
+    # (briscola/index.html, see docs/deployment.md)
+    try_files {path} {path}/index.html /index.html
 
     # PWA manifest MIME type
     @manifest {

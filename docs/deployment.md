@@ -159,11 +159,14 @@ your-domain.com {
         reverse_proxy localhost:3101
     }
 
-    # Static files for the SPA
+    # Static files for the SPA. The middle entry serves a folder's own
+    # index.html when the build has one: the Scopa build writes
+    # briscola/index.html, the app page with Briscola's title, description
+    # and canonical address (see "Both games on one origin" below).
     handle {
         root * /var/www/scopa-ai
         file_server
-        try_files {path} /index.html
+        try_files {path} {path}/index.html /index.html
     }
 }
 ```
@@ -193,8 +196,18 @@ loaded chunk and is reachable at `/briscola` (Scopa site) or `/scopa`
 (Briscola site), so:
 
 - **Static hosting:** the SPA fallback must serve `index.html` for
-  `/scopa`, `/briscola` and `/join/*` (the `try_files {path} /index.html`
-  above already does).
+  `/scopa`, `/briscola` and `/join/*` (the last entry of the `try_files`
+  above does).
+- **The Briscola page on the Scopa site:** every path that falls back to
+  `index.html` carries that page's head, so `/briscola` on the Scopa site
+  would tell search engines and link previews "Scopa AI" with the root as
+  its canonical address. The Scopa build therefore writes
+  `briscola/index.html`, the same app page with Briscola's title,
+  description, share card, icons and its own canonical address
+  (`scripts/build/gamePageHead.ts`), and the `{path}/index.html` entry of
+  `try_files` serves it for `/briscola`. Without that entry nothing breaks:
+  the path gets `index.html` as before. Only the Scopa site has such a page;
+  it is meant to become the home of both games.
 - **Multiplayer:** set **both** `VITE_WS_URL` and `VITE_BRISCOLA_WS_URL`
   for **both** builds. The simplest option needs no proxy change: give each
   build the other server's absolute URL (`VITE_BRISCOLA_WS_URL=wss://briscola.your-domain.com/ws`
